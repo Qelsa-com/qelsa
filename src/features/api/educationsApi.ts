@@ -48,7 +48,17 @@ export const educationsApi = createApi({
       }),
       invalidatesTags: ["Educations"],
     }),
+
+    updateEducationsPosition: builder.mutation<{ success: boolean; message: string }, any>({
+      query: (data) => ({
+        url: `educations/bulk-edit`,
+        method: "PUT",
+        body: data,
+      }),
+      invalidatesTags: ["Educations"],
+    }),
+
   }),
 });
 
-export const { useGetEducationsQuery, useCreateEducationMutation, useUpdateEducationMutation, useDeleteEducationMutation } = educationsApi;
+export const { useGetEducationsQuery, useCreateEducationMutation, useUpdateEducationMutation, useDeleteEducationMutation, useUpdateEducationsPositionMutation } = educationsApi;

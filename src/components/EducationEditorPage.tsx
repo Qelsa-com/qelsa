@@ -1,8 +1,8 @@
-import { useCreateEducationMutation, useDeleteEducationMutation, useGetEducationsQuery, useUpdateEducationMutation } from "@/features/api/educationsApi";
+import { useCreateEducationMutation, useDeleteEducationMutation, useGetEducationsQuery, useUpdateEducationMutation, useUpdateEducationsPositionMutation } from "@/features/api/educationsApi";
 import { Education } from "@/types/education";
 import { ArrowLeft, Award, Calendar, Check, Edit3, FileText, FolderOpen, GraduationCap, GripVertical, MapPin, Plus, Sparkles, Trash2, Trophy, Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
@@ -16,10 +16,19 @@ export function EducationEditorPage() {
   const [education, setEducation] = useState<Education[]>([]);
   const [editingId, setEditingId] = useState<number | string | null>(null);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
-  const { data: educations, error, isLoading } = useGetEducationsQuery();
+  const { data: edu, error, isLoading } = useGetEducationsQuery();
   const [createEducation, { isLoading: isCreating, error: createError }] = useCreateEducationMutation();
   const [updateEducation, { isLoading: isUpdating, error: updateError }] = useUpdateEducationMutation();
   const [deleteEducation, { isLoading: isDeleting, error: deleteError }] = useDeleteEducationMutation();
+  const [updateEducationsPosition, { isLoading: isUpdatingPosition, error: updatePositionError }] = useUpdateEducationsPositionMutation();
+
+  const [educations, setEducations] = useState<Education[]>(edu || []);
+
+  useEffect(() => {
+    if (edu) {
+      setEducations(edu);
+    }
+  }, [edu]);
 
   const [formData, setFormData] = useState<Partial<Education>>({
     degree: "",
@@ -173,21 +182,32 @@ export function EducationEditorPage() {
     e.preventDefault();
     if (draggedIndex === null || draggedIndex === index) return;
 
-    const newEducation = [...education];
-    const draggedItem = newEducation[draggedIndex];
-    newEducation.splice(draggedIndex, 1);
-    newEducation.splice(index, 0, draggedItem);
+    const newEducations = [...educations];
+    const draggedItem = newEducations[draggedIndex];
+    newEducations.splice(draggedIndex, 1);
+    newEducations.splice(index, 0, draggedItem);
 
-    setEducation(newEducation);
+    setEducations(newEducations);
     setDraggedIndex(index);
   };
 
   const handleDragEnd = () => {
     setDraggedIndex(null);
+    // Update the position field for each education based on its index (starting from 1)
+    const updatedEducations = educations.map((exp, idx) => ({
+      ...exp,
+      position: (idx + 1).toString(),
+    }));
+    setEducations(updatedEducations);
   };
 
   const handleSaveAll = () => {
-    toast.success("All changes saved successfully!");
+    try {
+      updateEducationsPosition(educations);
+      toast.success("Education position updated!");
+    } catch (error) {
+      toast.error("Failed to update education position.");
+    }
   };
 
   return (
