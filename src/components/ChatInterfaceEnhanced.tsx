@@ -3,8 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import { ChatInput } from "./ChatInput";
 import { EnhancedAIResponse } from "./EnhancedAIResponse";
 import { FeedbackButtons } from "./FeedbackButtons";
-import type { Job } from "./job/JobListingPage";
 import { Button } from "./ui/button";
+import { Job } from "@/types/job";
 
 interface Message {
   id: string;

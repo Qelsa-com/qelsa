@@ -40,9 +40,9 @@ const Applied = () => {
         ...filters,
         search: query,
       },
-      false
+      false,
     );
-  }, []);
+  }, [filters, query, triggerGetJobs]);
 
   const onSearch = async () => {
     console.log({
@@ -55,7 +55,7 @@ const Applied = () => {
         ...filters,
         search: query,
       },
-      false
+      false,
     ).unwrap();
   };
 
