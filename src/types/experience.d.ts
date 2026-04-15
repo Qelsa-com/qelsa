@@ -1,4 +1,5 @@
 import { Responsibility } from "./responsibility";
+import { UserSkill } from "./userSkill";
 
 export type Experience = {
   id?: number;
@@ -14,4 +15,5 @@ export type Experience = {
   team_size?: number;
   is_current?: boolean;
   responsibilities?: Responsibility[];
+  skills?: UserSkill[];
 };

@@ -1,6 +1,7 @@
 import { useCreateExperienceMutation, useDeleteExperienceMutation, useGetExperiencesQuery, useUpdateExperienceMutation, useUpdateExperiencesPositionMutation } from "@/features/api/experiencesApi";
 import { Experience } from "@/types/experience";
-import { ArrowLeft, Briefcase, Calendar, Check, Edit3, GripVertical, Loader2, MapPin, Plus, Sparkles, Trash2, TrendingUp, Users } from "lucide-react";
+import { UserSkill } from "@/types/userSkill";
+import { ArrowLeft, Briefcase, Calendar, Check, Edit3, GripVertical, Loader2, MapPin, Plus, Sparkles, Trash2, TrendingUp, Users, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import React, { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -10,6 +11,7 @@ import { Card } from "./ui/card";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
+import { useGetUserSkillsQuery } from "@/features/api/userSkillsApi";
 
 interface Metric {
   id: string;
@@ -28,6 +30,7 @@ export function WorkExperienceEditorPage() {
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const { data: exp, error, isLoading } = useGetExperiencesQuery();
+  const { data: user_skills, error: skillError, isLoading: skillLoading } = useGetUserSkillsQuery();
   const [createExperience, { isLoading: isCreating, error: createError }] = useCreateExperienceMutation();
   const [updateExperience, { isLoading: isUpdating, error: updateError }] = useUpdateExperienceMutation();
   const [deleteExperience, { isLoading: isDeleting, error: deleteError }] = useDeleteExperienceMutation();
@@ -50,7 +53,7 @@ export function WorkExperienceEditorPage() {
     is_current: false,
     responsibilities: [],
     // metrics: [],
-    // skills: [],
+    skills: [],
     team_size: undefined,
     // proofs: [],
   });
@@ -66,7 +69,7 @@ export function WorkExperienceEditorPage() {
       is_current: false,
       responsibilities: [],
       // metrics: [],
-      // skills: [],
+      skills: [],
       team_size: undefined,
       // proofs: [],
     });
@@ -96,7 +99,7 @@ export function WorkExperienceEditorPage() {
       is_current: formData.is_current!,
       responsibilities: (formData.responsibilities || []).filter((r) => r.title.trim() !== ""),
       // metrics: formData.metrics || [],
-      // skills: formData.skills || [],
+      skills: formData.skills || [],
       team_size: formData.team_size,
       position: "",
     };
@@ -211,20 +214,22 @@ export function WorkExperienceEditorPage() {
     // });
   };
 
-  const handleAddSkill = (skill: string) => {
-    // if (!formData.skills?.includes(skill)) {
-    //   setFormData({
-    //     ...formData,
-    //     skills: [...(formData.skills || []), skill],
-    //   });
-    // }
+  const handleAddSkill = (skill: UserSkill) => {
+    const exists = formData.skills?.some((s) => s.id === skill.id);
+
+    if (!exists) {
+      setFormData({
+        ...formData,
+        skills: [...(formData.skills || []), skill], // ✅ full object
+      });
+    }
   };
 
-  const handleRemoveSkill = (skill: string) => {
-    // setFormData({
-    //   ...formData,
-    //   skills: formData.skills!.filter((s) => s !== skill),
-    // });
+  const handleRemoveSkill = (skillId: number) => {
+    setFormData({
+      ...formData,
+      skills: formData.skills!.filter((s) => s.id !== skillId),
+    });
   };
 
   const handleDragStart = (index: number) => {
@@ -385,11 +390,11 @@ export function WorkExperienceEditorPage() {
                         </div>
                       )} */}
 
-                      {/* {exp.skills.length > 0 && (
+                      {exp.skills.length > 0 && (
                         <div className="flex flex-wrap gap-2">
                           {exp.skills.slice(0, 5).map((skill) => (
-                            <Badge key={skill} variant="outline" className="border-neon-purple/30 text-neon-purple text-xs">
-                              {skill}
+                            <Badge key={skill.id} variant="outline" className="border-neon-purple/30 text-neon-purple text-xs">
+                              {skill.title}
                             </Badge>
                           ))}
                           {exp.skills.length > 5 && (
@@ -398,7 +403,7 @@ export function WorkExperienceEditorPage() {
                             </Badge>
                           )}
                         </div>
-                      )} */}
+                      )}
                     </div>
                   </div>
                 </Card>
@@ -594,12 +599,12 @@ export function WorkExperienceEditorPage() {
               </div>
 
               {/* Skills */}
-              {/* <div className="space-y-3">
+              <div className="space-y-3">
                 <Label className="text-white">Skills Used</Label>
                 <div className="flex flex-wrap gap-2 mb-3">
                   {formData.skills?.map((skill) => (
-                    <Badge key={skill} variant="outline" className="border-neon-purple/30 text-neon-purple cursor-pointer hover:bg-neon-purple/10" onClick={() => handleRemoveSkill(skill)}>
-                      {skill}
+                    <Badge key={skill.id} variant="outline" className="border-neon-purple/30 text-neon-purple cursor-pointer hover:bg-neon-purple/10" onClick={() => handleRemoveSkill(skill.id!)}>
+                      {skill.title}
                       <X className="h-3 w-3 ml-1" />
                     </Badge>
                   ))}
@@ -607,20 +612,17 @@ export function WorkExperienceEditorPage() {
                 <div>
                   <p className="text-xs text-muted-foreground mb-2">Click to add:</p>
                   <div className="flex flex-wrap gap-2">
-                    {COMMON_SKILLS.filter((skill) => !formData.skills?.includes(skill)).map((skill) => (
-                      <Badge
-                        key={skill}
-                        variant="outline"
-                        className="border-glass-border text-muted-foreground cursor-pointer hover:border-neon-purple hover:text-neon-purple"
-                        onClick={() => handleAddSkill(skill)}
-                      >
-                        <Plus className="h-3 w-3 mr-1" />
-                        {skill}
-                      </Badge>
-                    ))}
+                    {user_skills
+                      ?.filter((skill) => !formData.skills?.some((s) => s.id === skill.id))
+                      .map((skill) => (
+                        <Badge key={skill.id} variant="outline" className="border-glass-border text-muted-foreground cursor-pointer hover:border-neon-purple hover:text-neon-purple" onClick={() => handleAddSkill(skill)}>
+                          <Plus className="h-3 w-3 mr-1" />
+                          {skill.title}
+                        </Badge>
+                      ))}
                   </div>
                 </div>
-              </div> */}
+              </div>
 
               {/* Form Actions */}
               <div className="flex justify-end gap-3 pt-4 border-t border-glass-border">
