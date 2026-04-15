@@ -48,6 +48,7 @@ export function WorkExperienceEditorPage() {
     start_date: undefined,
     end_date: undefined,
     is_current: false,
+    responsibilities: [],
     // metrics: [],
     // skills: [],
     team_size: undefined,
@@ -63,7 +64,7 @@ export function WorkExperienceEditorPage() {
       start_date: undefined,
       end_date: undefined,
       is_current: false,
-      // description: [""],
+      responsibilities: [],
       // metrics: [],
       // skills: [],
       team_size: undefined,
@@ -93,7 +94,7 @@ export function WorkExperienceEditorPage() {
       start_date: formData.start_date!,
       end_date: formData.end_date,
       is_current: formData.is_current!,
-      description: Array.isArray(formData.description) ? formData.description.filter((d) => d.trim() !== "").join("\n") : undefined,
+      responsibilities: (formData.responsibilities || []).filter((r) => r.title.trim() !== ""),
       // metrics: formData.metrics || [],
       // skills: formData.skills || [],
       team_size: formData.team_size,
@@ -133,35 +134,52 @@ export function WorkExperienceEditorPage() {
   };
 
   const handleAddBullet = () => {
-    // setFormData({
-    //   ...formData,
-    //   description: [...(formData.description || []), ""],
-    // });
+    setFormData({
+      ...formData,
+      responsibilities: [...(formData.responsibilities || []), { title: "" }],
+    });
   };
 
   const handleRemoveBullet = (index: number) => {
-    // setFormData({
-    //   ...formData,
-    //   description: formData.description!.filter((_, i) => i !== index),
-    // });
+    setFormData({
+      ...formData,
+      responsibilities: formData.responsibilities!.filter((_, i) => i !== index),
+    });
   };
 
   const handleBulletChange = (index: number, value: string) => {
-    const newDescription = [...formData.description!];
-    newDescription[index] = value;
-    // setFormData({ ...formData, description: newDescription });
+    const newResponsibilities = [...(formData.responsibilities || [])];
+
+    newResponsibilities[index] = {
+      ...newResponsibilities[index],
+      title: value, // ✅ update title
+    };
+
+    setFormData({
+      ...formData,
+      responsibilities: newResponsibilities,
+    });
   };
 
   const handleAIRewriteBullet = async (index: number) => {
     setAiLoading(true);
     await new Promise((resolve) => setTimeout(resolve, 1500));
 
-    const original = formData.description![index];
+    const original = formData.responsibilities![index].title;
+
     const enhanced = `Led ${original.toLowerCase()} resulting in 40% improvement in team efficiency and stakeholder satisfaction`;
 
-    const newDescription = [...formData.description!];
-    newDescription[index] = enhanced;
-    // setFormData({ ...formData, description: newDescription });
+    const newResponsibilities = [...formData.responsibilities!];
+
+    newResponsibilities[index] = {
+      ...newResponsibilities[index],
+      title: enhanced,
+    };
+
+    setFormData({
+      ...formData,
+      responsibilities: newResponsibilities,
+    });
 
     setAiLoading(false);
   };
@@ -337,23 +355,24 @@ export function WorkExperienceEditorPage() {
                         </div>
                       </div>
 
-                      {exp.description && exp.description.length > 0 && (
-                        <ul className="space-y-1 mb-3">
-                          {exp.description
-                            .split("\n")
-                            .filter((d) => d.trim())
-                            .slice(0, 3)
-                            .map((bullet, idx) => (
-                              <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
-                                <span className="text-neon-cyan mt-1">•</span>
-                                <span>{bullet}</span>
-                              </li>
-                            ))}
-                          {exp.description.split("\n").filter((d) => d.trim()).length > 3 && (
-                            <li className="text-sm text-neon-pink">+{exp.description.split("\n").filter((d) => d.trim()).length - 3} more achievements...</li>
-                          )}
-                        </ul>
-                      )}
+                      {exp.responsibilities &&
+                        exp.responsibilities.length > 0 &&
+                        (() => {
+                          const validResponsibilities = exp.responsibilities.filter((r) => r.title?.trim());
+
+                          return (
+                            <ul className="space-y-1 mb-3">
+                              {validResponsibilities.slice(0, 3).map((bullet, idx) => (
+                                <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
+                                  <span className="text-neon-cyan mt-1">•</span>
+                                  <span>{bullet.title}</span>
+                                </li>
+                              ))}
+
+                              {validResponsibilities.length > 3 && <li className="text-sm text-neon-pink">+{validResponsibilities.length - 3} more achievements...</li>}
+                            </ul>
+                          );
+                        })()}
 
                       {/* {exp.metrics.length > 0 && (
                         <div className="flex flex-wrap gap-2 mb-3">
@@ -415,13 +434,7 @@ export function WorkExperienceEditorPage() {
                   <Label htmlFor="title" className="text-white">
                     Job Title <span className="text-destructive">*</span>
                   </Label>
-                  <Input
-                    id="title"
-                    value={formData.title}
-                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    placeholder="e.g., Senior Product Manager"
-                    className="glass border-glass-border focus:border-neon-cyan"
-                  />
+                  <Input id="title" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} placeholder="e.g., Senior Product Manager" className="glass border-glass-border focus:border-neon-cyan" />
                 </div>
 
                 <div className="space-y-2">
@@ -441,13 +454,7 @@ export function WorkExperienceEditorPage() {
                   <Label htmlFor="location" className="text-white">
                     Location <span className="text-destructive">*</span>
                   </Label>
-                  <Input
-                    id="location"
-                    value={formData.location}
-                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                    placeholder="e.g., Bangalore, India"
-                    className="glass border-glass-border focus:border-neon-cyan"
-                  />
+                  <Input id="location" value={formData.location} onChange={(e) => setFormData({ ...formData, location: e.target.value })} placeholder="e.g., Bangalore, India" className="glass border-glass-border focus:border-neon-cyan" />
                 </div>
 
                 <div className="space-y-2">
@@ -491,13 +498,7 @@ export function WorkExperienceEditorPage() {
                       className="glass border-glass-border focus:border-neon-cyan"
                     />
                     <label className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <input
-                        type="checkbox"
-                        checked={formData.is_current}
-                        onChange={(e) => setFormData({ ...formData, is_current: e.target.checked, end_date: undefined })}
-                        className="rounded border-glass-border"
-                      />
-                      I currently work here
+                      <input type="checkbox" checked={formData.is_current} onChange={(e) => setFormData({ ...formData, is_current: e.target.checked, end_date: undefined })} className="rounded border-glass-border" />I currently work here
                     </label>
                   </div>
                 </div>
@@ -514,10 +515,10 @@ export function WorkExperienceEditorPage() {
                 </div>
 
                 <div className="space-y-3">
-                  {(formData.description ? formData.description.split("\n") : []).map((bullet, index) => (
+                  {(formData.responsibilities || []).map((bullet, index) => (
                     <div key={index} className="flex gap-2">
                       <Textarea
-                        value={bullet}
+                        value={bullet.title}
                         onChange={(e) => handleBulletChange(index, e.target.value)}
                         placeholder="e.g., Led cross-functional team of 12 to deliver..."
                         rows={2}

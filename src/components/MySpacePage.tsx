@@ -13,6 +13,7 @@ import {
   Building,
   Calendar,
   CheckCircle,
+  ChevronRight,
   Clock,
   Download,
   Edit3,
@@ -598,14 +599,14 @@ export function MySpacePage({}: MySpacePageProps) {
                     <h4 className="font-semibold text-white">{exp.title}</h4>
                     <p className="text-neon-cyan">{exp.company_name}</p>
                     <p className="text-sm text-muted-foreground mb-3">{exp.location}</p>
-                    {/* <ul className="space-y-1">
-                      {exp.highlights.map((highlight, idx) => (
+                    <ul className="space-y-1">
+                      {exp.responsibilities?.map((resp, idx) => (
                         <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
                           <ChevronRight className="h-3 w-3 mt-1 text-neon-cyan flex-shrink-0" />
-                          {highlight}
+                          {resp.title}
                         </li>
                       ))}
-                    </ul> */}
+                    </ul>
                   </div>
                 </div>
                 {index < experiences.length - 1 && <div className="absolute left-6 top-12 w-px h-6 bg-glass-border"></div>}

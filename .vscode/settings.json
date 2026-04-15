@@ -3,7 +3,7 @@
   "editor.codeActionsOnSave": {
     "source.organizeImports": "explicit"
   },
-  "editor.wordWrapColumn": 200,
-  "prettier.printWidth": 200,
-  "dart.lineLength": 200,
+  "editor.wordWrapColumn": 240,
+  "prettier.printWidth": 240,
+  "dart.lineLength": 240,
 }
