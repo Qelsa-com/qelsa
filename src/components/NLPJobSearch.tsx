@@ -29,7 +29,17 @@ const EXAMPLE_QUERIES = [
 const TRENDING_SEARCHES = ["remote software engineer", "AI/ML engineer", "product designer", "data scientist", "DevOps engineer"];
 
 // const EXPERIENCE_LEVELS = ['Entry Level', 'Mid Level', 'Senior', 'Lead', 'Executive'];
-// const DEPARTMENTS = ['Engineering', 'Product', 'Design', 'Marketing', 'Sales', 'Data', 'Operations', 'Finance', 'HR'];
+const DEPARTMENTS = [
+  { value: "technology", name: "Technology" },
+  { value: "finance", name: "Finance" },
+  { value: "healthcare", name: "Healthcare" },
+  { value: "education", name: "Education" },
+  { value: "ecommerce", name: "commerce" },
+  { value: "entertainment", name: "Entertainment" },
+  { value: "consulting", name: "Consulting" },
+  { value: "manufacturing", name: "Manufacturing" },
+  { value: "other", name: "Other" },
+];
 
 export function NLPJobSearch({ filters, setFilters, query, setQuery, onSearch }) {
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -67,8 +77,6 @@ export function NLPJobSearch({ filters, setFilters, query, setQuery, onSearch })
   }, []);
 
   const handleSearch = () => {
-    if (!query.trim()) return;
-
     const updated = [query, ...recentSearches.filter((s) => s !== query)].slice(0, 5);
     setRecentSearches(updated);
     localStorage.setItem("recentJobSearches", JSON.stringify(updated));
@@ -84,7 +92,7 @@ export function NLPJobSearch({ filters, setFilters, query, setQuery, onSearch })
   };
 
   const handleClear = () => {
-    setQuery("");
+    setQuery({});
     setFilters({
       cities: [],
       job_types: [],
@@ -156,7 +164,7 @@ export function NLPJobSearch({ filters, setFilters, query, setQuery, onSearch })
               {activeFilterCount > 0 && <Badge className="ml-2 bg-neon-cyan text-black border-0 text-xs">{activeFilterCount}</Badge>}
             </Button>
 
-            <Button onClick={handleSearch} disabled={!query.trim()} className="gradient-animated px-6">
+            <Button onClick={handleSearch} className="gradient-animated px-6">
               <Search className="w-4 h-4 mr-2" />
               Search
             </Button>
@@ -180,11 +188,7 @@ export function NLPJobSearch({ filters, setFilters, query, setQuery, onSearch })
                     </div>
                     <div className="space-y-1">
                       {recentSearches.map((search, index) => (
-                        <button
-                          key={index}
-                          onClick={() => handleSelectSuggestion(search)}
-                          className="w-full text-left px-3 py-2 rounded-lg hover:bg-muted/50 text-sm flex items-center gap-2 transition-colors"
-                        >
+                        <button key={index} onClick={() => handleSelectSuggestion(search)} className="w-full text-left px-3 py-2 rounded-lg hover:bg-muted/50 text-sm flex items-center gap-2 transition-colors">
                           <Clock className="w-3 h-3 text-muted-foreground" />
                           {search}
                         </button>
@@ -201,12 +205,7 @@ export function NLPJobSearch({ filters, setFilters, query, setQuery, onSearch })
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {TRENDING_SEARCHES.map((search, index) => (
-                      <Badge
-                        key={index}
-                        variant="outline"
-                        className="cursor-pointer border-glass-border hover:border-neon-cyan/50 hover:bg-neon-cyan/10 transition-all"
-                        onClick={() => handleSelectSuggestion(search)}
-                      >
+                      <Badge key={index} variant="outline" className="cursor-pointer border-glass-border hover:border-neon-cyan/50 hover:bg-neon-cyan/10 transition-all" onClick={() => handleSelectSuggestion(search)}>
                         {search}
                       </Badge>
                     ))}
@@ -221,11 +220,7 @@ export function NLPJobSearch({ filters, setFilters, query, setQuery, onSearch })
                   </div>
                   <div className="space-y-1">
                     {EXAMPLE_QUERIES.slice(0, 4).map((example, index) => (
-                      <button
-                        key={index}
-                        onClick={() => handleSelectSuggestion(example)}
-                        className="w-full text-left px-3 py-2 rounded-lg hover:bg-muted/50 text-sm text-muted-foreground hover:text-foreground transition-colors"
-                      >
+                      <button key={index} onClick={() => handleSelectSuggestion(example)} className="w-full text-left px-3 py-2 rounded-lg hover:bg-muted/50 text-sm text-muted-foreground hover:text-foreground transition-colors">
                         {example}
                       </button>
                     ))}
@@ -263,12 +258,7 @@ export function NLPJobSearch({ filters, setFilters, query, setQuery, onSearch })
                 <div className="space-y-2">
                   {cities?.map((location) => (
                     <label key={location} className="flex items-center gap-2 cursor-pointer group">
-                      <input
-                        type="checkbox"
-                        checked={filters.cities.includes(location)}
-                        onChange={() => toggleFilter("cities", location)}
-                        className="rounded border-glass-border bg-background/50 text-neon-cyan focus:ring-neon-cyan/50"
-                      />
+                      <input type="checkbox" checked={filters.cities.includes(location)} onChange={() => toggleFilter("cities", location)} className="rounded border-glass-border bg-background/50 text-neon-cyan focus:ring-neon-cyan/50" />
                       <span className="text-sm group-hover:text-foreground transition-colors">{location}</span>
                     </label>
                   ))}
@@ -284,12 +274,7 @@ export function NLPJobSearch({ filters, setFilters, query, setQuery, onSearch })
                 <div className="space-y-2">
                   {job_types?.map((type) => (
                     <label key={type} className="flex items-center gap-2 cursor-pointer group">
-                      <input
-                        type="checkbox"
-                        checked={filters.job_types.includes(type)}
-                        onChange={() => toggleFilter("job_types", type)}
-                        className="rounded border-glass-border bg-background/50 text-neon-cyan focus:ring-neon-cyan/50"
-                      />
+                      <input type="checkbox" checked={filters.job_types.includes(type)} onChange={() => toggleFilter("job_types", type)} className="rounded border-glass-border bg-background/50 text-neon-cyan focus:ring-neon-cyan/50" />
                       <span className="text-sm group-hover:text-foreground transition-colors">{type}</span>
                     </label>
                   ))}
@@ -320,27 +305,25 @@ export function NLPJobSearch({ filters, setFilters, query, setQuery, onSearch })
               </div> */}
 
               {/* Department */}
-              {/* <div>
+              <div>
                 <label className="text-sm flex items-center gap-2 mb-3 text-muted-foreground">
                   <Building2 className="w-3 h-3" />
                   Department
                 </label>
                 <div className="space-y-2">
                   {DEPARTMENTS.map((department) => (
-                    <label key={department} className="flex items-center gap-2 cursor-pointer group">
+                    <label key={department.value} className="flex items-center gap-2 cursor-pointer group">
                       <input
                         type="checkbox"
-                        checked={filters.departments.includes(department)}
-                        onChange={() => toggleFilter('departments', department)}
+                        checked={filters.departments.includes(department.value)}
+                        onChange={() => toggleFilter("departments", department.value)}
                         className="rounded border-glass-border bg-background/50 text-neon-cyan focus:ring-neon-cyan/50"
                       />
-                      <span className="text-sm group-hover:text-foreground transition-colors">
-                        {department}
-                      </span>
+                      <span className="text-sm group-hover:text-foreground transition-colors">{department.name}</span>
                     </label>
                   ))}
                 </div>
-              </div> */}
+              </div>
 
               {/* Salary Range */}
               <div className="md:col-span-2">

@@ -57,7 +57,7 @@ export function PagesHub({}: PagesHubProps) {
   };
 
   const PageCard = ({ page, role = "user" }: { page: Page; role: string }) => (
-    <Card className="p-6 glass border-glass-border hover:border-neon-cyan/50 transition-all duration-300 hover:shadow-lg hover:shadow-neon-cyan/10">
+    <Card className="p-6 glass border-glass-border hover:border-neon-cyan/50 transition-all duration-300 hover:shadow-lg hover:shadow-neon-cyan/10 cursor-pointer" onClick={() => router.push(`/pages/${page.id}`)}>
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 rounded-lg gradient-animated flex items-center justify-center">
@@ -97,7 +97,7 @@ export function PagesHub({}: PagesHubProps) {
         </div>
       </div>
 
-      <div className="flex gap-2">
+      {/* <div className="flex gap-2">
         <Button size="sm" variant="outline" className="flex-1 border-neon-cyan/30 text-neon-cyan" onClick={() => router.push(`/pages/${page.id}`)}>
           <Eye className="w-3 h-3 mr-1" />
           View
@@ -108,7 +108,7 @@ export function PagesHub({}: PagesHubProps) {
             Manage
           </Button>
         )}
-      </div>
+      </div> */}
     </Card>
   );
 
