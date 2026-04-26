@@ -32,7 +32,7 @@ export type User = {
   preffer_contract?: boolean;
   preffer_internship?: boolean;
   preffer_freelance?: boolean;
-  role: "user" | "admin";
+  role: "user" | "admin" | "owner" | "editor" | "moderator" | "viewer";
   website?: string;
   profile_type?: "student" | "professional" | "career-switcher";
   find_job?: boolean;
@@ -47,10 +47,16 @@ export type User = {
   last_login_at?: string;
   city?: string;
   relocate_location?: string;
-  website?: string;
   show_phone_number?: boolean
 
   skills?: UserSkill[];
   educations?: Education[];
   experiences?: Experience[];
+
+  // Extended UI fields
+  avatar?: string | null;
+  title?: string | null;
+  status?: string | null;
+  isVerified?: boolean;
+  lastActiveAt?: string | null;
 };

@@ -1,7 +1,7 @@
 import { ArrowRight, Award, Briefcase, CheckCircle2, ChevronDown, ChevronUp, Clock, DollarSign, ExternalLink, Sparkles, Target, TrendingUp } from "lucide-react";
 import { useState } from "react";
 import { CareerPathForecast, InterviewPrepPlan, SkillGapAnalysis } from "./job/JobContextAI";
-import type { Job } from "./job/JobListingPage";
+import type { Job } from "@/types/job";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
@@ -84,7 +84,7 @@ function QelsaScoreCard({ data, onAction }: { data: { job: Job; score: QelsaScor
             </Badge>
           </div>
           <p className="text-sm text-muted-foreground">
-            {job.title} at {job.company}
+            {job.title} at {job.company_name}
           </p>
         </div>
         <div className="flex flex-col items-center gap-1">
@@ -238,9 +238,9 @@ function JobComparisonResponse({ data, onAction }: { data: JobComparison; onActi
             {jobs.map((job, index) => (
               <div key={index} className="glass-strong rounded-lg p-3 space-y-1">
                 <h4 className="font-medium text-white text-sm line-clamp-1">{job.title}</h4>
-                <p className="text-xs text-muted-foreground line-clamp-1">{job.company}</p>
-                <Badge variant="secondary" className={`text-xs ${job.source.platform === "Qelsa" ? "bg-neon-cyan/20 text-neon-cyan border-neon-cyan/30" : "bg-glass-bg text-muted-foreground"}`}>
-                  {job.source.platform}
+                <p className="text-xs text-muted-foreground line-clamp-1">{job.company_name}</p>
+                <Badge variant="secondary" className={`text-xs ${job.resource === "Qelsa" ? "bg-neon-cyan/20 text-neon-cyan border-neon-cyan/30" : "bg-glass-bg text-muted-foreground"}`}>
+                  {job.resource}
                 </Badge>
               </div>
             ))}
@@ -258,7 +258,7 @@ function JobComparisonResponse({ data, onAction }: { data: JobComparison; onActi
                   {metric.label}
                 </div>
                 {metric.values.map((value, index) => {
-                  const isWinner = winner[metric.key as keyof typeof winner] === jobs[index].id;
+                  const isWinner = winner[metric.key as keyof typeof winner] === String(jobs[index].id);
                   return (
                     <div
                       key={index}
@@ -302,7 +302,7 @@ function JobComparisonResponse({ data, onAction }: { data: JobComparison; onActi
       <div className="flex flex-wrap gap-2">
         {jobs.map((job, index) => (
           <Button key={index} size="sm" variant="ghost" onClick={() => onAction?.("apply", { jobId: job.id })} className="text-neon-cyan hover:text-neon-cyan hover:bg-neon-cyan/10">
-            Apply to {job.company}
+            Apply to {job.company_name}
             <ArrowRight className="h-3 w-3 ml-1" />
           </Button>
         ))}

@@ -156,7 +156,7 @@ export function JobApplicationPage({ job, onBack, onSubmit }: JobApplicationPage
               {currentQuestion?.required && <Badge className="bg-neon-pink/20 text-neon-pink border-0">Required</Badge>}
             </div>
 
-            <h2 className="text-xl font-semibold mb-2">{currentQuestion?.question}</h2>
+            <h2 className="text-xl font-semibold mb-2">{currentQuestion?.title}</h2>
 
             {currentQuestion?.type === "coding" && <p className="text-sm text-muted-foreground">Write your solution in the code editor below. Explain your approach and consider edge cases.</p>}
           </div>
@@ -167,21 +167,25 @@ export function JobApplicationPage({ job, onBack, onSubmit }: JobApplicationPage
           <div className="space-y-4">
             {currentQuestion?.type === "multiple_choice" && currentQuestion.options && (
               <div className="space-y-3">
-                {currentQuestion.options.map((option, idx) => (
+                {currentQuestion.options.map((option, idx) => {
+                  const optId = typeof option === "string" ? option : option.id;
+                  const optLabel = typeof option === "string" ? option : option.title;
+                  return (
                   <label key={idx} className="flex items-center gap-3 p-4 rounded-lg border border-glass-border hover:border-neon-cyan/50 cursor-pointer transition-colors">
                     <input
                       type="checkbox"
-                      checked={(answers[currentQuestion.id] || []).includes(option)}
+                      checked={(answers[currentQuestion.id] || []).includes(optId)}
                       onChange={(e) => {
                         const currentAnswers = answers[currentQuestion.id] || [];
-                        const newAnswers = e.target.checked ? [...currentAnswers, option] : currentAnswers.filter((a: string) => a !== option);
+                        const newAnswers = e.target.checked ? [...currentAnswers, optId] : currentAnswers.filter((a: string | number) => a !== optId);
                         handleAnswer(currentQuestion.id, newAnswers);
                       }}
                       className="w-4 h-4 rounded border-glass-border"
                     />
-                    <span>{option}</span>
+                    <span>{optLabel}</span>
                   </label>
-                ))}
+                  );
+                })}
               </div>
             )}
 

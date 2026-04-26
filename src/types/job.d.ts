@@ -37,6 +37,16 @@ export type Job = {
   // JSON field
   other_info?: Record<string, any> | null;
 
+  // Extended UI fields (not from API, used in AI/UI components)
+  fitScore?: number | null;
+  skills?: string[];
+  source?: { platform?: string; exclusive?: boolean } | null;
+  isQuickApplyAvailable?: boolean;
+  requiredSkills?: string[];
+  preferredSkills?: string[];
+  aiSummary?: string | null;
+  skillsGap?: string[];
+
   createdAt?: Date;
   updatedAt?: Date;
 

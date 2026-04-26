@@ -1,6 +1,6 @@
 import { Award, Bookmark, BookOpen, BrainCircuit, CheckCircle2, ExternalLink, FileText, MessageCircle, Search, Send, Sparkles, Target, X } from "lucide-react";
 import { useEffect, useState } from "react";
-import type { Job } from "../JobListingPage";
+import type { Job } from "@/types/job";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
@@ -49,7 +49,7 @@ export function JobAIAssistant({ filteredJobs, onJobClick, onSaveJob, onQuickApp
     compare: [
       `Compare ${filteredJobs
         .slice(0, 3)
-        .map((j) => j.company)
+        .map((j) => j.company_name)
         .join(", ")}...`,
       "Which of these jobs offers the best growth potential?",
       "Compare salary and benefits across these roles...",
@@ -274,10 +274,10 @@ function ComparisonResults({ results, onJobClick, onSaveJob }: { results: Compar
             {/* Job Header */}
             <div className="flex items-start gap-3 mb-4">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              {result.job.companyLogo && <img src={result.job.companyLogo} alt={result.job.company} className="w-12 h-12 rounded-xl object-cover" />}
+              {result.job.company_logo && <img src={result.job.company_logo} alt={result.job.company_name ?? ""} className="w-12 h-12 rounded-xl object-cover" />}
               <div className="flex-1 min-w-0">
                 <h4 className="font-semibold text-sm line-clamp-2 mb-1">{result.job.title}</h4>
-                <p className="text-xs text-muted-foreground">{result.job.company}</p>
+                <p className="text-xs text-muted-foreground">{result.job.company_name}</p>
               </div>
             </div>
 
@@ -329,7 +329,7 @@ function ComparisonResults({ results, onJobClick, onSaveJob }: { results: Compar
                 variant="outline"
                 onClick={(e) => {
                   e.stopPropagation();
-                  onSaveJob?.(result.job.id);
+                  onSaveJob?.(String(result.job.id));
                 }}
                 className="flex-1 text-xs border-neon-cyan/30 text-neon-cyan hover:bg-neon-cyan/10"
               >
@@ -513,10 +513,10 @@ function SimilarJobsResults({
             {/* Job Header */}
             <div className="flex items-start gap-3 mb-4">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              {job.companyLogo && <img src={job.companyLogo} alt={job.company} className="w-12 h-12 rounded-xl object-cover" />}
+              {job.company_logo && <img src={job.company_logo} alt={job.company_name ?? ""} className="w-12 h-12 rounded-xl object-cover" />}
               <div className="flex-1 min-w-0">
                 <h4 className="font-semibold text-sm line-clamp-2 mb-1">{job.title}</h4>
-                <p className="text-xs text-muted-foreground">{job.company}</p>
+                <p className="text-xs text-muted-foreground">{job.company_name}</p>
                 <p className="text-xs text-muted-foreground mt-1">{job.location}</p>
               </div>
               {job.fitScore && <Badge className="bg-neon-purple/20 text-neon-purple border-0">{job.fitScore}%</Badge>}
@@ -539,7 +539,7 @@ function SimilarJobsResults({
             {/* Salary and Work Type */}
             <div className="flex items-center justify-between text-xs text-muted-foreground mb-4">
               {job.salary && <span>{job.salary}</span>}
-              <span>{job.workType}</span>
+              <span>{job.work_type}</span>
             </div>
 
             {/* Actions */}
@@ -549,7 +549,7 @@ function SimilarJobsResults({
                 variant="outline"
                 onClick={(e) => {
                   e.stopPropagation();
-                  onSaveJob?.(job.id);
+                  onSaveJob?.(String(job.id));
                 }}
                 className="flex-1 text-xs border-neon-cyan/30 text-neon-cyan hover:bg-neon-cyan/10"
               >
@@ -561,7 +561,7 @@ function SimilarJobsResults({
                   size="sm"
                   onClick={(e) => {
                     e.stopPropagation();
-                    onQuickApply?.(job.id);
+                    onQuickApply?.(String(job.id));
                   }}
                   className="flex-1 text-xs gradient-animated"
                 >

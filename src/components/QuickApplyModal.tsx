@@ -211,16 +211,19 @@ export function QuickApplyModal({ isOpen, onClose, job, companyName, screeningQu
           <RadioGroup value={String(answers[question.id] || "")} onValueChange={(value) => handleAnswerChange(question.id, value)}>
             <div className="space-y-3">
               {question.options?.map((option, index) => {
+                const optId = typeof option === "string" ? index : option.id;
+                const optValue = typeof option === "string" ? option : option.value;
+                const optLabel = typeof option === "string" ? option : option.title;
                 return (
                   <div
-                    key={option.id}
+                    key={optId ?? index}
                     className={`flex items-center space-x-3 p-3 rounded-lg border transition-all ${
-                      answers[question.id] === option.value ? "border-neon-cyan bg-neon-cyan/10" : "border-glass-border hover:border-neon-cyan/50"
+                      answers[question.id] === optValue ? "border-neon-cyan bg-neon-cyan/10" : "border-glass-border hover:border-neon-cyan/50"
                     }`}
                   >
-                    <RadioGroupItem value={String(option.value)} id={`${question.id}-${option.id}`} />
-                    <Label htmlFor={`${question.id}-${option.id}`} className="flex-1 cursor-pointer">
-                      {option.title}
+                    <RadioGroupItem value={String(optValue)} id={`${question.id}-${optId ?? index}`} />
+                    <Label htmlFor={`${question.id}-${optId ?? index}`} className="flex-1 cursor-pointer">
+                      {optLabel}
                     </Label>
                   </div>
                 );

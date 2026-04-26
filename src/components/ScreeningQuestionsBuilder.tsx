@@ -1,4 +1,4 @@
-import { ScreeningQuestion } from "@/types/job";
+import { ScreeningQuestion } from "@/types/question";
 import { AlertCircle, CheckCircle, CheckCircle2, ChevronDown, ChevronUp, Eye, GripVertical, Plus, Sparkles, Trash2, TrendingUp, XCircle, Zap } from "lucide-react";
 import { useState } from "react";
 import { Badge } from "./ui/badge";
@@ -524,7 +524,7 @@ export function ScreeningQuestionsBuilder({ questions, onChange, jobTitle, jobDe
                     <div className="space-y-2">
                       {question.options?.map((option, optIndex) => (
                         <div key={optIndex} className="flex items-center gap-2">
-                          <Input value={option} onChange={(e) => updateOption(question.id, optIndex, e.target.value)} placeholder={`Option ${optIndex + 1}`} />
+                          <Input value={typeof option === "string" ? option : option.title as string} onChange={(e) => updateOption(question.id, optIndex, e.target.value)} placeholder={`Option ${optIndex + 1}`} />
                           {question.options && question.options.length > 2 && (
                             <Button variant="ghost" size="sm" onClick={() => removeOption(question.id, optIndex)}>
                               <XCircle className="w-4 h-4" />
@@ -691,7 +691,7 @@ export function ScreeningQuestionsBuilder({ questions, onChange, jobTitle, jobDe
                       {question.options?.map((option, i) => (
                         <div key={i} className="flex items-center gap-2">
                           <div className="w-4 h-4 rounded border border-glass-border" />
-                          <span className="text-sm text-muted-foreground">{option}</span>
+                          <span className="text-sm text-muted-foreground">{typeof option === "string" ? option : option.title}</span>
                         </div>
                       ))}
                     </div>

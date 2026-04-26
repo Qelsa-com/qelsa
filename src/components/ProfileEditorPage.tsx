@@ -619,7 +619,7 @@ export function ProfileEditorPage() {
                       <div className="relative group">
                         <div className="w-32 h-32 rounded-full overflow-hidden ring-4 ring-neon-cyan/20 ring-offset-4 ring-offset-background">
                           {profile.profile_image ? (
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            // eslint-disable-next-line @next/next/no-img-element
                             <img src={profile.profile_image} alt="Profile" className="w-full h-full object-cover" />
                           ) : (
                             <div className="w-full h-full bg-gradient-to-r from-neon-cyan to-neon-purple flex items-center justify-center">

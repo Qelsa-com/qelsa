@@ -4,7 +4,7 @@ import { Button } from "../ui/button";
 import { Card } from "../ui/card";
 import { ScrollArea } from "../ui/scroll-area";
 import { Textarea } from "../ui/textarea";
-import type { Job } from "./JobListingPage";
+import type { Job } from "@/types/job";
 
 interface JobAIAssistantDrawerProps {
   isOpen: boolean;
@@ -113,13 +113,13 @@ export function JobAIAssistantDrawer({ isOpen, onClose, selectedJob, jobs }: Job
 
     // Summarize job
     if (promptLower.includes("summarize")) {
-      return `**${job.title} at ${job.company}**
+      return `**${job.title} at ${job.company_name}**
 
 **Key Highlights:**
-• ${job.workType} role in ${job.location}
+• ${job.work_type} role in ${job.location}
 • ${job.experience} of experience required
 • Salary range: ${job.salary || "Competitive compensation"}
-• ${job.applications} applications so far
+• ${job.applications?.length ?? 0} applications so far
 
 **Must-Have Skills:**
 ${
@@ -192,7 +192,7 @@ ${job.skills
 **Role-Specific Terms:**
 • ${job.title}
 • ${job.experience}
-• ${job.workType}
+• ${job.work_type}
 • Team collaboration
 • Agile methodology
 
@@ -215,12 +215,12 @@ ${job.skills
 
 Dear Hiring Manager,
 
-I am excited to apply for the ${job.title} position at ${job.company}. With my strong background in ${job.skills[0]} and ${
+I am excited to apply for the ${job.title} position at ${job.company_name}. With my strong background in ${job.skills[0]} and ${
         job.skills[1]
       }, I am confident I can contribute immediately to your team's success.
 
 In my current role, I have successfully delivered projects using ${job.skills.slice(0, 3).join(", ")}, resulting in improved performance and user satisfaction. I am particularly drawn to ${
-        job.company
+        job.company_name
       }'s focus on innovation and cutting-edge technology, which aligns perfectly with my passion for continuous learning.
 
 I would welcome the opportunity to discuss how my experience with ${job.skills[0]} and collaborative approach can benefit your team. Thank you for considering my application.
@@ -229,7 +229,7 @@ I would welcome the opportunity to discuss how my experience with ${job.skills[0
 
 **Resume Summary Bullet Points:**
 • Developed scalable applications using ${job.skills.slice(0, 2).join(" and ")}, improving system performance by 40%
-• Led cross-functional team of 5 engineers to deliver ${job.workType.toLowerCase()} projects using ${job.skills[2] || "modern frameworks"}
+• Led cross-functional team of 5 engineers to deliver ${(job.work_type ?? "").toLowerCase()} projects using ${job.skills[2] || "modern frameworks"}
 • Implemented best practices for code quality, testing, and deployment automation
 
 **Tips:**
@@ -245,13 +245,13 @@ I would welcome the opportunity to discuss how my experience with ${job.skills[0
 
 ${recentJobs
   .map(
-    (j, i) => `**${i + 1}. ${j.title} at ${j.company}**
-• Location: ${j.location} (${j.workType})
+    (j, i) => `**${i + 1}. ${j.title} at ${j.company_name}**
+• Location: ${j.location} (${j.work_type})
 • Experience: ${j.experience}
 • Salary: ${j.salary || "Not disclosed"}
 • Key Stack: ${j.skills.slice(0, 3).join(", ")}
 • Fit Score: ${j.fitScore || 70}%
-• Applications: ${j.applications}`
+• Applications: ${j.applications?.length ?? 0}`
   )
   .join("\n\n")}
 
@@ -265,7 +265,7 @@ Apply to the role with the highest fit score first. Focus on ${recentJobs[0].tit
 
 **Before Applying:**
 ☐ Resume tailored with ${job.skills.slice(0, 3).join(", ")} keywords
-☐ Cover letter references ${job.company} specifically
+☐ Cover letter references ${job.company_name} specifically
 ☐ LinkedIn profile updated with relevant skills
 ☐ Portfolio projects showcase ${job.skills[0]} work
 
@@ -283,13 +283,13 @@ Apply to the role with the highest fit score first. Focus on ${recentJobs[0].tit
 
 **Follow-up Plan:**
 ☐ Save job posting details
-☐ Connect with ${job.company} employees on LinkedIn
+☐ Connect with ${job.company_name} employees on LinkedIn
 ☐ Set reminder to follow up in 1 week
 ☐ Prepare for potential interview questions`;
     }
 
     // Default response
-    return `I can help you with this ${job.title} position at ${job.company}! Here are some things I can do:
+    return `I can help you with this ${job.title} position at ${job.company_name}! Here are some things I can do:
 
 • **Summarize** the role and extract must-have vs nice-to-have skills
 • **Analyze your fit** and identify skill gaps
@@ -357,11 +357,11 @@ What would you like me to help with? Try asking "Summarize this job" or "What's 
           <div className="p-4 border-b border-glass-border bg-neon-cyan/5">
             <div className="flex items-start gap-3">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              {selectedJob.companyLogo && <img src={selectedJob.companyLogo} alt={selectedJob.company} className="w-10 h-10 rounded-lg object-cover border border-glass-border" />}
+              {selectedJob.company_logo && <img src={selectedJob.company_logo} alt={selectedJob.company_name ?? ""} className="w-10 h-10 rounded-lg object-cover border border-glass-border" />}
               <div className="flex-1 min-w-0">
                 <h3 className="font-medium text-sm line-clamp-1">{selectedJob.title}</h3>
                 <p className="text-xs text-muted-foreground">
-                  {selectedJob.company} • {selectedJob.location}
+                  {selectedJob.company_name} • {selectedJob.location}
                 </p>
                 {selectedJob.fitScore && (
                   <div className="flex items-center gap-1 mt-1">
@@ -386,7 +386,7 @@ What would you like me to help with? Try asking "Summarize this job" or "What's 
                 <h3 className="font-semibold mb-2">{selectedJob ? `Let's optimize your application` : "Select a job to get started"}</h3>
                 <p className="text-sm text-muted-foreground max-w-sm mx-auto">
                   {selectedJob
-                    ? `I'm here to help you with the ${selectedJob.title} role at ${selectedJob.company}. Choose a prompt below or ask me anything!`
+                    ? `I'm here to help you with the ${selectedJob.title} role at ${selectedJob.company_name}. Choose a prompt below or ask me anything!`
                     : "Click on any job card to get personalized assistance with summaries, fit analysis, and application materials."}
                 </p>
               </div>

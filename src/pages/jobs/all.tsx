@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { useLazyGetDiscoverJobsQuery, useToggleSaveJobMutation } from "@/features/api/jobsApi";
 import { Job } from "@/types/job";
 import { Bookmark, BookmarkCheck, Briefcase, Clock, Eye, MapPin, Search, Sparkles, Star, Target } from "lucide-react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -220,7 +221,7 @@ const All = () => {
                     {/* Header */}
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-start gap-3 flex-1 min-w-0">
-                        {job.companyLogo && <img src={job.companyLogo} alt={job.company} className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />}
+                        {job.companyLogo && <Image src={job.companyLogo} alt={job.company} width={48} height={48} className="rounded-lg object-cover flex-shrink-0" />}
                         <div className="flex-1 min-w-0">
                           <h4 className="text-white line-clamp-1 group-hover:text-neon-cyan transition-colors">{job.title}</h4>
                           <p className="text-sm text-muted-foreground line-clamp-1">{job.company}</p>

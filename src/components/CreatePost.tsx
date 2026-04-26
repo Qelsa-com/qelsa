@@ -217,6 +217,7 @@ export function CreatePost({ onClose, onSubmit }: CreatePostProps) {
                 className="text-muted-foreground hover:text-neon-cyan opacity-50 cursor-not-allowed"
                 disabled
               >
+                {/* eslint-disable-next-line jsx-a11y/alt-text */}
                 <Image className="h-4 w-4 mr-2" aria-hidden="true" />
                 Photo
               </Button>

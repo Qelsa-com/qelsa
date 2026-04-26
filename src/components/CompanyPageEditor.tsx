@@ -31,7 +31,7 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
@@ -64,11 +64,11 @@ const ROLE_PERMISSIONS = {
   user: { edit: false, publish: false, manageUsers: false, transferOwnership: false },
 };
 
-const ROLE_ICONS = {
-  // owner: Crown,
+const ROLE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  owner: Crown,
   admin: ShieldCheck,
-  // editor: FileEdit,
-  // moderator: UserCheck,
+  editor: FileEdit,
+  moderator: UserCheck,
   user: Eye,
 };
 
@@ -89,9 +89,9 @@ export function CompanyPageEditor() {
   const [selectedUserForTransfer, setSelectedUserForTransfer] = useState<string>("");
   const [aboutShortChars, setAboutShortChars] = useState(0);
   const [users, setUsers] = useState<UserType[]>([]);
-  const { user } = useAuth();
+  const { user: authUser } = useAuth();
 
-  const permissions = ROLE_PERMISSIONS[user?.role];
+  const permissions = ROLE_PERMISSIONS[authUser?.role];
 
   // Auto-save functionality
   useEffect(() => {
@@ -255,8 +255,8 @@ export function CompanyPageEditor() {
     await new Promise((resolve) => setTimeout(resolve, 2000));
 
     // Mock AI enhancement
-    // const enhanced = page.aboutShort
-    //   ? page.aboutShort + " We are innovating at the intersection of technology and impact."
+    // const enhanced = page.tagline
+    //   ? page.tagline + " We are innovating at the intersection of technology and impact."
     //   : "We are a leading company innovating at the intersection of technology and impact.";
 
     // setPage({ ...page, aboutShort: enhanced.substring(0, 280) });
@@ -348,7 +348,7 @@ export function CompanyPageEditor() {
               const isActive = activeSection === section.id;
 
               // Only show users tab if has permission
-              if (section.id === "users" && !permissions.manageUsers && user.role !== "user") {
+              if (section.id === "users" && !permissions.manageUsers && authUser?.role !== "user") {
                 return null;
               }
 
@@ -448,10 +448,10 @@ export function CompanyPageEditor() {
                       <span className="text-xs text-muted-foreground">{aboutShortChars}/280</span>
                     </div>
                     <Textarea
-                      value={page.aboutShort}
+                      value={page.tagline}
                       onChange={(e) => {
                         const value = e.target.value.substring(0, 280);
-                        setPage({ ...page, aboutShort: value });
+                        setPage({ ...page, tagline: value });
                         setAboutShortChars(value.length);
                         setIsDraft(true);
                       }}
@@ -479,9 +479,9 @@ export function CompanyPageEditor() {
                   <div className="space-y-3">
                     <Label className="text-white">Detailed Description</Label>
                     <Textarea
-                      value={page.aboutRich}
+                      value={page.description}
                       onChange={(e) => {
-                        setPage({ ...page, aboutRich: e.target.value });
+                        setPage({ ...page, description: e.target.value });
                         setIsDraft(true);
                       }}
                       placeholder="Tell your company's story... (supports rich text)"
@@ -865,7 +865,7 @@ export function CompanyPageEditor() {
                                   <div className="absolute right-0 top-full mt-2 w-48 glass border border-glass-border rounded-xl p-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
                                     <select
                                       onChange={(e) => {
-                                        handleChangeUserRole(user.id, e.target.value as UserType["role"]);
+                                        handleChangeUserRole(String(user.id), e.target.value as UserType["role"]);
                                         e.target.value = user.role;
                                       }}
                                       className="w-full glass border border-glass-border rounded-lg px-3 py-2 mb-2 focus:border-neon-cyan focus:outline-none bg-transparent text-white text-sm"
@@ -885,13 +885,13 @@ export function CompanyPageEditor() {
                                       <option value="viewer" className="bg-gray-900">
                                         Viewer
                                       </option>
-                                      {currentUser.role === "owner" && (
+                                      {authUser?.role === "owner" && (
                                         <option value="owner" className="bg-gray-900">
                                           Transfer Ownership
                                         </option>
                                       )}
                                     </select>
-                                    <button onClick={() => handleRemoveUser(user.id)} className="w-full px-3 py-2 text-left text-sm text-red-400 hover:bg-red-400/10 rounded-lg transition-colors">
+                                    <button onClick={() => handleRemoveUser(String(user.id))} className="w-full px-3 py-2 text-left text-sm text-red-400 hover:bg-red-400/10 rounded-lg transition-colors">
                                       <Trash2 className="h-4 w-4 inline mr-2" />
                                       Remove
                                     </button>
@@ -969,7 +969,7 @@ export function CompanyPageEditor() {
                     )}
                     <div>
                       <h4 className="font-bold text-white mb-2">{page.name}</h4>
-                      <p className="text-sm text-muted-foreground">{page.aboutShort || "No description yet..."}</p>
+                      <p className="text-sm text-muted-foreground">{page.tagline || "No description yet..."}</p>
                     </div>
                     {page.tags.length > 0 && (
                       <div className="flex flex-wrap gap-2">
@@ -1084,7 +1084,7 @@ export function CompanyPageEditor() {
                 {/* User Search Results */}
                 {searchQuery && (
                   <div className="max-h-64 overflow-y-auto space-y-1 glass-strong p-2 rounded-lg border border-glass-border">
-                    {REGISTERED_QELSA_USERS.filter(
+                    {users.filter(
                       (user) =>
                         user.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
                         user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -1118,7 +1118,7 @@ export function CompanyPageEditor() {
                         </div>
                       </button>
                     ))}
-                    {REGISTERED_QELSA_USERS.filter(
+                    {users.filter(
                       (user) =>
                         user.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
                         user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -1181,7 +1181,7 @@ export function CompanyPageEditor() {
                   <option value="viewer" className="bg-gray-900">
                     Viewer
                   </option>
-                  {currentUser.role === "owner" && (
+                  {authUser?.role === "owner" && (
                     <option value="admin" className="bg-gray-900">
                       Admin
                     </option>

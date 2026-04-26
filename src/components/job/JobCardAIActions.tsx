@@ -1,7 +1,7 @@
 import { ChevronDown, ChevronUp, MessageCircle, Sparkles, Target, TrendingUp } from "lucide-react";
 import { useState } from "react";
 import { Badge } from "../ui/badge";
-import type { Job } from "./JobListingPage";
+import type { Job } from "@/types/job";
 
 interface JobCardAIActionsProps {
   job: Job;
@@ -15,7 +15,7 @@ export function JobCardAIActions({ job, onAskAI }: JobCardAIActionsProps) {
     {
       label: "Analyze Fit",
       icon: Target,
-      question: `What's my Qelsa Score for ${job.title} at ${job.company}?`,
+      question: `What's my Qelsa Score for ${job.title} at ${job.company_name}?`,
       color: "text-neon-cyan",
     },
     {
@@ -27,7 +27,7 @@ export function JobCardAIActions({ job, onAskAI }: JobCardAIActionsProps) {
     {
       label: "Interview Prep",
       icon: MessageCircle,
-      question: `Prepare me for ${job.company} interview`,
+      question: `Prepare me for ${job.company_name} interview`,
       color: "text-neon-pink",
     },
     {
@@ -67,7 +67,7 @@ export function JobCardAIActions({ job, onAskAI }: JobCardAIActionsProps) {
                 key={index}
                 onClick={(e) => {
                   e.stopPropagation();
-                  onAskAI(action.question, job.id);
+                  onAskAI(action.question, String(job.id));
                   setExpanded(false);
                 }}
                 className="flex items-center gap-2 p-2 rounded-lg glass border-glass-border hover:glass-strong hover:glow-cyan transition-all duration-300 group"
@@ -85,7 +85,7 @@ export function JobCardAIActions({ job, onAskAI }: JobCardAIActionsProps) {
         <div
           onClick={(e) => {
             e.stopPropagation();
-            onAskAI(`Show me detailed Qelsa Score for ${job.title}`, job.id);
+            onAskAI(`Show me detailed Qelsa Score for ${job.title}`, String(job.id));
           }}
           className="flex items-center justify-between p-2 rounded-lg glass border-glass-border hover:glass-strong cursor-pointer transition-all duration-300 group"
         >

@@ -13,5 +13,5 @@ export interface ScreeningQuestion {
   knockout_condition?: "equals" | "less-than" | "greater-than" | "contains";
   knockout_value?: string | number;
   max_length?: number;
-  options?: Option[];
+  options?: (Option | string)[];
 }

@@ -42,7 +42,7 @@ export function ChatInterfaceEnhanced({ contextJobs = [], onMenuClick, onProfile
   // Generate AI responses based on query type
   const generateAIResponse = (query: string, jobIds?: string[]): Message => {
     const lowerQuery = query.toLowerCase();
-    const relevantJobs = jobIds ? contextJobs.filter((j) => jobIds.includes(j.id)) : contextJobs;
+    const relevantJobs = jobIds ? contextJobs.filter((j) => jobIds.includes(String(j.id))) : contextJobs;
 
     // Skill Gap Analysis
     if ((lowerQuery.includes("skill") && lowerQuery.includes("missing")) || lowerQuery.includes("skill gap")) {
@@ -50,7 +50,7 @@ export function ChatInterfaceEnhanced({ contextJobs = [], onMenuClick, onProfile
       return {
         id: Date.now().toString(),
         type: "assistant",
-        content: `I've analyzed your profile against the ${job.title} role at ${job.company}. Here's your personalized skill fit analysis:`,
+        content: `I've analyzed your profile against the ${job.title} role at ${job.company_name}. Here's your personalized skill fit analysis:`,
         enhancedResponse: {
           type: "skill-gap",
           data: {
@@ -85,7 +85,7 @@ export function ChatInterfaceEnhanced({ contextJobs = [], onMenuClick, onProfile
               workLife: relevantJobs[0].id,
               stability: relevantJobs[0].id,
             },
-            recommendation: `Based on your profile and career goals, ${relevantJobs[0].title} at ${relevantJobs[0].company} offers the best overall fit. It provides strong salary potential (${relevantJobs[0].salary}), excellent growth opportunities, and aligns well with your skill set. The role is also from ${relevantJobs[0].source.platform}, giving you direct access to verified opportunities.`,
+            recommendation: `Based on your profile and career goals, ${relevantJobs[0].title} at ${relevantJobs[0].company_name} offers the best overall fit. It provides strong salary potential (${relevantJobs[0].salary}), excellent growth opportunities, and aligns well with your skill set. The role is also from ${relevantJobs[0].resource}, giving you direct access to verified opportunities.`,
           },
         },
         suggestedPrompts: ["Show me detailed comparison with custom weights", "What are the career paths for these roles?", "Help me prepare for interviews at these companies"],
@@ -140,12 +140,12 @@ export function ChatInterfaceEnhanced({ contextJobs = [], onMenuClick, onProfile
       return {
         id: Date.now().toString(),
         type: "assistant",
-        content: `I've created a comprehensive interview preparation plan for ${job.title} at ${job.company}:`,
+        content: `I've created a comprehensive interview preparation plan for ${job.title} at ${job.company_name}:`,
         enhancedResponse: {
           type: "interview-prep",
           data: {
             jobTitle: job.title,
-            company: job.company,
+            company: job.company_name,
             estimatedPrepTime: "2 weeks",
             topics: [
               {
@@ -179,7 +179,7 @@ export function ChatInterfaceEnhanced({ contextJobs = [], onMenuClick, onProfile
               {
                 category: "Company-Specific",
                 questions: [
-                  `Why do you want to work at ${job.company}?`,
+                  `Why do you want to work at ${job.company_name}?`,
                   "What do you know about our products and services?",
                   "How would you contribute to our engineering culture?",
                   "Where do you see yourself in 3-5 years at our company?",
@@ -198,7 +198,7 @@ export function ChatInterfaceEnhanced({ contextJobs = [], onMenuClick, onProfile
       return {
         id: Date.now().toString(),
         type: "assistant",
-        content: `I've calculated your Qelsa Score for ${job.title} at ${job.company}. This AI-powered analysis considers multiple factors:`,
+        content: `I've calculated your Qelsa Score for ${job.title} at ${job.company_name}. This AI-powered analysis considers multiple factors:`,
         enhancedResponse: {
           type: "qelsa-score",
           data: {
@@ -338,7 +338,7 @@ What would you like to explore?`,
                   {[
                     `What skills am I missing for ${contextJobs[0].title}?`,
                     contextJobs.length >= 2 ? `Compare top ${Math.min(contextJobs.length, 4)} jobs` : `Show me career path for ${contextJobs[0].title}`,
-                    `Prepare me for ${contextJobs[0].company} interview`,
+                    `Prepare me for ${contextJobs[0].company_name} interview`,
                     `Which job best matches my profile?`,
                   ].map((prompt, index) => (
                     <button

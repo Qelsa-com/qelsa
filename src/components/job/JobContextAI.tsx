@@ -4,7 +4,7 @@ import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
 import { Progress } from "../ui/progress";
-import type { Job } from "./JobListingPage";
+import type { Job } from "@/types/job";
 
 interface JobContextAIProps {
   jobs: Job[];
@@ -31,15 +31,15 @@ export function JobContextAI({ jobs, onAskQuestion, onCompareJobs }: JobContextA
     // Job-specific prompts
     if (jobs.length === 1) {
       prompts.push(
-        { text: `What skills am I missing for ${jobs[0].title}?`, icon: Target, category: "skills", jobIds: [jobs[0].id] },
-        { text: `Prepare me for ${jobs[0].company} interview`, icon: MessageCircle, category: "interview", jobIds: [jobs[0].id] },
-        { text: `Show me career path for ${jobs[0].title}`, icon: TrendingUp, category: "career", jobIds: [jobs[0].id] }
+        { text: `What skills am I missing for ${jobs[0].title}?`, icon: Target, category: "skills", jobIds: [String(jobs[0].id)] },
+        { text: `Prepare me for ${jobs[0].company_name} interview`, icon: MessageCircle, category: "interview", jobIds: [String(jobs[0].id)] },
+        { text: `Show me career path for ${jobs[0].title}`, icon: TrendingUp, category: "career", jobIds: [String(jobs[0].id)] }
       );
     } else if (jobs.length >= 2) {
       prompts.push(
-        { text: `Compare top ${Math.min(jobs.length, 4)} jobs`, icon: Award, category: "compare", jobIds: jobs.slice(0, 4).map((j) => j.id) },
-        { text: "Which job best matches my profile?", icon: Target, category: "match", jobIds: jobs.slice(0, 4).map((j) => j.id) },
-        { text: "Highlight skill gaps across these roles", icon: GraduationCap, category: "skills", jobIds: jobs.slice(0, 4).map((j) => j.id) }
+        { text: `Compare top ${Math.min(jobs.length, 4)} jobs`, icon: Award, category: "compare", jobIds: jobs.slice(0, 4).map((j) => String(j.id)) },
+        { text: "Which job best matches my profile?", icon: Target, category: "match", jobIds: jobs.slice(0, 4).map((j) => String(j.id)) },
+        { text: "Highlight skill gaps across these roles", icon: GraduationCap, category: "skills", jobIds: jobs.slice(0, 4).map((j) => String(j.id)) }
       );
     }
 
@@ -110,7 +110,7 @@ export function JobContextAI({ jobs, onAskQuestion, onCompareJobs }: JobContextA
       {jobs.length >= 2 && onCompareJobs && (
         <div className="pt-4 border-t border-glass-border">
           <Button
-            onClick={() => onCompareJobs(jobs.slice(0, 4).map((j) => j.id))}
+            onClick={() => onCompareJobs(jobs.slice(0, 4).map((j) => String(j.id)))}
             className="w-full bg-gradient-to-r from-neon-cyan to-neon-purple text-black hover:opacity-90 transition-all duration-300 glow-cyan"
           >
             <Award className="h-4 w-4 mr-2" />
@@ -163,7 +163,7 @@ export function SkillGapAnalysis({ job, matchedSkills, missingSkills, matchPerce
         <div>
           <h3 className="font-semibold text-white mb-1">Skill Fit Analysis</h3>
           <p className="text-sm text-muted-foreground">
-            {job.title} at {job.company}
+            {job.title} at {job.company_name}
           </p>
         </div>
         <Badge className="bg-gradient-to-r from-neon-cyan to-neon-purple text-black">{matchPercentage}% Match</Badge>

@@ -819,6 +819,7 @@ export function BlogEditor({ initialData, onSave, onPublish, onCancel }: BlogEdi
               ) : (
                 <div className="aspect-video rounded-lg border-2 border-dashed border-glass-border flex flex-col items-center justify-center space-y-3 bg-glass/30">
                   <div className="w-16 h-16 rounded-full bg-neon-purple/10 flex items-center justify-center">
+                    {/* eslint-disable-next-line jsx-a11y/alt-text */}
                     <Image className="h-8 w-8 text-neon-purple" aria-hidden="true" />
                   </div>
                   <div className="text-center">
@@ -855,6 +856,7 @@ export function BlogEditor({ initialData, onSave, onPublish, onCancel }: BlogEdi
                   variant="outline"
                   className="h-20 border-dashed border-neon-cyan/30 text-neon-cyan hover:bg-neon-cyan/10 flex-col"
                 >
+                  {/* eslint-disable-next-line jsx-a11y/alt-text */}
                   <Image className="h-6 w-6 mb-2" aria-hidden="true" />
                   <span className="text-sm">Add Image</span>
                 </Button>

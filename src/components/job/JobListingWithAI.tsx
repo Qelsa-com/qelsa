@@ -4,7 +4,7 @@ import { ChatInterfaceEnhanced } from "../ChatInterfaceEnhanced";
 import { Button } from "../ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "../ui/dialog";
 import { JobContextAI } from "./JobContextAI";
-import type { Job } from "./JobListingPage";
+import type { Job } from "@/types/job";
 
 interface JobListingWithAIProps {
   visibleJobs: Job[];
