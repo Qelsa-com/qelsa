@@ -28,7 +28,7 @@ interface RefreshResponse {
 }
 
 // Provide your API base url via env
-const AUTH_API_BASE = process.env.NEXT_PUBLIC_AUTH_API_BASE || "http://localhost:3000/api/auth";
+const AUTH_API_BASE = "/api/auth";
 
 // raw baseQuery reads token from Redux state (not localStorage directly)
 const rawBaseQuery = fetchBaseQuery({
