@@ -4,7 +4,7 @@ import { UserSkill } from "../../types/userSkill";
 export const userSkillsApi = createApi({
   reducerPath: "userSkillsApi",
   baseQuery: fetchBaseQuery({
-    baseUrl: "http://localhost:3000/api",
+    baseUrl: "/api",
     prepareHeaders: (headers, { getState }) => {
       const token = localStorage.getItem("accessToken");
       if (token) headers.set("authorization", `Bearer ${token}`);

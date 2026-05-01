@@ -6,7 +6,7 @@ export const jobApplicationsApi = createApi({
   reducerPath: "jobApplicationsApi",
 
   baseQuery: fetchBaseQuery({
-    baseUrl: "http://localhost:3000/api",
+    baseUrl: "/api",
     prepareHeaders: (headers) => {
       const token = localStorage.getItem("accessToken");
       if (token) {

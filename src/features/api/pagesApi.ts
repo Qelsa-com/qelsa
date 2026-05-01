@@ -4,7 +4,7 @@ import { Page } from "../../types/page";
 export const pagesApi = createApi({
   reducerPath: "pagesApi",
   baseQuery: fetchBaseQuery({
-    baseUrl: "http://localhost:3000/api",
+    baseUrl: "/api",
     prepareHeaders: (headers, { getState }) => {
       const token = localStorage.getItem("accessToken");
       if (token) headers.set("authorization", `Bearer ${token}`);

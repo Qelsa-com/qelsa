@@ -4,7 +4,7 @@ import { Education } from "../../types/education";
 export const educationsApi = createApi({
   reducerPath: "educationsApi",
   baseQuery: fetchBaseQuery({
-    baseUrl: "http://localhost:3000/api",
+    baseUrl: "/api",
     prepareHeaders: (headers, { getState }) => {
       const token = localStorage.getItem("accessToken");
       if (token) headers.set("authorization", `Bearer ${token}`);
