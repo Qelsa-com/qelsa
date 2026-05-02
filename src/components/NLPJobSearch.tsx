@@ -131,7 +131,7 @@ export function NLPJobSearch({ filters, setFilters, query, setQuery, onSearch })
     localStorage.removeItem("recentJobSearches");
   };
 
-  const activeFilterCount = filters.cities.length + filters.job_types.length + filters.experience_levels.length + filters.departments.length + (filters.salary_min ? 1 : 0) + (filters.remote ? 1 : 0);
+  const activeFilterCount = (filters?.cities?.length ?? 0) + (filters?.job_types?.length ?? 0) + (filters?.experience_levels?.length ?? 0) + (filters?.departments?.length ?? 0) + (filters?.salary_min ? 1 : 0) + (filters?.remote ? 1 : 0);
 
   return (
     <div className="w-full space-y-4">

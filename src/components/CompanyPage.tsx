@@ -1,5 +1,6 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { useGetJobsQuery } from "@/features/api/jobsApi";
+import { Job } from "@/types/job";
 import { useGetPageByIdQuery } from "@/features/api/pagesApi";
 import { ArrowLeft, Briefcase, Building2, Calendar, CheckCircle, ChevronRight, Edit3, ExternalLink, MapPin, Share2, Star, Users } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
@@ -30,7 +31,7 @@ export function CompanyPage() {
     skip: !id,
   });
 
-  const { data: pageJobs, isLoading: jobsLoading, error: jobsError } = useGetJobsQuery({ page_id: id });
+  const { data: pageJobs } = useGetJobsQuery({ page_id: id }, { skip: !id });
 
   if (isLoading) return <div className="p-8 text-center text-muted-foreground">Loading page details...</div>;
 
@@ -289,7 +290,7 @@ export function CompanyPage() {
             <Card className="glass border-glass-border p-6">
               <h2 className="text-xl font-semibold mb-6">Open Positions at {pageData.name}</h2>
               <div className="space-y-4">
-                {pageJobs?.map((job) => (
+                {pageJobs?.map((job: Job) => (
                   <Card key={job.id} className="glass-strong border-glass-border hover:border-neon-cyan/30 transition-all cursor-pointer p-5" onClick={() => router.push(`/jobs/${job.id}`)}>
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1">

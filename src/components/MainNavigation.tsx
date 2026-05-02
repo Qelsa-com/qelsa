@@ -22,13 +22,13 @@ interface MainNavigationProps {
 // Main navigation items (bottom nav)
 const mainNavigationItems: NavigationItem[] = [
   { id: "profile", label: "My Space", icon: Home, url: "/" },
-  { id: "home", label: "Feed", icon: Activity, url: "/feed" },
-  { id: "qelsa-ai", label: "Qelsa AI", icon: Zap, url: "/qelsa-ai" },
+  // { id: "home", label: "Feed", icon: Activity, url: "/feed" },
+  // { id: "qelsa-ai", label: "Qelsa AI", icon: Zap, url: "/qelsa-ai" },
   { id: "jobs", label: "Jobs", icon: Briefcase, badge: 12, url: "/jobs/smart_matches" },
   { id: "pages", label: "Pages", icon: FileText, url: "/pages" },
-  { id: "connections", label: "Network", icon: Users, url: "/network" },
-  { id: "courses", label: "Courses", icon: BookOpen, badge: 3, url: "/courses" },
-  { id: "blog", label: "Blog", icon: Rss, url: "/blogs" },
+  // { id: "connections", label: "Network", icon: Users, url: "/network" },
+  // { id: "courses", label: "Courses", icon: BookOpen, badge: 3, url: "/courses" },
+  // { id: "blog", label: "Blog", icon: Rss, url: "/blogs" },
 ];
 
 export function MainNavigation({ activeSection, onJobSearch, onJobFilter, onProfileClick }: MainNavigationProps) {

@@ -1,6 +1,5 @@
 import { useGoogleLoginMutation } from "@/features/api/authApi";
-import { GoogleLogin } from "@react-oauth/google";
-import { jwtDecode } from "jwt-decode";
+import { useGoogleLogin } from "@react-oauth/google";
 import { ArrowLeft, Loader2, Mail } from "lucide-react";
 import { motion } from "motion/react";
 import { useRouter } from "next/navigation";
@@ -14,9 +13,19 @@ export default function AuthPage() {
   const [emailOrPhone, setEmailOrPhone] = useState("");
   const [otp, setOtp] = useState("");
   const [showOtpInput, setShowOtpInput] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [, setIsLoading] = useState(false);
   const [resendTimer, setResendTimer] = useState(0);
   const [googleLogin, { isLoading: isGoogleLoading }] = useGoogleLoginMutation();
+
+  const googleOAuthLogin = useGoogleLogin({
+    onSuccess: async (tokenResponse) => {
+      const userInfo = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+        headers: { Authorization: `Bearer ${tokenResponse.access_token}` },
+      }).then((r) => r.json());
+      handleGoogleLogin(userInfo);
+    },
+    onError: () => toast.error("Google sign-in failed"),
+  });
 
   // Get query params from Next.js
   const searchParams = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
@@ -45,7 +54,7 @@ export default function AuthPage() {
       case "share":
         return "share this job";
       default:
-        return "continue";
+        return "create your account";
     }
   };
 
@@ -163,8 +172,8 @@ export default function AuthPage() {
             </p>
           </div>
           {/* Google Sign In */}
-          <Button type="button" onClick={handleGoogleLogin} className="w-full glass border-glass-border hover:bg-white/10 h-12 mb-6" disabled={isLoading}>
-            {isLoading ? (
+          <Button type="button" onClick={() => googleOAuthLogin()} className="w-full glass border-glass-border hover:bg-white/10 h-12 mb-6" disabled={isGoogleLoading}>
+            {isGoogleLoading ? (
               <Loader2 className="w-5 h-5 animate-spin" />
             ) : (
               <>
@@ -177,16 +186,7 @@ export default function AuthPage() {
                 Continue with Google
               </>
             )}
-          </Button>
-          <GoogleLogin
-            onSuccess={(credentialResponse) => {
-              handleGoogleLogin(jwtDecode(credentialResponse.credential));
-            }}
-            onError={() => {
-              console.log("Login Failed");
-            }}
-          />
-          ;{/* Divider */}
+          </Button>{/* Divider */}
           {/* <div className="relative my-6">
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-glass-border"></div>

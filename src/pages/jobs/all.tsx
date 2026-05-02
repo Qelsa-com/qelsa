@@ -1,6 +1,7 @@
 import { JobComparisonPage } from "@/components/job/JobComparisonPage";
 import JobLayout from "@/components/job/JobsLayout";
 import { Card } from "@/components/ui/card";
+import { useAuth } from "@/contexts/AuthContext";
 import { useLazyGetDiscoverJobsQuery, useToggleSaveJobMutation } from "@/features/api/jobsApi";
 import { Job } from "@/types/job";
 import { Bookmark, BookmarkCheck, Briefcase, Clock, Eye, MapPin, Search, Sparkles, Star, Target } from "lucide-react";
@@ -15,6 +16,7 @@ import { SearchFilters } from "./smart_matches";
 
 const All = () => {
   const router = useRouter();
+  const { isAuthenticated } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [locationFilter, setLocationFilter] = useState("all");
   const [experienceFilter, setExperienceFilter] = useState("all");
@@ -246,7 +248,7 @@ const All = () => {
                           </Button>
                         )}
 
-                        {onToggleBookmark && (
+                        {isAuthenticated && onToggleBookmark && (
                           <Button
                             variant="ghost"
                             size="sm"

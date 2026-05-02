@@ -16,8 +16,8 @@ interface NavigationItem {
 // Main navigation items (bottom nav)
 const publicNavbarItems: NavigationItem[] = [
   { id: "jobs", label: "Jobs", icon: Briefcase, badge: 12, isMain: true, path: "/jobs" },
-  { id: "qelsa-ai", label: "Qelsa AI", icon: Zap, isMain: true, path: "/qelsa-ai" },
-  { id: "blog", label: "Blog", icon: Rss, isMain: true, path: "/blog" },
+  // { id: "qelsa-ai", label: "Qelsa AI", icon: Zap, isMain: true, path: "/qelsa-ai" },
+  // { id: "blog", label: "Blog", icon: Rss, isMain: true, path: "/blog" },
 ];
 
 export function PublicNavbar() {
