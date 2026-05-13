@@ -60,4 +60,10 @@ export const experiencesApi = createApi({
   }),
 });
 
-export const { useGetExperiencesQuery, useCreateExperienceMutation, useUpdateExperienceMutation, useDeleteExperienceMutation, useUpdateExperiencesPositionMutation } = experiencesApi;
+export const {
+  useGetExperiencesQuery,
+  useCreateExperienceMutation,
+  useUpdateExperienceMutation,
+  useDeleteExperienceMutation,
+  useUpdateExperiencesPositionMutation,
+} = experiencesApi;

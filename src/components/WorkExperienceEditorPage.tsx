@@ -1,9 +1,13 @@
+import { useLazySearchCompaniesQuery } from "@/features/api/companiesApi";
 import { useCreateExperienceMutation, useDeleteExperienceMutation, useGetExperiencesQuery, useUpdateExperienceMutation, useUpdateExperiencesPositionMutation } from "@/features/api/experiencesApi";
+import { useLazySearchJobTitlesQuery } from "@/features/api/jobTitlesApi";
 import { useGetUserSkillsQuery } from "@/features/api/userSkillsApi";
+import { Company } from "@/types/company";
 import { Experience } from "@/types/experience";
+import { JobTitle } from "@/types/jobTitle";
 import { ImpactMetric } from "@/types/impactMetric";
 import { UserSkill } from "@/types/userSkill";
-import { ArrowLeft, Briefcase, Calendar, Check, Edit3, GripVertical, Loader2, MapPin, Plus, Sparkles, Trash2, TrendingUp, Users, X } from "lucide-react";
+import { ArrowLeft, Briefcase, Building2, Calendar, Check, Edit3, GripVertical, Loader2, MapPin, Plus, Search, Sparkles, Trash2, TrendingUp, Users, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import React, { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -28,6 +32,13 @@ export function WorkExperienceEditorPage() {
   const [updateExperience, { isLoading: isUpdating, error: updateError }] = useUpdateExperienceMutation();
   const [deleteExperience, { isLoading: isDeleting, error: deleteError }] = useDeleteExperienceMutation();
   const [updateExperiencesPosition, { isLoading: isUpdatingPosition, error: updatePositionError }] = useUpdateExperiencesPositionMutation();
+  const [triggerCompanySearch, { data: companyResults = [] }] = useLazySearchCompaniesQuery();
+  const [triggerJobTitleSearch, { data: jobTitleResults = [] }] = useLazySearchJobTitlesQuery();
+
+  const [companySearch, setCompanySearch] = useState("");
+  const [showCompanyDropdown, setShowCompanyDropdown] = useState(false);
+  const [jobTitleSearch, setJobTitleSearch] = useState("");
+  const [showJobTitleDropdown, setShowJobTitleDropdown] = useState(false);
 
   const [experiences, setExperiences] = useState<Experience[]>(exp || []);
 
@@ -37,9 +48,33 @@ export function WorkExperienceEditorPage() {
     }
   }, [exp]);
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (companySearch.length >= 2) {
+        triggerCompanySearch(companySearch);
+        setShowCompanyDropdown(true);
+      } else {
+        setShowCompanyDropdown(false);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [companySearch]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (jobTitleSearch.length >= 2) {
+        triggerJobTitleSearch(jobTitleSearch);
+        setShowJobTitleDropdown(true);
+      } else {
+        setShowJobTitleDropdown(false);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [jobTitleSearch]);
+
   const [formData, setFormData] = useState<Partial<Experience>>({
-    title: "",
-    company_name: "",
+    job_title: undefined,
+    company: undefined,
     location: "",
     start_date: undefined,
     end_date: undefined,
@@ -52,9 +87,13 @@ export function WorkExperienceEditorPage() {
 
   const handleAddNew = () => {
     setEditingId("new");
+    setCompanySearch("");
+    setJobTitleSearch("");
+    setShowCompanyDropdown(false);
+    setShowJobTitleDropdown(false);
     setFormData({
-      title: "",
-      company_name: "",
+      job_title: undefined,
+      company: undefined,
       location: "",
       start_date: undefined,
       end_date: undefined,
@@ -68,6 +107,10 @@ export function WorkExperienceEditorPage() {
 
   const handleEdit = (exp: Experience) => {
     setEditingId(exp.id.toString());
+    setCompanySearch("");
+    setJobTitleSearch("");
+    setShowCompanyDropdown(false);
+    setShowJobTitleDropdown(false);
     setFormData(exp);
   };
 
@@ -77,13 +120,13 @@ export function WorkExperienceEditorPage() {
   };
 
   const handleSaveExperience = () => {
-    if (!formData.title || !formData.company_name || !formData.start_date) {
+    if (!formData.job_title || !formData.company || !formData.start_date) {
       return;
     }
 
     let newExperience: Experience = {
-      title: formData.title!,
-      company_name: formData.company_name!,
+      job_title: formData.job_title!,
+      company: formData.company!,
       location: formData.location!,
       start_date: formData.start_date!,
       end_date: formData.end_date,
@@ -92,7 +135,6 @@ export function WorkExperienceEditorPage() {
       impact_metrics: (formData.impact_metrics || []).filter((m) => m.impact_type.trim() !== "" || m.impact_value.trim() !== ""),
       skills: formData.skills || [],
       team_size: formData.team_size,
-      position: "",
     };
 
     if (editingId !== "new") newExperience.id = Number(editingId);
@@ -314,8 +356,8 @@ export function WorkExperienceEditorPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-4 mb-3">
                         <div>
-                          <h3 className="font-bold text-white text-lg">{exp.title}</h3>
-                          <p className="text-neon-cyan">{exp.company_name}</p>
+                          <h3 className="font-bold text-white text-lg">{exp.job_title?.name}</h3>
+                          <p className="text-neon-cyan">{exp.company?.name}</p>
                           <div className="flex flex-wrap gap-3 mt-2 text-sm text-muted-foreground">
                             <span className="flex items-center gap-1">
                               <Calendar className="h-3 w-3" />
@@ -419,24 +461,108 @@ export function WorkExperienceEditorPage() {
 
               {/* Basic Information */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label htmlFor="title" className="text-white">
+                {/* Job Title Search-Select */}
+                <div className="space-y-2 relative">
+                  <Label htmlFor="job_title" className="text-white">
                     Job Title <span className="text-destructive">*</span>
                   </Label>
-                  <Input id="title" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} placeholder="e.g., Senior Product Manager" className="glass border-glass-border focus:border-neon-cyan" />
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                    <Input
+                      id="job_title"
+                      value={formData.job_title ? formData.job_title.name : jobTitleSearch}
+                      onChange={(e) => {
+                        if (formData.job_title) setFormData({ ...formData, job_title: undefined });
+                        setJobTitleSearch(e.target.value);
+                      }}
+                      onFocus={() => {
+                        if (!formData.job_title && jobTitleSearch.length >= 2) setShowJobTitleDropdown(true);
+                      }}
+                      onBlur={() => setTimeout(() => setShowJobTitleDropdown(false), 150)}
+                      placeholder="Search job title..."
+                      className="glass border-glass-border focus:border-neon-cyan pl-9 pr-8"
+                    />
+                    {formData.job_title && (
+                      <button
+                        type="button"
+                        onMouseDown={() => { setFormData({ ...formData, job_title: undefined }); setJobTitleSearch(""); }}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-white"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                  {showJobTitleDropdown && jobTitleResults.length > 0 && (
+                    <div className="absolute z-50 w-full bg-gray-900 border border-glass-border rounded-lg overflow-hidden shadow-xl max-h-52 overflow-y-auto">
+                      {jobTitleResults.map((jt: JobTitle) => (
+                        <button
+                          key={jt.id}
+                          type="button"
+                          className="w-full px-4 py-2.5 text-left text-sm text-white hover:bg-neon-cyan/10 flex items-center gap-2"
+                          onMouseDown={() => {
+                            setFormData({ ...formData, job_title: jt });
+                            setJobTitleSearch("");
+                            setShowJobTitleDropdown(false);
+                          }}
+                        >
+                          <Briefcase className="h-4 w-4 text-neon-cyan flex-shrink-0" />
+                          {jt.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="company_name" className="text-white">
+                {/* Company Search-Select */}
+                <div className="space-y-2 relative">
+                  <Label htmlFor="company" className="text-white">
                     Company <span className="text-destructive">*</span>
                   </Label>
-                  <Input
-                    id="company_name"
-                    value={formData.company_name}
-                    onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
-                    placeholder="e.g., TechFlow Solutions"
-                    className="glass border-glass-border focus:border-neon-cyan"
-                  />
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                    <Input
+                      id="company"
+                      value={formData.company ? formData.company.name : companySearch}
+                      onChange={(e) => {
+                        if (formData.company) setFormData({ ...formData, company: undefined });
+                        setCompanySearch(e.target.value);
+                      }}
+                      onFocus={() => {
+                        if (!formData.company && companySearch.length >= 2) setShowCompanyDropdown(true);
+                      }}
+                      onBlur={() => setTimeout(() => setShowCompanyDropdown(false), 150)}
+                      placeholder="Search company..."
+                      className="glass border-glass-border focus:border-neon-cyan pl-9 pr-8"
+                    />
+                    {formData.company && (
+                      <button
+                        type="button"
+                        onMouseDown={() => { setFormData({ ...formData, company: undefined }); setCompanySearch(""); }}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-white"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                  {showCompanyDropdown && companyResults.length > 0 && (
+                    <div className="absolute z-50 w-full bg-gray-900 border border-glass-border rounded-lg overflow-hidden shadow-xl max-h-52 overflow-y-auto">
+                      {companyResults.map((company: Company) => (
+                        <button
+                          key={company.id}
+                          type="button"
+                          className="w-full px-4 py-2.5 text-left text-sm text-white hover:bg-neon-cyan/10 flex items-center gap-2"
+                          onMouseDown={() => {
+                            setFormData({ ...formData, company });
+                            setCompanySearch("");
+                            setShowCompanyDropdown(false);
+                          }}
+                        >
+                          <Building2 className="h-4 w-4 text-neon-cyan flex-shrink-0" />
+                          {company.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-2">

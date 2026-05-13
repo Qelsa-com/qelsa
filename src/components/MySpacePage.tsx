@@ -596,8 +596,8 @@ export function MySpacePage({}: MySpacePageProps) {
                 <div className="flex items-start gap-4">
                   <div className="w-12 h-12 rounded-xl bg-gradient-to-r from-neon-cyan to-neon-purple flex items-center justify-center text-black font-bold">{index + 1}</div>
                   <div className="flex-1">
-                    <h4 className="font-semibold text-white">{exp.title}</h4>
-                    <p className="text-neon-cyan">{exp.company_name}</p>
+                    <h4 className="font-semibold text-white">{exp.job_title?.name}</h4>
+                    <p className="text-neon-cyan">{exp.company?.name}</p>
                     <p className="text-sm text-muted-foreground mb-3">{exp.location}</p>
                     <ul className="space-y-1">
                       {exp.responsibilities?.map((resp, idx) => (
