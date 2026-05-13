@@ -8,6 +8,7 @@ import { jobsApi } from "./features/api/jobsApi";
 import { jobTitlesApi } from "./features/api/jobTitlesApi";
 import { pagesApi } from "./features/api/pagesApi";
 import { resumesApi } from "./features/api/resumeApi";
+import { seedApi } from "./features/api/seedApi";
 import { userSkillsApi } from "./features/api/userSkillsApi";
 import authReducer from "./features/slices/authSlice";
 
@@ -22,6 +23,7 @@ export const store = configureStore({
     [experiencesApi.reducerPath]: experiencesApi.reducer,
     [companiesApi.reducerPath]: companiesApi.reducer,
     [jobTitlesApi.reducerPath]: jobTitlesApi.reducer,
+    [seedApi.reducerPath]: seedApi.reducer,
     [userSkillsApi.reducerPath]: userSkillsApi.reducer,
     [resumesApi.reducerPath]: resumesApi.reducer,
     // add other reducers here
@@ -36,6 +38,7 @@ export const store = configureStore({
       .concat(experiencesApi.middleware)
       .concat(companiesApi.middleware)
       .concat(jobTitlesApi.middleware)
+      .concat(seedApi.middleware)
       .concat(userSkillsApi.middleware)
       .concat(resumesApi.middleware),
 });

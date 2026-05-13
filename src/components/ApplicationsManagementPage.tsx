@@ -662,7 +662,7 @@ export function ApplicationsManagementPage() {
                             <div className="space-y-3">
                               {selectedApplication.user?.educations.slice(0, 1).map((edu, idx) => (
                                 <div key={idx} className="pb-3 border-b border-glass-border">
-                                  <p className="font-medium text-sm">{edu.degree}</p>
+                                  <p className="font-medium text-sm">{edu.degree?.name}</p>
                                   <p className="text-xs text-muted-foreground">
                                     {edu.institution} • {edu.end_year}
                                   </p>

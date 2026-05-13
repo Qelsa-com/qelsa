@@ -1,8 +1,11 @@
 import { useCreateEducationMutation, useDeleteEducationMutation, useGetEducationsQuery, useUpdateEducationMutation, useUpdateEducationsPositionMutation } from "@/features/api/educationsApi";
+import { useGetDegreeNamesQuery, useGetFieldsOfStudyQuery } from "@/features/api/seedApi";
+import { DegreeName } from "@/types/degreeName";
 import { Education } from "@/types/education";
-import { ArrowLeft, Award, Calendar, Check, Edit3, FileText, FolderOpen, GraduationCap, GripVertical, MapPin, Plus, Sparkles, Trash2, Trophy, Upload } from "lucide-react";
+import { FieldOfStudy } from "@/types/fieldOfStudy";
+import { ArrowLeft, Award, Calendar, Check, Edit3, FileText, FolderOpen, GraduationCap, GripVertical, MapPin, Plus, Search, Sparkles, Trash2, Trophy, Upload, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
@@ -11,18 +14,23 @@ import { Label } from "./ui/label";
 import { Badge } from "./ui/badge";
 import { Textarea } from "./ui/textarea";
 
-const DEGREE_TYPES = ["B.Tech", "B.E.", "B.Sc", "B.Com", "B.A.", "M.Tech", "M.E.", "M.Sc", "MBA", "M.Com", "M.A.", "Ph.D.", "Diploma", "Other"];
-
 export function EducationEditorPage() {
   const router = useRouter();
   const [education, setEducation] = useState<Education[]>([]);
   const [editingId, setEditingId] = useState<number | string | null>(null);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const { data: edu, error, isLoading } = useGetEducationsQuery();
+  const { data: degreeNames = [] } = useGetDegreeNamesQuery();
+  const { data: fieldsOfStudy = [] } = useGetFieldsOfStudyQuery();
   const [createEducation, { isLoading: isCreating, error: createError }] = useCreateEducationMutation();
   const [updateEducation, { isLoading: isUpdating, error: updateError }] = useUpdateEducationMutation();
   const [deleteEducation, { isLoading: isDeleting, error: deleteError }] = useDeleteEducationMutation();
   const [updateEducationsPosition, { isLoading: isUpdatingPosition, error: updatePositionError }] = useUpdateEducationsPositionMutation();
+
+  const [degreeSearch, setDegreeSearch] = useState("");
+  const [showDegreeDropdown, setShowDegreeDropdown] = useState(false);
+  const [fieldSearch, setFieldSearch] = useState("");
+  const [showFieldDropdown, setShowFieldDropdown] = useState(false);
 
   const [educations, setEducations] = useState<Education[]>(edu || []);
 
@@ -32,37 +40,45 @@ export function EducationEditorPage() {
     }
   }, [edu]);
 
-  const [formData, setFormData] = useState<Partial<Education>>({
-    degree: "",
+  const filteredDegrees = useMemo(
+    () => degreeNames.filter((d) => (d.name ?? "").toLowerCase().includes(degreeSearch.toLowerCase()) || (d.abbreviation ?? "").toLowerCase().includes(degreeSearch.toLowerCase())),
+    [degreeNames, degreeSearch]
+  );
+
+  const filteredFields = useMemo(
+    () => fieldsOfStudy.filter((f) => (f.name ?? "").toLowerCase().includes(fieldSearch.toLowerCase())),
+    [fieldsOfStudy, fieldSearch]
+  );
+
+  const emptyForm: Partial<Education> = {
+    degree: undefined,
     institution: "",
     location: "",
     start_year: null,
     end_year: null,
-    field_of_study: "",
+    field_of_study: undefined,
     grade: "",
-    achievements: [""],
+    achievements: [],
     projects: [],
-    // certifications: [],
-  });
+  };
+
+  const [formData, setFormData] = useState<Partial<Education>>(emptyForm);
 
   const handleAddNew = () => {
     setEditingId("new");
-    setFormData({
-      degree: "",
-      institution: "",
-      location: "",
-      start_year: null,
-      end_year: null,
-      field_of_study: "",
-      grade: "",
-      achievements: [""],
-      projects: [],
-      // certifications: [],
-    });
+    setDegreeSearch("");
+    setFieldSearch("");
+    setShowDegreeDropdown(false);
+    setShowFieldDropdown(false);
+    setFormData(emptyForm);
   };
 
   const handleEdit = (edu: Education) => {
     setEditingId(edu.id.toString());
+    setDegreeSearch("");
+    setFieldSearch("");
+    setShowDegreeDropdown(false);
+    setShowFieldDropdown(false);
     setFormData(edu);
   };
 
@@ -87,7 +103,6 @@ export function EducationEditorPage() {
       grade: formData.grade!,
       achievements: formData.achievements!.filter((a) => a.title.trim() !== ""),
       projects: formData.projects!.filter((p) => p.title.trim() !== ""),
-      // certifications: formData.certifications || [],
     };
 
     if (editingId !== "new") newEducation.id = Number(editingId);
@@ -120,67 +135,48 @@ export function EducationEditorPage() {
 
   const handleCancel = () => {
     setEditingId(null);
+    setFormData(emptyForm);
+  };
+
+  const handleAddAchievement = () => {
     setFormData({
-      degree: "",
-      institution: "",
-      location: "",
-      start_year: null,
-      end_year: null,
-      field_of_study: "",
-      grade: "",
-      achievements: [],
-      projects: [],
-      // certifications: [],
+      ...formData,
+      achievements: [...(formData.achievements || []), { title: "" }],
     });
   };
 
-const handleAddAchievement = () => {
-  setFormData({
-    ...formData,
-    achievements: [...(formData.achievements || []), { title: "" }],
-  });
-};
-
-const handleRemoveAchievement = (index: number) => {
-  setFormData({
-    ...formData,
-    achievements: formData.achievements!.filter((_, i) => i !== index),
-  });
-};
-
-const handleAchievementChange = (index: number, value: string) => {
-  const newAchievements = [...formData.achievements!];
-  newAchievements[index] = {
-    ...newAchievements[index],
-    title: value,
+  const handleRemoveAchievement = (index: number) => {
+    setFormData({
+      ...formData,
+      achievements: formData.achievements!.filter((_, i) => i !== index),
+    });
   };
 
-  setFormData({ ...formData, achievements: newAchievements });
-};
-
-const handleAddProject = () => {
-  setFormData({
-    ...formData,
-    projects: [...(formData.projects || []), { title: "" }],
-  });
-};
-
-const handleRemoveProject = (index: number) => {
-  setFormData({
-    ...formData,
-    projects: formData.projects!.filter((_, i) => i !== index),
-  });
-};
-
-const handleProjectChange = (index: number, value: string) => {
-  const newProjects = [...formData.projects!];
-  newProjects[index] = {
-    ...newProjects[index],
-    title: value,
+  const handleAchievementChange = (index: number, value: string) => {
+    const newAchievements = [...formData.achievements!];
+    newAchievements[index] = { ...newAchievements[index], title: value };
+    setFormData({ ...formData, achievements: newAchievements });
   };
 
-  setFormData({ ...formData, projects: newProjects });
-};
+  const handleAddProject = () => {
+    setFormData({
+      ...formData,
+      projects: [...(formData.projects || []), { title: "" }],
+    });
+  };
+
+  const handleRemoveProject = (index: number) => {
+    setFormData({
+      ...formData,
+      projects: formData.projects!.filter((_, i) => i !== index),
+    });
+  };
+
+  const handleProjectChange = (index: number, value: string) => {
+    const newProjects = [...formData.projects!];
+    newProjects[index] = { ...newProjects[index], title: value };
+    setFormData({ ...formData, projects: newProjects });
+  };
 
   const handleGetAchievementSuggestions = () => {};
 
@@ -203,7 +199,6 @@ const handleProjectChange = (index: number, value: string) => {
 
   const handleDragEnd = () => {
     setDraggedIndex(null);
-    // Update the position field for each education based on its index (starting from 1)
     const updatedEducations = educations.map((exp, idx) => ({
       ...exp,
       position: (idx + 1).toString(),
@@ -281,7 +276,7 @@ const handleProjectChange = (index: number, value: string) => {
                       <div className="flex items-start justify-between gap-4 mb-3">
                         <div>
                           <h3 className="font-bold text-white text-lg">
-                            {edu.degree} in {edu.field_of_study}
+                            {edu.degree?.abbreviation} in {edu.field_of_study?.name}
                           </h3>
                           <p className="text-neon-purple">{edu.institution}</p>
                           <div className="flex flex-wrap gap-3 mt-2 text-sm text-muted-foreground">
@@ -381,34 +376,55 @@ const handleProjectChange = (index: number, value: string) => {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Degree Type */}
-                <div className="space-y-2">
+                {/* Degree Search-Select */}
+                <div className="space-y-2 relative">
                   <Label htmlFor="degree" className="text-white">
                     Degree Type <span className="text-destructive">*</span>
                   </Label>
-                  {/* <select
-                    id="degree"
-                    value={formData.degree}
-                    onChange={(e) => setFormData({ ...formData, degree: e.target.value })}
-                    className="w-full glass border border-glass-border rounded-lg px-3 py-2 focus:border-neon-purple focus:outline-none bg-transparent text-white"
-                  >
-                    <option value="" className="bg-gray-900">
-                      Select degree type
-                    </option>
-                    {DEGREE_TYPES.map((type) => (
-                      <option key={type} value={type} className="bg-gray-900">
-                        {type}
-                      </option>
-                    ))}
-                  </select> */}
-
-                  <Input
-                    id="degree"
-                    value={formData.degree}
-                    onChange={(e) => setFormData({ ...formData, degree: e.target.value })}
-                    placeholder="e.g., B.Tech"
-                    className="glass border-glass-border focus:border-neon-purple"
-                  />
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                    <Input
+                      id="degree"
+                      value={formData.degree ? `${formData.degree.abbreviation} — ${formData.degree.name}` : degreeSearch}
+                      onChange={(e) => {
+                        if (formData.degree) setFormData({ ...formData, degree: undefined });
+                        setDegreeSearch(e.target.value);
+                        setShowDegreeDropdown(true);
+                      }}
+                      onFocus={() => setShowDegreeDropdown(true)}
+                      onBlur={() => setTimeout(() => setShowDegreeDropdown(false), 150)}
+                      placeholder="Search degree..."
+                      className="glass border-glass-border focus:border-neon-purple pl-9 pr-8"
+                    />
+                    {formData.degree && (
+                      <button
+                        type="button"
+                        onMouseDown={() => { setFormData({ ...formData, degree: undefined }); setDegreeSearch(""); }}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-white"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                  {showDegreeDropdown && !formData.degree && filteredDegrees.length > 0 && (
+                    <div className="absolute z-50 w-full bg-gray-900 border border-glass-border rounded-lg overflow-hidden shadow-xl max-h-52 overflow-y-auto">
+                      {filteredDegrees.map((d: DegreeName) => (
+                        <button
+                          key={d.id}
+                          type="button"
+                          className="w-full px-4 py-2.5 text-left text-sm text-white hover:bg-neon-purple/10 flex items-center gap-3"
+                          onMouseDown={() => {
+                            setFormData({ ...formData, degree: d });
+                            setDegreeSearch("");
+                            setShowDegreeDropdown(false);
+                          }}
+                        >
+                          <span className="text-neon-purple font-medium w-16 flex-shrink-0">{d.abbreviation}</span>
+                          <span className="text-muted-foreground">{d.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* Institution */}
@@ -439,18 +455,54 @@ const handleProjectChange = (index: number, value: string) => {
                   />
                 </div>
 
-                {/* Major/Specialization */}
-                <div className="space-y-2">
+                {/* Field of Study Search-Select */}
+                <div className="space-y-2 relative">
                   <Label htmlFor="field_of_study" className="text-white">
                     Major / Specialization <span className="text-destructive">*</span>
                   </Label>
-                  <Input
-                    id="field_of_study"
-                    value={formData.field_of_study}
-                    onChange={(e) => setFormData({ ...formData, field_of_study: e.target.value })}
-                    placeholder="e.g., Computer Science"
-                    className="glass border-glass-border focus:border-neon-purple"
-                  />
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                    <Input
+                      id="field_of_study"
+                      value={formData.field_of_study ? formData.field_of_study.name : fieldSearch}
+                      onChange={(e) => {
+                        if (formData.field_of_study) setFormData({ ...formData, field_of_study: undefined });
+                        setFieldSearch(e.target.value);
+                        setShowFieldDropdown(true);
+                      }}
+                      onFocus={() => setShowFieldDropdown(true)}
+                      onBlur={() => setTimeout(() => setShowFieldDropdown(false), 150)}
+                      placeholder="Search field of study..."
+                      className="glass border-glass-border focus:border-neon-purple pl-9 pr-8"
+                    />
+                    {formData.field_of_study && (
+                      <button
+                        type="button"
+                        onMouseDown={() => { setFormData({ ...formData, field_of_study: undefined }); setFieldSearch(""); }}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-white"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                  {showFieldDropdown && !formData.field_of_study && filteredFields.length > 0 && (
+                    <div className="absolute z-50 w-full bg-gray-900 border border-glass-border rounded-lg overflow-hidden shadow-xl max-h-52 overflow-y-auto">
+                      {filteredFields.map((f: FieldOfStudy) => (
+                        <button
+                          key={f.id}
+                          type="button"
+                          className="w-full px-4 py-2.5 text-left text-sm text-white hover:bg-neon-purple/10"
+                          onMouseDown={() => {
+                            setFormData({ ...formData, field_of_study: f });
+                            setFieldSearch("");
+                            setShowFieldDropdown(false);
+                          }}
+                        >
+                          {f.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* Start Year */}
@@ -522,59 +574,14 @@ const handleProjectChange = (index: number, value: string) => {
                           rows={2}
                           className="glass border-glass-border focus:border-neon-purple"
                         />
-                        <div className="flex flex-col gap-2">
-                          <Button onClick={() => handleRemoveAchievement(index)} variant="ghost" size="icon" className="glass hover:glass-strong text-destructive flex-shrink-0">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                          {/* <Button onClick={() => handleAIEnhanceAchievement(index)} variant="ghost" size="icon" className="glass hover:glass-strong text-neon-pink flex-shrink-0" disabled={aiLoading}>
-                            {aiLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                          </Button> */}
-                        </div>
+                        <Button onClick={() => handleRemoveAchievement(index)} variant="ghost" size="icon" className="glass hover:glass-strong text-destructive flex-shrink-0">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
-
-              {/* AI Achievement Suggestions Panel */}
-              {/* {showAchievementSuggestions && (
-                <Card className="glass border-neon-pink/30 p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <Sparkles className="h-4 w-4 text-neon-pink" />
-                      <span className="font-medium text-white">Achievement Ideas</span>
-                    </div>
-                    <Button onClick={() => setShowAchievementSuggestions(false)} variant="ghost" size="sm" className="h-6 w-6 p-0">
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  <p className="text-xs text-muted-foreground mb-3">Click on any suggestion to add it to your achievements</p>
-                  <div className="space-y-2">
-                    {ACHIEVEMENT_SUGGESTIONS.map((suggestion, idx) => (
-                      <div
-                        key={idx}
-                        onClick={() => {
-                          const achievements = [...formData.achievements!];
-                          const emptyIndex = achievements.findIndex((a) => a === "");
-                          if (emptyIndex !== -1) {
-                            achievements[emptyIndex] = suggestion;
-                          } else {
-                            achievements.push(suggestion);
-                          }
-                          setFormData({ ...formData, achievements });
-                          toast.success("Achievement suggestion added!");
-                        }}
-                        className="p-3 glass hover:glass-strong rounded-lg cursor-pointer transition-all hover:border-neon-pink border border-transparent"
-                      >
-                        <p className="text-sm text-muted-foreground flex items-start gap-2">
-                          <Lightbulb className="h-4 w-4 text-neon-yellow mt-0.5 flex-shrink-0" />
-                          {suggestion}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </Card>
-              )} */}
 
               {/* Projects */}
               <div className="space-y-3">
