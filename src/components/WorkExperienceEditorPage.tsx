@@ -714,7 +714,7 @@ export function WorkExperienceEditorPage() {
                 <div className="flex flex-wrap gap-2 mb-3">
                   {formData.skills?.map((skill) => (
                     <Badge key={skill.id} variant="outline" className="border-neon-purple/30 text-neon-purple cursor-pointer hover:bg-neon-purple/10" onClick={() => handleRemoveSkill(skill.id!)}>
-                      {skill.title}
+                      {skill.skill?.name}
                       <X className="h-3 w-3 ml-1" />
                     </Badge>
                   ))}
@@ -727,7 +727,7 @@ export function WorkExperienceEditorPage() {
                       .map((skill) => (
                         <Badge key={skill.id} variant="outline" className="border-glass-border text-muted-foreground cursor-pointer hover:border-neon-purple hover:text-neon-purple" onClick={() => handleAddSkill(skill)}>
                           <Plus className="h-3 w-3 mr-1" />
-                          {skill.title}
+                          {skill.skill?.name}
                         </Badge>
                       ))}
                   </div>

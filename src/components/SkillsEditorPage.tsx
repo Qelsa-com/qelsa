@@ -1,14 +1,17 @@
+import { useGetSkillCategoriesQuery, useLazyGetSkillsQuery } from "@/features/api/seedApi";
 import { useBulkModifyUserSkillsMutation, useGetUserSkillsQuery, useUpdateUserSkillMutation } from "@/features/api/userSkillsApi";
-import { UserSkill } from "@/types/userSkill";
-import { AlertCircle, ArrowLeft, Award, Briefcase, Check, Code, Lightbulb, Plus, Search, Sparkles, Star, Target, Trash2, Upload, Users, X } from "lucide-react";
+import { Skill, SkillCategory, UserSkill } from "@/types/userSkill";
+import { AlertCircle, ArrowLeft, Award, Briefcase, Check, ChevronDown, Code, Lightbulb, Plus, Search, Sparkles, Star, Target, Trash2, Upload, Users, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "./ui/command";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { Slider } from "./ui/slider";
 
 export interface SkillBadge {
@@ -19,69 +22,12 @@ export interface SkillBadge {
   color: string;
 }
 
-const SKILL_CATEGORIES = [
-  { value: "professional", label: "Professional" },
-  { value: "technical", label: "Technical" },
-  { value: "softskill", label: "Soft Skill" },
-];
-
-const PROFESSIONAL_SKILLS = [
-  "Product Management",
-  "Project Management",
-  "Business Strategy",
-  "Business Development",
-  "Marketing Strategy",
-  "Sales Management",
-  "Operations Management",
-  "Financial Analysis",
-  "Consulting",
-  "Stakeholder Management",
-];
-
-const TECHNICAL_SKILLS = [
-  "Python",
-  "JavaScript",
-  "SQL",
-  "React",
-  "Node.js",
-  "Java",
-  "C++",
-  "Data Analysis",
-  "Machine Learning",
-  "AWS",
-  "Azure",
-  "Docker",
-  "Kubernetes",
-  "Git",
-  "Jira",
-  "Figma",
-  "Adobe XD",
-  "Tableau",
-  "Power BI",
-  "Excel",
-];
-
-const SOFT_SKILLS = [
-  "Leadership",
-  "Communication",
-  "Team Collaboration",
-  "Problem Solving",
-  "Critical Thinking",
-  "Time Management",
-  "Adaptability",
-  "Creativity",
-  "Emotional Intelligence",
-  "Negotiation",
-  "Public Speaking",
-  "Conflict Resolution",
-];
-
 const RECOMMENDED_SKILLS_FOR_PM = [
-  { name: "Agile Methodologies", category: "professional", demand: "High" },
-  { name: "Data-Driven Decision Making", category: "professional", demand: "High" },
-  { name: "User Research", category: "professional", demand: "Medium" },
-  { name: "A/B Testing", category: "technical", demand: "Medium" },
-  { name: "Roadmap Planning", category: "professional", demand: "High" },
+  { name: "Agile Methodologies", category: "Professional", demand: "High" },
+  { name: "Data-Driven Decision Making", category: "Professional", demand: "High" },
+  { name: "User Research", category: "Professional", demand: "Medium" },
+  { name: "A/B Testing", category: "Technical", demand: "Medium" },
+  { name: "Roadmap Planning", category: "Professional", demand: "High" },
 ];
 
 function getExperienceLevelFromProficiency(proficiency: number) {
@@ -101,60 +47,79 @@ function getProficiencyColor(proficiency: number): string {
 export function SkillsEditorPage() {
   const router = useRouter();
   const [skills, setSkills] = useState<UserSkill[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState("professional");
+  const [selectedCategory, setSelectedCategory] = useState<SkillCategory | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [showRecommendations, setShowRecommendations] = useState(false);
   const [showValidation, setShowValidation] = useState(false);
   const [validationIssues, setValidationIssues] = useState<string[]>([]);
   const [showAddSkill, setShowAddSkill] = useState(false);
-  const [newSkillName, setNewSkillName] = useState("");
+
+  // New skill form state
+  const [newSkill, setNewSkill] = useState<Skill | null>(null);
+  const [newCategory, setNewCategory] = useState<SkillCategory | null>(null);
+  const [skillSearchOpen, setSkillSearchOpen] = useState(false);
+  const [skillSearchQuery, setSkillSearchQuery] = useState("");
+  const [categorySearchOpen, setCategorySearchOpen] = useState(false);
+
   const [updateUserSkill, {}] = useUpdateUserSkillMutation();
-
+  const [triggerSearchSkills, { data: skillSearchResults = [] }] = useLazyGetSkillsQuery();
+  const { data: skillCategories = [] } = useGetSkillCategoriesQuery();
   const { data: userSkills, error, isLoading } = useGetUserSkillsQuery();
-  const [bulkModifyUserSkills, { isLoading: isBulkModifying, error: bulkModifyError }] = useBulkModifyUserSkillsMutation();
+  const [bulkModifyUserSkills, { isLoading: isBulkModifying }] = useBulkModifyUserSkillsMutation();
 
-  // Sync skills state with fetched data
+  // Normalise legacy skills that still carry category as a plain string
   useEffect(() => {
-    if (userSkills) {
-      setSkills(userSkills);
+    if (!userSkills) return;
+    if (skillCategories.length === 0) return;
+
+    const normalised = userSkills.map((s) => {
+      if (s.category && typeof s.category === "object") return s;
+      const raw = s.category as unknown as string;
+      const matched = skillCategories.find(
+        (c) => c.name.toLowerCase() === raw?.toLowerCase()
+      );
+      return matched ? { ...s, category: matched } : s;
+    });
+    setSkills(normalised as UserSkill[]);
+  }, [userSkills, skillCategories]);
+
+  // Set the first loaded category as the active filter tab
+  useEffect(() => {
+    if (skillCategories.length > 0 && !selectedCategory) {
+      setSelectedCategory(skillCategories[0]);
     }
-  }, [userSkills]);
+  }, [skillCategories, selectedCategory]);
 
-  const getSkillSuggestions = (category: string): string[] => {
-    switch (category) {
-      case "professional":
-        return PROFESSIONAL_SKILLS;
-      case "technical":
-        return TECHNICAL_SKILLS;
-      case "softskill":
-        return SOFT_SKILLS;
-      default:
-        return [];
-    }
-  };
+  // Debounced skill search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (skillSearchQuery.length >= 1) triggerSearchSkills(skillSearchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [skillSearchQuery, triggerSearchSkills]);
 
-  const handleAddSkill = (skillName: string, category: string) => {
-    const exists = skills.some((skill) => skill.title.toLowerCase() === skillName.toLowerCase());
-
+  const handleAddSkill = (skill: Skill, category: SkillCategory) => {
+    const exists = skills.some((s) => s.skill?.id === skill.id);
     if (exists) {
       toast.error("This skill already exists in your profile");
       return;
     }
 
-    const newSkill: UserSkill = {
-      title: skillName,
+    const newUserSkill: UserSkill = {
+      skill,
       category,
       proficiency: 50,
       experience_level: "Intermediate",
       is_top_skill: false,
-      // badges: [],
-      // hasEvidence: false,
     };
 
-    setSkills([...skills, newSkill]);
-    setNewSkillName("");
+    setSkills([...skills, newUserSkill]);
+    setSelectedCategory(category);
+    setNewSkill(null);
+    setNewCategory(null);
+    setSkillSearchQuery("");
     setShowAddSkill(false);
-    toast.success(`${skillName} added successfully!`);
+    toast.success(`${skill.name} added successfully!`);
   };
 
   const handleDeleteSkill = (skillId: number) => {
@@ -162,15 +127,11 @@ export function SkillsEditorPage() {
     toast.success("Skill removed");
   };
 
-  const handleProficiencyChange = (skillTitle: string, proficiency: number) => {
+  const handleProficiencyChange = (seedSkillId: number, proficiency: number) => {
     setSkills(
       skills.map((skill) =>
-        skill.title === skillTitle
-          ? {
-              ...skill,
-              proficiency,
-              experience_level: getExperienceLevelFromProficiency(proficiency),
-            }
+        skill.skill?.id === seedSkillId
+          ? { ...skill, proficiency, experience_level: getExperienceLevelFromProficiency(proficiency) }
           : skill
       )
     );
@@ -190,17 +151,14 @@ export function SkillsEditorPage() {
 
     setSkills(skills.map((s) => (s.id === skillId ? { ...s, is_top_skill: !s.is_top_skill } : s)));
 
-    await updateUserSkill({
-      id: skillId,
-      data: { is_top_skill: !skill.is_top_skill },
-    }).unwrap();
+    await updateUserSkill({ id: skillId, data: { is_top_skill: !skill.is_top_skill } }).unwrap();
 
     if (!skill.is_top_skill) {
-      toast.success(`${skill.title} added to top skills!`, {
+      toast.success(`${skill.skill?.name} added to top skills!`, {
         description: "This skill will be showcased on your profile",
       });
     } else {
-      toast.info(`${skill.title} removed from top skills`);
+      toast.info(`${skill.skill?.name} removed from top skills`);
     }
   };
 
@@ -208,14 +166,9 @@ export function SkillsEditorPage() {
     const issues: string[] = [];
 
     skills?.forEach((skill) => {
-      // if (skill.proficiency >= 70 && !skill.hasEvidence) {
-      //   issues.push(`${skill.title} - High proficiency (${skill.proficiency}%) but no supporting evidence. Consider adding projects or certifications.`);
-      // }
-
-      if (skill.category === "technical" && skill.proficiency >= 60) {
-        const random = Math.random();
-        if (random > 0.7) {
-          issues.push(`${skill.title} - No recent projects found using this skill. Add supporting evidence or update proficiency.`);
+      if (skill.category?.name.toLowerCase() === "technical" && skill.proficiency >= 60) {
+        if (Math.random() > 0.7) {
+          issues.push(`${skill.skill?.name} - No recent projects found using this skill. Add supporting evidence or update proficiency.`);
         }
       }
     });
@@ -232,8 +185,19 @@ export function SkillsEditorPage() {
 
   const handleAutoAddFromResume = () => {};
 
-  const handleAddRecommendedSkill = (skillName: string, category: string) => {
-    handleAddSkill(skillName, category);
+  const handleAddRecommendedSkill = async (skillName: string, categoryName: string) => {
+    const results = await triggerSearchSkills(skillName).unwrap();
+    const found = results?.find((s) => s.name.toLowerCase() === skillName.toLowerCase()) || results?.[0];
+    if (!found) {
+      toast.error(`Skill "${skillName}" not found in the skill catalog`);
+      return;
+    }
+    const category = skillCategories.find((c) => c.name.toLowerCase() === categoryName.toLowerCase());
+    if (!category) {
+      toast.error(`Category "${categoryName}" not found`);
+      return;
+    }
+    handleAddSkill(found, category);
     toast.info("This skill is in high demand for Product Manager roles");
   };
 
@@ -252,20 +216,10 @@ export function SkillsEditorPage() {
 
   const filteredSkills =
     skills?.filter((skill) => {
-      const matchesCategory = skill.category === selectedCategory;
-      const matchesSearch = skill.title.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesCategory = skill.category?.id === selectedCategory?.id;
+      const matchesSearch = (skill.skill?.name ?? "").toLowerCase().includes(searchQuery.toLowerCase());
       return matchesCategory && matchesSearch;
     }) || [];
-
-  const getSkillStats = () => {
-    // const total = skills?.length || 0;
-    // const withBadges = skills?.filter((s) => s.badges.length > 0).length || 0;
-    // const expert = skills?.filter((s) => s.experience_level === "Expert").length || 0;
-    // const avgProficiency = Math.round(skills?.reduce((sum, s) => sum + s.proficiency, 0) / total || 0);
-    // return { total, withBadges, expert, avgProficiency };
-  };
-
-  const stats = getSkillStats();
 
   return (
     <div className="min-h-screen relative">
@@ -292,7 +246,7 @@ export function SkillsEditorPage() {
                 <h1 className="text-4xl font-bold">
                   <span className="bg-gradient-to-r from-neon-pink to-neon-yellow bg-clip-text text-transparent">Skills & Expertise</span>
                 </h1>
-                <p className="text-muted-foreground mt-1">{/* {stats.total} skills • {stats.expert} expert level • {stats.avgProficiency}% avg proficiency */}</p>
+                <p className="text-muted-foreground mt-1"></p>
               </div>
             </div>
           </div>
@@ -313,7 +267,7 @@ export function SkillsEditorPage() {
               <AlertCircle className="h-4 w-4 mr-2" />
               Validate Skills
             </Button>
-            <Button onClick={() => setShowAddSkill(true)} className="bg-gradient-to-r from-neon-pink to-neon-yellow text-black hover:scale-105 transition-all" size="sm">
+            <Button onClick={() => { setNewCategory(selectedCategory); setShowAddSkill(true); }} className="bg-gradient-to-r from-neon-pink to-neon-yellow text-black hover:scale-105 transition-all" size="sm">
               <Plus className="h-4 w-4 mr-2" />
               Add Skill
             </Button>
@@ -377,7 +331,7 @@ export function SkillsEditorPage() {
           </Card>
         )}
 
-        {/* Add Skill Modal */}
+        {/* Add Skill Panel */}
         {showAddSkill && (
           <Card className="glass border-neon-cyan/30 p-6 mb-6">
             <div className="flex items-center justify-between mb-4">
@@ -388,7 +342,9 @@ export function SkillsEditorPage() {
               <Button
                 onClick={() => {
                   setShowAddSkill(false);
-                  setNewSkillName("");
+                  setNewSkill(null);
+                  setNewCategory(null);
+                  setSkillSearchQuery("");
                 }}
                 variant="ghost"
                 size="sm"
@@ -398,39 +354,105 @@ export function SkillsEditorPage() {
             </div>
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Skill search combobox */}
                 <div>
-                  <Label htmlFor="newSkillName" className="text-white mb-2 block">
-                    Skill Name
-                  </Label>
-                  <Input
-                    id="newSkillName"
-                    value={newSkillName}
-                    onChange={(e) => setNewSkillName(e.target.value)}
-                    placeholder="e.g., Product Strategy"
-                    className="glass border-glass-border focus:border-neon-cyan"
-                  />
+                  <Label className="text-white mb-2 block">Skill Name</Label>
+                  <Popover open={skillSearchOpen} onOpenChange={setSkillSearchOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={skillSearchOpen}
+                        className="w-full justify-between glass border-glass-border focus:border-neon-cyan text-left font-normal"
+                      >
+                        <span className={newSkill ? "text-white" : "text-muted-foreground"}>
+                          {newSkill ? newSkill.name : "Search for a skill..."}
+                        </span>
+                        <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-full p-0" align="start">
+                      <Command>
+                        <CommandInput
+                          placeholder="Type to search skills..."
+                          value={skillSearchQuery}
+                          onValueChange={setSkillSearchQuery}
+                        />
+                        <CommandList>
+                          <CommandEmpty>
+                            {skillSearchQuery.length < 1 ? "Start typing to search..." : "No skills found."}
+                          </CommandEmpty>
+                          <CommandGroup>
+                            {skillSearchResults.map((skill) => (
+                              <CommandItem
+                                key={skill.id}
+                                value={skill.name}
+                                onSelect={() => {
+                                  setNewSkill(skill);
+                                  setSkillSearchOpen(false);
+                                }}
+                              >
+                                {skill.name}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                 </div>
+
+                {/* Category search combobox */}
                 <div>
                   <Label className="text-white mb-2 block">Category</Label>
-                  <select
-                    value={selectedCategory}
-                    onChange={(e) => setSelectedCategory(e.target.value)}
-                    className="w-full glass border border-glass-border rounded-lg px-3 py-2 focus:border-neon-cyan focus:outline-none bg-transparent text-white"
-                  >
-                    {SKILL_CATEGORIES.map((cat) => (
-                      <option key={cat.value} value={cat.value} className="bg-gray-900">
-                        {cat.label}
-                      </option>
-                    ))}
-                  </select>
+                  <Popover open={categorySearchOpen} onOpenChange={setCategorySearchOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={categorySearchOpen}
+                        className="w-full justify-between glass border-glass-border focus:border-neon-cyan text-left font-normal"
+                      >
+                        <span className={newCategory ? "text-white" : "text-muted-foreground"}>
+                          {newCategory ? newCategory.name : "Select a category..."}
+                        </span>
+                        <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-full p-0" align="start">
+                      <Command>
+                        <CommandInput placeholder="Search categories..." />
+                        <CommandList>
+                          <CommandEmpty>No categories found.</CommandEmpty>
+                          <CommandGroup>
+                            {skillCategories.map((cat) => (
+                              <CommandItem
+                                key={cat.id}
+                                value={cat.name}
+                                onSelect={() => {
+                                  setNewCategory(cat);
+                                  setCategorySearchOpen(false);
+                                }}
+                              >
+                                {cat.name}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                 </div>
               </div>
+
               <Button
                 onClick={() => {
-                  if (newSkillName.trim()) {
-                    handleAddSkill(newSkillName, selectedCategory);
+                  if (!newSkill) {
+                    toast.error("Please select a skill");
+                  } else if (!newCategory) {
+                    toast.error("Please select a category");
                   } else {
-                    toast.error("Please enter a skill name");
+                    handleAddSkill(newSkill, newCategory);
                   }
                 }}
                 className="bg-gradient-to-r from-neon-cyan to-neon-purple text-white"
@@ -439,24 +461,6 @@ export function SkillsEditorPage() {
                 <Plus className="h-4 w-4 mr-2" />
                 Add Skill
               </Button>
-
-              <div>
-                <p className="text-xs text-muted-foreground mb-2">Quick add:</p>
-                <div className="flex flex-wrap gap-2">
-                  {getSkillSuggestions(selectedCategory)
-                    .slice(0, 8)
-                    .map((suggestion) => (
-                      <Badge
-                        key={suggestion}
-                        variant="outline"
-                        className="border-neon-cyan/30 text-neon-cyan cursor-pointer hover:bg-neon-cyan/10"
-                        onClick={() => handleAddSkill(suggestion, selectedCategory)}
-                      >
-                        {suggestion}
-                      </Badge>
-                    ))}
-                </div>
-              </div>
             </div>
           </Card>
         )}
@@ -469,20 +473,20 @@ export function SkillsEditorPage() {
               <Input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search skills..." className="glass border-glass-border focus:border-neon-cyan pl-10" />
             </div>
             <div className="flex gap-2 flex-wrap">
-              {SKILL_CATEGORIES.map((category) => (
+              {skillCategories.map((category) => (
                 <Button
-                  key={category.value}
-                  onClick={() => setSelectedCategory(category.value)}
-                  variant={selectedCategory === category.value ? "default" : "outline"}
+                  key={category.id}
+                  onClick={() => setSelectedCategory(category)}
+                  variant={selectedCategory?.id === category.id ? "default" : "outline"}
                   size="sm"
-                  className={selectedCategory === category.value ? "bg-gradient-to-r from-neon-pink to-neon-yellow text-black" : "glass hover:glass-strong border-glass-border"}
+                  className={selectedCategory?.id === category.id ? "bg-gradient-to-r from-neon-pink to-neon-yellow text-black" : "glass hover:glass-strong border-glass-border"}
                 >
-                  {category.value === "professional" && <Briefcase className="h-4 w-4 mr-2" />}
-                  {category.value === "technical" && <Code className="h-4 w-4 mr-2" />}
-                  {category.value === "softskill" && <Users className="h-4 w-4 mr-2" />}
-                  {category.value.charAt(0).toUpperCase() + category.value.slice(1)}
+                  {category.name.toLowerCase().includes("professional") && <Briefcase className="h-4 w-4 mr-2" />}
+                  {category.name.toLowerCase().includes("technical") && <Code className="h-4 w-4 mr-2" />}
+                  {(category.name.toLowerCase().includes("soft") || category.name.toLowerCase().includes("skill")) && <Users className="h-4 w-4 mr-2" />}
+                  {category.name}
                   <Badge variant="outline" className="ml-2 border-glass-border text-xs">
-                    {skills?.filter((s) => s.category === category.value).length}
+                    {skills?.filter((s) => s.category?.id === category.id).length}
                   </Badge>
                 </Button>
               ))}
@@ -495,42 +499,25 @@ export function SkillsEditorPage() {
           {filteredSkills?.length === 0 ? (
             <Card className="glass p-12 text-center">
               <Target className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-              <p className="text-lg text-muted-foreground">No {selectedCategory.toLowerCase()} skills found. Add your first skill to get started!</p>
+              <p className="text-lg text-muted-foreground">
+                No {selectedCategory?.name.toLowerCase() ?? ""} skills found. Add your first skill to get started!
+              </p>
             </Card>
           ) : (
             filteredSkills?.map((skill) => (
-              <Card key={skill.title} className="glass hover:glass-strong p-6 rounded-xl border border-glass-border transition-all">
+              <Card key={skill.skill?.id ?? skill.id} className="glass hover:glass-strong p-6 rounded-xl border border-glass-border transition-all">
                 <div className="space-y-4">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2 flex-wrap">
-                        <h3 className="font-bold text-white text-lg">{skill.title}</h3>
-                        {/* <Badge variant="outline" className={`${getProficiencyColor(skill.proficiency)} border-current`}>
-                          {skill.experienceLevel}
-                        </Badge> */}
+                        <h3 className="font-bold text-white text-lg">{skill.skill?.name}</h3>
                         {skill.is_top_skill && (
                           <Badge variant="outline" className="border-neon-yellow/30 text-neon-yellow text-xs">
                             <Star className="h-3 w-3 mr-1 fill-neon-yellow" />
                             Top Skill
                           </Badge>
                         )}
-                        {/* {!skill.hasEvidence && skill.proficiency >= 70 && (
-                          <Badge variant="outline" className="border-neon-pink/30 text-neon-pink text-xs">
-                            <AlertCircle className="h-3 w-3 mr-1" />
-                            Needs Evidence
-                          </Badge>
-                        )} */}
                       </div>
-                      {/* {skill.badges.length > 0 && (
-                        <div className="flex flex-wrap gap-2 mb-2">
-                          {skill.badges.map((badge) => (
-                            <Badge key={badge.id} variant="outline" className={`${badge.color} border-current text-xs`}>
-                              <Crown className="h-3 w-3 mr-1" />
-                              {badge.name}
-                            </Badge>
-                          ))}
-                        </div>
-                      )} */}
                     </div>
                     <div className="flex gap-2 flex-shrink-0">
                       <Button
@@ -553,7 +540,13 @@ export function SkillsEditorPage() {
                       <Label className="text-sm text-muted-foreground">Proficiency: {skill.proficiency}%</Label>
                       <span className={`text-sm font-medium ${getProficiencyColor(skill.proficiency)}`}>{getExperienceLevelFromProficiency(skill.proficiency)}</span>
                     </div>
-                    <Slider value={[skill.proficiency]} onValueChange={(value) => handleProficiencyChange(skill.title, value[0])} max={100} step={5} className="w-full" />
+                    <Slider
+                      value={[skill.proficiency]}
+                      onValueChange={(value) => skill.skill?.id && handleProficiencyChange(skill.skill.id, value[0])}
+                      max={100}
+                      step={5}
+                      className="w-full"
+                    />
                     <div className="flex justify-between text-xs text-muted-foreground">
                       <span>Beginner</span>
                       <span>Intermediate</span>

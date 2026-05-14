@@ -36,12 +36,14 @@ export function SkillsViewPage() {
   const expertSkills = skills.filter((s) => s.experience_level === "Expert").length;
   const advancedSkills = skills.filter((s) => s.experience_level === "Advanced").length;
 
-  // Group skills by category
-  const skillsByCategory = {
-    Professional: skills.filter((s) => s.category === "professional"),
-    Technical: skills.filter((s) => s.category === "technical"),
-    "Soft Skills": skills.filter((s) => s.category === "softskill"),
-  };
+  // Group skills dynamically by their category object
+  const skillsByCategoryMap = skills.reduce((map, s) => {
+    if (!s.category) return map;
+    const key = s.category.id;
+    if (!map.has(key)) map.set(key, { name: s.category.name, skills: [] });
+    map.get(key)!.skills.push(s);
+    return map;
+  }, new Map<number, { name: string; skills: typeof skills }>());
 
   return (
     <div className="min-h-screen relative">
@@ -167,7 +169,7 @@ export function SkillsViewPage() {
                   <div key={skill.id} className="p-6 glass-strong rounded-xl border border-neon-yellow/20 hover:border-neon-yellow/40 transition-all duration-300">
                     <div className="flex justify-between items-start mb-3">
                       <div>
-                        <h3 className="font-semibold text-white text-lg mb-1">{skill.title}</h3>
+                        <h3 className="font-semibold text-white text-lg mb-1">{skill.skill?.name}</h3>
                       </div>
                       <Star className="h-5 w-5 text-neon-yellow fill-neon-yellow flex-shrink-0" />
                     </div>
@@ -193,16 +195,15 @@ export function SkillsViewPage() {
 
         {/* All Skills by Category */}
         <div className="space-y-6">
-          {Object.entries(skillsByCategory).map(([category, categorySkills]) => {
-            // Separate top skills and non-top skills
+          {Array.from(skillsByCategoryMap.entries()).map(([catId, { name: categoryName, skills: categorySkills }]) => {
             const nonTopSkills = categorySkills.filter((s) => !s.is_top_skill);
 
             if (nonTopSkills.length === 0) return null;
 
             return (
-              <Card key={category} className="glass p-8 rounded-2xl border border-glass-border">
+              <Card key={catId} className="glass p-8 rounded-2xl border border-glass-border">
                 <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-2xl font-bold text-white">{category}</h2>
+                  <h2 className="text-2xl font-bold text-white">{categoryName}</h2>
                   <Badge className="bg-glass-bg text-white border-glass-border">
                     {nonTopSkills.length} {nonTopSkills.length === 1 ? "skill" : "skills"}
                   </Badge>
@@ -212,7 +213,7 @@ export function SkillsViewPage() {
                   {nonTopSkills.map((skill) => (
                     <div key={skill.id} className="p-4 glass-strong rounded-xl border border-glass-border hover:border-neon-cyan/30 transition-all duration-300">
                       <div className="flex justify-between items-start mb-2">
-                        <h3 className="font-medium text-white">{skill.title}</h3>
+                        <h3 className="font-medium text-white">{skill.skill?.name}</h3>
                       </div>
                       <Badge
                         variant="outline"

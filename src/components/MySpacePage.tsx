@@ -447,7 +447,7 @@ export function MySpacePage({}: MySpacePageProps) {
                 {userSkills.map((userSkill) => (
                   <div key={userSkill.id}>
                     <div className="flex justify-between text-sm mb-2">
-                      <span className="text-foreground">{userSkill.title}</span>
+                      <span className="text-foreground">{userSkill.skill?.name}</span>
                       <span className="font-medium text-neon-cyan">{userSkill.proficiency}%</span>
                     </div>
                     <Progress value={userSkill.proficiency} className="h-2 bg-glass-bg" />
@@ -703,7 +703,7 @@ export function MySpacePage({}: MySpacePageProps) {
                       .map((skill) => (
                         <div key={skill.id} className="p-4 glass-strong rounded-xl border border-neon-yellow/20">
                           <div className="flex justify-between items-start mb-2">
-                            <span className="font-medium text-white">{skill.title}</span>
+                            <span className="font-medium text-white">{skill.skill?.name}</span>
                             <Star className="h-4 w-4 text-neon-yellow fill-neon-yellow flex-shrink-0" />
                           </div>
                           <div className="flex items-center gap-2">
@@ -736,21 +736,28 @@ export function MySpacePage({}: MySpacePageProps) {
 
               {/* All Skills by Category - Limited to 3 per category, excluding top skills */}
               <div className="space-y-4">
-                {["professional", "technical", "softskill"].map((category) => {
-                  // Filter out top skills from category sections
-                  const categorySkills = userSkills?.filter((skill) => skill.category === category && !skill.is_top_skill).slice(0, 3); // Show only 3 skills per category
-
-                  if (categorySkills?.length === 0) return null;
-
+                {Array.from(
+                  (userSkills ?? [])
+                    .filter((s) => !s.is_top_skill && s.category)
+                    .reduce((map, skill) => {
+                      const key = skill.category.id;
+                      if (!map.has(key)) map.set(key, { name: skill.category.name, skills: [] });
+                      map.get(key)!.skills.push(skill);
+                      return map;
+                    }, new Map<number, { name: string; skills: typeof userSkills }>())
+                    .entries()
+                ).map(([catId, { name: categoryName, skills: categorySkills }], idx, arr) => {
+                  const limited = categorySkills!.slice(0, 3);
+                  if (limited.length === 0) return null;
                   return (
-                    <div key={category}>
-                      <h4 className="font-medium text-white mb-3">{category}</h4>
+                    <div key={catId}>
+                      <h4 className="font-medium text-white mb-3">{categoryName}</h4>
                       <div className="space-y-3">
-                        {categorySkills?.map((skill) => (
+                        {limited.map((skill) => (
                           <div key={skill.id}>
                             <div className="flex justify-between text-sm">
                               <div className="flex items-center gap-2">
-                                <span className="text-foreground">{skill.title}</span>
+                                <span className="text-foreground">{skill.skill?.name}</span>
                               </div>
                               <span
                                 className={`font-medium ${
@@ -769,7 +776,7 @@ export function MySpacePage({}: MySpacePageProps) {
                           </div>
                         ))}
                       </div>
-                      {category !== "Soft Skills" && <Separator className="mt-4 bg-glass-border" />}
+                      {idx < arr.length - 1 && <Separator className="mt-4 bg-glass-border" />}
                     </div>
                   );
                 })}
