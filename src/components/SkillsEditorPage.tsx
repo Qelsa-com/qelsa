@@ -202,7 +202,16 @@ export function SkillsEditorPage() {
   };
 
   const handleSaveAll = () => {
-    bulkModifyUserSkills(skills)
+    const payload = skills.map((s) => ({
+      ...(s.id !== undefined && { id: s.id }),
+      skill: { id: s.skill.id, name: s.skill.name },
+      category: s.category ? { id: s.category.id, name: s.category.name } : null,
+      proficiency: s.proficiency,
+      ...(s.experience_level && { experience_level: s.experience_level }),
+      is_top_skill: s.is_top_skill,
+    }));
+
+    bulkModifyUserSkills(payload as UserSkill[])
       .unwrap()
       .then(() => {
         toast.success("Skills entry saved");

@@ -11,7 +11,7 @@ export type SkillCategory = {
 export type UserSkill = {
   id?: number;
   skill: Skill;
-  category: SkillCategory;
+  category: SkillCategory | null;
   proficiency: number;
   experience_level?: string;
   is_top_skill: boolean;
