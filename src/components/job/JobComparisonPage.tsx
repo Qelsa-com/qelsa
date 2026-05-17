@@ -231,7 +231,7 @@ export function JobComparisonPage({ jobs, onBack, onRemoveJob }: JobComparisonPa
                         ) : <Briefcase className="w-6 h-6 text-muted-foreground" />}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h3 className="text-white mb-1 line-clamp-2">{job.title}</h3>
+                        <h3 className="text-white mb-1 line-clamp-2">{job.job_title?.name ?? job.title}</h3>
                         <p className="text-sm text-muted-foreground">{job.company_name || job.page?.name}</p>
                         <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-xs mt-2 ${getSourceColor(job.resource)}`}>
                           <ExternalLink className="w-3 h-3" />

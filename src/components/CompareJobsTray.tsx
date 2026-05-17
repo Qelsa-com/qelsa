@@ -72,7 +72,7 @@ export function CompareJobsTray({ jobs, onRemoveJob, onCompare, onClear }: Compa
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-white line-clamp-1">{job.title}</p>
+                    <p className="text-sm text-white line-clamp-1">{job.job_title?.name ?? job.title}</p>
                     <p className="text-xs text-muted-foreground line-clamp-1">{job.company_name || job.page?.name}</p>
                     <div className={`text-xs mt-1 ${getSourceColor(job.resource)}`}>
                       {job.resource}

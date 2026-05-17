@@ -15,13 +15,13 @@ export function JobCardAIActions({ job, onAskAI }: JobCardAIActionsProps) {
     {
       label: "Analyze Fit",
       icon: Target,
-      question: `What's my Qelsa Score for ${job.title} at ${job.company_name}?`,
+      question: `What's my Qelsa Score for ${job.job_title?.name ?? job.title} at ${job.company?.name ?? job.company_name}?`,
       color: "text-neon-cyan",
     },
     {
       label: "Skill Gaps",
       icon: Sparkles,
-      question: `What skills am I missing for ${job.title}?`,
+      question: `What skills am I missing for ${job.job_title?.name ?? job.title}?`,
       color: "text-neon-purple",
     },
     {
@@ -33,7 +33,7 @@ export function JobCardAIActions({ job, onAskAI }: JobCardAIActionsProps) {
     {
       label: "Career Path",
       icon: TrendingUp,
-      question: `Show me career path for ${job.title}`,
+      question: `Show me career path for ${job.job_title?.name ?? job.title}`,
       color: "text-neon-green",
     },
   ];
@@ -85,7 +85,7 @@ export function JobCardAIActions({ job, onAskAI }: JobCardAIActionsProps) {
         <div
           onClick={(e) => {
             e.stopPropagation();
-            onAskAI(`Show me detailed Qelsa Score for ${job.title}`, String(job.id));
+            onAskAI(`Show me detailed Qelsa Score for ${job.job_title?.name ?? job.title}`, String(job.id));
           }}
           className="flex items-center justify-between p-2 rounded-lg glass border-glass-border hover:glass-strong cursor-pointer transition-all duration-300 group"
         >

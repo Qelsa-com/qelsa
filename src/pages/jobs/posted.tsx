@@ -38,7 +38,7 @@ export default function Posted() {
   const [editJob] = useEditJobMutation();
 
   const filteredJobs = postedJobs.filter((job) => {
-    const matchesSearch = job.title.toLowerCase().includes(searchQuery.toLowerCase()) || job.job_skills.some((skill) => skill.title.toLowerCase().includes(searchQuery.toLowerCase()));
+    const matchesSearch = (job.job_title?.name ?? job.title).toLowerCase().includes(searchQuery.toLowerCase()) || job.job_skills.some((skill) => (skill.skill?.name ?? skill.title).toLowerCase().includes(searchQuery.toLowerCase()));
     const matchesStatus = job.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -198,7 +198,7 @@ export default function Posted() {
                     <div className="flex-1 space-y-4">
                       <div>
                         <div className="flex items-center gap-3 mb-2">
-                          <h3 className="text-xl font-semibold group-hover:text-neon-cyan transition-colors">{job.title}</h3>
+                          <h3 className="text-xl font-semibold group-hover:text-neon-cyan transition-colors">{job.job_title?.name ?? job.title}</h3>
                           <Badge variant="outline" className={getStatusColor(job.status)}>
                             {job.status?.charAt(0).toUpperCase() + job.status?.slice(1)}
                           </Badge>
@@ -224,7 +224,7 @@ export default function Posted() {
                       <div className="flex flex-wrap gap-2">
                         {job.job_skills?.map((skill, index) => (
                           <Badge key={index} variant="secondary" className="bg-white/5 hover:bg-white/10 border-white/10">
-                            {skill.title}
+                            {skill.skill?.name ?? skill.title}
                           </Badge>
                         ))}
                       </div>

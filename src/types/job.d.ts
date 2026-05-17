@@ -24,6 +24,7 @@ export type Job = {
   workplace_type?: "on-site" | "remote" | "hybrid" | null;
   page_id?: number | null;
   resource?: string | null;
+  job_title?: { id: number; name: string } | null;
 
   // Company fields
   company_name?: string | null;

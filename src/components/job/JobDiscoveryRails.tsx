@@ -241,7 +241,7 @@ function JobRailCard({ job, onToggleCompare, isCompared, onToggleBookmark, is_bo
             {/* eslint-disable-next-line @next/next/no-img-element */}
             {job.company_logo && <img src={job.company_logo} alt={job.company_name || job.page?.name} className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />}
             <div className="flex-1 min-w-0">
-              <h4 className="text-white line-clamp-1 group-hover:text-neon-cyan transition-colors">{job.title}</h4>
+              <h4 className="text-white line-clamp-1 group-hover:text-neon-cyan transition-colors">{job.job_title?.name ?? job.title}</h4>
               <p className="text-sm text-muted-foreground line-clamp-1">{job.company_name || job.page?.name}</p>
             </div>
           </div>
@@ -304,7 +304,7 @@ function JobRailCard({ job, onToggleCompare, isCompared, onToggleBookmark, is_bo
         <div className="flex flex-wrap gap-1.5">
           {job.job_skills.slice(0, 3).map((skill, index) => (
             <Badge key={index} variant="secondary" className="text-xs bg-white/5 hover:bg-white/10 border-white/10">
-              {skill.title}
+              {skill.skill?.name ?? skill.title}
             </Badge>
           ))}
           {job.job_skills.length > 3 && (

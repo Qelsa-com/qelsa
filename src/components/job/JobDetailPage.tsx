@@ -246,7 +246,7 @@ export function JobDetailPage() {
             <div className="flex-1">
               <div className="flex items-start justify-between mb-4">
                 <div>
-                  <h1 className="text-3xl font-bold mb-2 bg-gradient-to-r from-neon-cyan via-neon-purple to-neon-pink bg-clip-text text-transparent">{job.title}</h1>
+                  <h1 className="text-3xl font-bold mb-2 bg-gradient-to-r from-neon-cyan via-neon-purple to-neon-pink bg-clip-text text-transparent">{job.job_title?.name ?? job.title}</h1>
                   <div className="flex items-center gap-3 mb-3">
                     <h2 className="text-xl text-muted-foreground hover:text-neon-cyan hover:underline transition-colors cursor-pointer" onClick={handleCompanyClick}>
                       {job.page?.name || job.company_name}
@@ -586,7 +586,7 @@ export function JobDetailPage() {
                   <div className="flex flex-wrap gap-2">
                     {(job.job_skills || []).map((skill) => (
                       <Badge key={skill.id} variant="secondary" className="text-xs">
-                        {skill.title}
+                        {skill.skill?.name ?? skill.title}
                       </Badge>
                     ))}
                   </div>

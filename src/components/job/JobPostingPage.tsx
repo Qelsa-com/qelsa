@@ -1,4 +1,9 @@
+import { MultiSearchSelect } from "@/components/ui/multi-search-select";
+import { SearchSelect } from "@/components/ui/search-select";
+import { useLazySearchCompaniesQuery } from "@/features/api/companiesApi";
 import { useCreateJobMutation } from "@/features/api/jobsApi";
+import { useLazySearchJobTitlesQuery } from "@/features/api/jobTitlesApi";
+import { useLazyGetSkillsQuery } from "@/features/api/seedApi";
 import { useGetMyPagesQuery } from "@/features/api/pagesApi";
 import { Job } from "@/types/job";
 import { ScreeningQuestion } from "@/types/question";
@@ -50,9 +55,19 @@ export function JobPostingPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isPremium] = useState(false); // Set to true for premium users
   const [showScreeningQuestions, setShowScreeningQuestions] = useState(false);
-  const [skillInput, setSkillInput] = useState("");
-  const [jobData, setJobData] = useState({
-    title: "",
+  const [jobData, setJobData] = useState<{
+    job_title: { id: number; name: string } | null;
+    location: string;
+    work_type: string;
+    workplace_type: string;
+    experience: number;
+    salary: string | null;
+    description: string;
+    skills: { id: number; name: string }[];
+    screening_questions: any[];
+    page_id: number | null;
+  }>({
+    job_title: null,
     // company: "",
     location: "",
     work_type: "full-time",
@@ -60,13 +75,14 @@ export function JobPostingPage() {
     experience: 0,
     salary: null,
     description: "",
-    // responsibilities: [],
-    // requirements: [],
     skills: [],
-    // benefits: [],
     screening_questions: [],
     page_id: null,
   });
+
+  const [searchJobTitles, { data: jobTitleResults = [] }] = useLazySearchJobTitlesQuery();
+  const [searchCompanies, { data: companyResults = [] }] = useLazySearchCompaniesQuery();
+  const [searchSkills, { data: skillResults = [] }] = useLazyGetSkillsQuery();
 
   // AI Insights (mock data)
   const [aiInsights, setAiInsights] = useState({
@@ -85,7 +101,7 @@ export function JobPostingPage() {
     conversionRate: 0,
   });
 
-  const handleAIGenerate = () => {};
+  const handleAIGenerate = () => { };
 
   const handleManualUpdate = (field: keyof Job, value: any) => {
     setJobData((prev) => ({ ...prev, [field]: value }));
@@ -142,13 +158,13 @@ export function JobPostingPage() {
 
     return {
       job: {
-        title: formData.title,
+        job_title: formData.job_title,
+        company: formData.company,
         description: formData.description,
         location: formData.location,
         work_type: formData.work_type,
         salary: formData.salary,
         experience: formData.experience,
-        company_name: formData.company_name,
         resource: "qelsa",
         page_id: formData.page_id,
       },
@@ -179,30 +195,6 @@ export function JobPostingPage() {
     console.log("Saving draft:", jobData);
   };
 
-  const handleAddSkill = () => {
-    const trimmedSkill = skillInput.trim();
-    if (trimmedSkill && !jobData.skills?.includes(trimmedSkill)) {
-      setJobData((prev) => ({
-        ...prev,
-        skills: [...(prev.skills || []), trimmedSkill],
-      }));
-      setSkillInput("");
-    }
-  };
-
-  const handleRemoveSkill = (skillToRemove: string) => {
-    setJobData((prev) => ({
-      ...prev,
-      skills: (prev.skills || []).filter((skill) => skill !== skillToRemove),
-    }));
-  };
-
-  const handleSkillKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      handleAddSkill();
-    }
-  };
 
   // Published State
   if (step === "published") {
@@ -368,7 +360,7 @@ export function JobPostingPage() {
             <ScreeningQuestionsBuilder
               questions={jobData.screening_questions || []}
               onChange={handleScreeningQuestionsChange}
-              jobTitle={jobData.title}
+              jobTitle={jobData.job_title?.name ?? ""}
               jobDescription={jobData.description}
               isPremium={isPremium}
             />
@@ -422,7 +414,7 @@ export function JobPostingPage() {
               <div className="space-y-3">
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">Position</p>
-                  <p className="font-medium">{jobData.title}</p>
+                  <p className="font-medium">{jobData.job_title?.name}</p>
                 </div>
                 <div className="flex gap-4">
                   <div className="flex-1">
@@ -693,7 +685,7 @@ export function JobPostingPage() {
               </Card>
 
               {/* Preview Generated Content */}
-              {jobData.title && (
+              {jobData.job_title && (
                 <Card className="p-6 glass border-glass-border">
                   <div className="flex items-center justify-between mb-6">
                     <h3 className="font-semibold">Generated Job Description</h3>
@@ -710,8 +702,7 @@ export function JobPostingPage() {
 
                   <div className="space-y-4">
                     <div>
-                      <h4 className="text-xl font-bold">{jobData.title}</h4>
-                      {/* <p className="text-muted-foreground">{jobData.company}</p> */}
+                      <h4 className="text-xl font-bold">{jobData.job_title?.name}</h4>
                     </div>
 
                     <div className="flex flex-wrap gap-2">
@@ -755,9 +746,9 @@ export function JobPostingPage() {
                     <div>
                       <h5 className="font-semibold mb-2">Required Skills</h5>
                       <div className="flex flex-wrap gap-2">
-                        {jobData.skills?.map((skill, idx) => (
-                          <Badge key={idx} variant="secondary" className="text-xs">
-                            {skill}
+                        {jobData.skills?.map((skill) => (
+                          <Badge key={skill.id} variant="secondary" className="text-xs">
+                            {skill.name}
                           </Badge>
                         ))}
                       </div>
@@ -786,7 +777,7 @@ export function JobPostingPage() {
                   <div className="space-y-4">
                     <div>
                       <label className="text-sm font-medium mb-2 block">Job Title</label>
-                      <Input value={jobData.title} onChange={(e) => handleManualUpdate("title", e.target.value)} className="glass border-glass-border" />
+                      <Input value={jobData.job_title?.name ?? ""} readOnly className="glass border-glass-border" />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
@@ -955,8 +946,7 @@ export function JobPostingPage() {
 
               <div className="space-y-4 mb-6">
                 <div>
-                  <h4 className="text-xl font-bold">{jobData.title}</h4>
-                  {/* <p className="text-muted-foreground">{jobData.company}</p> */}
+                  <h4 className="text-xl font-bold">{jobData.job_title?.name}</h4>
                 </div>
 
                 <div className="flex flex-wrap gap-2">
@@ -1050,7 +1040,14 @@ export function JobPostingPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="text-sm font-medium mb-2 block">Job Title *</label>
-                      <Input placeholder="e.g., Senior Backend Engineer" value={jobData.title} onChange={(e) => handleManualUpdate("title", e.target.value)} className="glass border-glass-border" />
+                      <SearchSelect
+                        value={jobData.job_title}
+                        onChange={(val) => setJobData((prev) => ({ ...prev, job_title: val }))}
+                        onSearch={(q) => searchJobTitles(q)}
+                        options={jobTitleResults}
+                        placeholder="Search job title..."
+                        searchPlaceholder="Type to search..."
+                      />
                     </div>
                     <div>
                       <label className="text-sm font-medium mb-2 block">Company *</label>
@@ -1127,43 +1124,14 @@ export function JobPostingPage() {
                   {/* Skills Section */}
                   <div>
                     <label className="text-sm font-medium mb-2 block">Required Skills</label>
-                    <div className="flex gap-2 mb-3">
-                      <Input
-                        placeholder="Add a skill and press Enter..."
-                        value={skillInput}
-                        onChange={(e) => setSkillInput(e.target.value)}
-                        onKeyPress={handleSkillKeyPress}
-                        className="glass border-glass-border flex-1"
-                      />
-                      <Button type="button" onClick={handleAddSkill} disabled={!skillInput.trim()} className="bg-neon-cyan/20 hover:bg-neon-cyan/30 text-neon-cyan border-neon-cyan/30" size="sm">
-                        <Plus className="w-4 h-4 mr-1" />
-                        Add
-                      </Button>
-                    </div>
-
-                    {/* Skills Tags Display */}
-                    {jobData.skills && jobData.skills.length > 0 && (
-                      <div className="flex flex-wrap gap-2">
-                        {jobData.skills.map((skill, index) => (
-                          <Badge
-                            key={index}
-                            className="bg-neon-purple/20 text-neon-purple border border-neon-purple/30 px-3 py-1.5 flex items-center gap-2 group hover:bg-neon-purple/30 transition-all"
-                          >
-                            <span>{skill}</span>
-                            <button type="button" onClick={() => handleRemoveSkill(skill)} className="hover:text-white transition-colors">
-                              <X className="w-3 h-3" />
-                            </button>
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
-
-                    {(!jobData.skills || jobData.skills.length === 0) && (
-                      <p className="text-sm text-muted-foreground flex items-center gap-2">
-                        <Lightbulb className="w-4 h-4" />
-                        Add relevant skills like React, Python, Project Management, etc.
-                      </p>
-                    )}
+                    <MultiSearchSelect
+                      value={jobData.skills}
+                      onChange={(skills) => setJobData((prev) => ({ ...prev, skills }))}
+                      onSearch={(q) => searchSkills(q || undefined)}
+                      options={skillResults}
+                      placeholder="Search and select skills..."
+                      searchPlaceholder="Type to search skills..."
+                    />
                   </div>
                 </div>
 
@@ -1235,7 +1203,7 @@ export function JobPostingPage() {
                       <ScreeningQuestionsBuilder
                         questions={jobData.screening_questions || []}
                         onChange={handleScreeningQuestionsChange}
-                        jobTitle={jobData.title}
+                        jobTitle={jobData.job_title?.name ?? ""}
                         jobDescription={jobData.description}
                         isPremium={isPremium}
                       />
@@ -1248,7 +1216,7 @@ export function JobPostingPage() {
                     <Save className="w-4 h-4 mr-2" />
                     Save Draft
                   </Button>
-                  <Button onClick={handlePublish} disabled={!jobData.title || !jobData.description} className="flex-1 gradient-animated">
+                  <Button onClick={handlePublish} disabled={!jobData.job_title || !jobData.description} className="flex-1 gradient-animated">
                     <Send className="w-4 h-4 mr-2" />
                     Post
                   </Button>

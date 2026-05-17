@@ -77,14 +77,14 @@ const All = () => {
     setComparedJobs((prev) => {
       const exists = prev.find((j) => j.id === job.id);
       if (exists) {
-        toast.success(`Removed ${job.title} from comparison`);
+        toast.success(`Removed ${job.job_title?.name ?? job.title} from comparison`);
         return prev.filter((j) => j.id !== job.id);
       } else {
         if (prev.length >= 4) {
           toast.error("You can only compare up to 4 jobs at a time");
           return prev;
         }
-        toast.success(`Added ${job.title} to comparison`);
+        toast.success(`Added ${job.job_title?.name ?? job.title} to comparison`);
         return [...prev, job];
       }
     });
@@ -181,7 +181,7 @@ const All = () => {
                       <div className="flex items-start gap-3 mb-3">
                         {/* {job.companyLogo && <img src={job.companyLogo} alt={job.page?.name || job.company_name} className="w-10 h-10 rounded-lg object-cover border border-glass-border flex-shrink-0" />} */}
                         <div className="flex-1 min-w-0">
-                          <h4 className="font-medium text-sm line-clamp-2 mb-1 group-hover:text-neon-cyan transition-colors">{job.title}</h4>
+                          <h4 className="font-medium text-sm line-clamp-2 mb-1 group-hover:text-neon-cyan transition-colors">{job.job_title?.name ?? job.title}</h4>
                           <p className="text-xs text-muted-foreground line-clamp-1">{job.page?.name || job.company_name}</p>
                         </div>
                       </div>
@@ -217,7 +217,7 @@ const All = () => {
                 <Card
                   key={job.id}
                   className="glass hover:glass-strong border-glass-border hover:border-neon-cyan/30 transition-all cursor-pointer flex-shrink-0 group"
-                  // onClick={() => handleJobClick(job)}
+                  onClick={() => router.push(`/jobs/${job.id}`)}
                 >
                   <div className="p-5 space-y-4">
                     {/* Header */}
@@ -225,7 +225,7 @@ const All = () => {
                       <div className="flex items-start gap-3 flex-1 min-w-0">
                         {job.companyLogo && <Image src={job.companyLogo} alt={job.company} width={48} height={48} className="rounded-lg object-cover flex-shrink-0" />}
                         <div className="flex-1 min-w-0">
-                          <h4 className="text-white line-clamp-1 group-hover:text-neon-cyan transition-colors">{job.title}</h4>
+                          <h4 className="text-white line-clamp-1 group-hover:text-neon-cyan transition-colors">{job.job_title?.name ?? job.title}</h4>
                           <p className="text-sm text-muted-foreground line-clamp-1">{job.company}</p>
                         </div>
                       </div>
@@ -289,14 +289,14 @@ const All = () => {
 
                     {/* Skills */}
                     <div className="flex flex-wrap gap-1.5">
-                      {job.job_skills.slice(0, 3).map((skill, index) => (
+                      {(job.job_skills ?? []).slice(0, 3).map((skill, index) => (
                         <Badge key={index} variant="secondary" className="text-xs bg-white/5 hover:bg-white/10 border-white/10">
-                          {skill}
+                          {skill.skill?.name ?? skill.title}
                         </Badge>
                       ))}
-                      {job.job_skills.length > 3 && (
+                      {(job.job_skills ?? []).length > 3 && (
                         <Badge variant="secondary" className="text-xs bg-white/5 border-white/10">
-                          +{job.job_skills.length - 3}
+                          +{(job.job_skills ?? []).length - 3}
                         </Badge>
                       )}
                     </div>
