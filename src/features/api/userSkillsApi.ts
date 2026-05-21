@@ -1,5 +1,5 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
-import { UserSkill } from "../../types/userSkill";
+import { Skill, UserSkill } from "../../types/userSkill";
 
 export const userSkillsApi = createApi({
   reducerPath: "userSkillsApi",
@@ -57,7 +57,15 @@ export const userSkillsApi = createApi({
       }),
       invalidatesTags: ["UserSkills"],
     }),
+
+    searchSkills: builder.query<Skill[], string | void>({
+      query: (search) => {
+        const params = search ? `?search=${encodeURIComponent(search)}` : "";
+        return `skills${params}`;
+      },
+      transformResponse: (response: { success: boolean; data: Skill[] }) => response.data,
+    }),
   }),
 });
 
-export const { useGetUserSkillsQuery, useCreateUserSkillMutation, useUpdateUserSkillMutation, useDeleteUserSkillMutation, useBulkModifyUserSkillsMutation } = userSkillsApi;
+export const { useGetUserSkillsQuery, useCreateUserSkillMutation, useUpdateUserSkillMutation, useDeleteUserSkillMutation, useBulkModifyUserSkillsMutation, useLazySearchSkillsQuery } = userSkillsApi;

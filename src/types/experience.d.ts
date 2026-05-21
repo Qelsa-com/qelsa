@@ -2,7 +2,7 @@ import { Company } from "./company";
 import { ImpactMetric } from "./impactMetric";
 import { JobTitle } from "./jobTitle";
 import { Responsibility } from "./responsibility";
-import { UserSkill } from "./userSkill";
+import { Skill } from "./userSkill";
 
 export type Experience = {
   id?: number;
@@ -18,5 +18,5 @@ export type Experience = {
   team_size?: number;
   responsibilities?: Responsibility[];
   impact_metrics?: ImpactMetric[];
-  skills?: UserSkill[];
+  skills?: Skill[];
 };

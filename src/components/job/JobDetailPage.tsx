@@ -14,6 +14,7 @@ import {
   Calendar,
   CheckCircle,
   Clock,
+  DollarSign,
   ExternalLink,
   FileText,
   Globe,
@@ -38,7 +39,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Input } from "../ui/input";
 import { Separator } from "../ui/separator";
 
-export function JobDetailPage() {
+export function   JobDetailPage() {
   const { user } = useAuth();
   const [isApplied, setIsApplied] = useState(false);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
@@ -284,12 +285,12 @@ export function JobDetailPage() {
                   <Clock className="w-4 h-4 text-neon-purple" />
                   <span>{job.experience}</span>
                 </div>
-                {/* {job.salary && (
+                {job.salary && (
                   <div className="flex items-center gap-2 text-sm">
                     <DollarSign className="w-4 h-4 text-neon-green" />
                     <span>{job.salary}</span>
                   </div>
-                )} */}
+                )}
               </div>
 
               <div className="flex items-center justify-between text-sm text-muted-foreground">

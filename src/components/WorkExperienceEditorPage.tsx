@@ -6,7 +6,7 @@ import { Company } from "@/types/company";
 import { Experience } from "@/types/experience";
 import { JobTitle } from "@/types/jobTitle";
 import { ImpactMetric } from "@/types/impactMetric";
-import { UserSkill } from "@/types/userSkill";
+import { UserSkill, Skill } from "@/types/userSkill";
 import { ArrowLeft, Briefcase, Building2, Calendar, Check, Edit3, GripVertical, Loader2, MapPin, Plus, Search, Sparkles, Trash2, TrendingUp, Users, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import React, { useEffect, useState } from "react";
@@ -240,13 +240,13 @@ export function WorkExperienceEditorPage() {
     setFormData({ ...formData, impact_metrics: updated });
   };
 
-  const handleAddSkill = (skill: UserSkill) => {
+  const handleAddSkill = (skill: Skill) => {
     const exists = formData.skills?.some((s) => s.id === skill.id);
-
+    
     if (!exists) {
-      setFormData({
-        ...formData,
-        skills: [...(formData.skills || []), skill], // ✅ full object
+      setFormData({ 
+        ...formData, 
+        skills: [...(formData.skills || []), skill] 
       });
     }
   };
@@ -416,11 +416,11 @@ export function WorkExperienceEditorPage() {
                         </div>
                       )}
 
-                      {exp.skills.length > 0 && (
+                      {exp.skills && exp.skills.length > 0 && (
                         <div className="flex flex-wrap gap-2">
                           {exp.skills.slice(0, 5).map((skill) => (
                             <Badge key={skill.id} variant="outline" className="border-neon-purple/30 text-neon-purple text-xs">
-                              {skill.title}
+                              {skill.name}
                             </Badge>
                           ))}
                           {exp.skills.length > 5 && (
@@ -714,20 +714,20 @@ export function WorkExperienceEditorPage() {
                 <div className="flex flex-wrap gap-2 mb-3">
                   {formData.skills?.map((skill) => (
                     <Badge key={skill.id} variant="outline" className="border-neon-purple/30 text-neon-purple cursor-pointer hover:bg-neon-purple/10" onClick={() => handleRemoveSkill(skill.id!)}>
-                      {skill.skill?.name}
+                      {skill.name}
                       <X className="h-3 w-3 ml-1" />
                     </Badge>
                   ))}
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground mb-2">Click to add:</p>
-                  <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-2">
                     {user_skills
-                      ?.filter((skill) => !formData.skills?.some((s) => s.id === skill.id))
+                      .filter((skill) => !formData.skills?.some((s) => s.id === skill.skill.id))
                       .map((skill) => (
-                        <Badge key={skill.id} variant="outline" className="border-glass-border text-muted-foreground cursor-pointer hover:border-neon-purple hover:text-neon-purple" onClick={() => handleAddSkill(skill)}>
+                        <Badge key={skill.id} variant="outline" className="border-glass-border text-muted-foreground cursor-pointer hover:border-neon-purple hover:text-neon-purple" onClick={() => handleAddSkill(skill.skill)}>
                           <Plus className="h-3 w-3 mr-1" />
-                          {skill.skill?.name}
+                          {skill.skill.name}
                         </Badge>
                       ))}
                   </div>

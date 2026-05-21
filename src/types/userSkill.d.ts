@@ -1,6 +1,8 @@
 export type Skill = {
   id: number;
   name: string;
+  category_id?: number;
+  category?: SkillCategory | null;
 };
 
 export type SkillCategory = {
