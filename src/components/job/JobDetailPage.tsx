@@ -279,7 +279,7 @@ export function   JobDetailPage() {
                 </div>
                 <div className="flex items-center gap-2 text-sm">
                   {getWorkTypeIcon(job.other_info?.types.map((type) => type.name))}
-                  <span>{job.other_info?.types.map((type) => type.name)}</span>
+                  <span>{job.work_type}</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm">
                   <Clock className="w-4 h-4 text-neon-purple" />

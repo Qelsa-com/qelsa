@@ -60,6 +60,8 @@ export function ApplicationsManagementPage() {
   const [nlpSearchQuery, setNlpSearchQuery] = useState("");
   const [nlpFilters, setNlpFilters] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [showAllExperiences, setShowAllExperiences] = useState(false);
+  const [showAllEducations, setShowAllEducations] = useState(false);
 
   const { data: currentJobPosting } = useGetJobByIdQuery(id);
   const { data: applicants, error, isLoading } = useGetJobApplicationsQuery({ jobId: id });
@@ -411,7 +413,7 @@ export function ApplicationsManagementPage() {
                             <div className="flex flex-wrap gap-1 mb-2">
                               {application.user.skills.slice(0, 3).map((skill, idx) => (
                                 <Badge key={idx} variant="outline" className="text-xs border-neon-purple/30 text-neon-purple">
-                                  {skill.title}
+                                  {skill.skill.name}
                                 </Badge>
                               ))}
                               {application.user.skills.length > 3 && (
@@ -568,29 +570,36 @@ export function ApplicationsManagementPage() {
                         </div>
 
                         {/* Must-Haves Matched Checklist */}
-                        <div>
-                          <h3 className="font-semibold mb-3">Must-Haves Matched</h3>
-                          <div className="glass-strong rounded-lg p-4">
-                            <div className="flex items-center justify-between mb-3">
-                              <span className="text-sm text-muted-foreground">JD Requirements</span>
-                              <Badge variant="outline" className="border-neon-green/30 text-neon-green">
-                                {/* {selectedApplicant.mustHavesMatched}/{selectedApplicant.mustHavesTotal} */}
-                              </Badge>
-                            </div>
-                            <div className="space-y-2">
-                              {/* {currentJobPosting.mustHaves.map((item, idx) => (
-                                <div key={idx} className="flex items-center gap-2 text-sm">
-                                  {idx < selectedApplicant.mustHavesMatched ? (
-                                    <CheckCircle2 className="w-4 h-4 text-neon-green flex-shrink-0" />
-                                  ) : (
-                                    <XCircle className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                                  )}
-                                  <span className={idx < selectedApplicant.mustHavesMatched ? "" : "text-muted-foreground"}>{item}</span>
-                                </div>
-                              ))} */}
+                        {currentJobPosting?.job_skills && currentJobPosting.job_skills.length > 0 && (
+                          <div>
+                            <h3 className="font-semibold mb-3">Must-Haves Matched</h3>
+                            <div className="glass-strong rounded-lg p-4">
+                              <div className="flex items-center justify-between mb-3">
+                                <span className="text-sm text-muted-foreground">JD Requirements</span>
+                                <Badge variant="outline" className="border-neon-green/30 text-neon-green">
+                                  {currentJobPosting.job_skills.filter((js) =>
+                                    selectedApplication.user?.skills?.some((us) => us.skill.id === js.skill?.id)
+                                  ).length}/{currentJobPosting.job_skills.length} matched
+                                </Badge>
+                              </div>
+                              <div className="space-y-2">
+                                {currentJobPosting.job_skills.map((js) => {
+                                  const matched = selectedApplication.user?.skills?.some((us) => us.skill.id === js.skill?.id);
+                                  return (
+                                    <div key={js.id} className="flex items-center gap-2 text-sm">
+                                      {matched ? (
+                                        <CheckCircle2 className="w-4 h-4 text-neon-green flex-shrink-0" />
+                                      ) : (
+                                        <XCircle className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                                      )}
+                                      <span className={matched ? "" : "text-muted-foreground"}>{js.skill?.name ?? js.title}</span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
                             </div>
                           </div>
-                        </div>
+                        )}
 
                         {/* Screening Questions */}
                         {selectedApplication.job_application_answers && selectedApplication.job_application_answers.length > 0 && (
@@ -638,16 +647,19 @@ export function ApplicationsManagementPage() {
                               Experience
                             </h4>
                             <div className="space-y-3">
-                              {selectedApplication.user?.experiences.slice(0, 1).map((exp, idx) => (
+                              {(showAllExperiences
+                                ? selectedApplication.user?.experiences
+                                : selectedApplication.user?.experiences?.slice(0, 1)
+                              )?.map((exp, idx) => (
                                 <div key={idx} className="pb-3 border-b border-glass-border">
-                                  <p className="font-medium text-sm">{exp.title}</p>
-                                  <p className="text-xs text-muted-foreground">{exp.company_name}</p>
+                                  <p className="font-medium text-sm">{exp.job_title?.name}</p>
+                                  <p className="text-xs text-muted-foreground">{exp.company?.name}</p>
                                 </div>
                               ))}
-                              {selectedApplication.user.experiences.length > 1 && (
-                                <Button variant="ghost" size="sm" className="w-full text-xs text-neon-cyan">
-                                  Show more experience
-                                  <ChevronRight className="w-3 h-3 ml-1" />
+                              {(selectedApplication.user?.experiences?.length ?? 0) > 1 && (
+                                <Button variant="ghost" size="sm" className="w-full text-xs text-neon-cyan" onClick={() => setShowAllExperiences((v) => !v)}>
+                                  {showAllExperiences ? "Show less" : "Show more experience"}
+                                  <ChevronRight className={`w-3 h-3 ml-1 transition-transform ${showAllExperiences ? "rotate-90" : ""}`} />
                                 </Button>
                               )}
                             </div>
@@ -660,7 +672,10 @@ export function ApplicationsManagementPage() {
                               Education
                             </h4>
                             <div className="space-y-3">
-                              {selectedApplication.user?.educations.slice(0, 1).map((edu, idx) => (
+                              {(showAllEducations
+                                ? selectedApplication.user?.educations
+                                : selectedApplication.user?.educations?.slice(0, 1)
+                              )?.map((edu, idx) => (
                                 <div key={idx} className="pb-3 border-b border-glass-border">
                                   <p className="font-medium text-sm">{edu.degree?.name}</p>
                                   <p className="text-xs text-muted-foreground">
@@ -668,10 +683,10 @@ export function ApplicationsManagementPage() {
                                   </p>
                                 </div>
                               ))}
-                              {selectedApplication.user.educations.length > 1 && (
-                                <Button variant="ghost" size="sm" className="w-full text-xs text-neon-cyan">
-                                  Show more education
-                                  <ChevronRight className="w-3 h-3 ml-1" />
+                              {(selectedApplication.user?.educations?.length ?? 0) > 1 && (
+                                <Button variant="ghost" size="sm" className="w-full text-xs text-neon-cyan" onClick={() => setShowAllEducations((v) => !v)}>
+                                  {showAllEducations ? "Show less" : "Show more education"}
+                                  <ChevronRight className={`w-3 h-3 ml-1 transition-transform ${showAllEducations ? "rotate-90" : ""}`} />
                                 </Button>
                               )}
                             </div>
