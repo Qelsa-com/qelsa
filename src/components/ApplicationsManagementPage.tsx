@@ -404,7 +404,7 @@ export function ApplicationsManagementPage() {
                             <div className="flex items-center gap-2 mb-2">
                               <h3 className="font-semibold truncate">{application.user.name}</h3>
                               <Badge variant="outline" className={`text-xs ${getStatusColor(application.status)}`}>
-                                {application.status.replace("-", " ")}
+                                {(s => s.charAt(0).toUpperCase() + s.slice(1))(application.status.replace(/-/g, " "))}
                               </Badge>
                             </div>
 
