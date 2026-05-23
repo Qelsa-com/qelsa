@@ -548,7 +548,7 @@ export function MySpacePage({}: MySpacePageProps) {
                 {current_company && (
                   <div className="flex items-center gap-2">
                     <Building className="h-4 w-4" />
-                    <span>{current_company?.company_name || "N/A"}</span>
+                    <span>{current_company?.company?.name || "N/A"}</span>
                   </div>
                 )}
               </div>

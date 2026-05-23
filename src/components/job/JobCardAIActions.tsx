@@ -15,7 +15,7 @@ export function JobCardAIActions({ job, onAskAI }: JobCardAIActionsProps) {
     {
       label: "Analyze Fit",
       icon: Target,
-      question: `What's my Qelsa Score for ${job.job_title?.name ?? job.title} at ${job.company?.name ?? job.company_name}?`,
+      question: `What's my Qelsa Score for ${job.job_title?.name ?? job.title} at ${job.company_name}?`,
       color: "text-neon-cyan",
     },
     {
