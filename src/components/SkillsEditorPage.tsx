@@ -1,17 +1,16 @@
 import { useGetSkillCategoriesQuery, useLazyGetSkillsQuery } from "@/features/api/seedApi";
 import { useBulkModifyUserSkillsMutation, useGetUserSkillsQuery, useUpdateUserSkillMutation } from "@/features/api/userSkillsApi";
 import { Skill, SkillCategory, UserSkill } from "@/types/userSkill";
-import { AlertCircle, ArrowLeft, Award, Briefcase, Check, ChevronDown, Code, Lightbulb, Plus, Search, Sparkles, Star, Target, Trash2, Upload, Users, X } from "lucide-react";
+import { AlertCircle, ArrowLeft, Award, Briefcase, Check, Code, Lightbulb, Plus, Search, Sparkles, Star, Target, Trash2, Upload, Users, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { Autocomplete } from "./ui/autocomplete";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "./ui/command";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
-import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { Slider } from "./ui/slider";
 
 export interface SkillBadge {
@@ -57,9 +56,7 @@ export function SkillsEditorPage() {
   // New skill form state
   const [newSkill, setNewSkill] = useState<Skill | null>(null);
   const [newCategory, setNewCategory] = useState<SkillCategory | null>(null);
-  const [skillSearchOpen, setSkillSearchOpen] = useState(false);
-  const [skillSearchQuery, setSkillSearchQuery] = useState("");
-  const [categorySearchOpen, setCategorySearchOpen] = useState(false);
+  const [categorySearch, setCategorySearch] = useState("");
 
   const [updateUserSkill, {}] = useUpdateUserSkillMutation();
   const [triggerSearchSkills, { data: skillSearchResults = [] }] = useLazyGetSkillsQuery();
@@ -90,13 +87,6 @@ export function SkillsEditorPage() {
     }
   }, [skillCategories, selectedCategory]);
 
-  // Debounced skill search
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (skillSearchQuery.length >= 1) triggerSearchSkills(skillSearchQuery);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [skillSearchQuery, triggerSearchSkills]);
 
   const handleAddSkill = (skill: Skill, category: SkillCategory) => {
     const exists = skills.some((s) => s.skill?.id === skill.id);
@@ -117,7 +107,6 @@ export function SkillsEditorPage() {
     setSelectedCategory(category);
     setNewSkill(null);
     setNewCategory(null);
-    setSkillSearchQuery("");
     setShowAddSkill(false);
     toast.success(`${skill.name} added successfully!`);
   };
@@ -222,6 +211,10 @@ export function SkillsEditorPage() {
       });
     toast.success("Skills updated successfully!");
   };
+
+  const filteredCategories = skillCategories.filter((c) =>
+    c.name.toLowerCase().includes(categorySearch.toLowerCase())
+  );
 
   const filteredSkills =
     skills?.filter((skill) => {
@@ -353,7 +346,6 @@ export function SkillsEditorPage() {
                   setShowAddSkill(false);
                   setNewSkill(null);
                   setNewCategory(null);
-                  setSkillSearchQuery("");
                 }}
                 variant="ghost"
                 size="sm"
@@ -363,94 +355,34 @@ export function SkillsEditorPage() {
             </div>
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Skill search combobox */}
+                {/* Skill search */}
                 <div>
                   <Label className="text-white mb-2 block">Skill Name</Label>
-                  <Popover open={skillSearchOpen} onOpenChange={setSkillSearchOpen}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        role="combobox"
-                        aria-expanded={skillSearchOpen}
-                        className="w-full justify-between glass border-glass-border focus:border-neon-cyan text-left font-normal"
-                      >
-                        <span className={newSkill ? "text-white" : "text-muted-foreground"}>
-                          {newSkill ? newSkill.name : "Search for a skill..."}
-                        </span>
-                        <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-full p-0" align="start">
-                      <Command>
-                        <CommandInput
-                          placeholder="Type to search skills..."
-                          value={skillSearchQuery}
-                          onValueChange={setSkillSearchQuery}
-                        />
-                        <CommandList>
-                          <CommandEmpty>
-                            {skillSearchQuery.length < 1 ? "Start typing to search..." : "No skills found."}
-                          </CommandEmpty>
-                          <CommandGroup>
-                            {skillSearchResults.map((skill) => (
-                              <CommandItem
-                                key={skill.id}
-                                value={skill.name}
-                                onSelect={() => {
-                                  setNewSkill(skill);
-                                  setSkillSearchOpen(false);
-                                }}
-                              >
-                                {skill.name}
-                              </CommandItem>
-                            ))}
-                          </CommandGroup>
-                        </CommandList>
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
+                  <Autocomplete
+                    value={newSkill}
+                    onChange={setNewSkill}
+                    onSearch={triggerSearchSkills}
+                    options={skillSearchResults}
+                    placeholder="Search for a skill..."
+                    icon={<Search className="h-4 w-4" />}
+                    minChars={1}
+                    inputClassName="glass border-glass-border focus:border-neon-cyan"
+                  />
                 </div>
 
-                {/* Category search combobox */}
+                {/* Category search */}
                 <div>
                   <Label className="text-white mb-2 block">Category</Label>
-                  <Popover open={categorySearchOpen} onOpenChange={setCategorySearchOpen}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        role="combobox"
-                        aria-expanded={categorySearchOpen}
-                        className="w-full justify-between glass border-glass-border focus:border-neon-cyan text-left font-normal"
-                      >
-                        <span className={newCategory ? "text-white" : "text-muted-foreground"}>
-                          {newCategory ? newCategory.name : "Select a category..."}
-                        </span>
-                        <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-full p-0" align="start">
-                      <Command>
-                        <CommandInput placeholder="Search categories..." />
-                        <CommandList>
-                          <CommandEmpty>No categories found.</CommandEmpty>
-                          <CommandGroup>
-                            {skillCategories.map((cat) => (
-                              <CommandItem
-                                key={cat.id}
-                                value={cat.name}
-                                onSelect={() => {
-                                  setNewCategory(cat);
-                                  setCategorySearchOpen(false);
-                                }}
-                              >
-                                {cat.name}
-                              </CommandItem>
-                            ))}
-                          </CommandGroup>
-                        </CommandList>
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
+                  <Autocomplete
+                    value={newCategory}
+                    onChange={setNewCategory}
+                    onSearch={setCategorySearch}
+                    options={filteredCategories}
+                    placeholder="Select a category..."
+                    icon={<Search className="h-4 w-4" />}
+                    minChars={0}
+                    inputClassName="glass border-glass-border focus:border-neon-cyan"
+                  />
                 </div>
               </div>
 

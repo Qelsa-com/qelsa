@@ -1,12 +1,11 @@
 import { useCreateEducationMutation, useDeleteEducationMutation, useGetEducationsQuery, useUpdateEducationMutation, useUpdateEducationsPositionMutation } from "@/features/api/educationsApi";
 import { useGetDegreeNamesQuery, useGetFieldsOfStudyQuery } from "@/features/api/seedApi";
-import { DegreeName } from "@/types/degreeName";
 import { Education } from "@/types/education";
-import { FieldOfStudy } from "@/types/fieldOfStudy";
-import { ArrowLeft, Award, Calendar, Check, Edit3, FileText, FolderOpen, GraduationCap, GripVertical, MapPin, Plus, Search, Sparkles, Trash2, Trophy, Upload, X } from "lucide-react";
+import { ArrowLeft, Award, Calendar, Check, Edit3, FileText, FolderOpen, GraduationCap, GripVertical, MapPin, Plus, Search, Sparkles, Trash2, Trophy, Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
 import React, { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { Autocomplete } from "./ui/autocomplete";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import { Input } from "./ui/input";
@@ -28,9 +27,7 @@ export function EducationEditorPage() {
   const [updateEducationsPosition, { isLoading: isUpdatingPosition, error: updatePositionError }] = useUpdateEducationsPositionMutation();
 
   const [degreeSearch, setDegreeSearch] = useState("");
-  const [showDegreeDropdown, setShowDegreeDropdown] = useState(false);
   const [fieldSearch, setFieldSearch] = useState("");
-  const [showFieldDropdown, setShowFieldDropdown] = useState(false);
 
   const [educations, setEducations] = useState<Education[]>(edu || []);
 
@@ -66,19 +63,11 @@ export function EducationEditorPage() {
 
   const handleAddNew = () => {
     setEditingId("new");
-    setDegreeSearch("");
-    setFieldSearch("");
-    setShowDegreeDropdown(false);
-    setShowFieldDropdown(false);
     setFormData(emptyForm);
   };
 
   const handleEdit = (edu: Education) => {
     setEditingId(edu.id.toString());
-    setDegreeSearch("");
-    setFieldSearch("");
-    setShowDegreeDropdown(false);
-    setShowFieldDropdown(false);
     setFormData(edu);
   };
 
@@ -377,54 +366,28 @@ export function EducationEditorPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Degree Search-Select */}
-                <div className="space-y-2 relative">
+                <div className="space-y-2">
                   <Label htmlFor="degree" className="text-white">
                     Degree Type <span className="text-destructive">*</span>
                   </Label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                    <Input
-                      id="degree"
-                      value={formData.degree ? `${formData.degree.abbreviation} — ${formData.degree.name}` : degreeSearch}
-                      onChange={(e) => {
-                        if (formData.degree) setFormData({ ...formData, degree: undefined });
-                        setDegreeSearch(e.target.value);
-                        setShowDegreeDropdown(true);
-                      }}
-                      onFocus={() => setShowDegreeDropdown(true)}
-                      onBlur={() => setTimeout(() => setShowDegreeDropdown(false), 150)}
-                      placeholder="Search degree..."
-                      className="glass border-glass-border focus:border-neon-purple pl-9 pr-8"
-                    />
-                    {formData.degree && (
-                      <button
-                        type="button"
-                        onMouseDown={() => { setFormData({ ...formData, degree: undefined }); setDegreeSearch(""); }}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-white"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
+                  <Autocomplete
+                    id="degree"
+                    value={formData.degree ?? null}
+                    onChange={(d) => setFormData({ ...formData, degree: d ?? undefined })}
+                    onSearch={setDegreeSearch}
+                    options={filteredDegrees}
+                    placeholder="Search degree..."
+                    icon={<Search className="h-4 w-4" />}
+                    getInputLabel={(d) => `${d.abbreviation} — ${d.name}`}
+                    renderOption={(d) => (
+                      <>
+                        <span className="text-neon-purple font-medium w-16 flex-shrink-0">{d.abbreviation}</span>
+                        <span className="text-muted-foreground">{d.name}</span>
+                      </>
                     )}
-                  </div>
-                  {showDegreeDropdown && !formData.degree && filteredDegrees.length > 0 && (
-                    <div className="absolute z-50 w-full bg-gray-900 border border-glass-border rounded-lg overflow-hidden shadow-xl max-h-52 overflow-y-auto">
-                      {filteredDegrees.map((d: DegreeName) => (
-                        <button
-                          key={d.id}
-                          type="button"
-                          className="w-full px-4 py-2.5 text-left text-sm text-white hover:bg-neon-purple/10 flex items-center gap-3"
-                          onMouseDown={() => {
-                            setFormData({ ...formData, degree: d });
-                            setDegreeSearch("");
-                            setShowDegreeDropdown(false);
-                          }}
-                        >
-                          <span className="text-neon-purple font-medium w-16 flex-shrink-0">{d.abbreviation}</span>
-                          <span className="text-muted-foreground">{d.name}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                    minChars={0}
+                    inputClassName="glass border-glass-border focus:border-neon-purple"
+                  />
                 </div>
 
                 {/* Institution */}
@@ -456,53 +419,21 @@ export function EducationEditorPage() {
                 </div>
 
                 {/* Field of Study Search-Select */}
-                <div className="space-y-2 relative">
+                <div className="space-y-2">
                   <Label htmlFor="field_of_study" className="text-white">
                     Major / Specialization <span className="text-destructive">*</span>
                   </Label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                    <Input
-                      id="field_of_study"
-                      value={formData.field_of_study ? formData.field_of_study.name : fieldSearch}
-                      onChange={(e) => {
-                        if (formData.field_of_study) setFormData({ ...formData, field_of_study: undefined });
-                        setFieldSearch(e.target.value);
-                        setShowFieldDropdown(true);
-                      }}
-                      onFocus={() => setShowFieldDropdown(true)}
-                      onBlur={() => setTimeout(() => setShowFieldDropdown(false), 150)}
-                      placeholder="Search field of study..."
-                      className="glass border-glass-border focus:border-neon-purple pl-9 pr-8"
-                    />
-                    {formData.field_of_study && (
-                      <button
-                        type="button"
-                        onMouseDown={() => { setFormData({ ...formData, field_of_study: undefined }); setFieldSearch(""); }}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-white"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    )}
-                  </div>
-                  {showFieldDropdown && !formData.field_of_study && filteredFields.length > 0 && (
-                    <div className="absolute z-50 w-full bg-gray-900 border border-glass-border rounded-lg overflow-hidden shadow-xl max-h-52 overflow-y-auto">
-                      {filteredFields.map((f: FieldOfStudy) => (
-                        <button
-                          key={f.id}
-                          type="button"
-                          className="w-full px-4 py-2.5 text-left text-sm text-white hover:bg-neon-purple/10"
-                          onMouseDown={() => {
-                            setFormData({ ...formData, field_of_study: f });
-                            setFieldSearch("");
-                            setShowFieldDropdown(false);
-                          }}
-                        >
-                          {f.name}
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                  <Autocomplete
+                    id="field_of_study"
+                    value={formData.field_of_study ?? null}
+                    onChange={(f) => setFormData({ ...formData, field_of_study: f ?? undefined })}
+                    onSearch={setFieldSearch}
+                    options={filteredFields}
+                    placeholder="Search field of study..."
+                    icon={<Search className="h-4 w-4" />}
+                    minChars={0}
+                    inputClassName="glass border-glass-border focus:border-neon-purple"
+                  />
                 </div>
 
                 {/* Start Year */}

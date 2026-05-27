@@ -1,5 +1,5 @@
-import { MultiSearchSelect } from "@/components/ui/multi-search-select";
-import { SearchSelect } from "@/components/ui/search-select";
+import { Autocomplete } from "@/components/ui/autocomplete";
+import { MultiAutocomplete } from "@/components/ui/multi-autocomplete";
 import { useLazySearchCompaniesQuery } from "@/features/api/companiesApi";
 import { useCreateJobMutation } from "@/features/api/jobsApi";
 import { useLazySearchJobTitlesQuery } from "@/features/api/jobTitlesApi";
@@ -21,6 +21,7 @@ import {
   MessageSquare,
   Plus,
   Save,
+  Search,
   Send,
   Shield,
   Sparkles,
@@ -1040,13 +1041,14 @@ export function JobPostingPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="text-sm font-medium mb-2 block">Job Title *</label>
-                      <SearchSelect
+                      <Autocomplete
                         value={jobData.job_title}
                         onChange={(val) => setJobData((prev) => ({ ...prev, job_title: val }))}
                         onSearch={(q) => searchJobTitles(q)}
                         options={jobTitleResults}
                         placeholder="Search job title..."
-                        searchPlaceholder="Type to search..."
+                        icon={<Search className="h-4 w-4" />}
+                        inputClassName="glass border-glass-border focus:border-neon-cyan"
                       />
                     </div>
                     <div>
@@ -1124,13 +1126,14 @@ export function JobPostingPage() {
                   {/* Skills Section */}
                   <div>
                     <label className="text-sm font-medium mb-2 block">Required Skills</label>
-                    <MultiSearchSelect
+                    <MultiAutocomplete
                       value={jobData.skills}
                       onChange={(skills) => setJobData((prev) => ({ ...prev, skills }))}
                       onSearch={(q) => searchSkills(q || undefined)}
                       options={skillResults}
                       placeholder="Search and select skills..."
-                      searchPlaceholder="Type to search skills..."
+                      icon={<Search className="h-4 w-4" />}
+                      inputClassName="glass border-glass-border focus:border-neon-cyan"
                     />
                   </div>
                 </div>
