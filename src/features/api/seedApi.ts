@@ -2,6 +2,7 @@ import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import { DegreeName } from "../../types/degreeName";
 import { FieldOfStudy } from "../../types/fieldOfStudy";
 import { Skill, SkillCategory } from "../../types/userSkill";
+import { College } from "../../types/education";
 
 export const seedApi = createApi({
   reducerPath: "seedApi",
@@ -30,6 +31,10 @@ export const seedApi = createApi({
       query: () => "skill-categories",
       transformResponse: (response: { success: boolean; data: SkillCategory[] }) => response.data,
     }),
+    getColleges: builder.query<College[], string>({
+      query: (search) => `colleges?search=${encodeURIComponent(search)}`,
+      transformResponse: (response: { success: boolean; data: College[] }) => response.data,
+    }),
   }),
 });
 
@@ -39,4 +44,5 @@ export const {
   useGetSkillsQuery,
   useLazyGetSkillsQuery,
   useGetSkillCategoriesQuery,
+  useLazyGetCollegesQuery,
 } = seedApi;

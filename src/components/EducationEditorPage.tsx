@@ -1,6 +1,6 @@
 import { useCreateEducationMutation, useDeleteEducationMutation, useGetEducationsQuery, useUpdateEducationMutation, useUpdateEducationsPositionMutation } from "@/features/api/educationsApi";
-import { useGetDegreeNamesQuery, useGetFieldsOfStudyQuery } from "@/features/api/seedApi";
-import { Education } from "@/types/education";
+import { useGetDegreeNamesQuery, useGetFieldsOfStudyQuery, useLazyGetCollegesQuery } from "@/features/api/seedApi";
+import { College, Education } from "@/types/education";
 import { ArrowLeft, Award, Calendar, Check, Edit3, FileText, FolderOpen, GraduationCap, GripVertical, MapPin, Plus, Search, Sparkles, Trash2, Trophy, Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
 import React, { useEffect, useMemo, useState } from "react";
@@ -26,6 +26,8 @@ export function EducationEditorPage() {
   const [deleteEducation, { isLoading: isDeleting, error: deleteError }] = useDeleteEducationMutation();
   const [updateEducationsPosition, { isLoading: isUpdatingPosition, error: updatePositionError }] = useUpdateEducationsPositionMutation();
 
+  const [triggerCollegeSearch, { data: collegeOptions = [] }] = useLazyGetCollegesQuery();
+
   const [degreeSearch, setDegreeSearch] = useState("");
   const [fieldSearch, setFieldSearch] = useState("");
 
@@ -49,7 +51,7 @@ export function EducationEditorPage() {
 
   const emptyForm: Partial<Education> = {
     degree: undefined,
-    institution: "",
+    college: undefined,
     location: "",
     start_year: null,
     end_year: null,
@@ -77,14 +79,14 @@ export function EducationEditorPage() {
   };
 
   const handleSaveEducation = () => {
-    if (!formData.degree || !formData.institution || !formData.start_year || !formData.end_year || !formData.field_of_study || !formData.location) {
+    if (!formData.degree || !formData.college || !formData.start_year || !formData.end_year || !formData.field_of_study || !formData.location) {
       toast.error("Please fill in all required fields");
       return;
     }
 
     let newEducation: Education = {
       degree: formData.degree!,
-      institution: formData.institution!,
+      college: { id: formData.college!.id } as College,
       location: formData.location!,
       start_year: formData.start_year!,
       end_year: formData.end_year!,
@@ -267,7 +269,7 @@ export function EducationEditorPage() {
                           <h3 className="font-bold text-white text-lg">
                             {edu.degree?.abbreviation} in {edu.field_of_study?.name}
                           </h3>
-                          <p className="text-neon-purple">{edu.institution}</p>
+                          <p className="text-neon-purple">{edu.college?.name}</p>
                           <div className="flex flex-wrap gap-3 mt-2 text-sm text-muted-foreground">
                             <span className="flex items-center gap-1">
                               <MapPin className="h-3 w-3" />
@@ -390,17 +392,21 @@ export function EducationEditorPage() {
                   />
                 </div>
 
-                {/* Institution */}
+                {/* College */}
                 <div className="space-y-2">
-                  <Label htmlFor="institution" className="text-white">
+                  <Label htmlFor="college" className="text-white">
                     Institution <span className="text-destructive">*</span>
                   </Label>
-                  <Input
-                    id="institution"
-                    value={formData.institution}
-                    onChange={(e) => setFormData({ ...formData, institution: e.target.value })}
-                    placeholder="e.g., IIT Delhi"
-                    className="glass border-glass-border focus:border-neon-purple"
+                  <Autocomplete<College>
+                    id="college"
+                    value={formData.college ?? null}
+                    onChange={(c) => setFormData({ ...formData, college: c ?? undefined })}
+                    onSearch={(q) => { if (q) triggerCollegeSearch(q); }}
+                    options={collegeOptions}
+                    placeholder="Search college..."
+                    icon={<Search className="h-4 w-4" />}
+                    minChars={2}
+                    inputClassName="glass border-glass-border focus:border-neon-purple"
                   />
                 </div>
 

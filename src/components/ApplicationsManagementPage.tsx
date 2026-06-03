@@ -679,7 +679,7 @@ export function ApplicationsManagementPage() {
                                 <div key={idx} className="pb-3 border-b border-glass-border">
                                   <p className="font-medium text-sm">{edu.degree?.name}</p>
                                   <p className="text-xs text-muted-foreground">
-                                    {edu.institution} • {edu.end_year}
+                                    {edu.college?.name} • {edu.end_year}
                                   </p>
                                 </div>
                               ))}
