@@ -633,7 +633,7 @@ export function MySpacePage({}: MySpacePageProps) {
               {educations?.map((edu, index) => (
                 <div key={index} className="p-4 glass rounded-xl">
                   <h4 className="font-semibold text-white">{edu.degree?.name}</h4>
-                  <p className="text-neon-purple">{edu.college.name}</p>
+                  <p className="text-neon-purple">{edu.college?.name}</p>
                   <p className="text-sm text-muted-foreground">
                     {edu.end_year} • {edu.field_of_study?.name}
                   </p>
