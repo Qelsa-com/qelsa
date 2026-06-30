@@ -1,5 +1,6 @@
 import { configureStore } from "@reduxjs/toolkit";
 import { authApi } from "./features/api/authApi";
+import { certificationsApi } from "./features/api/certificationsApi";
 import { companiesApi } from "./features/api/companiesApi";
 import { educationsApi } from "./features/api/educationsApi";
 import { experiencesApi } from "./features/api/experiencesApi";
@@ -26,6 +27,7 @@ export const store = configureStore({
     [seedApi.reducerPath]: seedApi.reducer,
     [userSkillsApi.reducerPath]: userSkillsApi.reducer,
     [resumesApi.reducerPath]: resumesApi.reducer,
+    [certificationsApi.reducerPath]: certificationsApi.reducer,
     // add other reducers here
   },
   middleware: (getDefaultMiddleware) =>
@@ -40,7 +42,8 @@ export const store = configureStore({
       .concat(jobTitlesApi.middleware)
       .concat(seedApi.middleware)
       .concat(userSkillsApi.middleware)
-      .concat(resumesApi.middleware),
+      .concat(resumesApi.middleware)
+      .concat(certificationsApi.middleware),
 });
 
 export type RootState = ReturnType<typeof store.getState>;

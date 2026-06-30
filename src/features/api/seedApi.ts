@@ -3,6 +3,7 @@ import { DegreeName } from "../../types/degreeName";
 import { FieldOfStudy } from "../../types/fieldOfStudy";
 import { Skill, SkillCategory } from "../../types/userSkill";
 import { College } from "../../types/education";
+import { CertificationCatalog, IssuingBody } from "../../types/certification";
 
 export const seedApi = createApi({
   reducerPath: "seedApi",
@@ -35,6 +36,14 @@ export const seedApi = createApi({
       query: (search) => `colleges?search=${encodeURIComponent(search)}`,
       transformResponse: (response: { success: boolean; data: College[] }) => response.data,
     }),
+    getCertificationCatalog: builder.query<CertificationCatalog[], { search?: string; limit?: number }>({
+      query: ({ search = "", limit = 20 }) => `certifications?search=${encodeURIComponent(search)}&limit=${limit}`,
+      transformResponse: (response: { success: boolean; data: CertificationCatalog[] }) => response.data,
+    }),
+    getIssuingBodies: builder.query<IssuingBody[], { search?: string; limit?: number }>({
+      query: ({ search = "", limit = 20 }) => `issuing-bodies?search=${encodeURIComponent(search)}&limit=${limit}`,
+      transformResponse: (response: { success: boolean; data: IssuingBody[] }) => response.data,
+    }),
   }),
 });
 
@@ -45,4 +54,6 @@ export const {
   useLazyGetSkillsQuery,
   useGetSkillCategoriesQuery,
   useLazyGetCollegesQuery,
+  useLazyGetCertificationCatalogQuery,
+  useLazyGetIssuingBodiesQuery,
 } = seedApi;

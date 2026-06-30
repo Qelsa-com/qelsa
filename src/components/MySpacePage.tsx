@@ -1,4 +1,5 @@
 import { useAuth } from "@/contexts/AuthContext";
+import { useGetCertificationsQuery } from "@/features/api/certificationsApi";
 import { useGetEducationsQuery } from "@/features/api/educationsApi";
 import { useGetExperiencesQuery } from "@/features/api/experiencesApi";
 import { useGetUserSkillsQuery } from "@/features/api/userSkillsApi";
@@ -23,6 +24,7 @@ import {
   LayoutDashboard,
   MapPin,
   Network,
+  Plus,
   Rocket,
   Send,
   Share2,
@@ -52,6 +54,7 @@ export function MySpacePage({}: MySpacePageProps) {
   const { data: educations, error, isLoading } = useGetEducationsQuery();
   const { data: experiences, error: experiencesError, isLoading: experiencesLoading } = useGetExperiencesQuery();
   const { data: userSkills, error: userSkillsError, isLoading: userSkillsLoading } = useGetUserSkillsQuery();
+  const { data: certifications } = useGetCertificationsQuery();
 
   const current_company = experiences?.find((exp) => exp.is_current == true);
 
@@ -217,6 +220,10 @@ export function MySpacePage({}: MySpacePageProps) {
     if (proficiency >= 40) return "Intermediate";
     return "Beginner";
   }
+
+  const handleEditCertifications = () => {
+    router.push('/profile/certifications');
+  };
 
   const dashboardContent = (
     <div className="space-y-8">
@@ -785,6 +792,103 @@ export function MySpacePage({}: MySpacePageProps) {
           </Card>
         </div>
       </div>
+
+      <Card className="glass hover:glass-strong p-6 rounded-2xl border border-glass-border transition-all duration-300">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <Award className="h-5 w-5 text-neon-yellow" />
+            <h3 className="text-xl font-bold text-white">Certifications & Licenses</h3>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="glass hover:glass-strong border-neon-yellow/30 text-neon-yellow hover:text-neon-yellow"
+            onClick={handleEditCertifications}
+          >
+            <Edit3 className="h-4 w-4 mr-2" />
+            Edit
+          </Button>
+        </div>
+        <div className="space-y-4">
+          {certifications && certifications.length > 0 ? (
+            certifications.map((cert, index) => {
+              const formatDate = (dateStr: string) => {
+                if (!dateStr) return '';
+                const [year, month] = dateStr.split('-');
+                if (!month) return year;
+                const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                return `${monthNames[parseInt(month) - 1]} ${year}`;
+              };
+
+              return (
+                <div key={cert.id ?? index} className="p-4 glass rounded-xl">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-white">{cert.certification?.name}</h4>
+                      <p className="text-neon-yellow">{cert.issuing_body?.name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        Issued {formatDate(cert.issue_date)}
+                        {!cert.does_not_expire && cert.expiration_date &&
+                          ` • Expires ${formatDate(cert.expiration_date)}`}
+                        {cert.does_not_expire && ' • No Expiration'}
+                      </p>
+                      {cert.credential_id && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Credential ID: {cert.credential_id}
+                        </p>
+                      )}
+                      {cert.skills && cert.skills.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mt-2">
+                          {cert.skills.slice(0, 3).map((skill) => (
+                            <Badge
+                              key={skill.id}
+                              className="bg-neon-purple/20 text-white border-0 text-xs"
+                            >
+                              {skill.name}
+                            </Badge>
+                          ))}
+                          {cert.skills.length > 3 && (
+                            <Badge className="bg-white/5 text-muted-foreground border-0 text-xs">
+                              +{cert.skills.length - 3} more
+                            </Badge>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    {cert.credential_url && (
+                      <a
+                        href={cert.credential_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="ml-3 text-neon-cyan hover:text-neon-cyan/80 transition-colors"
+                        title="View Credential"
+                      >
+                        <Award className="h-5 w-5" />
+                      </a>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <div className="p-6 glass rounded-xl border border-glass-border text-center">
+              <Award className="h-8 w-8 text-neon-yellow/30 mx-auto mb-2" />
+              <p className="text-sm text-muted-foreground mb-3">
+                No certifications added yet
+              </p>
+              <Button
+                size="sm"
+                onClick={handleEditCertifications}
+                className="bg-neon-cyan"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Certification
+              </Button>
+            </div>
+          )}
+        </div>
+      </Card>
+
     </div>
   );
 
