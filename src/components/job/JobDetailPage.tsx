@@ -70,7 +70,6 @@ export function   JobDetailPage() {
   useEffect(() => {
     if (job) {
       console.log(job.applications);
-      console.log(user.id);
 
       const hasApplied = job.applications?.some((application) => application.user_id === user?.id);
       setIsApplied(hasApplied || false);

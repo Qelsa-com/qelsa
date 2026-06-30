@@ -2,6 +2,28 @@ import { Education } from "./education";
 import { Experience } from "./experience";
 import { UserSkill } from "./userSkill";
 
+export type CultureAttribute = {
+  key: string;
+  importance: number;
+};
+
+export type CultureVisibility = {
+  public: boolean;
+  recruiters: boolean;
+};
+
+export type CulturePreference = {
+  id?: number;
+  user_id?: number;
+  preset?: string | null;
+  attributes: CultureAttribute[];
+  global_importance: number;
+  statement?: string | null;
+  visibility: CultureVisibility;
+  created_at?: string;
+  updated_at?: string;
+};
+
 export type User = {
   id?: number | string;
   name?: string;
@@ -52,6 +74,7 @@ export type User = {
   skills?: UserSkill[];
   educations?: Education[];
   experiences?: Experience[];
+  culture_preference?: CulturePreference | null;
 
   // Extended UI fields
   avatar?: string | null;

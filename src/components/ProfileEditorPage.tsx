@@ -1,5 +1,5 @@
 import { useGetProfileQuery, useUpdateProfileMutation } from "@/features/api/authApi";
-import { User as UserProfile } from "@/types/user";
+import { CulturePreference, User as UserProfile } from "@/types/user";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -57,6 +57,7 @@ import { Card } from "./ui/card";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Separator } from "./ui/separator";
+import { Slider } from "./ui/slider";
 import { Textarea } from "./ui/textarea";
 
 interface MediaLink {
@@ -369,8 +370,25 @@ export function ProfileEditorPage() {
   };
 
   const handleSaveProfile = async () => {
+    // Validate culture statement length client-side before saving.
+    const statement = getCulturePref().statement;
+    if (statement && statement.length > 140) {
+      toast.error("Culture statement must be 140 characters or less");
+      return;
+    }
+
+    // Build the payload. `culture_preference` is an upsert: sending an object
+    // creates-or-updates it, sending null deletes it. Strip server-managed
+    // fields (`id`, `user_id`, `created_at`, `updated_at`) — the backend resolves
+    // the record by the logged-in user and ignores these anyway.
+    const payload: Partial<UserProfile> = { ...profile };
+    if (profile.culture_preference) {
+      const { id, user_id, created_at, updated_at, ...pref } = profile.culture_preference;
+      payload.culture_preference = pref;
+    }
+
     try {
-      await updateProfile(profile).unwrap();
+      await updateProfile(payload).unwrap();
       setLastSaved(new Date());
       toast.success("Profile published successfully!");
     } catch (error: any) {
@@ -409,6 +427,31 @@ export function ProfileEditorPage() {
   };
 
   // Culture Preferences Helpers
+  // The UI edits a single culture-preference set, which maps to the backend's
+  // `culture_preference` object (or null when the user has none).
+  const getCulturePref = (): CulturePreference =>
+    profile.culture_preference || {
+      preset: null,
+      attributes: [],
+      global_importance: 50,
+      statement: "",
+      visibility: { public: false, recruiters: false },
+    };
+
+  const updateCulturePref = (updates: Partial<CulturePreference>) => {
+    setProfile({
+      ...profile,
+      culture_preference: { ...getCulturePref(), ...updates },
+    });
+    setIsDraft(true);
+  };
+
+  const handleClearCulturePref = () => {
+    setProfile({ ...profile, culture_preference: null });
+    setIsDraft(true);
+    toast.success("Culture preferences cleared");
+  };
+
   const handlePresetSelect = (presetKey: string) => {
     const preset = CULTURE_PRESETS.find((p) => p.key === presetKey);
     if (!preset) return;
@@ -418,95 +461,49 @@ export function ProfileEditorPage() {
       importance: 2, // Default to "Important"
     }));
 
-    setProfile({
-      ...profile,
-      // culturePreferences: {
-      //   ...profile.culturePreferences,
-      //   preset: presetKey,
-      //   attributes: newAttributes,
-      //   globalImportance: profile.culturePreferences?.globalImportance || 50,
-      //   visibility: profile.culturePreferences?.visibility || { public: false, recruiters: false },
-      // },
-    });
-    setIsDraft(true);
+    updateCulturePref({ preset: presetKey, attributes: newAttributes });
     toast.success("Preset applied", {
       description: `${preset.label} attributes selected. Adjust importance levels as needed.`,
     });
   };
 
   const handleAttributeToggle = (attributeKey: string) => {
-    // const currentPrefs = profile.culturePreferences || {
-    //   attributes: [],
-    //   globalImportance: 50,
-    //   visibility: { public: false, recruiters: false },
-    // };
-    // const existingIndex = currentPrefs.attributes.findIndex((a) => a.key === attributeKey);
-    // let newAttributes;
-    // if (existingIndex >= 0) {
-    //   // Remove attribute
-    //   newAttributes = currentPrefs.attributes.filter((a) => a.key !== attributeKey);
-    // } else {
-    //   // Add attribute with default importance
-    //   newAttributes = [...currentPrefs.attributes, { key: attributeKey, importance: 2 }];
-    // }
-    // setProfile({
-    //   ...profile,
-    //   culturePreferences: {
-    //     ...currentPrefs,
-    //     attributes: newAttributes,
-    //     updatedAt: new Date().toISOString(),
-    //   },
-    // });
-    // setIsDraft(true);
+    const current = getCulturePref();
+    const exists = current.attributes.some((a) => a.key === attributeKey);
+    const newAttributes = exists
+      ? current.attributes.filter((a) => a.key !== attributeKey)
+      : [...current.attributes, { key: attributeKey, importance: 2 }];
+    updateCulturePref({ attributes: newAttributes });
   };
 
   const handleAttributeImportanceChange = (attributeKey: string, importance: number) => {
-    // const currentPrefs = profile.culturePreferences;
-    // if (!currentPrefs) return;
-    // const newAttributes = currentPrefs.attributes.map((attr) => (attr.key === attributeKey ? { ...attr, importance } : attr));
-    // setProfile({
-    //   ...profile,
-    //   culturePreferences: {
-    //     ...currentPrefs,
-    //     attributes: newAttributes,
-    //     updatedAt: new Date().toISOString(),
-    //   },
-    // });
-    // setIsDraft(true);
+    const current = getCulturePref();
+    const newAttributes = current.attributes.map((attr) => (attr.key === attributeKey ? { ...attr, importance } : attr));
+    updateCulturePref({ attributes: newAttributes });
   };
 
   const handleCultureStatementChange = (statement: string) => {
-    // if (statement.length > 140) return;
-    // const currentPrefs = profile.culturePreferences || {
-    //   attributes: [],
-    //   globalImportance: 50,
-    //   visibility: { public: false, recruiters: false },
-    // };
-    // setProfile({
-    //   ...profile,
-    //   culturePreferences: {
-    //     ...currentPrefs,
-    //     statement,
-    //     updatedAt: new Date().toISOString(),
-    //   },
-    // });
-    // setCultureStatementChars(statement.length);
-    // setIsDraft(true);
+    if (statement.length > 140) return;
+    updateCulturePref({ statement });
+    setCultureStatementChars(statement.length);
   };
 
   const handleAIRewriteCultureStatement = async () => {
-    // const currentStatement = profile.culturePreferences?.statement || "";
-    // if (!currentStatement) {
-    //   toast.error("Please write a statement first");
-    //   return;
-    // }
-    // setAiLoading(true);
-    // await new Promise((resolve) => setTimeout(resolve, 2000));
-    // // Mock AI rewrite
-    // const rewritten = currentStatement.length > 50 ? currentStatement.substring(0, 50) + "..." : "I thrive in collaborative environments that value rapid iteration and continuous learning.";
-    // handleCultureStatementChange(rewritten);
-    // setAiLoading(false);
-    // toast.success("Statement rewritten by AI");
+    const currentStatement = getCulturePref().statement || "";
+    if (!currentStatement) {
+      toast.error("Please write a statement first");
+      return;
+    }
+    setAiLoading(true);
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    // Mock AI rewrite
+    const rewritten =
+      currentStatement.length > 50
+        ? currentStatement.substring(0, 50) + "..."
+        : "I thrive in collaborative environments that value rapid iteration and continuous learning.";
+    handleCultureStatementChange(rewritten);
+    setAiLoading(false);
+    toast.success("Statement rewritten by AI");
   };
 
   const sections = [
@@ -517,6 +514,8 @@ export function ProfileEditorPage() {
     { id: "media", label: "Resume & Media", icon: Upload },
     { id: "visibility", label: "Visibility & Privacy", icon: Eye },
   ];
+
+  const culturePref = getCulturePref();
 
   return (
     <div className="min-h-screen relative">
@@ -579,9 +578,8 @@ export function ProfileEditorPage() {
                     <button
                       key={section.id}
                       onClick={() => setActiveSection(section.id)}
-                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
-                        activeSection === section.id ? "bg-gradient-to-r from-neon-cyan to-neon-purple text-white" : "text-muted-foreground hover:text-white hover:glass-strong"
-                      }`}
+                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeSection === section.id ? "bg-gradient-to-r from-neon-cyan to-neon-purple text-white" : "text-muted-foreground hover:text-white hover:glass-strong"
+                        }`}
                     >
                       <Icon className="h-5 w-5" />
                       <span className="font-medium">{section.label}</span>
@@ -889,9 +887,8 @@ export function ProfileEditorPage() {
                       <div className="flex items-center gap-2">
                         <Badge
                           variant="outline"
-                          className={`${
-                            readabilityScore >= 70 ? "border-neon-green text-neon-green" : readabilityScore >= 50 ? "border-yellow-500 text-yellow-500" : "border-destructive text-destructive"
-                          }`}
+                          className={`${readabilityScore >= 70 ? "border-neon-green text-neon-green" : readabilityScore >= 50 ? "border-yellow-500 text-yellow-500" : "border-destructive text-destructive"
+                            }`}
                         >
                           Readability: {readabilityScore}%
                         </Badge>
@@ -1009,9 +1006,8 @@ export function ProfileEditorPage() {
                             setProfile({ ...profile, work_preference: pref.value as any });
                             setIsDraft(true);
                           }}
-                          className={`p-4 rounded-xl border-2 transition-all ${
-                            profile.work_preference === pref.value ? "border-neon-cyan bg-neon-cyan/10 text-neon-cyan" : "border-glass-border glass hover:glass-strong text-muted-foreground"
-                          }`}
+                          className={`p-4 rounded-xl border-2 transition-all ${profile.work_preference === pref.value ? "border-neon-cyan bg-neon-cyan/10 text-neon-cyan" : "border-glass-border glass hover:glass-strong text-muted-foreground"
+                            }`}
                         >
                           <div className="font-medium">{pref.label}</div>
                         </button>
@@ -1064,9 +1060,8 @@ export function ProfileEditorPage() {
                             setProfile({ ...profile, [type.value]: !current_value });
                             setIsDraft(true);
                           }}
-                          className={`p-3 rounded-xl border-2 transition-all text-sm ${
-                            profile[type.value] ? "border-neon-purple bg-neon-purple/10 text-neon-purple" : "border-glass-border glass hover:glass-strong text-muted-foreground"
-                          }`}
+                          className={`p-3 rounded-xl border-2 transition-all text-sm ${profile[type.value] ? "border-neon-purple bg-neon-purple/10 text-neon-purple" : "border-glass-border glass hover:glass-strong text-muted-foreground"
+                            }`}
                         >
                           {type.label}
                         </button>
@@ -1166,10 +1161,12 @@ export function ProfileEditorPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        {/* {profile.culturePreferences?.attributes && profile.culturePreferences.attributes.length > 0 && (
-                          <Badge className="bg-neon-purple/20 text-neon-purple border-neon-purple/30">{profile.culturePreferences.attributes.length} selected</Badge>
-                        )} */}
-                        <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform ${showCulturePanel ? "rotate-180" : ""}`} />
+                        {culturePref.attributes.length > 0 && (
+                          <Badge className="bg-neon-purple/20 text-neon-purple border-neon-purple/30">
+                            {culturePref.attributes.length} selected
+                          </Badge>
+                        )}
+                        <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform ${showCulturePanel ? 'rotate-180' : ''}`} />
                       </div>
                     </button>
 
@@ -1191,11 +1188,10 @@ export function ProfileEditorPage() {
                               <button
                                 key={preset.key}
                                 onClick={() => handlePresetSelect(preset.key)}
-                                // className={`px-4 py-2 rounded-full text-sm border-2 transition-all ${
-                                //   profile.culturePreferences?.preset === preset.key
-                                //     ? "border-neon-purple bg-neon-purple/20 text-neon-purple"
-                                //     : "border-glass-border glass hover:glass-strong text-muted-foreground hover:text-white"
-                                // }`}
+                                className={`px-4 py-2 rounded-full text-sm border-2 transition-all ${culturePref.preset === preset.key
+                                    ? 'border-neon-purple bg-neon-purple/20 text-neon-purple'
+                                    : 'border-glass-border glass hover:glass-strong text-muted-foreground hover:text-white'
+                                  }`}
                               >
                                 {preset.label}
                               </button>
@@ -1206,21 +1202,22 @@ export function ProfileEditorPage() {
                         <Separator className="bg-glass-border" />
 
                         {/* Attribute Grid */}
-                        {/* <div className="space-y-3">
+                        <div className="space-y-3">
                           <Label className="text-white">Culture Attributes</Label>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             {CULTURE_ATTRIBUTES.map((attribute) => {
                               const Icon = attribute.icon;
-                              const isSelected = profile.culturePreferences?.attributes?.some((a) => a.key === attribute.key);
-                              const currentAttribute = profile.culturePreferences?.attributes?.find((a) => a.key === attribute.key);
+                              const isSelected = culturePref.attributes.some(a => a.key === attribute.key);
+                              const currentAttribute = culturePref.attributes.find(a => a.key === attribute.key);
 
                               return (
                                 <div key={attribute.key} className="space-y-2">
                                   <button
                                     onClick={() => handleAttributeToggle(attribute.key)}
-                                    className={`w-full p-3 rounded-xl border-2 transition-all text-left group relative ${
-                                      isSelected ? "border-neon-cyan bg-neon-cyan/10 text-neon-cyan" : "border-glass-border glass hover:glass-strong text-muted-foreground hover:text-white"
-                                    }`}
+                                    className={`w-full p-3 rounded-xl border-2 transition-all text-left group relative ${isSelected
+                                        ? 'border-neon-cyan bg-neon-cyan/10 text-neon-cyan'
+                                        : 'border-glass-border glass hover:glass-strong text-muted-foreground hover:text-white'
+                                      }`}
                                   >
                                     <div className="flex items-center gap-3">
                                       <Icon className="h-4 w-4 flex-shrink-0" />
@@ -1228,11 +1225,13 @@ export function ProfileEditorPage() {
                                       {isSelected && <Check className="h-4 w-4 ml-auto" />}
                                     </div>
 
+                                    {/* Tooltip */}
                                     <span className="absolute hidden group-hover:block bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 text-xs bg-gray-900 border border-glass-border rounded-lg whitespace-normal max-w-xs z-10 text-white">
                                       {attribute.tooltip}
                                     </span>
                                   </button>
 
+                                  {/* Importance Selector */}
                                   {isSelected && (
                                     <div className="pl-3">
                                       <select
@@ -1240,7 +1239,7 @@ export function ProfileEditorPage() {
                                         onChange={(e) => handleAttributeImportanceChange(attribute.key, parseInt(e.target.value))}
                                         className="w-full text-xs glass border border-glass-border rounded-lg px-2 py-1 focus:border-neon-cyan focus:outline-none bg-transparent text-white"
                                       >
-                                        {IMPORTANCE_LEVELS.filter((l) => l.value > 0).map((level) => (
+                                        {IMPORTANCE_LEVELS.filter(l => l.value > 0).map((level) => (
                                           <option key={level.value} value={level.value} className="bg-gray-900">
                                             {level.label}
                                           </option>
@@ -1252,51 +1251,42 @@ export function ProfileEditorPage() {
                               );
                             })}
                           </div>
-                        </div> */}
+                        </div>
 
                         <Separator className="bg-glass-border" />
 
                         {/* Global Importance Slider */}
-                        {/* <div className="space-y-3">
+                        <div className="space-y-3">
                           <div className="flex items-center justify-between">
                             <Label className="text-white">Overall Importance in Job Matching</Label>
-                            <span className="text-sm font-semibold text-neon-cyan">{profile.culturePreferences?.globalImportance || 50}%</span>
+                            <span className="text-sm font-semibold text-neon-cyan">
+                              {culturePref.global_importance}%
+                            </span>
                           </div>
                           <Slider
-                            value={[profile.culturePreferences?.globalImportance || 50]}
-                            onValueChange={(value) => {
-                              const currentPrefs = profile.culturePreferences || {
-                                attributes: [],
-                                globalImportance: 50,
-                                visibility: { public: false, recruiters: false },
-                              };
-                              setProfile({
-                                ...profile,
-                                culturePreferences: {
-                                  ...currentPrefs,
-                                  globalImportance: value[0],
-                                  updatedAt: new Date().toISOString(),
-                                },
-                              });
-                              setIsDraft(true);
-                            }}
+                            value={[culturePref.global_importance]}
+                            onValueChange={(value) => updateCulturePref({ global_importance: value[0] })}
                             max={100}
                             step={10}
                             className="w-full"
                           />
-                          <p className="text-xs text-muted-foreground">This controls how much culture fit affects your job recommendations</p>
-                        </div> */}
+                          <p className="text-xs text-muted-foreground">
+                            This controls how much culture fit affects your job recommendations
+                          </p>
+                        </div>
 
                         <Separator className="bg-glass-border" />
 
                         {/* Culture Statement */}
-                        {/* <div className="space-y-3">
+                        <div className="space-y-3">
                           <div className="flex items-center justify-between">
                             <Label className="text-white">Culture Statement (Optional)</Label>
-                            <span className="text-xs text-muted-foreground">{profile.culturePreferences?.statement?.length || 0}/140</span>
+                            <span className="text-xs text-muted-foreground">
+                              {culturePref.statement?.length || 0}/140
+                            </span>
                           </div>
                           <Textarea
-                            value={profile.culturePreferences?.statement || ""}
+                            value={culturePref.statement || ''}
                             onChange={(e) => handleCultureStatementChange(e.target.value)}
                             placeholder="I thrive in small, cross-functional teams with rapid iteration cycles..."
                             maxLength={140}
@@ -1307,7 +1297,7 @@ export function ProfileEditorPage() {
                             variant="outline"
                             size="sm"
                             onClick={handleAIRewriteCultureStatement}
-                            disabled={aiLoading || !profile.culturePreferences?.statement}
+                            disabled={aiLoading || !culturePref.statement}
                             className="border-neon-purple/30 text-neon-purple hover:bg-neon-purple/10"
                           >
                             {aiLoading ? (
@@ -1322,12 +1312,12 @@ export function ProfileEditorPage() {
                               </>
                             )}
                           </Button>
-                        </div> */}
+                        </div>
 
                         <Separator className="bg-glass-border" />
 
                         {/* Visibility Toggle */}
-                        {/* <div className="space-y-4">
+                        <div className="space-y-4">
                           <Label className="text-white">Visibility</Label>
 
                           <div className="space-y-3">
@@ -1340,48 +1330,39 @@ export function ProfileEditorPage() {
                                 </div>
                               </div>
                               <button
-                                onClick={() => {
-                                  const currentPrefs = profile.culturePreferences || {
-                                    attributes: [],
-                                    globalImportance: 50,
-                                    visibility: { public: false, recruiters: false },
-                                  };
-                                  setProfile({
-                                    ...profile,
-                                    culturePreferences: {
-                                      ...currentPrefs,
-                                      visibility: {
-                                        ...currentPrefs.visibility,
-                                        recruiters: !currentPrefs.visibility.recruiters,
-                                      },
-                                      updatedAt: new Date().toISOString(),
+                                onClick={() =>
+                                  updateCulturePref({
+                                    visibility: {
+                                      ...culturePref.visibility,
+                                      recruiters: !culturePref.visibility?.recruiters,
                                     },
-                                  });
-                                  setIsDraft(true);
-                                }}
-                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                                  profile.culturePreferences?.visibility?.recruiters ? "bg-neon-cyan" : "bg-glass-border"
-                                }`}
+                                  })
+                                }
+                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${culturePref.visibility?.recruiters ? 'bg-neon-cyan' : 'bg-glass-border'
+                                  }`}
                               >
                                 <span
-                                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                                    profile.culturePreferences?.visibility?.recruiters ? "translate-x-6" : "translate-x-1"
-                                  }`}
+                                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${culturePref.visibility?.recruiters ? 'translate-x-6' : 'translate-x-1'
+                                    }`}
                                 />
                               </button>
                             </div>
+
+
                           </div>
 
                           <div className="p-3 glass rounded-lg border border-neon-yellow/20">
                             <div className="flex items-start gap-2">
                               <Lock className="h-4 w-4 text-neon-yellow flex-shrink-0 mt-0.5" />
-                              <p className="text-xs text-muted-foreground">Your preferences are always used for job matching, regardless of visibility settings. Privacy is our priority.</p>
+                              <p className="text-xs text-muted-foreground">
+                                Your preferences are always used for job matching, regardless of visibility settings. Privacy is our priority.
+                              </p>
                             </div>
                           </div>
-                        </div> */}
+                        </div>
 
                         {/* Preview Card */}
-                        {/* {profile.culturePreferences?.attributes && profile.culturePreferences.attributes.length > 0 && (
+                        {culturePref.attributes.length > 0 && (
                           <>
                             <Separator className="bg-glass-border" />
                             <div className="space-y-3">
@@ -1392,36 +1373,55 @@ export function ProfileEditorPage() {
                                   <span className="text-sm font-semibold text-white">Culture Preferences</span>
                                 </div>
                                 <div className="flex flex-wrap gap-2 mb-3">
-                                  {profile.culturePreferences.attributes
-                                    .filter((attr) => attr.importance > 0)
+                                  {culturePref.attributes
+                                    .filter(attr => attr.importance > 0)
                                     .sort((a, b) => b.importance - a.importance)
                                     .map((attr) => {
-                                      const attribute = CULTURE_ATTRIBUTES.find((a) => a.key === attr.key);
+                                      const attribute = CULTURE_ATTRIBUTES.find(a => a.key === attr.key);
                                       if (!attribute) return null;
-                                      const importanceLabel = IMPORTANCE_LEVELS.find((l) => l.value === attr.importance)?.label;
+                                      const importanceLabel = IMPORTANCE_LEVELS.find(l => l.value === attr.importance)?.label;
 
                                       return (
                                         <Badge
                                           key={attr.key}
                                           variant="outline"
-                                          className={`text-xs ${
-                                            attr.importance === 3
-                                              ? "border-neon-green/30 text-neon-green bg-neon-green/10"
+                                          className={`text-xs ${attr.importance === 3
+                                              ? 'border-neon-green/30 text-neon-green bg-neon-green/10'
                                               : attr.importance === 2
-                                              ? "border-neon-cyan/30 text-neon-cyan bg-neon-cyan/10"
-                                              : "border-neon-purple/30 text-neon-purple bg-neon-purple/10"
-                                          }`}
+                                                ? 'border-neon-cyan/30 text-neon-cyan bg-neon-cyan/10'
+                                                : 'border-neon-purple/30 text-neon-purple bg-neon-purple/10'
+                                            }`}
                                         >
                                           {attribute.label} • {importanceLabel}
                                         </Badge>
                                       );
                                     })}
                                 </div>
-                                {profile.culturePreferences.statement && <p className="text-sm text-muted-foreground italic">"{profile.culturePreferences.statement}"</p>}
+                                {culturePref.statement && (
+                                  <p className="text-sm text-muted-foreground italic">
+                                    "{culturePref.statement}"
+                                  </p>
+                                )}
                               </div>
                             </div>
                           </>
-                        )} */}
+                        )}
+
+                        {/* Clear / Remove preferences */}
+                        {profile.culture_preference && (
+                          <>
+                            <Separator className="bg-glass-border" />
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={handleClearCulturePref}
+                              className="border-red-500/30 text-red-400 hover:bg-red-500/10"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Clear / Remove preferences
+                            </Button>
+                          </>
+                        )}
                       </div>
                     )}
                   </div>
@@ -1797,9 +1797,8 @@ export function ProfileEditorPage() {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <button
                         onClick={() => handleDangerAction("public-visibility")}
-                        className={`p-6 rounded-xl border-2 transition-all ${
-                          profile.profile_visibility === "public" ? "border-neon-green bg-neon-green/10" : "border-glass-border glass hover:glass-strong"
-                        }`}
+                        className={`p-6 rounded-xl border-2 transition-all ${profile.profile_visibility === "public" ? "border-neon-green bg-neon-green/10" : "border-glass-border glass hover:glass-strong"
+                          }`}
                       >
                         <Unlock className="h-8 w-8 mb-3 mx-auto text-neon-green" />
                         <h4 className="font-medium text-white mb-1">Public</h4>
@@ -1811,9 +1810,8 @@ export function ProfileEditorPage() {
                           setProfile({ ...profile, profile_visibility: "recruiters" });
                           setIsDraft(true);
                         }}
-                        className={`p-6 rounded-xl border-2 transition-all ${
-                          profile.profile_visibility === "recruiters" ? "border-neon-cyan bg-neon-cyan/10" : "border-glass-border glass hover:glass-strong"
-                        }`}
+                        className={`p-6 rounded-xl border-2 transition-all ${profile.profile_visibility === "recruiters" ? "border-neon-cyan bg-neon-cyan/10" : "border-glass-border glass hover:glass-strong"
+                          }`}
                       >
                         <Users className="h-8 w-8 mb-3 mx-auto text-neon-cyan" />
                         <h4 className="font-medium text-white mb-1">Recruiters Only</h4>
@@ -1825,9 +1823,8 @@ export function ProfileEditorPage() {
                           setProfile({ ...profile, profile_visibility: "private" });
                           setIsDraft(true);
                         }}
-                        className={`p-6 rounded-xl border-2 transition-all ${
-                          profile.profile_visibility === "private" ? "border-destructive bg-destructive/10" : "border-glass-border glass hover:glass-strong"
-                        }`}
+                        className={`p-6 rounded-xl border-2 transition-all ${profile.profile_visibility === "private" ? "border-destructive bg-destructive/10" : "border-glass-border glass hover:glass-strong"
+                          }`}
                       >
                         <Lock className="h-8 w-8 mb-3 mx-auto text-destructive" />
                         <h4 className="font-medium text-white mb-1">Private</h4>
