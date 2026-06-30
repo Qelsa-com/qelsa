@@ -126,6 +126,12 @@ export const jobsApi = createApi({
       providesTags: (result, error, id) => [{ type: "Job", id }],
     }),
 
+    getSimilarJobs: builder.query<Job[], string>({
+      query: (id) => `jobs/${id}/similar`,
+      transformResponse: (response: { success: boolean; data: Job[] }) => response.data,
+      providesTags: (result, error, id) => [{ type: "Job", id: `similar-${id}` }],
+    }),
+
     getCities: builder.query<string[], void>({
       query: () => `jobs/cities`,
       transformResponse: (response: { success: boolean; data: string[] }) => response.data,
@@ -195,6 +201,7 @@ export const {
   useGetSavedJobsQuery,
   useLazyGetSavedJobsQuery,
   useGetJobByIdQuery,
+  useGetSimilarJobsQuery,
   useGetCitiesQuery,
   useGetJobTypesQuery,
   useCreateJobMutation,

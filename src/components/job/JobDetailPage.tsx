@@ -1,5 +1,5 @@
 import { useAuth } from "@/contexts/AuthContext";
-import { useGetJobByIdQuery, useToggleSaveJobMutation } from "@/features/api/jobsApi";
+import { useGetJobByIdQuery, useGetSimilarJobsQuery, useToggleSaveJobMutation } from "@/features/api/jobsApi";
 import { useGetMyResumesQuery } from "@/features/api/resumeApi";
 import DOMPurify from "dompurify";
 import {
@@ -62,6 +62,10 @@ export function   JobDetailPage() {
     error,
     isLoading,
   } = useGetJobByIdQuery(id!, {
+    skip: !id,
+  });
+
+  const { data: similarJobs, isLoading: isSimilarLoading } = useGetSimilarJobsQuery(id!, {
     skip: !id,
   });
 
@@ -143,33 +147,6 @@ export function   JobDetailPage() {
       setChatMessage("");
     }
   };
-
-  const mockSimilarJobs = [
-    {
-      id: "1",
-      title: "Frontend Developer",
-      company: "TechCorp",
-      location: "San Francisco, CA",
-      fitScore: 85,
-      logo: "https://via.placeholder.com/40x40",
-    },
-    {
-      id: "2",
-      title: "React Developer",
-      company: "StartupXYZ",
-      location: "Remote",
-      fitScore: 82,
-      logo: "https://via.placeholder.com/40x40",
-    },
-    {
-      id: "3",
-      title: "Full Stack Engineer",
-      company: "DevCompany",
-      location: "New York, NY",
-      fitScore: 79,
-      logo: "https://via.placeholder.com/40x40",
-    },
-  ];
 
   const mockInterviewQuestions = [
     "Explain the difference between controlled and uncontrolled components in React.",
@@ -722,30 +699,55 @@ export function   JobDetailPage() {
             <h3 className="text-lg font-semibold">Similar Jobs You Might Like</h3>
           </div>
 
-          <div className="space-y-3">
-            {mockSimilarJobs.map((similarJob) => (
-              <div key={similarJob.id} className="flex items-center gap-4 p-3 rounded-lg bg-muted/50 border border-glass-border hover:border-neon-cyan/30 cursor-pointer transition-colors">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={similarJob.logo} alt={similarJob.company} className="w-10 h-10 rounded-lg object-cover" />
-                <div className="flex-1">
-                  <h4 className="font-medium text-sm">{similarJob.title}</h4>
-                  <p className="text-xs text-muted-foreground">
-                    {similarJob.company} • {similarJob.location}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <div className="text-sm font-medium text-neon-cyan">{similarJob.fitScore}% match</div>
-                  <Button variant="ghost" size="sm" className="text-xs mt-1">
-                    View Job
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <Button variant="ghost" className="w-full mt-4 text-neon-cyan hover:bg-neon-cyan/10">
-            View All Similar Jobs
-          </Button>
+          {isSimilarLoading ? (
+            <p className="text-sm text-muted-foreground">Loading similar jobs...</p>
+          ) : !similarJobs || similarJobs.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No similar jobs found.</p>
+          ) : (
+            <div className="space-y-3">
+              {similarJobs.map((similarJob) => {
+                const companyName = similarJob.page?.name || similarJob.company_name;
+                return (
+                  <div
+                    key={similarJob.id}
+                    onClick={() => router.push(`/jobs/${similarJob.id}`)}
+                    className="flex items-center gap-4 p-3 rounded-lg bg-muted/50 border border-glass-border hover:border-neon-cyan/30 cursor-pointer transition-colors"
+                  >
+                    {similarJob.company_logo ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={similarJob.company_logo} alt={companyName ?? "Company"} className="w-10 h-10 rounded-lg object-cover" />
+                    ) : (
+                      <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
+                        <Building2 className="w-5 h-5 text-muted-foreground" />
+                      </div>
+                    )}
+                    <div className="flex-1">
+                      <h4 className="font-medium text-sm">{similarJob.job_title?.name ?? similarJob.title}</h4>
+                      <p className="text-xs text-muted-foreground">
+                        {companyName}
+                        {companyName && similarJob.location && " • "}
+                        {similarJob.location}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      {typeof similarJob.fitScore === "number" && <div className="text-sm font-medium text-neon-cyan">{similarJob.fitScore}% match</div>}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-xs mt-1"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          router.push(`/jobs/${similarJob.id}`);
+                        }}
+                      >
+                        View Job
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </Card>
       </div>
 
