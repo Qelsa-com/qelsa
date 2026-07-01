@@ -40,7 +40,7 @@ import { Input } from "../ui/input";
 import { Separator } from "../ui/separator";
 
 export function   JobDetailPage() {
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const [isApplied, setIsApplied] = useState(false);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [showSavedResumesDialog, setShowSavedResumesDialog] = useState(false);
@@ -48,7 +48,7 @@ export function   JobDetailPage() {
   const [chatMessage, setChatMessage] = useState("");
   const [resumeAnalysis, setResumeAnalysis] = useState<any>(null);
   const [selectedSkillsTab, setSelectedSkillsTab] = useState("match");
-  const { data: my_resumes } = useGetMyResumesQuery();
+  const { data: my_resumes } = useGetMyResumesQuery(undefined, { skip: !isAuthenticated });
   const [toggleSaveJob] = useToggleSaveJobMutation();
 
   const router = useRouter();
@@ -303,7 +303,7 @@ export function   JobDetailPage() {
                   {!isApplied ? (
                     <div>
                       {job.resource == "qelsa" ? (
-                        <Button onClick={() => setShowQuickApplyModal(true)} className="w-full bg-neon-green hover:bg-neon-green/90 text-black font-medium">
+                        <Button onClick={() => (isAuthenticated ? setShowQuickApplyModal(true) : router.push(`/auth?actionType=profile&returnUrl=${encodeURIComponent("/jobs/all")}`))} className="w-full bg-neon-green hover:bg-neon-green/90 text-black font-medium">
                           <Zap className="w-4 h-4 mr-2" />
                           Quick Apply
                         </Button>

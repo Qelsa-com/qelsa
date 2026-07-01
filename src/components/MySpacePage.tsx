@@ -562,7 +562,7 @@ export function MySpacePage({}: MySpacePageProps) {
 
             <div>
               <h3 className="font-semibold text-white mb-2">Professional Summary</h3>
-              <p className="text-muted-foreground leading-relaxed">{user?.about}</p>
+              <p className="text-muted-foreground leading-relaxed">{user?.professional_summary}</p>
             </div>
 
             <div className="flex gap-3">

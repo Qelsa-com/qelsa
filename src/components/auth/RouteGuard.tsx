@@ -31,9 +31,15 @@ export default function RouteGuard({ children }) {
   }, [profile]);
 
   useEffect(() => {
-    if (!isClient || isFetching) return;
+    // Wait for the router to resolve. On a hard refresh of a statically-optimized
+    // dynamic route, asPath is initially the unresolved pattern until isReady, so
+    // evaluating the guard early would misclassify e.g. /jobs/123 as non-public.
+    if (!isClient || isFetching || !router.isReady) return;
 
-    const path = router.pathname;
+    // Use the resolved URL (asPath), not router.pathname — for dynamic routes
+    // pathname is the pattern (e.g. "/jobs/[id]"), which never matches the
+    // numeric PUBLIC_DYNAMIC regex and would wrongly gate public job pages.
+    const path = router.asPath.split(/[?#]/)[0];
 
     const isPublic = PUBLIC_ROUTES.includes(path) || PUBLIC_DYNAMIC.test(path);
 
@@ -55,7 +61,7 @@ export default function RouteGuard({ children }) {
       router.replace("/jobs/all");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, isClient, isFetching, error, profile, router.pathname]);
+  }, [token, isClient, isFetching, error, profile, router.isReady, router.asPath]);
 
   if (!isClient || isFetching) return null;
 
