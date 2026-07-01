@@ -44,7 +44,6 @@ import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import { Progress } from "./ui/progress";
 import { Separator } from "./ui/separator";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 
 interface MySpacePageProps {}
 
@@ -959,27 +958,10 @@ export function MySpacePage({}: MySpacePageProps) {
           </div>
         </div>
 
-        {/* Tabs Layout */}
-        <Tabs defaultValue="dashboard" className="space-y-8">
-          <TabsList className="glass border border-glass-border p-1 rounded-2xl">
-            <TabsTrigger value="dashboard" className="flex items-center gap-2 px-6 py-3 rounded-xl data-[state=active]:bg-neon-cyan data-[state=active]:text-black transition-all duration-300">
-              <LayoutDashboard className="h-4 w-4" />
-              Career Dashboard
-            </TabsTrigger>
-            <TabsTrigger value="profile" className="flex items-center gap-2 px-6 py-3 rounded-xl data-[state=active]:bg-neon-purple data-[state=active]:text-white transition-all duration-300">
-              <User2 className="h-4 w-4" />
-              Professional Profile
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="dashboard" className="space-y-8">
-            {dashboardContent}
-          </TabsContent>
-
-          <TabsContent value="profile" className="space-y-8">
-            {profileContent}
-          </TabsContent>
-        </Tabs>
+        {/* Professional Profile */}
+        <div className="space-y-8">
+          {profileContent}
+        </div>
       </div>
     </div>
   );
