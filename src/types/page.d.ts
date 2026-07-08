@@ -1,6 +1,13 @@
 import { Job } from "./job";
 import { User } from "./user";
 
+export type CompanySize = {
+  id: number;
+  label: string;
+  min_employees?: number | null;
+  max_employees?: number | null;
+};
+
 export type Page = {
   id?: number;
   name: string;
@@ -38,4 +45,13 @@ export type Page = {
     highlights?: { id: string; text: string }[];
   } | null;
   socials?: Record<string, string> | null;
+
+  // API snake_case company-profile fields
+  hero_image?: string | null;
+  detailed_description?: string | null;
+  size_id?: number | null;
+  company_size?: CompanySize | null;
+  founded_year?: number | null;
+  contact_email?: string | null;
+  contact_phone?: string | null;
 };

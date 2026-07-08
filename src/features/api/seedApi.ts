@@ -4,6 +4,7 @@ import { FieldOfStudy } from "../../types/fieldOfStudy";
 import { Skill, SkillCategory } from "../../types/userSkill";
 import { College } from "../../types/education";
 import { CertificationCatalog, IssuingBody } from "../../types/certification";
+import { CompanySize } from "../../types/page";
 
 export const seedApi = createApi({
   reducerPath: "seedApi",
@@ -44,6 +45,10 @@ export const seedApi = createApi({
       query: ({ search = "", limit = 20 }) => `issuing-bodies?search=${encodeURIComponent(search)}&limit=${limit}`,
       transformResponse: (response: { success: boolean; data: IssuingBody[] }) => response.data,
     }),
+    getCompanySizes: builder.query<CompanySize[], { search?: string; limit?: number }>({
+      query: ({ search = "", limit = 20 }) => `company-sizes?search=${encodeURIComponent(search)}&limit=${limit}`,
+      transformResponse: (response: { success: boolean; data: CompanySize[] }) => response.data,
+    }),
   }),
 });
 
@@ -56,4 +61,5 @@ export const {
   useLazyGetCollegesQuery,
   useLazyGetCertificationCatalogQuery,
   useLazyGetIssuingBodiesQuery,
+  useLazyGetCompanySizesQuery,
 } = seedApi;
