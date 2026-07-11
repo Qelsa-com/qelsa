@@ -1,4 +1,6 @@
 import { useAuth } from "@/contexts/AuthContext";
+import { jobSkillTypeLabel, proficiencyLabel } from "@/constants/skills";
+import { CompetencySummary, CompetencyTable } from "./CompetencyMatch";
 import { useGetJobByIdQuery, useGetSimilarJobsQuery, useToggleSaveJobMutation } from "@/features/api/jobsApi";
 import { useGetMyResumesQuery } from "@/features/api/resumeApi";
 import DOMPurify from "dompurify";
@@ -39,7 +41,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Input } from "../ui/input";
 import { Separator } from "../ui/separator";
 
-export function   JobDetailPage() {
+export function JobDetailPage() {
   const { user, isAuthenticated } = useAuth();
   const [isApplied, setIsApplied] = useState(false);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
@@ -124,7 +126,7 @@ export function   JobDetailPage() {
     setIsApplied(true);
   };
 
-  const handleShareJob = () => {};
+  const handleShareJob = () => { };
 
   const handleUploadResume = () => {
     // Mock resume analysis
@@ -556,23 +558,6 @@ export function   JobDetailPage() {
 
             <Separator />
 
-            {job.job_skills && job.job_skills.length > 0 && (
-              <>
-                <div>
-                  <h4 className="font-medium text-neon-purple mb-3">Required Skills</h4>
-                  <div className="flex flex-wrap gap-2">
-                    {(job.job_skills || []).map((skill) => (
-                      <Badge key={skill.id} variant="secondary" className="text-xs">
-                        {skill.skill?.name ?? skill.title}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-
-                <Separator />
-              </>
-            )}
-
             <div>
               <h4 className="font-medium text-neon-pink mb-3">About {job.page?.name || job.company_name}</h4>
               <p className="text-sm text-muted-foreground leading-relaxed">{job.page?.description || "Company description not available."}</p>
@@ -596,6 +581,13 @@ export function   JobDetailPage() {
             )} */}
           </div>
         </Card>
+
+        {job.competency && (
+          <>
+            <CompetencyTable competency={job.competency} />
+            <Separator />
+          </>
+        )}
 
         {/* Ask Qelsa Chat Widget */}
         <Card className="glass border-glass-border p-6">
@@ -721,13 +713,14 @@ export function   JobDetailPage() {
                         <Building2 className="w-5 h-5 text-muted-foreground" />
                       </div>
                     )}
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
                       <h4 className="font-medium text-sm">{similarJob.job_title?.name ?? similarJob.title}</h4>
                       <p className="text-xs text-muted-foreground">
                         {companyName}
                         {companyName && similarJob.location && " • "}
                         {similarJob.location}
                       </p>
+                      {similarJob.competency && <CompetencySummary competency={similarJob.competency} className="mt-2" />}
                     </div>
                     <div className="text-right">
                       {typeof similarJob.fitScore === "number" && <div className="text-sm font-medium text-neon-cyan">{similarJob.fitScore}% match</div>}

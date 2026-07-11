@@ -10,11 +10,14 @@ export type SkillCategory = {
   name: string;
 };
 
+import { ProficiencyLevel } from "../constants/skills";
+
 export type UserSkill = {
   id?: number;
   skill: Skill;
   category: SkillCategory | null;
-  proficiency: number;
+  // Proficiency is now an enum string and may be blank/unset.
+  proficiency: ProficiencyLevel | "" | null;
   experience_level?: string;
   is_top_skill: boolean;
 };

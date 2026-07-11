@@ -3,6 +3,7 @@ import { JobApplicationAnswer } from "./jobApplicationAnswers";
 import { ScreeningQuestion } from "./question";
 import { Resume } from "./resume";
 import { User } from "./user";
+import { Competency } from "./competency";
 
 export type JobApplication = {
   id: number;
@@ -19,6 +20,7 @@ export type JobApplication = {
   screening_questions: ScreeningQuestion[];
   job_application_answers: JobApplicationAnswer[];
   resume?: Resume;
+  competency?: Competency;
   createdAt: string;
   updatedAt: string;
 };

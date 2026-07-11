@@ -1,3 +1,4 @@
+import { Competency } from "./competency";
 import { JobApplication } from "./jobApplication";
 import { JobSkill } from "./jobSkill";
 import { Page } from "./page";
@@ -57,4 +58,7 @@ export type Job = {
   job_skills?: JobSkill[];
   applications?: JobApplication[];
   questionSets?: QuestionSet[];
+
+  // Seeker-side match data (optional-auth; null when logged out)
+  competency?: Competency | null;
 };

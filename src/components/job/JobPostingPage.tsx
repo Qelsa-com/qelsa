@@ -1,5 +1,4 @@
 import { Autocomplete } from "@/components/ui/autocomplete";
-import { MultiAutocomplete } from "@/components/ui/multi-autocomplete";
 import { useLazySearchCompaniesQuery } from "@/features/api/companiesApi";
 import { useCreateJobMutation } from "@/features/api/jobsApi";
 import { useLazySearchJobTitlesQuery } from "@/features/api/jobTitlesApi";
@@ -7,6 +6,8 @@ import { useLazyGetSkillsQuery } from "@/features/api/seedApi";
 import { useGetMyPagesQuery } from "@/features/api/pagesApi";
 import { Job } from "@/types/job";
 import { ScreeningQuestion } from "@/types/question";
+import { JOB_SKILL_TYPES, JobSkillType, jobSkillTypeLabel, PROFICIENCY_LEVELS, ProficiencyLevel, proficiencyLabel } from "@/constants/skills";
+import { toast } from "sonner";
 import {
   AlertCircle,
   ArrowLeft,
@@ -16,7 +17,9 @@ import {
   Edit2,
   Eye,
   FileText,
+  GripVertical,
   HelpCircle,
+  Info,
   Lightbulb,
   MessageSquare,
   Plus,
@@ -25,6 +28,7 @@ import {
   Send,
   Shield,
   Sparkles,
+  Trash2,
   TrendingUp,
   Users,
   Wand2,
@@ -64,7 +68,7 @@ export function JobPostingPage() {
     experience: number;
     salary: string | null;
     description: string;
-    skills: { id: number; name: string }[];
+    skills: { id: number; name: string; type: JobSkillType; proficiency: ProficiencyLevel; weight: number | "" }[];
     screening_questions: any[];
     page_id: number | null;
   }>({
@@ -173,11 +177,81 @@ export function JobPostingPage() {
         title: `Screening - ${new Date().toISOString()}`, // auto generate
       },
       questions,
-      skills: formData.skills || [],
+      skills: buildSkillsPayload(formData.skills || []),
     };
   }
 
+  // Weights are all-or-none: include `weight` on every skill only when every
+  // selected skill has one; otherwise omit weight entirely (backend requires this).
+  function buildSkillsPayload(skills: { id: number; type: JobSkillType; proficiency: ProficiencyLevel; weight: number | "" }[]) {
+    const allHaveWeight = skills.length > 0 && skills.every((s) => s.weight !== "" && s.weight != null);
+    return skills.map((s) => ({
+      id: s.id,
+      type: s.type,
+      proficiency: s.proficiency,
+      ...(allHaveWeight && { weight: Number(s.weight) }),
+    }));
+  }
+
+  const updateSkillField = <K extends "type" | "proficiency" | "weight">(id: number, field: K, value: (typeof jobData.skills)[number][K]) => {
+    setJobData((prev) => ({
+      ...prev,
+      skills: prev.skills.map((s) => (s.id === id ? { ...s, [field]: value } : s)),
+    }));
+  };
+
+  const removeSkill = (id: number) => {
+    setJobData((prev) => ({ ...prev, skills: prev.skills.filter((s) => s.id !== id) }));
+  };
+
+  const addSkill = (sel: { id: number; name: string } | null) => {
+    if (!sel) return;
+    setJobData((prev) => {
+      if (prev.skills.some((s) => s.id === sel.id)) return prev;
+      return {
+        ...prev,
+        skills: [
+          ...prev.skills,
+          { id: sel.id, name: sel.name, type: "preferred" as JobSkillType, proficiency: "beginner" as ProficiencyLevel, weight: "" as number | "" },
+        ],
+      };
+    });
+  };
+
+  // Competency-framework view/edit mode
+  const [skillsEditMode, setSkillsEditMode] = useState(false);
+  const [showAddSkill, setShowAddSkill] = useState(false);
+  const [skillsBackup, setSkillsBackup] = useState<typeof jobData.skills>([]);
+  const enterSkillsEdit = () => {
+    setSkillsBackup(jobData.skills);
+    setSkillsEditMode(true);
+  };
+  const cancelSkillsEdit = () => {
+    setJobData((prev) => ({ ...prev, skills: skillsBackup }));
+    setSkillsEditMode(false);
+  };
+  const saveSkillsEdit = () => {
+    if (!weightsValid) {
+      toast.error("Weights must be set on every skill and sum to exactly 100 — or left blank on all.");
+      return;
+    }
+    setSkillsEditMode(false);
+  };
+
+  const typeTextColor = (t: JobSkillType) => (t === "core" ? "text-orange-400" : t === "preferred" ? "text-neon-yellow" : "text-muted-foreground");
+
+  // Weight validation state (live indicator + submit gate)
+  const enteredWeights = jobData.skills.filter((s) => s.weight !== "" && s.weight != null);
+  const anyWeight = enteredWeights.length > 0;
+  const allWeights = jobData.skills.length > 0 && enteredWeights.length === jobData.skills.length;
+  const weightTotal = enteredWeights.reduce((sum, s) => sum + Number(s.weight || 0), 0);
+  const weightsValid = !anyWeight || (allWeights && weightTotal === 100);
+
   const handlePublish = async () => {
+    if (!weightsValid) {
+      toast.error("Skill weights must be set on all skills and add up to exactly 100 (or left blank on all).");
+      return;
+    }
     console.log("🚀 ~ handlePublish ~ jobData:", jobData);
     const newData = transformJobPayload(jobData);
     console.log("🚀 ~ handlePublish ~ newData:", newData);
@@ -1123,18 +1197,158 @@ export function JobPostingPage() {
                     </div>
                   </div>
 
-                  {/* Skills Section */}
+                  {/* Competency Framework (Skills) */}
                   <div>
-                    <label className="text-sm font-medium mb-2 block">Required Skills</label>
-                    <MultiAutocomplete
-                      value={jobData.skills}
-                      onChange={(skills) => setJobData((prev) => ({ ...prev, skills }))}
-                      onSearch={(q) => searchSkills(q || undefined)}
-                      options={skillResults}
-                      placeholder="Search and select skills..."
-                      icon={<Search className="h-4 w-4" />}
-                      inputClassName="glass border-glass-border focus:border-neon-cyan"
-                    />
+                    {!skillsEditMode ? (
+                      /* ===== VIEW MODE ===== */
+                      <div className="glass border border-glass-border rounded-xl p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="font-semibold">Competency framework</h4>
+                          <Button variant="ghost" size="sm" onClick={enterSkillsEdit} className="text-neon-cyan hover:text-neon-cyan">
+                            <Edit2 className="w-4 h-4 mr-1" />
+                            Edit
+                          </Button>
+                        </div>
+                        {jobData.skills.length === 0 ? (
+                          <p className="text-sm text-muted-foreground">No competencies defined yet. Click Edit to add required skills.</p>
+                        ) : (
+                          <div className="space-y-1">
+                            {jobData.skills.map((skill) => (
+                              <div key={skill.id} className="flex items-center gap-2 flex-wrap py-2 border-b border-glass-border last:border-0">
+                                <span className="text-sm font-medium">{skill.name}</span>
+                                <Badge variant="outline" className="text-xs border-neon-cyan/30 text-neon-cyan">
+                                  {proficiencyLabel(skill.proficiency)}
+                                </Badge>
+                                <Badge variant="outline" className={`text-xs border-current ${typeTextColor(skill.type)}`}>
+                                  {jobSkillTypeLabel(skill.type)}
+                                </Badge>
+                                {skill.weight !== "" && skill.weight != null && <span className="ml-auto text-xs text-muted-foreground">{skill.weight}%</span>}
+                              </div>
+                            ))}
+                            <div className="pt-2 text-xs text-muted-foreground">
+                              {jobData.skills.length} competenc{jobData.skills.length === 1 ? "y" : "ies"}
+                              {anyWeight && <span className={weightsValid ? "text-neon-green" : "text-destructive"}> · Total {weightTotal}/100</span>}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      /* ===== EDIT MODE ===== */
+                      <div className="glass border border-glass-border rounded-xl p-4">
+                        <div className="flex items-center justify-between mb-4">
+                          <h4 className="font-semibold">Competency framework</h4>
+                          <Button variant="ghost" size="sm" onClick={cancelSkillsEdit} className="text-muted-foreground">
+                            Cancel
+                          </Button>
+                        </div>
+
+                        <div className="flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2 mb-4">
+                          <Info className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                          <span className="text-xs text-blue-300">Candidates see match scores only — not this framework.</span>
+                        </div>
+
+                        {jobData.skills.length > 0 && (
+                          <>
+                            <div className="hidden md:grid grid-cols-12 gap-2 px-2 pb-2 text-[10px] uppercase tracking-wide text-muted-foreground">
+                              <span className="col-span-5 pl-6">Skill</span>
+                              <span className="col-span-3">Proficiency</span>
+                              <span className="col-span-2">Type</span>
+                              <span className="col-span-2">Weight</span>
+                            </div>
+                            <div className="space-y-2">
+                              {jobData.skills.map((skill) => (
+                                <div key={skill.id} className="grid grid-cols-12 gap-2 items-center">
+                                  <div className="col-span-12 md:col-span-5 flex items-center gap-2">
+                                    <GripVertical className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                                    <Input value={skill.name} readOnly className="glass border-glass-border text-sm" />
+                                  </div>
+                                  <select
+                                    value={skill.proficiency}
+                                    onChange={(e) => updateSkillField(skill.id, "proficiency", e.target.value as ProficiencyLevel)}
+                                    className="col-span-5 md:col-span-3 text-sm glass border border-glass-border rounded-lg px-2 py-2 bg-transparent focus:border-neon-cyan focus:outline-none"
+                                  >
+                                    {PROFICIENCY_LEVELS.map((p) => (
+                                      <option key={p.value} value={p.value} className="bg-gray-900">
+                                        {p.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <select
+                                    value={skill.type}
+                                    onChange={(e) => updateSkillField(skill.id, "type", e.target.value as JobSkillType)}
+                                    className={`col-span-4 md:col-span-2 text-sm glass border border-glass-border rounded-lg px-2 py-2 bg-transparent focus:border-neon-cyan focus:outline-none font-medium ${typeTextColor(skill.type)}`}
+                                  >
+                                    {JOB_SKILL_TYPES.map((t) => (
+                                      <option key={t.value} value={t.value} className="bg-gray-900 text-white">
+                                        {t.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <div className="col-span-2 md:col-span-1 relative">
+                                    <Input
+                                      type="number"
+                                      min={0}
+                                      max={100}
+                                      value={skill.weight}
+                                      onChange={(e) => updateSkillField(skill.id, "weight", e.target.value === "" ? "" : Number(e.target.value))}
+                                      className="glass border-glass-border focus:border-neon-cyan text-sm pr-5"
+                                    />
+                                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">%</span>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => removeSkill(skill.id)}
+                                    className="col-span-1 justify-self-end text-muted-foreground hover:text-destructive transition-colors"
+                                    aria-label="Remove skill"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          </>
+                        )}
+
+                        {/* Add-skill search (revealed by "+ Add skill") */}
+                        {showAddSkill && (
+                          <div className="mt-3">
+                            <Autocomplete
+                              value={null}
+                              onChange={(sel) => {
+                                addSkill(sel);
+                                setShowAddSkill(false);
+                              }}
+                              onSearch={(q) => searchSkills(q || undefined)}
+                              options={skillResults}
+                              placeholder="Search a skill to add..."
+                              icon={<Search className="h-4 w-4" />}
+                              inputClassName="glass border-glass-border focus:border-neon-cyan"
+                            />
+                          </div>
+                        )}
+
+                        {anyWeight && !weightsValid && (
+                          <p className="text-xs text-destructive mt-3">Weights must be filled on every skill and sum to exactly 100 — or left blank on all.</p>
+                        )}
+
+                        {/* Footer */}
+                        <div className="flex items-center justify-between mt-4 pt-3 border-t border-glass-border">
+                          <span className="text-xs text-muted-foreground">
+                            {jobData.skills.length} competenc{jobData.skills.length === 1 ? "y" : "ies"}
+                            {anyWeight && <span className={weightsValid ? "text-neon-green" : "text-destructive"}> · Total: {weightTotal}/100</span>}
+                          </span>
+                          <div className="flex items-center gap-4">
+                            <Button variant="ghost" size="sm" onClick={() => setShowAddSkill((v) => !v)} className="text-neon-cyan hover:text-neon-cyan">
+                              <Plus className="w-4 h-4 mr-1" />
+                              Add skill
+                            </Button>
+                            <Button size="sm" onClick={saveSkillsEdit} className="text-neon-cyan hover:text-neon-cyan bg-transparent hover:bg-transparent px-0">
+                              Save
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 

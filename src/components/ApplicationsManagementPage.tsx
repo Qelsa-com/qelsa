@@ -1,6 +1,7 @@
 import { useEditBulkStatusMutation, useGetJobApplicationsQuery } from "@/features/api/jobApplicationsApi";
 import { useEditJobMutation, useGetJobByIdQuery } from "@/features/api/jobsApi";
 import { JobApplication } from "@/types/jobApplication";
+import { jobSkillTypeLabel, proficiencyLabel } from "@/constants/skills";
 import {
   Archive,
   ArrowLeft,
@@ -425,10 +426,14 @@ export function ApplicationsManagementPage() {
 
                             <div className="flex items-center justify-between text-xs">
                               <span className="text-muted-foreground">Applied {Math.floor((Date.now() - new Date(application.createdAt).getTime()) / (1000 * 60 * 60 * 24))}d ago</span>
-                              <div className="flex items-center gap-1">
-                                <Target className="w-3 h-3 text-neon-cyan" />
-                                {/* <span className="text-neon-cyan">{application.matchScore}%</span> */}
-                              </div>
+                              {application.competency && (
+                                <div className="flex items-center gap-1">
+                                  <Target className="w-3 h-3 text-neon-cyan" />
+                                  <span className="text-neon-cyan">
+                                    {application.competency.readiness}% ready · {application.competency.matchedCount}/{application.competency.totalCount}
+                                  </span>
+                                </div>
+                              )}
                             </div>
                           </div>
 
@@ -533,6 +538,49 @@ export function ApplicationsManagementPage() {
                             </Badge> 
                           </div> */}
                         </div>
+
+                        {/* Competency Framework */}
+                        {selectedApplication.competency && (
+                          <div>
+                            <div className="flex items-center justify-between mb-3">
+                              <h3 className="font-semibold">Competency Framework</h3>
+                              <div className="flex items-center gap-2 text-xs">
+                                <Badge variant="outline" className="border-neon-green/30 text-neon-green">
+                                  {selectedApplication.competency.matchedCount}/{selectedApplication.competency.totalCount} matched
+                                </Badge>
+                                <Badge variant="outline" className="border-neon-cyan/30 text-neon-cyan">
+                                  {selectedApplication.competency.readiness}% readiness
+                                </Badge>
+                              </div>
+                            </div>
+                            <div className="glass-strong rounded-lg p-4 space-y-2">
+                              {selectedApplication.competency.competencies.map((c) => (
+                                <div key={c.skill_id} className="flex items-center gap-2 flex-wrap py-2 border-b border-glass-border last:border-0">
+                                  <span className="text-sm font-medium">{c.skill_name}</span>
+                                  <Badge variant="outline" className="text-xs border-neon-purple/30 text-neon-purple">
+                                    {jobSkillTypeLabel(c.type)}
+                                  </Badge>
+                                  <span className="text-xs text-muted-foreground">Weight: {c.weight}%</span>
+                                  <div className="flex items-center gap-1 ml-auto text-xs">
+                                    <span className="text-muted-foreground">
+                                      Req: <span className="text-foreground">{proficiencyLabel(c.required_proficiency)}</span>
+                                    </span>
+                                    <span className="text-muted-foreground">·</span>
+                                    <span className="text-muted-foreground">
+                                      Candidate: <span className="text-foreground">{proficiencyLabel(c.candidate_proficiency)}</span>
+                                    </span>
+                                    <Badge
+                                      variant="outline"
+                                      className={`text-xs ml-1 ${c.matched ? "border-neon-green/30 text-neon-green" : "border-destructive/30 text-destructive"}`}
+                                    >
+                                      {c.matched ? "Match" : c.status || "Gap"}
+                                    </Badge>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
 
                         {/* Contact and Basics */}
                         <div>

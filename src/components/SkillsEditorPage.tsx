@@ -11,7 +11,7 @@ import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
-import { Slider } from "./ui/slider";
+import { PROFICIENCY_LEVELS, ProficiencyLevel, proficiencyLabel } from "@/constants/skills";
 
 export interface SkillBadge {
   id: string;
@@ -29,18 +29,19 @@ const RECOMMENDED_SKILLS_FOR_PM = [
   { name: "Roadmap Planning", category: "Professional", demand: "High" },
 ];
 
-function getExperienceLevelFromProficiency(proficiency: number) {
-  if (proficiency >= 90) return "Expert";
-  if (proficiency >= 70) return "Advanced";
-  if (proficiency >= 40) return "Intermediate";
-  return "Beginner";
-}
-
-function getProficiencyColor(proficiency: number): string {
-  if (proficiency >= 90) return "text-neon-yellow";
-  if (proficiency >= 70) return "text-neon-green";
-  if (proficiency >= 40) return "text-neon-cyan";
-  return "text-neon-pink";
+function getProficiencyColor(proficiency?: ProficiencyLevel | "" | null): string {
+  switch (proficiency) {
+    case "expert":
+      return "text-neon-yellow";
+    case "advance":
+      return "text-neon-green";
+    case "intermediate":
+      return "text-neon-cyan";
+    case "beginner":
+      return "text-neon-pink";
+    default:
+      return "text-muted-foreground";
+  }
 }
 
 export function SkillsEditorPage() {
@@ -98,8 +99,7 @@ export function SkillsEditorPage() {
     const newUserSkill: UserSkill = {
       skill,
       category,
-      proficiency: 50,
-      experience_level: "Intermediate",
+      proficiency: "", // not set by default — no longer forced
       is_top_skill: false,
     };
 
@@ -116,14 +116,8 @@ export function SkillsEditorPage() {
     toast.success("Skill removed");
   };
 
-  const handleProficiencyChange = (seedSkillId: number, proficiency: number) => {
-    setSkills(
-      skills.map((skill) =>
-        skill.skill?.id === seedSkillId
-          ? { ...skill, proficiency, experience_level: getExperienceLevelFromProficiency(proficiency) }
-          : skill
-      )
-    );
+  const handleProficiencyChange = (seedSkillId: number, proficiency: ProficiencyLevel | "") => {
+    setSkills(skills.map((skill) => (skill.skill?.id === seedSkillId ? { ...skill, proficiency } : skill)));
   };
 
   const handleToggleTopSkill = async (skillId: number) => {
@@ -155,7 +149,7 @@ export function SkillsEditorPage() {
     const issues: string[] = [];
 
     skills?.forEach((skill) => {
-      if (skill.category?.name.toLowerCase() === "technical" && skill.proficiency >= 60) {
+      if (skill.category?.name.toLowerCase() === "technical" && (skill.proficiency === "advance" || skill.proficiency === "expert")) {
         if (Math.random() > 0.7) {
           issues.push(`${skill.skill?.name} - No recent projects found using this skill. Add supporting evidence or update proficiency.`);
         }
@@ -195,8 +189,7 @@ export function SkillsEditorPage() {
       ...(s.id !== undefined && { id: s.id }),
       skill: { id: s.skill.id, name: s.skill.name },
       category: s.category ? { id: s.category.id, name: s.category.name } : null,
-      proficiency: s.proficiency,
-      ...(s.experience_level && { experience_level: s.experience_level }),
+      ...(s.proficiency && { proficiency: s.proficiency }),
       is_top_skill: s.is_top_skill,
     }));
 
@@ -478,22 +471,21 @@ export function SkillsEditorPage() {
 
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <Label className="text-sm text-muted-foreground">Proficiency: {skill.proficiency}%</Label>
-                      <span className={`text-sm font-medium ${getProficiencyColor(skill.proficiency)}`}>{getExperienceLevelFromProficiency(skill.proficiency)}</span>
+                      <Label className="text-sm text-muted-foreground">Proficiency</Label>
+                      <span className={`text-sm font-medium ${getProficiencyColor(skill.proficiency)}`}>{proficiencyLabel(skill.proficiency)}</span>
                     </div>
-                    <Slider
-                      value={[skill.proficiency]}
-                      onValueChange={(value) => skill.skill?.id && handleProficiencyChange(skill.skill.id, value[0])}
-                      max={100}
-                      step={5}
-                      className="w-full"
-                    />
-                    <div className="flex justify-between text-xs text-muted-foreground">
-                      <span>Beginner</span>
-                      <span>Intermediate</span>
-                      <span>Advanced</span>
-                      <span>Expert</span>
-                    </div>
+                    <select
+                      value={skill.proficiency || ""}
+                      onChange={(e) => skill.skill?.id && handleProficiencyChange(skill.skill.id, e.target.value as ProficiencyLevel | "")}
+                      className="w-full glass border border-glass-border rounded-lg px-3 py-2 focus:border-neon-cyan focus:outline-none bg-transparent text-white text-sm"
+                    >
+                      <option value="" className="bg-gray-900">Not set</option>
+                      {PROFICIENCY_LEVELS.map((level) => (
+                        <option key={level.value} value={level.value} className="bg-gray-900">
+                          {level.label}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
               </Card>

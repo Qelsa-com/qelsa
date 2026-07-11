@@ -3,6 +3,7 @@ import { useGetCertificationsQuery } from "@/features/api/certificationsApi";
 import { useGetEducationsQuery } from "@/features/api/educationsApi";
 import { useGetExperiencesQuery } from "@/features/api/experiencesApi";
 import { useGetUserSkillsQuery } from "@/features/api/userSkillsApi";
+import { ProficiencyLevel, proficiencyLabel } from "@/constants/skills";
 import {
   Activity,
   ArrowRight,
@@ -213,11 +214,19 @@ export function MySpacePage({}: MySpacePageProps) {
     },
   ];
 
-  function getExperienceLevelFromProficiency(proficiency: number) {
-    if (proficiency >= 90) return "Expert";
-    if (proficiency >= 70) return "Advanced";
-    if (proficiency >= 40) return "Intermediate";
-    return "Beginner";
+  function getProficiencyBadgeClass(proficiency?: ProficiencyLevel | "" | null) {
+    switch (proficiency) {
+      case "expert":
+        return "bg-neon-yellow/10 border-neon-yellow/30 text-neon-yellow";
+      case "advance":
+        return "bg-neon-green/10 border-neon-green/30 text-neon-green";
+      case "intermediate":
+        return "bg-neon-cyan/10 border-neon-cyan/30 text-neon-cyan";
+      case "beginner":
+        return "bg-neon-pink/10 border-neon-pink/30 text-neon-pink";
+      default:
+        return "bg-glass-bg border-glass-border text-muted-foreground";
+    }
   }
 
   const handleEditCertifications = () => {
@@ -454,9 +463,10 @@ export function MySpacePage({}: MySpacePageProps) {
                   <div key={userSkill.id}>
                     <div className="flex justify-between text-sm mb-2">
                       <span className="text-foreground">{userSkill.skill?.name}</span>
-                      <span className="font-medium text-neon-cyan">{userSkill.proficiency}%</span>
+                      <Badge variant="outline" className={`text-xs ${getProficiencyBadgeClass(userSkill.proficiency)}`}>
+                        {proficiencyLabel(userSkill.proficiency)}
+                      </Badge>
                     </div>
-                    <Progress value={userSkill.proficiency} className="h-2 bg-glass-bg" />
                   </div>
                 ))}
               </div>
@@ -713,19 +723,8 @@ export function MySpacePage({}: MySpacePageProps) {
                             <Star className="h-4 w-4 text-neon-yellow fill-neon-yellow flex-shrink-0" />
                           </div>
                           <div className="flex items-center gap-2">
-                            <Badge
-                              variant="outline"
-                              className={`text-xs ${
-                                getExperienceLevelFromProficiency(skill.proficiency) === "Expert"
-                                  ? "bg-neon-yellow/10 border-neon-yellow/30 text-neon-yellow"
-                                  : getExperienceLevelFromProficiency(skill.proficiency) === "Advanced"
-                                    ? "bg-neon-green/10 border-neon-green/30 text-neon-green"
-                                    : getExperienceLevelFromProficiency(skill.proficiency) === "Intermediate"
-                                      ? "bg-neon-cyan/10 border-neon-cyan/30 text-neon-cyan"
-                                      : "bg-neon-pink/10 border-neon-pink/30 text-neon-pink"
-                              }`}
-                            >
-                              {getExperienceLevelFromProficiency(skill.proficiency)}
+                            <Badge variant="outline" className={`text-xs ${getProficiencyBadgeClass(skill.proficiency)}`}>
+                              {proficiencyLabel(skill.proficiency)}
                             </Badge>
                           </div>
                         </div>

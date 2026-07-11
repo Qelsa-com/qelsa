@@ -1,3 +1,4 @@
+import { CompetencySummary } from "@/components/job/CompetencyMatch";
 import { JobComparisonPage } from "@/components/job/JobComparisonPage";
 import JobLayout from "@/components/job/JobsLayout";
 import { Card } from "@/components/ui/card";
@@ -300,6 +301,9 @@ const All = () => {
                         </Badge>
                       )}
                     </div>
+
+                    {/* Match indicator (seeker-side; null when logged out) */}
+                    {job.competency && <CompetencySummary competency={job.competency} />}
 
                     {/* Footer */}
                     <div className="flex items-center justify-between pt-2 border-t border-white/5">

@@ -1,5 +1,6 @@
 import { useGetUserSkillsQuery } from "@/features/api/userSkillsApi";
 import { UserSkill } from "@/types/userSkill";
+import { ProficiencyLevel, proficiencyLabel } from "@/constants/skills";
 import { ArrowLeft, Award, Info, Star, Target, TrendingUp } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -23,18 +24,26 @@ export function SkillsViewPage() {
     router.push("/profile/skills/edit");
   };
 
-  function getExperienceLevelFromProficiency(proficiency: number) {
-    if (proficiency >= 90) return "Expert";
-    if (proficiency >= 70) return "Advanced";
-    if (proficiency >= 40) return "Intermediate";
-    return "Beginner";
+  function getProficiencyBadgeClass(proficiency?: ProficiencyLevel | "" | null) {
+    switch (proficiency) {
+      case "expert":
+        return "bg-neon-yellow/10 border-neon-yellow/30 text-neon-yellow";
+      case "advance":
+        return "bg-neon-green/10 border-neon-green/30 text-neon-green";
+      case "intermediate":
+        return "bg-neon-cyan/10 border-neon-cyan/30 text-neon-cyan";
+      case "beginner":
+        return "bg-neon-pink/10 border-neon-pink/30 text-neon-pink";
+      default:
+        return "bg-glass-bg border-glass-border text-muted-foreground";
+    }
   }
 
   // Calculate skill statistics
   const totalSkills = skills.length;
   const topSkillsCount = skills.filter((s) => s.is_top_skill).length;
-  const expertSkills = skills.filter((s) => s.experience_level === "Expert").length;
-  const advancedSkills = skills.filter((s) => s.experience_level === "Advanced").length;
+  const expertSkills = skills.filter((s) => s.proficiency === "expert").length;
+  const advancedSkills = skills.filter((s) => s.proficiency === "advance").length;
 
   // Group skills dynamically by their category object
   const skillsByCategoryMap = skills.reduce((map, s) => {
@@ -173,19 +182,8 @@ export function SkillsViewPage() {
                       </div>
                       <Star className="h-5 w-5 text-neon-yellow fill-neon-yellow flex-shrink-0" />
                     </div>
-                    <Badge
-                      variant="outline"
-                      className={`text-xs ${
-                        getExperienceLevelFromProficiency(skill.proficiency) === "Expert"
-                          ? "bg-neon-yellow/10 border-neon-yellow/30 text-neon-yellow"
-                          : getExperienceLevelFromProficiency(skill.proficiency) === "Advanced"
-                          ? "bg-neon-green/10 border-neon-green/30 text-neon-green"
-                          : getExperienceLevelFromProficiency(skill.proficiency) === "Intermediate"
-                          ? "bg-neon-cyan/10 border-neon-cyan/30 text-neon-cyan"
-                          : "bg-neon-pink/10 border-neon-pink/30 text-neon-pink"
-                      }`}
-                    >
-                      {getExperienceLevelFromProficiency(skill.proficiency)}
+                    <Badge variant="outline" className={`text-xs ${getProficiencyBadgeClass(skill.proficiency)}`}>
+                      {proficiencyLabel(skill.proficiency)}
                     </Badge>
                   </div>
                 ))}
@@ -215,19 +213,8 @@ export function SkillsViewPage() {
                       <div className="flex justify-between items-start mb-2">
                         <h3 className="font-medium text-white">{skill.skill?.name}</h3>
                       </div>
-                      <Badge
-                        variant="outline"
-                        className={`text-xs ${
-                          getExperienceLevelFromProficiency(skill.proficiency) === "Expert"
-                            ? "bg-neon-yellow/10 border-neon-yellow/30 text-neon-yellow"
-                            : getExperienceLevelFromProficiency(skill.proficiency) === "Advanced"
-                            ? "bg-neon-green/10 border-neon-green/30 text-neon-green"
-                            : getExperienceLevelFromProficiency(skill.proficiency) === "Intermediate"
-                            ? "bg-neon-cyan/10 border-neon-cyan/30 text-neon-cyan"
-                            : "bg-neon-pink/10 border-neon-pink/30 text-neon-pink"
-                        }`}
-                      >
-                        {getExperienceLevelFromProficiency(skill.proficiency)}
+                      <Badge variant="outline" className={`text-xs ${getProficiencyBadgeClass(skill.proficiency)}`}>
+                        {proficiencyLabel(skill.proficiency)}
                       </Badge>
                     </div>
                   ))}
