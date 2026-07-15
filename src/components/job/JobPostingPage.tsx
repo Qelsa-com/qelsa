@@ -50,6 +50,72 @@ import { Textarea } from "../ui/textarea";
 type PostingMode = "select" | "ai-copilot" | "manual";
 type PostingStep = "input" | "review" | "questions" | "final-review" | "published";
 
+const SALARY_CURRENCY = "INR";
+
+function formatMoney(value: number): string {
+  try {
+    return new Intl.NumberFormat("en-IN", { style: "currency", currency: SALARY_CURRENCY, maximumFractionDigits: 0 }).format(value);
+  } catch {
+    return `${SALARY_CURRENCY} ${value.toLocaleString("en-IN")}`;
+  }
+}
+
+// Accepts plain numbers plus the shorthand people actually type: 80k, 5L, 1.2Cr.
+const AMOUNT_MULTIPLIERS: Record<string, number> = {
+  k: 1e3,
+  l: 1e5,
+  lac: 1e5,
+  lakh: 1e5,
+  lakhs: 1e5,
+  lpa: 1e5,
+  cr: 1e7,
+  crore: 1e7,
+  crores: 1e7,
+  m: 1e6,
+};
+
+function parseAmount(raw: string): number | null {
+  const cleaned = raw.trim().toLowerCase().replace(/[₹,\s]/g, "");
+  if (!cleaned) return null;
+  const match = cleaned.match(/^(\d+(?:\.\d+)?)([a-z]*)$/);
+  if (!match) return null;
+  const [, digits, suffix] = match;
+  const multiplier = suffix ? AMOUNT_MULTIPLIERS[suffix] : 1;
+  if (!multiplier) return null;
+  return Math.round(parseFloat(digits) * multiplier);
+}
+
+/**
+ * Parses the single free-text salary range into min/max.
+ * "5L - 8L" / "80k to 120k" / "500000-800000" -> {min, max}; "5L" -> min only.
+ * An empty string is valid (salary is optional).
+ */
+function parseSalaryRange(input: string): { min: number | null; max: number | null; valid: boolean } {
+  const raw = (input ?? "").trim();
+  if (!raw) return { min: null, max: null, valid: true };
+
+  const parts = raw
+    .split(/\s*(?:-|–|—|\bto\b)\s*/i)
+    .map((p) => p.trim())
+    .filter(Boolean);
+  if (parts.length > 2) return { min: null, max: null, valid: false };
+
+  const amounts = parts.map(parseAmount);
+  if (amounts.some((a) => a === null)) return { min: null, max: null, valid: false };
+
+  const [min, max = null] = amounts as number[];
+  if (max != null && max < min) return { min, max, valid: false };
+  return { min, max, valid: true };
+}
+
+/** Preview label for the parsed salary range; null when nothing is entered. */
+function formatSalaryRange(input: string): string | null {
+  const { min, max, valid } = parseSalaryRange(input);
+  if (!valid || min == null) return null;
+  if (max == null) return `${formatMoney(min)}+`;
+  return min === max ? formatMoney(min) : `${formatMoney(min)} - ${formatMoney(max)}`;
+}
+
 export function JobPostingPage() {
   const [createJob, { isLoading, isSuccess, error }] = useCreateJobMutation();
   const { data: my_pages } = useGetMyPagesQuery();
@@ -66,19 +132,18 @@ export function JobPostingPage() {
     work_type: string;
     workplace_type: string;
     experience: number;
-    salary: string | null;
+    salary_range: string;
     description: string;
     skills: { id: number; name: string; type: JobSkillType; proficiency: ProficiencyLevel; weight: number | "" }[];
     screening_questions: any[];
     page_id: number | null;
   }>({
     job_title: null,
-    // company: "",
     location: "",
     work_type: "full-time",
     workplace_type: "on-site",
     experience: 0,
-    salary: null,
+    salary_range: "",
     description: "",
     skills: [],
     screening_questions: [],
@@ -108,7 +173,9 @@ export function JobPostingPage() {
 
   const handleAIGenerate = () => { };
 
-  const handleManualUpdate = (field: keyof Job, value: any) => {
+  // Keyed off the form state, not Job: some fields (salary_range) are input-only
+  // and get transformed into Job fields at submit time.
+  const handleManualUpdate = (field: keyof typeof jobData, value: any) => {
     setJobData((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -147,6 +214,8 @@ export function JobPostingPage() {
   };
 
   function transformJobPayload(formData: any) {
+    const { min: salaryMin, max: salaryMax } = parseSalaryRange(formData.salary_range);
+
     const questions = formData.screening_questions.map((q: any) => {
       const base = { title: q.title, type: q.type, is_knockout: q.is_knockout, weight: q.weight ?? 0 };
 
@@ -164,12 +233,17 @@ export function JobPostingPage() {
     return {
       job: {
         job_title: formData.job_title,
-        company: formData.company,
         description: formData.description,
         location: formData.location,
         work_type: formData.work_type,
-        salary: formData.salary,
+        // Was omitted entirely, so the selected value never reached the API.
+        workplace_type: formData.workplace_type,
         experience: formData.experience,
+        // Salary is stored as numeric min/max + currency, so the free-text
+        // range ("5L - 8L") is parsed here rather than sent as a string.
+        salary_min: salaryMin,
+        salary_max: salaryMax,
+        salary_currency: SALARY_CURRENCY,
         resource: "qelsa",
         page_id: formData.page_id,
       },
@@ -247,9 +321,15 @@ export function JobPostingPage() {
   const weightTotal = enteredWeights.reduce((sum, s) => sum + Number(s.weight || 0), 0);
   const weightsValid = !anyWeight || (allWeights && weightTotal === 100);
 
+  const salaryRangeInvalid = !parseSalaryRange(jobData.salary_range).valid;
+
   const handlePublish = async () => {
     if (!weightsValid) {
       toast.error("Skill weights must be set on all skills and add up to exactly 100 (or left blank on all).");
+      return;
+    }
+    if (salaryRangeInvalid) {
+      toast.error("Max salary must be greater than or equal to min.");
       return;
     }
     console.log("🚀 ~ handlePublish ~ jobData:", jobData);
@@ -502,7 +582,7 @@ export function JobPostingPage() {
                   </div>
                   <div className="flex-1">
                     <p className="text-sm text-muted-foreground mb-1">Salary</p>
-                    <p className="font-medium text-sm">{jobData.salary}</p>
+                    <p className="font-medium text-sm">{formatSalaryRange(jobData.salary_range) ?? "—"}</p>
                   </div>
                 </div>
               </div>
@@ -783,8 +863,9 @@ export function JobPostingPage() {
                     <div className="flex flex-wrap gap-2">
                       <Badge variant="secondary">{jobData.location}</Badge>
                       <Badge variant="secondary">{jobData.work_type}</Badge>
-                      <Badge variant="secondary">{jobData.experience}</Badge>
-                      <Badge className="bg-neon-green/20 text-neon-green border-0">{jobData.salary}</Badge>
+                      <Badge variant="secondary">{jobData.workplace_type}</Badge>
+                      <Badge variant="secondary">{jobData.experience} years</Badge>
+                      {formatSalaryRange(jobData.salary_range) && <Badge className="bg-neon-green/20 text-neon-green border-0">{formatSalaryRange(jobData.salary_range)}</Badge>}
                     </div>
 
                     <Separator />
@@ -1192,8 +1273,18 @@ export function JobPostingPage() {
                       </Select>
                     </div>
                     <div>
-                      <label className="text-sm font-medium mb-2 block">Salary Range</label>
-                      <Input placeholder="e.g., $80k - $120k" value={jobData.salary} onChange={(e) => handleManualUpdate("salary", e.target.value)} className="glass border-glass-border" />
+                      <label className="text-sm font-medium mb-2 block">Salary Range (₹)</label>
+                      <Input
+                        placeholder="e.g., 5L - 8L"
+                        value={jobData.salary_range}
+                        onChange={(e) => handleManualUpdate("salary_range", e.target.value)}
+                        className="glass border-glass-border"
+                      />
+                      {salaryRangeInvalid ? (
+                        <p className="text-xs text-destructive mt-1">Enter a range like “5L - 8L”, “80k - 120k” or “500000 - 800000”.</p>
+                      ) : (
+                        formatSalaryRange(jobData.salary_range) && <p className="text-xs text-muted-foreground mt-1">{formatSalaryRange(jobData.salary_range)}</p>
+                      )}
                     </div>
                   </div>
 

@@ -1,15 +1,14 @@
 "use client";
 
 import React from "react";
-import { useParams } from "next/navigation";
-import { useGetJobByIdQuery } from "../../../features/api/jobsApi";
-import { JobDetailPage } from "../../../components/job/JobDetailPage";
+import { JobDetailPageRedesign } from "../../../components/job/JobDetailPageRedesign";
+import Layout from "../../../layout";
 
 const JobDetails: React.FC = () => {
-
-
   return (
-    <JobDetailPage />
+    <Layout activeSection="jobs">
+      <JobDetailPageRedesign />
+    </Layout>
   );
 };
 
