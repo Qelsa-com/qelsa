@@ -14,9 +14,11 @@ interface CandidateNLPSearchProps {
   onSearch: (query: string, filters: FilterChip[]) => void;
   onClear: () => void;
   isLoading?: boolean;
+  className?: string;
+  placeholder?: string;
 }
 
-export function CandidateNLPSearch({ onSearch, onClear, isLoading = false }: CandidateNLPSearchProps) {
+export function CandidateNLPSearch({ onSearch, onClear, isLoading = false, className = "", placeholder = "Filter candidates using natural language…" }: CandidateNLPSearchProps) {
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useState<FilterChip[]>([]);
   const [isTyping, setIsTyping] = useState(false);
@@ -170,8 +172,8 @@ export function CandidateNLPSearch({ onSearch, onClear, isLoading = false }: Can
         <Input
           value={query}
           onChange={(e) => handleInputChange(e.target.value)}
-          placeholder="Filter candidates using natural language…"
-          className="glass border-glass-border pl-12 pr-32 h-14 text-base focus:border-neon-cyan/50 transition-all"
+          placeholder={placeholder}
+          className={`glass border-glass-border pl-12 pr-32 h-14 text-base focus:border-neon-cyan/50 transition-all ${className}`}
         />
 
         <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">

@@ -1,38 +1,42 @@
 import { useDeleteJobMutation, useEditJobMutation, useGetPostedJobsQuery } from "@/features/api/jobsApi";
 import Layout from "@/layout";
-import { ArrowLeft, Briefcase, Calendar, Edit2, ExternalLink, Eye, MapPin, MoreVertical, PauseCircle, PlayCircle, Plus, Search, Star, Trash2, TrendingUp, Users } from "lucide-react";
+import { Briefcase, Calendar, Clock, Copy, FileText, MapPin, MoreVertical, PauseCircle, Pencil, PlayCircle, Plus, Search, Share2, Trash2, XCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
-import { Card } from "../../components/ui/card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
 import { Input } from "../../components/ui/input";
-import { Tabs, TabsList, TabsTrigger } from "../../components/ui/tabs";
 
-interface PostedJob {
-  id: string;
-  title: string;
-  location: string;
-  work_type: "Full-time" | "Part-time" | "Contract" | "Remote" | "Hybrid";
-  salary?: string;
-  postedDate: string;
-  status: "active" | "paused" | "closed";
-  views: number;
-  applications: number;
-  shortlisted: number;
-  interviewed: number;
-  hired: number;
-  skills: string[];
-  experience: string;
-  department?: string;
-}
+type JobStatus = "open" | "paused" | "closed";
+
+const statusLabels: Record<JobStatus, string> = {
+  open: "Active",
+  paused: "Paused",
+  closed: "Closed",
+};
+
+const statusBadgeStyles: Record<JobStatus, string> = {
+  open: "bg-neon-green/15 text-neon-green",
+  paused: "bg-neon-yellow/15 text-neon-yellow",
+  closed: "bg-white/8 text-white/45",
+};
+
+const workplaceDotColors: Record<string, string> = {
+  hybrid: "bg-neon-purple",
+  remote: "bg-neon-cyan",
+  "on-site": "bg-neon-green",
+};
+
+const workplaceLabels: Record<string, string> = {
+  hybrid: "Hybrid",
+  remote: "Remote",
+  "on-site": "On-site",
+};
 
 export default function Posted() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"open" | "paused" | "closed">("open");
-  const [selectedJobs, setSelectedJobs] = useState<string[]>([]);
+  const [statusFilter, setStatusFilter] = useState<JobStatus>("open");
   const { data: postedJobs = [] } = useGetPostedJobsQuery();
   const [deleteJob] = useDeleteJobMutation();
   const [editJob] = useEditJobMutation();
@@ -47,24 +51,15 @@ export default function Posted() {
   const pausedJobs = postedJobs.filter((job) => job.status === "paused");
   const closedJobs = postedJobs.filter((job) => job.status === "closed");
 
-  // const totalViews = postedJobs.reduce((sum, job) => sum + job.views, 0);
-  // const totalApplications = postedJobs.reduce((sum, job) => sum + job.applications, 0);
-  // const totalHired = postedJobs.reduce((sum, job) => sum + job.hired, 0);
+  const totalApplications = postedJobs.reduce((sum, job) => sum + (job.applications?.length ?? 0), 0);
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "open":
-        return "bg-neon-green/20 text-neon-green border-neon-green/30";
-      case "paused":
-        return "bg-neon-yellow/20 text-neon-yellow border-neon-yellow/30";
-      case "closed":
-        return "bg-muted/20 text-muted-foreground border-muted/30";
-      default:
-        return "bg-muted/20 text-muted-foreground border-muted/30";
-    }
+  const statusCounts: Record<JobStatus, number> = {
+    open: openJobs.length,
+    paused: pausedJobs.length,
+    closed: closedJobs.length,
   };
 
-  const handleTogglePause = async (jobId: number, status: "open" | "paused" | "closed" | "draft") => {
+  const handleChangeStatus = async (jobId: number, status: "open" | "paused" | "closed" | "draft") => {
     try {
       await editJob({ jobId, body: { status } }).unwrap();
     } catch (error) {
@@ -80,265 +75,225 @@ export default function Posted() {
     }
   };
 
+  const handleShareJobLink = (jobId: number) => {
+    navigator.clipboard?.writeText(`${window.location.origin}/jobs/${jobId}`);
+  };
+
   return (
     <Layout activeSection={"jobs"}>
-      <div className="min-h-screen bg-gradient-to-br from-background via-background to-background">
-        {/* Header */}
-        <div className="glass-strong border-b border-glass-border sticky top-0 z-10">
-          <div className="max-w-7xl mx-auto px-6 py-6">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-4">
-                <Button variant="ghost" onClick={() => router.back()} className="hover:bg-white/5">
-                  <ArrowLeft className="w-5 h-5" />
-                </Button>
-                <div>
-                  <h1 className="text-3xl font-bold bg-gradient-to-r from-neon-cyan via-neon-purple to-neon-pink bg-clip-text text-transparent">Posted Jobs</h1>
-                  <p className="text-muted-foreground mt-1">Manage and track your job postings</p>
-                </div>
-              </div>
-
-              <Button
-                onClick={() => router.push("/jobs/create-job")}
-                className="gradient-animated text-white font-bold shadow-lg hover:shadow-xl hover:shadow-neon-purple/30 transition-all duration-300 hover:scale-105 border-0"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Post New Job
-              </Button>
+      <div className="min-h-screen">
+        {/* Page header */}
+        <div className="flex flex-col gap-8 px-6 lg:px-20 pt-12 pb-8">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex flex-col gap-3">
+              <h1 className="text-4xl lg:text-5xl font-extrabold text-white">Job posts</h1>
+              <p className="text-lg text-white/70">Manage and track your job postings</p>
             </div>
 
-            {/* Stats Overview */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-              <Card className="glass border-glass-border p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-1">Active Jobs</p>
-                    <p className="text-2xl font-bold text-neon-green">{openJobs.length}</p>
-                  </div>
-                  <div className="w-12 h-12 rounded-xl bg-neon-green/10 flex items-center justify-center">
-                    <Briefcase className="w-6 h-6 text-neon-green" />
-                  </div>
-                </div>
-              </Card>
+            <Button
+              onClick={() => router.push("/jobs/create-job")}
+              className="rounded-full bg-gradient-to-r from-neon-purple to-neon-pink px-6 py-3 h-auto text-sm font-bold text-white border-0 shadow-lg hover:shadow-xl hover:shadow-neon-purple/30 transition-all duration-300"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Post job
+            </Button>
+          </div>
 
-              <Card className="glass border-glass-border p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-1">Total Views</p>
-                    {/* <p className="text-2xl font-bold text-neon-cyan">{totalViews.toLocaleString()}</p> */}
-                  </div>
-                  <div className="w-12 h-12 rounded-xl bg-neon-cyan/10 flex items-center justify-center">
-                    <Eye className="w-6 h-6 text-neon-cyan" />
-                  </div>
-                </div>
-              </Card>
-
-              <Card className="glass border-glass-border p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-1">Applications</p>
-                    {/* <p className="text-2xl font-bold text-neon-purple">{totalApplications}</p> */}
-                  </div>
-                  <div className="w-12 h-12 rounded-xl bg-neon-purple/10 flex items-center justify-center">
-                    <Users className="w-6 h-6 text-neon-purple" />
-                  </div>
-                </div>
-              </Card>
-
-              <Card className="glass border-glass-border p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-1">Hired</p>
-                    {/* <p className="text-2xl font-bold text-neon-pink">{totalHired}</p> */}
-                  </div>
-                  <div className="w-12 h-12 rounded-xl bg-neon-pink/10 flex items-center justify-center">
-                    <Star className="w-6 h-6 text-neon-pink" />
-                  </div>
-                </div>
-              </Card>
+          {/* Stats overview */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="flex flex-col gap-1.5 rounded-2xl border border-white/12 bg-white/3 p-4">
+              <p className="text-xs text-white/45">Active jobs</p>
+              <p className="text-2xl font-bold text-white">{openJobs.length}</p>
             </div>
-
-            {/* Search and Filter */}
-            <div className="flex items-center gap-4">
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  type="text"
-                  placeholder="Search posted jobs..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 glass border-glass-border focus:border-neon-cyan"
-                />
-              </div>
-
-              <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as any)} className="w-auto">
-                <TabsList className="glass-strong border-glass-border">
-                  <TabsTrigger value="open" className="data-[state=active]:text-neon-green">
-                    Active ({openJobs.length})
-                  </TabsTrigger>
-                  <TabsTrigger value="paused" className="data-[state=active]:text-neon-yellow">
-                    Paused ({pausedJobs.length})
-                  </TabsTrigger>
-                  <TabsTrigger value="closed" className="data-[state=active]:text-muted-foreground">
-                    Closed ({closedJobs.length})
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
+            <div className="flex flex-col gap-1.5 rounded-2xl border border-white/12 bg-white/3 p-4">
+              <p className="text-xs text-white/45">Paused</p>
+              <p className="text-2xl font-bold text-white">{pausedJobs.length}</p>
+            </div>
+            <div className="flex flex-col gap-1.5 rounded-2xl border border-white/12 bg-white/3 p-4">
+              <p className="text-xs text-white/45">Applications</p>
+              <p className="text-2xl font-bold text-white">{totalApplications}</p>
+            </div>
+            <div className="flex flex-col gap-1.5 rounded-2xl border border-white/12 bg-white/3 p-4">
+              <p className="text-xs text-white/45">Closed</p>
+              <p className="text-2xl font-bold text-white">{closedJobs.length}</p>
             </div>
           </div>
         </div>
 
-        {/* Job Listings */}
-        <div className="max-w-7xl mx-auto px-6 py-8">
-          <div className="space-y-4">
-            {filteredJobs.map((job) => (
-              <Card key={job.id} className="glass border-glass-border hover:border-neon-cyan/30 transition-all group">
-                <div className="p-6">
-                  <div className="flex items-start justify-between gap-4">
-                    {/* Job Info */}
-                    <div className="flex-1 space-y-4">
-                      <div>
-                        <div className="flex items-center gap-3 mb-2">
-                          <h3 className="text-xl font-semibold group-hover:text-neon-cyan transition-colors">{job.job_title?.name ?? job.title}</h3>
-                          <Badge variant="outline" className={getStatusColor(job.status)}>
-                            {job.status?.charAt(0).toUpperCase() + job.status?.slice(1)}
-                          </Badge>
-                        </div>
+        {/* Search and filters */}
+        <div className="flex flex-col lg:flex-row lg:items-center gap-6 px-6 lg:px-20 py-3">
+          <div className="relative w-full lg:w-[577px]">
+            <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-white/45" />
+            <Input
+              type="text"
+              placeholder="Search posted jobs..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="h-12 rounded-3xl border-white/12 bg-transparent pl-12 text-sm placeholder:text-white/45 focus-visible:border-neon-cyan"
+            />
+          </div>
 
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                          <div className="flex items-center gap-1.5">
-                            <MapPin className="w-4 h-4" />
-                            <span>{job.location}</span>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <Briefcase className="w-4 h-4" />
-                            <span>{job.work_type}</span>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <Calendar className="w-4 h-4" />
-                            <span>Posted {new Date(job.createdAt).toLocaleDateString()}</span>
-                          </div>
-                        </div>
-                      </div>
+          <div className="flex items-center gap-3">
+            {(Object.keys(statusLabels) as JobStatus[]).map((status) => (
+              <button
+                key={status}
+                onClick={() => setStatusFilter(status)}
+                className={`rounded-full px-5 py-2.5 text-sm transition-colors ${
+                  statusFilter === status ? "bg-neon-cyan/15 font-semibold text-neon-cyan" : "border border-white/12 font-medium text-white/70 hover:bg-white/5"
+                }`}
+              >
+                {statusLabels[status]} ({statusCounts[status]})
+              </button>
+            ))}
+          </div>
+        </div>
 
-                      {/* Skills */}
-                      <div className="flex flex-wrap gap-2">
-                        {job.job_skills?.map((skill, index) => (
-                          <Badge key={index} variant="secondary" className="bg-white/5 hover:bg-white/10 border-white/10">
-                            {skill.skill?.name ?? skill.title}
-                          </Badge>
-                        ))}
-                      </div>
+        {/* Job listings */}
+        <div className="flex flex-col gap-5 px-6 lg:px-20 pt-6 pb-20">
+          {filteredJobs.map((job) => (
+            <div key={job.id} className="flex flex-col gap-4 rounded-[20px] border border-white/12 bg-white/4 px-7 py-6 transition-colors hover:border-neon-cyan/30">
+              {/* Title row */}
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <h3 className="text-lg font-semibold text-white">{job.job_title?.name ?? job.title}</h3>
+                  <span className={`rounded-md px-2 py-[3px] text-[11px] font-semibold ${statusBadgeStyles[job.status as JobStatus] ?? statusBadgeStyles.closed}`}>
+                    {statusLabels[job.status as JobStatus] ?? job.status}
+                  </span>
+                </div>
 
-                      {/* Metrics */}
-                      <div className="flex items-center gap-6 pt-4 border-t border-white/5">
-                        <div className="flex items-center gap-2">
-                          <Eye className="w-4 h-4 text-neon-cyan" />
-                          <span className="text-sm">
-                            {/* <span className="font-semibold text-foreground">{job.views}</span> */}
-                            <span className="text-muted-foreground ml-1">views</span>
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Users className="w-4 h-4 text-neon-purple" />
-                          <span className="text-sm">
-                            <span className="font-semibold text-foreground">{job.applications?.length || 0}</span>
-                            <span className="text-muted-foreground ml-1">applications</span>
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <TrendingUp className="w-4 h-4 text-neon-green" />
-                          <span className="text-sm">
-                            {/* <span className="font-semibold text-foreground">{job.shortlisted}</span> */}
-                            <span className="text-muted-foreground ml-1">shortlisted</span>
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Star className="w-4 h-4 text-neon-yellow" />
-                          <span className="text-sm">
-                            {/* <span className="font-semibold text-foreground">{job.interviewed}</span> */}
-                            <span className="text-muted-foreground ml-1">interviewed</span>
-                          </span>
-                        </div>
-                        {/* {job.hired > 0 && (
-                          <div className="flex items-center gap-2">
-                            <Star className="w-4 h-4 text-neon-pink" />
-                            <span className="text-sm">
-                              <span className="font-semibold text-foreground">{job.hired}</span>
-                              <span className="text-muted-foreground ml-1">hired</span>
-                            </span>
-                          </div>
-                        )} */}
-                      </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="flex h-8 w-8 items-center justify-center rounded-md text-white/70 hover:bg-white/5">
+                      <MoreVertical className="w-5 h-5" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-[220px] rounded-xl border-white/12 bg-[#1a1a24] p-2">
+                    <DropdownMenuItem className="cursor-pointer gap-3 rounded-md px-4 py-2.5 text-sm font-medium text-white/70">
+                      <Pencil className="w-4 h-4" />
+                      Edit Job Post
+                    </DropdownMenuItem>
+                    <DropdownMenuItem disabled className="gap-3 rounded-md px-4 py-2.5 text-sm font-medium text-white/70">
+                      <Copy className="w-4 h-4" />
+                      Duplicate Job
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => router.push(`/jobs/${job.id}/applications`)} className="cursor-pointer gap-3 rounded-md px-4 py-2.5 text-sm font-medium text-white/70">
+                      <FileText className="w-4 h-4" />
+                      View Applications
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleShareJobLink(job.id)} className="cursor-pointer gap-3 rounded-md px-4 py-2.5 text-sm font-medium text-white/70">
+                      <Share2 className="w-4 h-4" />
+                      Share Job Link
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator className="bg-white/8" />
+                    {job.status === "open" && (
+                      <DropdownMenuItem onClick={() => handleChangeStatus(job.id, "paused")} className="cursor-pointer gap-3 rounded-md px-4 py-2.5 text-sm font-medium text-neon-yellow">
+                        <PauseCircle className="w-4 h-4" />
+                        Pause Job
+                      </DropdownMenuItem>
+                    )}
+                    {job.status === "paused" && (
+                      <DropdownMenuItem onClick={() => handleChangeStatus(job.id, "open")} className="cursor-pointer gap-3 rounded-md px-4 py-2.5 text-sm font-medium text-neon-green">
+                        <PlayCircle className="w-4 h-4" />
+                        Resume Job
+                      </DropdownMenuItem>
+                    )}
+                    {job.status !== "closed" && (
+                      <DropdownMenuItem onClick={() => handleChangeStatus(job.id, "closed")} className="cursor-pointer gap-3 rounded-md px-4 py-2.5 text-sm font-medium text-red-500">
+                        <XCircle className="w-4 h-4" />
+                        Close Job
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuItem onClick={() => handleDeleteJob(job.id)} className="cursor-pointer gap-3 rounded-md px-4 py-2.5 text-sm font-medium text-red-500">
+                      <Trash2 className="w-4 h-4" />
+                      Delete Job
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+
+              {/* Meta row */}
+              <div className="flex flex-wrap items-center gap-3">
+                {job.location && (
+                  <div className="flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5 text-white/50" />
+                    <span className="text-[13px] text-white/50">{job.location}</span>
+                  </div>
+                )}
+                {job.workplace_type && (
+                  <>
+                    <span className="h-1 w-1 rounded-full bg-white/25" />
+                    <div className="flex items-center gap-1.5">
+                      <span className={`h-2 w-2 rounded-full ${workplaceDotColors[job.workplace_type] ?? "bg-white/40"}`} />
+                      <span className="text-[13px] text-white/60">{workplaceLabels[job.workplace_type] ?? job.workplace_type}</span>
                     </div>
-
-                    {/* Actions */}
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="glass border-neon-cyan/30 hover:border-neon-cyan hover:bg-neon-cyan/10"
-                        onClick={() => router.push(`/jobs/${job.id}/applications`)}
-                      >
-                        <Users className="w-4 h-4 mr-2" />
-                        View Applications
-                      </Button>
-
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm" className="hover:bg-white/5">
-                            <MoreVertical className="w-4 h-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="glass-strong border-glass-border">
-                          <DropdownMenuItem className="cursor-pointer">
-                            <Edit2 className="w-4 h-4 mr-2" />
-                            Edit Job
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => window.open(`/jobs/${job.id}`, "_blank")} className="cursor-pointer">
-                            <ExternalLink className="w-4 h-4 mr-2" />
-                            View Public Page
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator className="bg-white/10" />
-                          {job.status === "open" ? (
-                            <DropdownMenuItem onClick={() => handleTogglePause(job.id, "paused")} className="cursor-pointer text-neon-yellow">
-                              <PauseCircle className="w-4 h-4 mr-2" />
-                              Pause Job
-                            </DropdownMenuItem>
-                          ) : job.status === "paused" ? (
-                            <DropdownMenuItem onClick={() => handleTogglePause(job.id, "open")} className="cursor-pointer text-neon-green">
-                              <PlayCircle className="w-4 h-4 mr-2" />
-                              Resume Job
-                            </DropdownMenuItem>
-                          ) : null}
-                          <DropdownMenuSeparator className="bg-white/10" />
-                          <DropdownMenuItem onClick={() => handleDeleteJob(job.id)} className="cursor-pointer text-red-400">
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Delete Job
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                  </>
+                )}
+                {job.work_type && (
+                  <>
+                    <span className="h-1 w-1 rounded-full bg-white/25" />
+                    <div className="flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-white/50" />
+                      <span className="text-[13px] text-white/50">{job.work_type}</span>
                     </div>
+                  </>
+                )}
+                <span className="h-1 w-1 rounded-full bg-white/25" />
+                <div className="flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-white/50" />
+                  <span className="text-[13px] text-white/50">Posted {new Date(job.createdAt).toLocaleDateString()}</span>
+                </div>
+              </div>
+
+              {/* Skills */}
+              <div className="flex flex-wrap gap-2">
+                {job.job_skills?.map((skill, index) => (
+                  <span key={index} className="rounded-full border border-white/12 px-2.5 py-1 text-[13px] text-white/60">
+                    {skill.skill?.name ?? skill.title}
+                  </span>
+                ))}
+              </div>
+
+              <div className="h-px w-full bg-white/12" />
+
+              {/* Metrics */}
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="flex flex-wrap items-center gap-6">
+                  <div className="flex items-center gap-1.5">
+                    <FileText className="w-4 h-4 text-white/60" />
+                    <span className="text-[13px] text-white/60">{job.applications?.length ?? 0} applications</span>
                   </div>
                 </div>
-              </Card>
-            ))}
 
-            {filteredJobs.length === 0 && (
-              <div className="text-center py-16">
-                <div className="w-24 h-24 mx-auto mb-4 rounded-full bg-glass flex items-center justify-center">
-                  <Briefcase className="w-12 h-12 text-muted-foreground" />
-                </div>
-                <h3 className="text-xl font-semibold mb-2">No jobs found</h3>
-                <p className="text-muted-foreground mb-4">{searchQuery ? "Try adjusting your search criteria" : "Start by posting your first job"}</p>
-                {!searchQuery && (
-                  <Button onClick={() => router.push("/jobs/create-job")} className="gradient-animated text-white font-bold">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Post Your First Job
-                  </Button>
-                )}
+                <button onClick={() => router.push(`/jobs/${job.id}/applications`)} className="text-sm font-semibold text-neon-cyan underline">
+                  View Applications
+                </button>
               </div>
-            )}
-          </div>
+            </div>
+          ))}
+
+          {filteredJobs.length === 0 && (
+            <div className="py-16 text-center">
+              <div className="mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-full bg-white/4">
+                <Briefcase className="h-12 w-12 text-white/45" />
+              </div>
+              <h3 className="mb-2 text-xl font-semibold text-white">No jobs found</h3>
+              <p className="mb-4 text-white/70">{searchQuery ? "Try adjusting your search criteria" : "Start by posting your first job"}</p>
+              {!searchQuery && (
+                <Button onClick={() => router.push("/jobs/create-job")} className="rounded-full bg-gradient-to-r from-neon-purple to-neon-pink px-6 py-3 h-auto text-sm font-bold text-white border-0">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Post Your First Job
+                </Button>
+              )}
+            </div>
+          )}
+
+          {filteredJobs.length > 0 && (
+            <div className="flex justify-center pt-8">
+              <p className="text-sm text-white/45">
+                Showing 1-{filteredJobs.length} of {filteredJobs.length} {statusLabels[statusFilter].toLowerCase()} jobs
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </Layout>

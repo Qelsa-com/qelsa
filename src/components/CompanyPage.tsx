@@ -330,7 +330,7 @@ export function CompanyPage() {
                         <div className="flex flex-wrap gap-1.5">
                           {job.job_skills?.slice(0, 4).map((skill, index) => (
                             <Badge key={index} variant="secondary" className="text-xs bg-white/5">
-                              {skill.title}
+                              {skill.skill.name}
                             </Badge>
                           ))}
                           {job.job_skills?.length > 4 && (

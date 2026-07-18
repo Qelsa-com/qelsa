@@ -1,156 +1,142 @@
-import { useEditBulkStatusMutation, useGetJobApplicationsQuery } from "@/features/api/jobApplicationsApi";
-import { useEditJobMutation, useGetJobByIdQuery } from "@/features/api/jobsApi";
-import { JobApplication } from "@/types/jobApplication";
 import { jobSkillTypeLabel, proficiencyLabel } from "@/constants/skills";
-import {
-  Archive,
-  ArrowLeft,
-  Briefcase,
-  CheckCircle2,
-  ChevronRight,
-  Clock,
-  DollarSign,
-  Download,
-  ExternalLink,
-  FileText,
-  GraduationCap,
-  Home,
-  Mail,
-  MapPin,
-  MessageSquare,
-  MoreVertical,
-  Phone,
-  Send,
-  Share2,
-  Star,
-  Target,
-  User,
-  UserCheck,
-  Users,
-  UserX,
-  XCircle,
-  Zap,
-} from "lucide-react";
+import { useEditBulkStatusMutation, useGetJobApplicationDetailQuery, useGetJobApplicationsQuery } from "@/features/api/jobApplicationsApi";
+import { useGetJobByIdQuery } from "@/features/api/jobsApi";
+import { AlertTriangle, Archive, ArrowLeft, ArrowRight, ChevronDown, ChevronLeft, ChevronRight, Download, Lock, Mail, MessageCircle, Phone, Send, Share2, Star, Users, XCircle } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 import { CandidateNLPSearch } from "./CandidateNLPSearch";
-import PdfPreview from "./PdfPreview";
-import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
-import { Card } from "./ui/card";
 import { Checkbox } from "./ui/checkbox";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "./ui/dropdown-menu";
-import { ScrollArea } from "./ui/scroll-area";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "./ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
-import { Separator } from "./ui/separator";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Textarea } from "./ui/textarea";
+
+const statusMeta: Record<string, { label: string; className: string }> = {
+  applied: { label: "New", className: "bg-neon-cyan/15 text-neon-cyan" },
+  viewed: { label: "Viewed", className: "bg-neon-purple/15 text-neon-purple" },
+  sorted: { label: "Shortlisted", className: "bg-neon-green/15 text-neon-green" },
+  rejected: { label: "Rejected", className: "bg-red-500/15 text-red-500" },
+  hold: { label: "On Hold", className: "bg-neon-yellow/15 text-neon-yellow" },
+  cancelled: { label: "Cancelled", className: "bg-white/8 text-white/50" },
+};
+
+const competencyTypeStyles: Record<string, string> = {
+  core: "bg-orange-500/10 text-orange-500",
+  preferred: "bg-neon-yellow/10 text-neon-yellow",
+  nice_to_have: "bg-white/4 text-white/45",
+};
+
+const readinessStyles = (readiness: number) => {
+  if (readiness >= 80) return { text: "text-neon-green", bg: "bg-neon-green/10", muted: "text-neon-green/70" };
+  if (readiness >= 70) return { text: "text-neon-cyan", bg: "bg-neon-cyan/10", muted: "text-neon-cyan/70" };
+  return { text: "text-neon-yellow", bg: "bg-neon-yellow/10", muted: "text-neon-yellow/70" };
+};
+
+const initials = (name?: string) =>
+  (name ?? "")
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("") || "?";
+
+const appliedAgo = (date?: string) => {
+  if (!date) return "—";
+  const days = Math.floor((Date.now() - new Date(date).getTime()) / (1000 * 60 * 60 * 24));
+  if (days <= 0) return "today";
+  if (days < 7) return `${days}d ago`;
+  if (days < 30) return `${Math.floor(days / 7)}w ago`;
+  return `${Math.floor(days / 30)}mo ago`;
+};
+
+const monthYear = (date?: Date) => (date ? new Date(date).toLocaleDateString(undefined, { month: "short", year: "numeric" }) : "");
+
+// Total experience spans the earliest start date to the latest end date (or now, if a role is current).
+const yearsOfExperience = (experiences?: { start_date: Date; end_date?: Date; is_current?: boolean }[]) => {
+  if (!experiences?.length) return null;
+  const starts = experiences.map((e) => new Date(e.start_date).getTime()).filter((t) => !Number.isNaN(t));
+  if (!starts.length) return null;
+  const earliest = Math.min(...starts);
+  const hasCurrent = experiences.some((e) => e.is_current || !e.end_date);
+  const ends = experiences.map((e) => (e.end_date ? new Date(e.end_date).getTime() : Date.now())).filter((t) => !Number.isNaN(t));
+  const latest = hasCurrent ? Date.now() : Math.max(...ends);
+  const years = Math.floor((latest - earliest) / (1000 * 60 * 60 * 24 * 365));
+  return years > 0 ? years : null;
+};
 
 export function ApplicationsManagementPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
   const id = params?.id;
 
-  const [selectedApplication, setSelectedApplication] = useState<JobApplication>(null);
+  const [selectedApplicationId, setSelectedApplicationId] = useState<number | null>(null);
   const [selectedApplications, setSelectedApplications] = useState<number[]>([]);
-  const [sortBy, setSortBy] = useState("recent");
-  const [savedView, setSavedView] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [readinessFilter, setReadinessFilter] = useState("all");
   const [showMessageComposer, setShowMessageComposer] = useState(false);
+  const [showNoteComposer, setShowNoteComposer] = useState(false);
   const [messageTemplate, setMessageTemplate] = useState("");
   const [messageText, setMessageText] = useState("");
-  const [nlpSearchQuery, setNlpSearchQuery] = useState("");
   const [nlpFilters, setNlpFilters] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [showAllExperiences, setShowAllExperiences] = useState(false);
-  const [showAllEducations, setShowAllEducations] = useState(false);
 
   const { data: currentJobPosting } = useGetJobByIdQuery(id);
-  const { data: applicants, error, isLoading } = useGetJobApplicationsQuery({ jobId: id });
-  const [editJob] = useEditJobMutation();
+  const { data: applicants } = useGetJobApplicationsQuery({ jobId: id });
   const [editBulkStatus] = useEditBulkStatusMutation();
 
+  const {
+    data: selectedApplication,
+    isFetching: isDetailLoading,
+    error: detailError,
+  } = useGetJobApplicationDetailQuery({ jobId: id!, applicationId: selectedApplicationId! }, { skip: !id || selectedApplicationId == null });
+
+  // 403 (not the job owner) / 404 (missing or wrong job) come back on the detail call.
+  const detailErrorStatus = detailError && "status" in detailError ? detailError.status : undefined;
+
   const filteredApplications = useMemo(() => {
-    let filtered = (applicants ?? []).filter((application) => {
-      // if (savedView === "new-week") return application.applied_days_ago <= 7 && application.status === "new";
-      // if (savedView === "strong-match") return application.matchScore >= 90;
-      // if (savedView === "needs-followup") return application.applied_days_ago > 7 && application.status === "reviewed";
-      return true;
-    });
+    let filtered = applicants ?? [];
 
-    // Apply NLP filters if any exist
+    if (statusFilter !== "all") {
+      filtered = filtered.filter((application) => application.status === statusFilter);
+    }
+
+    if (readinessFilter !== "all") {
+      const threshold = Number(readinessFilter);
+      filtered = filtered.filter((application) => (application.readiness ?? 0) >= threshold);
+    }
+
     if (nlpFilters.length > 0) {
-      filtered = filtered.filter((application) => {
-        return nlpFilters.every((filter) => {
+      filtered = filtered.filter((application) =>
+        nlpFilters.every((filter) => {
           const lowerLabel = filter.label.toLowerCase();
-
-          // switch (filter.category) {
-          //   case "skill":
-          //     return application.keySkills.some((skill) => skill.toLowerCase().includes(lowerLabel) || lowerLabel.includes(skill.toLowerCase()));
-
-          //   case "experience":
-          //     const yearsMatch = filter.label.match(/(\d+)/);
-          //     if (yearsMatch) {
-          //       const requiredYears = parseInt(yearsMatch[1]);
-          //       return application.yearsExperience >= requiredYears;
-          //     }
-          //     return true;
-
-          //   case "location":
-          //     return application.location.toLowerCase().includes(lowerLabel);
-
-          //   case "education":
-          //     return application.education.some((edu) => edu.degree.toLowerCase().includes(lowerLabel) || lowerLabel.includes(edu.degree.toLowerCase()));
-
-          //   default:
-          //     // For other categories, search across all fields
-          //     const searchString = `${application.name} ${application.currentRole} ${application.keySkills.join(" ")} ${application.location}`.toLowerCase();
-          //     return searchString.includes(lowerLabel);
-          // }
-        });
-      });
+          const haystack = `${application.applicant_name ?? ""} ${(application.skills ?? []).map((s) => s.name ?? "").join(" ")}`.toLowerCase();
+          return haystack.includes(lowerLabel);
+        })
+      );
     }
 
     return filtered;
-  }, [nlpFilters, applicants]);
+  }, [applicants, statusFilter, readinessFilter, nlpFilters]);
 
-  const sortedApplications = useMemo(() => {
-    return [...filteredApplications].sort((a, b) => {
-      // if (sortBy === "rating") return b.rating - a.rating;
-      // if (sortBy === "match") return b.matchScore - a.matchScore;
-      return a.applied_days_ago - b.applied_days_ago; // Most recent first
-    });
-  }, [filteredApplications]);
+  const sortedApplications = useMemo(() => [...filteredApplications].sort((a, b) => new Date(b.applied_at).getTime() - new Date(a.applied_at).getTime()), [filteredApplications]);
+
+  const shortlistedCount = useMemo(() => (applicants ?? []).filter((a) => a.status === "sorted").length, [applicants]);
 
   const handleNLPSearch = useCallback((query: string, filters: any[]) => {
     setIsSearching(true);
-    setNlpSearchQuery(query);
     setNlpFilters(filters);
-
-    // Simulate search delay
-    setTimeout(() => {
-      setIsSearching(false);
-    }, 300);
+    setTimeout(() => setIsSearching(false), 300);
   }, []);
 
   const handleClearNLPSearch = useCallback(() => {
-    setNlpSearchQuery("");
     setNlpFilters([]);
     setIsSearching(false);
   }, []);
 
-  // Health metrics
-  const applyRate = 23.4; // percentage
-  const completionRate = 67.8; // percentage
-  const medianResponseTime = 2.3; // days
-
   const handleBulkAction = useCallback(
     async (action: string) => {
       try {
-        await editBulkStatus({
-          applicationIds: selectedApplications,
-          new_status: action,
-        }).unwrap();
-
+        await editBulkStatus({ applicationIds: selectedApplications, new_status: action }).unwrap();
         setSelectedApplications([]);
       } catch (error) {
         console.error("Error performing bulk action:", error);
@@ -159,12 +145,9 @@ export function ApplicationsManagementPage() {
     [selectedApplications, editBulkStatus]
   );
 
-  const handleApplicationStatus = async (action, applicationId) => {
+  const handleApplicationStatus = async (action: string, applicationId: number) => {
     try {
-      await editBulkStatus({
-        applicationIds: [applicationId],
-        new_status: action,
-      }).unwrap();
+      await editBulkStatus({ applicationIds: [applicationId], new_status: action }).unwrap();
     } catch (error) {
       console.error("Error performing bulk action:", error);
     }
@@ -176,6 +159,26 @@ export function ApplicationsManagementPage() {
     setMessageText("");
   }, [messageText]);
 
+  const handleDownloadResume = async () => {
+    try {
+      const path = selectedApplication?.resume?.file_url;
+      if (!path) return;
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}${path}`);
+      if (!res.ok) throw new Error("Failed to download file");
+      const blob = await res.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = "resume.pdf";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (err) {
+      console.error("Download error:", err);
+    }
+  };
+
   const messageTemplates = {
     thanks: "Thank you for your application! We've received your materials and will review them carefully. We'll be in touch soon.",
     phoneScreen: "We were impressed by your application! We'd like to schedule a brief phone screening. Are you available this week?",
@@ -183,846 +186,559 @@ export function ApplicationsManagementPage() {
       "Thank you for your interest in this position. After careful consideration, we've decided to move forward with other candidates whose experience more closely matches our current needs. We appreciate the time you took to apply and wish you the best in your job search.",
   };
 
-  const getStatusColor = useCallback((status: string) => {
-    switch (status) {
-      case "shortlisted":
-        return "border-neon-purple/30 text-neon-purple bg-neon-purple/10";
-      case "interview":
-        return "border-neon-green/30 text-neon-green bg-neon-green/10";
-      case "rejected":
-        return "border-destructive/30 text-destructive bg-destructive/10";
-      case "reviewed":
-        return "border-neon-yellow/30 text-neon-yellow bg-neon-yellow/10";
-      default:
-        return "border-muted-foreground/30 text-muted-foreground bg-muted/10";
-    }
-  }, []);
-
-  const getSourceColor = useCallback((source: string) => {
-    switch (source) {
-      case "Qelsa":
-        return "border-neon-cyan/30 text-neon-cyan bg-neon-cyan/10";
-      case "Referral":
-        return "border-neon-green/30 text-neon-green bg-neon-green/10";
-      default:
-        return "border-muted-foreground/30 text-muted-foreground bg-muted/10";
-    }
-  }, []);
+  const jobTitle = currentJobPosting?.job_title?.name ?? currentJobPosting?.title;
+  const candidateYears = yearsOfExperience(selectedApplication?.user?.experiences);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-background">
-      {/* Header */}
-      <div className="glass-strong border-b border-glass-border">
-        <div className="max-w-[1800px] mx-auto px-6 py-6">
-          <Button variant="ghost" onClick={() => router.push("/jobs/posted")} className="mb-4 text-muted-foreground hover:text-foreground">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Posted Jobs
-          </Button>
+    <div className="min-h-screen">
+      <div className="flex flex-col gap-8 px-6 lg:px-20 pt-12 pb-20">
+        {/* Header */}
+        <div className="flex flex-col gap-8">
+          <button onClick={() => router.push("/jobs/posted")} className="flex w-fit items-center gap-2 text-sm text-white/70 hover:text-white transition-colors">
+            <ArrowLeft className="w-4 h-4" />
+            Back to job posts
+          </button>
 
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex-1">
-              <h1 className="text-2xl font-bold mb-2">{currentJobPosting?.title}</h1>
-              <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                <span className="flex items-center gap-1">
-                  <MapPin className="w-4 h-4" />
-                  {currentJobPosting?.location}
-                </span>
-                <span>•</span>
-                <span>{applicants?.length} applications</span>
-              </div>
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex flex-col gap-3">
+              <h1 className="text-4xl lg:text-5xl font-extrabold text-white">Applications</h1>
+              <p className="text-base text-white/60">
+                {[jobTitle, currentJobPosting?.location].filter(Boolean).join(" · ")}
+                {applicants ? ` - ${applicants.length} applicants` : ""}
+              </p>
             </div>
 
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" className="glass border-glass-border">
-                <Download className="w-4 h-4 mr-2" />
-                Export CSV
-              </Button>
-              <Button variant="outline" size="sm" className="glass border-glass-border">
-                <Share2 className="w-4 h-4 mr-2" />
-                Share List
-              </Button>
+            <div className="flex items-center gap-1 rounded-full border border-white/12 p-1">
+              <span className="rounded-full bg-neon-cyan/15 px-5 py-2.5 text-sm font-semibold text-neon-cyan">List View</span>
+              <span className="flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold text-white/35" title="Table view is a PRO feature">
+                <Lock className="w-3.5 h-3.5" />
+                Table View
+                <span className="rounded bg-neon-purple px-1.5 py-0.5 text-[9px] font-extrabold text-white">PRO</span>
+              </span>
             </div>
           </div>
 
-          {/* Health Signals */}
-          <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card className="glass border-glass-border p-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm text-muted-foreground">Apply Rate</span>
-                {applyRate < 30 && (
-                  <Badge variant="outline" className="text-xs border-neon-yellow/30 text-neon-yellow">
-                    Low
-                  </Badge>
-                )}
+          {/* Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <div className="flex h-[92px] items-center rounded-2xl border border-white/12 bg-white/4 p-5">
+              <div className="flex flex-col gap-1">
+                <p className="text-[13px] text-white/50">Total Views</p>
+                <p className="text-[28px] font-semibold text-white/40" title="Views are not returned by the API yet">
+                  —
+                </p>
               </div>
-              <div className="flex items-center justify-between">
-                <p className="text-2xl font-bold">{applyRate}%</p>
-                {applyRate < 30 && (
-                  <Button size="sm" variant="outline" className="text-xs border-neon-cyan/30 text-neon-cyan">
-                    <Zap className="w-3 h-3 mr-1" />
-                    Boost
-                  </Button>
-                )}
+            </div>
+            <div className="flex h-[92px] items-center rounded-2xl border border-white/12 bg-white/4 p-5">
+              <div className="flex flex-col gap-1">
+                <p className="text-[13px] text-white/50">Applications</p>
+                <p className="text-[28px] font-semibold text-white">{applicants?.length ?? 0}</p>
               </div>
-            </Card>
-
-            <Card className="glass border-glass-border p-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm text-muted-foreground">Completion Rate</span>
-                {completionRate < 70 && (
-                  <Badge variant="outline" className="text-xs border-neon-yellow/30 text-neon-yellow">
-                    Low
-                  </Badge>
-                )}
+            </div>
+            <div className="flex h-[92px] items-center rounded-2xl border border-white/12 bg-white/4 p-5">
+              <div className="flex flex-col gap-1">
+                <p className="text-[13px] text-white/50">Shortlisted</p>
+                <p className="text-[28px] font-semibold text-white">{shortlistedCount}</p>
               </div>
-              <div className="flex items-center justify-between">
-                <p className="text-2xl font-bold">{completionRate}%</p>
-              </div>
-            </Card>
-          </div>
-
-          {/* Filters and Actions */}
-          <div className="mt-6 flex items-center gap-3">
-            <Select value={savedView} onValueChange={setSavedView}>
-              <SelectTrigger className="w-48 glass border-glass-border">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="glass border-glass-border">
-                <SelectItem value="all">All Applicants</SelectItem>
-                <SelectItem value="new-week">New This Week</SelectItem>
-                <SelectItem value="strong-match">Strong Match (&gt;90%)</SelectItem>
-                <SelectItem value="needs-followup">Needs Follow-up</SelectItem>
-              </SelectContent>
-            </Select>
-
-            {selectedApplications.length > 0 && (
-              <>
-                <Separator orientation="vertical" className="h-8" />
-                <Badge variant="outline" className="border-neon-purple/30 text-neon-purple">
-                  {selectedApplications.length} selected
-                </Badge>
-                <Button size="sm" variant="outline" onClick={() => handleBulkAction("sorted")}>
-                  <Star className="w-4 h-4 mr-2" />
-                  Shortlist
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => handleBulkAction("rejected")}>
-                  <XCircle className="w-4 h-4 mr-2" />
-                  Reject
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => handleBulkAction("message")}>
-                  <Send className="w-4 h-4 mr-2" />
-                  Message
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => handleBulkAction("archive")}>
-                  <Archive className="w-4 h-4 mr-2" />
-                  Archive
-                </Button>
-              </>
-            )}
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Two-Pane Layout */}
-      <div className="max-w-[1800px] mx-auto px-6 py-8">
-        {/* NLP Search Bar - Full Width */}
-        <div className="mb-6">
-          <CandidateNLPSearch onSearch={handleNLPSearch} onClear={handleClearNLPSearch} isLoading={isSearching} />
-        </div>
+        {/* Filter bar */}
+        <div className="flex flex-col gap-4">
+          <CandidateNLPSearch onSearch={handleNLPSearch} onClear={handleClearNLPSearch} isLoading={isSearching} className="rounded-[28px] bg-white/4" placeholder="Search applicants..." />
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left: Applicants List */}
-          <div className="lg:col-span-1">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold">Applicants</h2>
-              <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger className="w-36 glass border-glass-border">
-                  <SelectValue />
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="h-auto w-auto gap-1.5 rounded-full border-white/12 bg-transparent pl-5 pr-4 py-3 text-[13px] font-medium text-white/70">
+                  <SelectValue placeholder="Status" />
                 </SelectTrigger>
-                <SelectContent className="glass border-glass-border">
-                  <SelectItem value="recent">Most Recent</SelectItem>
-                  <SelectItem value="rating">Ratings</SelectItem>
-                  <SelectItem value="match">Best Match</SelectItem>
+                <SelectContent className="glass-strong border-glass-border">
+                  <SelectItem value="all">All statuses</SelectItem>
+                  {Object.entries(statusMeta).map(([value, meta]) => (
+                    <SelectItem key={value} value={value}>
+                      {meta.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <button disabled className="flex cursor-not-allowed items-center gap-1.5 rounded-full border border-white/12 pl-5 pr-4 py-3 text-[13px] font-medium text-white/30" title="No experience field on the API yet">
+                Experience
+                <ChevronDown className="w-4 h-4" />
+              </button>
+
+              <Select value={readinessFilter} onValueChange={setReadinessFilter}>
+                <SelectTrigger className="h-auto w-auto gap-1.5 rounded-full border-white/12 bg-transparent pl-5 pr-4 py-3 text-[13px] font-medium text-white/70">
+                  <SelectValue placeholder="Readiness score" />
+                </SelectTrigger>
+                <SelectContent className="glass-strong border-glass-border">
+                  <SelectItem value="all">Any readiness</SelectItem>
+                  <SelectItem value="90">90% and above</SelectItem>
+                  <SelectItem value="75">75% and above</SelectItem>
+                  <SelectItem value="50">50% and above</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
-            {/* Empty State or Candidate List */}
-            {sortedApplications.length === 0 && nlpFilters.length > 0 ? (
-              <Card className="glass border-glass-border p-12 flex flex-col items-center justify-center text-center">
-                <Users className="w-16 h-16 text-muted-foreground/50 mb-4" />
-                <h3 className="text-lg font-semibold mb-2">No candidates match your filters</h3>
-                <p className="text-sm text-muted-foreground mb-4">Try adjusting your search criteria or clearing filters</p>
-                <Button variant="outline" size="sm" onClick={handleClearNLPSearch}>
-                  Clear Filters
-                </Button>
-              </Card>
+            <div className="flex items-center gap-3">
+              <button className="flex items-center gap-2 rounded-full border border-white/20 px-5 py-3 text-sm font-bold text-white hover:bg-white/5 transition-colors">
+                <Download className="w-[18px] h-[18px]" />
+                Export CSV
+              </button>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    disabled={selectedApplications.length === 0}
+                    className="flex items-center gap-2 rounded-full bg-gradient-to-r from-neon-purple to-neon-pink px-5 py-3 text-sm font-bold text-white transition-opacity disabled:opacity-40"
+                  >
+                    Bulk actions
+                    {selectedApplications.length > 0 && <span className="rounded-full bg-white/20 px-1.5 text-xs">{selectedApplications.length}</span>}
+                    <ChevronDown className="w-3.5 h-3.5" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="glass-strong border-glass-border">
+                  <DropdownMenuItem onClick={() => handleBulkAction("sorted")} className="cursor-pointer">
+                    <Star className="w-4 h-4 mr-2" />
+                    Shortlist
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleBulkAction("rejected")} className="cursor-pointer">
+                    <XCircle className="w-4 h-4 mr-2" />
+                    Reject
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleBulkAction("hold")} className="cursor-pointer">
+                    <Archive className="w-4 h-4 mr-2" />
+                    Put on hold
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
+        </div>
+
+        {/* Split panel */}
+        <div className="flex flex-col lg:flex-row gap-5 items-start">
+          {/* Left: candidates */}
+          <div className="flex w-full lg:w-[380px] shrink-0 flex-col gap-3 rounded-[20px] border border-white/12 bg-white/4 p-4 lg:max-h-[843px] lg:overflow-y-auto">
+            <p className="text-sm font-semibold text-white/80">Candidates</p>
+
+            {sortedApplications.length === 0 ? (
+              <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-white/12 bg-white/2 p-8 text-center">
+                <Users className="w-10 h-10 text-white/30" />
+                <p className="text-sm text-white/60">No candidates match your filters</p>
+              </div>
             ) : (
-              <ScrollArea className="h-[calc(100vh-32rem)]">
-                <div className="space-y-3">
-                  {isSearching ? (
-                    // Loading shimmer
-                    <>
-                      {[1, 2, 3].map((i) => (
-                        <Card key={i} className="glass border-glass-border p-4 animate-pulse">
-                          <div className="flex items-start gap-3">
-                            <div className="w-4 h-4 bg-muted/20 rounded" />
-                            <div className="flex-1 space-y-3">
-                              <div className="h-4 bg-muted/20 rounded w-3/4" />
-                              <div className="h-3 bg-muted/20 rounded w-1/2" />
-                              <div className="flex gap-2">
-                                <div className="h-5 bg-muted/20 rounded w-16" />
-                                <div className="h-5 bg-muted/20 rounded w-16" />
-                              </div>
-                            </div>
-                          </div>
-                        </Card>
-                      ))}
-                    </>
-                  ) : (
-                    sortedApplications.map((application) => (
-                      <Card
-                        key={application.id}
-                        className={`glass border-glass-border p-4 cursor-pointer transition-all hover:border-neon-cyan/50 ${
-                          selectedApplication?.id === application.id ? "border-neon-cyan/50 bg-neon-cyan/5" : ""
-                        }`}
-                        onClick={() => setSelectedApplication(application)}
-                      >
-                        <div className="flex items-start gap-3">
-                          <Checkbox
-                            checked={selectedApplications.includes(application.id)}
-                            onCheckedChange={(checked) => {
-                              if (checked) {
-                                setSelectedApplications([...selectedApplications, application.id]);
-                              } else {
-                                setSelectedApplications(selectedApplications.filter((id) => id !== application.id));
-                              }
-                            }}
-                            onClick={(e) => e.stopPropagation()}
-                          />
+              <div className="flex flex-col gap-2.5 rounded-2xl border border-white/12 bg-white/2 p-2">
+                {sortedApplications.map((application) => {
+                  const isSelected = selectedApplicationId === application.id;
+                  const readiness = application.readiness;
+                  const tone = readinessStyles(readiness ?? 0);
+                  const meta = statusMeta[application.status] ?? statusMeta.cancelled;
 
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-2">
-                              <h3 className="font-semibold truncate">{application.user.name}</h3>
-                              <Badge variant="outline" className={`text-xs ${getStatusColor(application.status)}`}>
-                                {(s => s.charAt(0).toUpperCase() + s.slice(1))(application.status.replace(/-/g, " "))}
-                              </Badge>
-                            </div>
+                  return (
+                    <div
+                      key={application.id}
+                      onClick={() => setSelectedApplicationId(application.id)}
+                      className={`relative flex cursor-pointer items-center gap-3 overflow-hidden rounded-xl border p-4 transition-all ${
+                        isSelected ? "border-white/12 bg-white/4 shadow-[0px_0px_12px_0px_rgba(14,165,233,0.15)]" : "border-white/12 bg-white/4 hover:bg-white/6"
+                      }`}
+                    >
+                      {isSelected && <span className="absolute inset-y-0 left-0 w-1 bg-neon-cyan" />}
 
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">{/* <span>{application.yearsExperience}y exp</span> */}</div>
+                      <Checkbox
+                        checked={selectedApplications.includes(application.id)}
+                        onCheckedChange={(checked) => {
+                          setSelectedApplications((prev) => (checked ? [...prev, application.id] : prev.filter((selectedId) => selectedId !== application.id)));
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                      />
 
-                            <div className="flex flex-wrap gap-1 mb-2">
-                              {application.user.skills.slice(0, 3).map((skill, idx) => (
-                                <Badge key={idx} variant="outline" className="text-xs border-neon-purple/30 text-neon-purple">
-                                  {skill.skill.name}
-                                </Badge>
-                              ))}
-                              {application.user.skills.length > 3 && (
-                                <Badge variant="outline" className="text-xs">
-                                  +{application.user.skills.length - 3}
-                                </Badge>
-                              )}
-                            </div>
-
-                            <div className="flex items-center justify-between text-xs">
-                              <span className="text-muted-foreground">Applied {Math.floor((Date.now() - new Date(application.createdAt).getTime()) / (1000 * 60 * 60 * 24))}d ago</span>
-                              {application.competency && (
-                                <div className="flex items-center gap-1">
-                                  <Target className="w-3 h-3 text-neon-cyan" />
-                                  <span className="text-neon-cyan">
-                                    {application.competency.readiness}% ready · {application.competency.matchedCount}/{application.competency.totalCount}
-                                  </span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-
-                          <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="truncate text-base font-semibold text-white">{application.applicant_name}</p>
+                          {readiness != null && (
+                            <span className={`flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 ${tone.bg}`}>
+                              <span className={`text-[11px] font-semibold ${tone.text}`}>{readiness}%</span>
+                              <span className={`text-[10px] font-medium ${tone.muted}`}>readiness</span>
+                            </span>
+                          )}
                         </div>
-                      </Card>
-                    ))
-                  )}
-                </div>
-              </ScrollArea>
+                        {application.skills?.length > 0 && <p className="truncate text-[13px] text-white/60">{application.skills.map((s) => s.name).join(", ")}</p>}
+                        <p className="text-xs text-white/35">Applied {appliedAgo(application.applied_at)}</p>
+                        <div>
+                          <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${meta.className}`}>{meta.label}</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
 
-          {/* Right: Applicant Detail with Profile/Resume Tabs */}
-          <div className="lg:col-span-2">
-            {selectedApplication ? (
-              <Card className="glass border-glass-border">
-                {/* Sticky Actions Bar */}
-                <div className="sticky top-0 z-10 glass-strong border-b border-glass-border p-4">
-                  <div className="flex gap-2">
-                    <Button className="gradient-animated flex-1">
-                      <MessageSquare className="w-4 h-4 mr-2" />
-                      Message
-                    </Button>
-                    <Button variant="outline" className="flex-1 border-neon-purple/30 text-neon-purple" onClick={() => handleApplicationStatus("sorted", selectedApplication.id)}>
-                      <UserCheck className="w-4 h-4 mr-2" />
-                      Shortlist
-                    </Button>
-                    <Button variant="outline" className="flex-1 border-destructive/30 text-destructive" onClick={() => handleApplicationStatus("rejected", selectedApplication.id)}>
-                      <XCircle className="w-4 h-4 mr-2" />
-                      Reject
-                    </Button>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreVertical className="w-4 h-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="glass border-glass-border">
-                        <DropdownMenuItem>
-                          <Download className="w-4 h-4 mr-2" />
-                          Download Resume
-                        </DropdownMenuItem>
-                        <DropdownMenuItem>
-                          <Share2 className="w-4 h-4 mr-2" />
-                          Share Profile
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-destructive" onClick={() => handleApplicationStatus("rejected", selectedApplication.id)}>
-                          <UserX className="w-4 h-4 mr-2" />
-                          Reject
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+          {/* Right: detail */}
+          <div className="flex min-w-0 flex-1 flex-col gap-4 rounded-[20px] border border-white/12 bg-white/4 p-5">
+            {selectedApplicationId == null ? (
+              <div className="flex flex-col items-center justify-center gap-3 py-24 text-center">
+                <Users className="w-16 h-16 text-white/30" />
+                <h3 className="text-lg font-semibold text-white">Select an applicant</h3>
+                <p className="text-sm text-white/50">Choose an applicant from the list to view their details</p>
+              </div>
+            ) : detailErrorStatus === 403 ? (
+              <div className="flex flex-col items-center justify-center gap-3 py-24 text-center">
+                <Lock className="w-16 h-16 text-white/30" />
+                <h3 className="text-lg font-semibold text-white">You can’t view this applicant</h3>
+                <p className="text-sm text-white/50">Only the job owner can open application details.</p>
+              </div>
+            ) : detailErrorStatus === 404 ? (
+              <div className="flex flex-col items-center justify-center gap-3 py-24 text-center">
+                <AlertTriangle className="w-16 h-16 text-white/30" />
+                <h3 className="text-lg font-semibold text-white">Application not found</h3>
+                <p className="text-sm text-white/50">This application no longer exists or doesn’t belong to this job.</p>
+              </div>
+            ) : detailError ? (
+              <div className="flex flex-col items-center justify-center gap-3 py-24 text-center">
+                <AlertTriangle className="w-16 h-16 text-white/30" />
+                <h3 className="text-lg font-semibold text-white">Couldn’t load applicant</h3>
+                <p className="text-sm text-white/50">Something went wrong. Please try again.</p>
+              </div>
+            ) : !selectedApplication || isDetailLoading ? (
+              <div className="flex flex-col items-center justify-center gap-3 py-24 text-center">
+                <div className="h-10 w-10 animate-spin rounded-full border-2 border-white/20 border-t-neon-cyan" />
+                <p className="text-sm text-white/50">Loading applicant details…</p>
+              </div>
+            ) : (
+              <>
+                {/* Profile top */}
+                <div className="flex flex-wrap items-center gap-4">
+                  <div className="flex size-16 shrink-0 items-center justify-center rounded-full bg-neon-purple text-lg font-bold text-[#06060f]">{initials(selectedApplication.user?.name)}</div>
+                  <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                    <p className="text-lg font-semibold text-white">{selectedApplication.user?.name}</p>
+                    {selectedApplication.user?.headline && <p className="text-sm text-white/60">{selectedApplication.user.headline}</p>}
+                    <div className="flex items-center gap-2 text-[13px] text-white/50">
+                      {(selectedApplication.user?.location || selectedApplication.user?.city) && <span>{selectedApplication.user.location ?? selectedApplication.user.city}</span>}
+                      {(selectedApplication.user?.location || selectedApplication.user?.city) && candidateYears != null && <span>•</span>}
+                      {candidateYears != null && <span>{candidateYears} yrs</span>}
+                    </div>
+                  </div>
+                  <button
+                    disabled
+                    title="There is no public candidate profile route yet"
+                    className="flex cursor-not-allowed items-center gap-1.5 rounded-full bg-gradient-to-r from-neon-purple to-neon-pink px-4 py-2 text-xs font-medium text-white opacity-50"
+                  >
+                    View qelsa profile
+                    <ArrowRight className="w-3 h-3" />
+                  </button>
+                </div>
+
+                {/* Summary */}
+                {selectedApplication.user?.professional_summary && (
+                  <div className="flex flex-col gap-4">
+                    <p className="text-[13px] font-semibold text-white/80">Summary</p>
+                    <div className="rounded-[10px] border border-white/8 bg-white/4 px-3.5 py-3">
+                      <p className="text-xs leading-[18px] text-white/65">{selectedApplication.user.professional_summary}</p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="h-px w-full bg-white/12" />
+
+                {/* Contact */}
+                <div className="flex flex-col gap-2.5">
+                  <p className="text-[13px] font-semibold text-white/80">Contact</p>
+                  <div className="flex items-center gap-3">
+                    <div className="flex size-8 shrink-0 items-center justify-center rounded-[10px] border border-white/12 bg-white/4">
+                      <Mail className="w-4 h-4 text-white/70" />
+                    </div>
+                    <div className="flex min-w-0 flex-col gap-0.5">
+                      <p className="text-xs text-white/50">Email</p>
+                      <p className="truncate text-sm text-white">{selectedApplication.user?.email}</p>
+                    </div>
+                  </div>
+                  {selectedApplication.user?.phone && (
+                    <div className="flex items-center gap-3">
+                      <div className="flex size-8 shrink-0 items-center justify-center rounded-[10px] border border-white/12 bg-white/4">
+                        <Phone className="w-4 h-4 text-white/70" />
+                      </div>
+                      <div className="flex flex-col gap-0.5">
+                        <p className="text-xs text-white/50">Phone</p>
+                        <p className="text-sm text-white">{selectedApplication.user.phone}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="h-px w-full bg-white/12" />
+
+                {/* Skills */}
+                {(selectedApplication.user?.skills?.length ?? 0) > 0 && (
+                  <>
+                    <div className="flex flex-col gap-2.5">
+                      <p className="text-[13px] font-semibold text-white/80">Skills</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {selectedApplication.user.skills.map((userSkill, idx) => {
+                          const required = currentJobPosting?.job_skills?.some((js) => js.skill?.id === userSkill.skill?.id);
+                          return (
+                            <span
+                              key={idx}
+                              className={`rounded-md border px-2.5 py-1 text-[11px] font-medium ${required ? "border-neon-green/40 text-neon-green" : "border-white/12 text-white/50"}`}
+                            >
+                              {userSkill.skill?.name}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div className="h-px w-full bg-white/12" />
+                  </>
+                )}
+
+                {/* Application details */}
+                <div className="flex flex-col gap-2.5">
+                  <p className="text-[13px] font-semibold text-white/80">Application details</p>
+                  <div className="flex items-center justify-between text-[13px]">
+                    <p className="text-white/50">Applied</p>
+                    <p className="text-white">{appliedAgo(selectedApplication.createdAt)}</p>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <p className="text-[13px] text-white/50">Status</p>
+                    <span className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${(statusMeta[selectedApplication.status] ?? statusMeta.cancelled).className}`}>
+                      {(statusMeta[selectedApplication.status] ?? statusMeta.cancelled).label}
+                    </span>
                   </div>
                 </div>
 
-                <Tabs defaultValue="profile" className="w-full">
-                  <TabsList className="w-full glass-strong border-b border-glass-border rounded-none">
-                    <TabsTrigger value="profile" className="flex-1 data-[state=active]:bg-neon-cyan/20">
-                      <User className="w-4 h-4 mr-2" />
-                      Profile
-                    </TabsTrigger>
-                    <TabsTrigger value="resume" className="flex-1 data-[state=active]:bg-neon-purple/20">
-                      <FileText className="w-4 h-4 mr-2" />
-                      Resume
-                    </TabsTrigger>
-                  </TabsList>
+                <div className="h-px w-full bg-white/12" />
 
-                  {/* Profile Tab */}
-                  <TabsContent value="profile" className="mt-0">
-                    <ScrollArea className="h-[calc(100vh-28rem)]">
-                      <div className="p-6 space-y-6">
-                        {/* AI Summary (Top) */}
-                        <div className="glass-strong rounded-lg p-4 border border-neon-purple/30">
-                          <div className="flex items-center gap-2 mb-3">
-                            <Zap className="w-5 h-5 text-neon-purple" />
-                            <h3 className="font-semibold">AI Summary</h3>
-                            <Badge variant="outline" className="text-xs border-neon-purple/30 text-neon-purple">
-                              Generated
-                            </Badge>
-                          </div>
-                          {/* <p className="text-sm text-muted-foreground mb-3">
-                            <strong className="text-foreground">Strong fit for this role.</strong> {selectedApplicant.name} has {selectedApplicant.yearsExperience} years of relevant experience and
-                            matches {selectedApplication.mustHavesMatched} of {selectedApplication.mustHavesTotal} must-have requirements.
-                            {selectedApplication.matchScore >= 90
-                              ? " Excellent technical alignment with the job description. Highly recommended for interview."
-                              : " Good foundation with some skill gaps. Consider for phone screening to assess cultural fit and growth potential."}
-                          </p> */}
-                          {/* <div className="flex items-center gap-2 text-xs">
-                            <Badge variant="outline" className="border-neon-green/30 text-neon-green">
-                              <CheckCircle2 className="w-3 h-3 mr-1" />
-                              {selectedApplication.mustHavesMatched} must-haves matched
-                            </Badge>
-                            {selectedApplication.mustHavesMatched < selectedApplication.mustHavesTotal && (
-                              <Badge variant="outline" className="border-neon-yellow/30 text-neon-yellow">
-                                {selectedApplication.mustHavesTotal - selectedApplication.mustHavesMatched} gaps
-                              </Badge>
-                            )}
-                            <Badge variant="outline" className="border-neon-cyan/30 text-neon-cyan">
-                              {selectedApplication.matchScore}% overall match
-                            </Badge> 
-                          </div> */}
+                {/* Competency framework */}
+                {selectedApplication.competency && (
+                  <div className="rounded-xl border border-white/8 bg-white/3 p-4">
+                    <div className="flex items-center justify-between pb-3">
+                      <p className="text-[13px] font-semibold text-white/80">Competency framework</p>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <div className="min-w-[560px]">
+                        <div className="flex items-center border-y border-white/12 py-2 text-[11px] font-semibold uppercase text-white/45">
+                          <p className="flex-1">Skill</p>
+                          <p className="w-[120px]">Proficiency</p>
+                          <p className="w-[110px]">Type</p>
+                          <p className="w-[120px]">Candidate</p>
+                          <p className="w-[80px]">Match</p>
                         </div>
 
-                        {/* Competency Framework */}
-                        {selectedApplication.competency && (
-                          <div>
-                            <div className="flex items-center justify-between mb-3">
-                              <h3 className="font-semibold">Competency Framework</h3>
-                              <div className="flex items-center gap-2 text-xs">
-                                <Badge variant="outline" className="border-neon-green/30 text-neon-green">
-                                  {selectedApplication.competency.matchedCount}/{selectedApplication.competency.totalCount} matched
-                                </Badge>
-                                <Badge variant="outline" className="border-neon-cyan/30 text-neon-cyan">
-                                  {selectedApplication.competency.readiness}% readiness
-                                </Badge>
+                        {selectedApplication.competency.competencies.map((competency) => {
+                          const isGap = competency.status === "gap" || !competency.matched;
+                          const matchLabel = competency.status === "exceeds" ? "↑ Exceeds" : competency.matched ? "✓ Match" : "✗ Gap";
+                          return (
+                            <div key={competency.skill_id} className="flex items-center border-b border-white/6 py-3">
+                              <p className="flex-1 text-[13px] font-medium text-white">{competency.skill_name}</p>
+                              <p className="w-[120px] text-[13px] text-white/70">{proficiencyLabel(competency.required_proficiency)}</p>
+                              <div className="w-[110px]">
+                                <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${competencyTypeStyles[competency.type] ?? competencyTypeStyles.preferred}`}>
+                                  {jobSkillTypeLabel(competency.type)}
+                                </span>
                               </div>
+                              <p className={`w-[120px] text-[13px] font-semibold ${isGap ? "text-red-500" : "text-neon-green"}`}>{proficiencyLabel(competency.candidate_proficiency)}</p>
+                              <p className={`w-[80px] text-[11px] font-semibold ${isGap ? "text-red-500" : "text-neon-green"}`}>{matchLabel}</p>
                             </div>
-                            <div className="glass-strong rounded-lg p-4 space-y-2">
-                              {selectedApplication.competency.competencies.map((c) => (
-                                <div key={c.skill_id} className="flex items-center gap-2 flex-wrap py-2 border-b border-glass-border last:border-0">
-                                  <span className="text-sm font-medium">{c.skill_name}</span>
-                                  <Badge variant="outline" className="text-xs border-neon-purple/30 text-neon-purple">
-                                    {jobSkillTypeLabel(c.type)}
-                                  </Badge>
-                                  <span className="text-xs text-muted-foreground">Weight: {c.weight}%</span>
-                                  <div className="flex items-center gap-1 ml-auto text-xs">
-                                    <span className="text-muted-foreground">
-                                      Req: <span className="text-foreground">{proficiencyLabel(c.required_proficiency)}</span>
-                                    </span>
-                                    <span className="text-muted-foreground">·</span>
-                                    <span className="text-muted-foreground">
-                                      Candidate: <span className="text-foreground">{proficiencyLabel(c.candidate_proficiency)}</span>
-                                    </span>
-                                    <Badge
-                                      variant="outline"
-                                      className={`text-xs ml-1 ${c.matched ? "border-neon-green/30 text-neon-green" : "border-destructive/30 text-destructive"}`}
-                                    >
-                                      {c.matched ? "Match" : c.status || "Gap"}
-                                    </Badge>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Contact and Basics */}
-                        <div>
-                          <h3 className="font-semibold mb-3">Contact & Basic Info</h3>
-                          <div className="glass-strong rounded-lg p-4 space-y-3">
-                            <div>
-                              <h4 className="text-lg font-semibold">{selectedApplication?.user?.name}</h4>
-                              <p className="text-sm text-muted-foreground">{selectedApplication.user?.headline}</p>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                              <div className="flex items-center gap-2">
-                                <Mail className="w-4 h-4 text-neon-cyan flex-shrink-0" />
-                                <span className="truncate">{selectedApplication.user?.email}</span>
-                              </div>
-                              {selectedApplication.user?.phone && (
-                                <div className="flex items-center gap-2">
-                                  <Phone className="w-4 h-4 text-neon-cyan flex-shrink-0" />
-                                  <span>{selectedApplication.user?.phone}</span>
-                                </div>
-                              )}
-                              <div className="flex items-center gap-2">
-                                <MapPin className="w-4 h-4 text-neon-cyan flex-shrink-0" />
-                                <span>{selectedApplication.user?.work_preference}</span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Clock className="w-4 h-4 text-neon-cyan flex-shrink-0" />
-                                <span>Applied {Math.floor((Date.now() - new Date(selectedApplication.createdAt).getTime()) / (1000 * 60 * 60 * 24))}d ago</span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Briefcase className="w-4 h-4 text-neon-cyan flex-shrink-0" />
-                                {/* <span>{selectedApplication.user?.yearsExperience} years experience</span> */}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Must-Haves Matched Checklist */}
-                        {currentJobPosting?.job_skills && currentJobPosting.job_skills.length > 0 && (
-                          <div>
-                            <h3 className="font-semibold mb-3">Must-Haves Matched</h3>
-                            <div className="glass-strong rounded-lg p-4">
-                              <div className="flex items-center justify-between mb-3">
-                                <span className="text-sm text-muted-foreground">JD Requirements</span>
-                                <Badge variant="outline" className="border-neon-green/30 text-neon-green">
-                                  {currentJobPosting.job_skills.filter((js) =>
-                                    selectedApplication.user?.skills?.some((us) => us.skill.id === js.skill?.id)
-                                  ).length}/{currentJobPosting.job_skills.length} matched
-                                </Badge>
-                              </div>
-                              <div className="space-y-2">
-                                {currentJobPosting.job_skills.map((js) => {
-                                  const matched = selectedApplication.user?.skills?.some((us) => us.skill.id === js.skill?.id);
-                                  return (
-                                    <div key={js.id} className="flex items-center gap-2 text-sm">
-                                      {matched ? (
-                                        <CheckCircle2 className="w-4 h-4 text-neon-green flex-shrink-0" />
-                                      ) : (
-                                        <XCircle className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                                      )}
-                                      <span className={matched ? "" : "text-muted-foreground"}>{js.skill?.name ?? js.title}</span>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Screening Questions */}
-                        {selectedApplication.job_application_answers && selectedApplication.job_application_answers.length > 0 && (
-                          <div>
-                            <h3 className="font-semibold mb-3">Screening Questions</h3>
-                            <div className="glass-strong rounded-lg p-4">
-                              <div className="space-y-4">
-                                {selectedApplication.job_application_answers.map((sq, idx) => (
-                                  <div key={idx} className="pb-4 last:pb-0 border-b last:border-b-0 border-glass-border">
-                                    <div className="flex items-start gap-2 mb-2">
-                                      <FileText className="w-4 h-4 text-neon-purple flex-shrink-0 mt-0.5" />
-                                      <p className="text-sm font-medium text-muted-foreground">{sq.question}</p>
-                                    </div>
-                                    <div className="ml-6">
-                                      <div className="flex items-start gap-2">
-                                        {/* {sq.isIdeal ? (
-                                          <CheckCircle2 className="w-4 h-4 text-neon-green flex-shrink-0 mt-0.5" />
-                                        ) : (
-                                          <AlertCircle className="w-4 h-4 text-neon-yellow flex-shrink-0 mt-0.5" />
-                                        )} */}
-                                        <p className="text-sm">{sq.answer}</p>
-                                      </div>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Qelsa Profile Snapshot */}
-                        <div>
-                          <div className="flex items-center justify-between mb-3">
-                            <h3 className="font-semibold">Qelsa Profile</h3>
-                            <Button variant="ghost" size="sm" className="text-xs text-neon-cyan hover:text-neon-cyan">
-                              View Full Profile
-                              <ExternalLink className="w-3 h-3 ml-1" />
-                            </Button>
-                          </div>
-
-                          {/* Experience */}
-                          <div className="glass-strong rounded-lg p-4 mb-3">
-                            <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                              <Briefcase className="w-4 h-4 text-neon-cyan" />
-                              Experience
-                            </h4>
-                            <div className="space-y-3">
-                              {(showAllExperiences
-                                ? selectedApplication.user?.experiences
-                                : selectedApplication.user?.experiences?.slice(0, 1)
-                              )?.map((exp, idx) => (
-                                <div key={idx} className="pb-3 border-b border-glass-border">
-                                  <p className="font-medium text-sm">{exp.job_title?.name}</p>
-                                  <p className="text-xs text-muted-foreground">{exp.company?.name}</p>
-                                </div>
-                              ))}
-                              {(selectedApplication.user?.experiences?.length ?? 0) > 1 && (
-                                <Button variant="ghost" size="sm" className="w-full text-xs text-neon-cyan" onClick={() => setShowAllExperiences((v) => !v)}>
-                                  {showAllExperiences ? "Show less" : "Show more experience"}
-                                  <ChevronRight className={`w-3 h-3 ml-1 transition-transform ${showAllExperiences ? "rotate-90" : ""}`} />
-                                </Button>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Education */}
-                          <div className="glass-strong rounded-lg p-4 mb-3">
-                            <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                              <GraduationCap className="w-4 h-4 text-neon-cyan" />
-                              Education
-                            </h4>
-                            <div className="space-y-3">
-                              {(showAllEducations
-                                ? selectedApplication.user?.educations
-                                : selectedApplication.user?.educations?.slice(0, 1)
-                              )?.map((edu, idx) => (
-                                <div key={idx} className="pb-3 border-b border-glass-border">
-                                  <p className="font-medium text-sm">{edu.degree?.name}</p>
-                                  <p className="text-xs text-muted-foreground">
-                                    {edu.college?.name} • {edu.end_year}
-                                  </p>
-                                </div>
-                              ))}
-                              {(selectedApplication.user?.educations?.length ?? 0) > 1 && (
-                                <Button variant="ghost" size="sm" className="w-full text-xs text-neon-cyan" onClick={() => setShowAllEducations((v) => !v)}>
-                                  {showAllEducations ? "Show less" : "Show more education"}
-                                  <ChevronRight className={`w-3 h-3 ml-1 transition-transform ${showAllEducations ? "rotate-90" : ""}`} />
-                                </Button>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Job Preferences */}
-                          {selectedApplication.user && (
-                            <div className="glass-strong rounded-lg p-4">
-                              <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                                <Target className="w-4 h-4 text-neon-cyan" />
-                                Job Preferences
-                              </h4>
-                              <div className="space-y-3 text-sm">
-                                {/* {selectedApplication.user.jobTypes && (
-                                  <div>
-                                    <p className="text-xs text-muted-foreground mb-1">Job Type</p>
-                                    <div className="flex flex-wrap gap-1.5">
-                                      {selectedApplication.user.jobTypes.map((type, idx) => (
-                                        <Badge key={idx} variant="outline" className="text-xs border-neon-purple/30 text-neon-purple">
-                                          {type}
-                                        </Badge>
-                                      ))}
-                                    </div>
-                                  </div>
-                                )} */}
-                                {selectedApplication.user.work_preference && (
-                                  <div>
-                                    <p className="text-xs text-muted-foreground mb-1">Work Arrangement</p>
-                                    <div className="flex flex-wrap gap-1.5">
-                                      <Badge variant="outline" className="text-xs border-neon-cyan/30 text-neon-cyan">
-                                        <Home className="w-3 h-3 mr-1" />
-                                        {selectedApplication.user.work_preference}
-                                      </Badge>
-                                    </div>
-                                  </div>
-                                )}
-                                {(selectedApplication.user.expected_min_salary || selectedApplication.user.expected_max_salary) && (
-                                  <div className="flex items-center gap-2">
-                                    <DollarSign className="w-4 h-4 text-neon-green flex-shrink-0" />
-                                    <div>
-                                      <p className="text-xs text-muted-foreground">Desired Salary</p>
-                                      <p className="font-medium text-sm text-neon-green">
-                                        {selectedApplication.user.expected_min_salary} - {selectedApplication.user.expected_max_salary}
-                                      </p>
-                                    </div>
-                                  </div>
-                                )}
-                                <div className="grid grid-cols-2 gap-3 pt-2 border-t border-glass-border">
-                                  {selectedApplication.user.want_to_relocate !== undefined && (
-                                    <div>
-                                      <p className="text-xs text-muted-foreground mb-1">Willing to Relocate</p>
-                                      <p className="font-medium text-sm">{selectedApplication.user.want_to_relocate ? "Yes" : "No"}</p>
-                                    </div>
-                                  )}
-                                  {/* {selectedApplication.user.noticePeriod && (
-                                    <div>
-                                      <p className="text-xs text-muted-foreground mb-1">Notice Period</p>
-                                      <p className="font-medium text-sm">{selectedApplication.user.noticePeriod}</p>
-                                    </div>
-                                  )} */}
-                                </div>
-
-                                {/* {selectedApplication.user.culturalPreferences && (
-                                  <div className="pt-3 border-t border-glass-border space-y-3">
-                                    <div className="flex items-center gap-2 mb-2">
-                                      <Heart className="w-4 h-4 text-neon-pink" />
-                                      <h5 className="text-sm font-semibold">Cultural Preferences</h5>
-                                    </div>
-
-                                    {selectedApplication.user.culturalPreferences.cultureAttributes && (
-                                      <div>
-                                        <div className="flex flex-wrap gap-1.5">
-                                          {selectedApplication.user.culturalPreferences.cultureAttributes.map((attr, idx) => (
-                                            <Badge key={idx} variant="outline" className="text-xs border-neon-cyan/30 text-neon-cyan">
-                                              {attr}
-                                            </Badge>
-                                          ))}
-                                        </div>
-                                      </div>
-                                    )}
-                                  </div>
-                                )} */}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Matched Skills */}
-                        <div>
-                          <h3 className="font-semibold mb-3">Skills Match Analysis</h3>
-                          <div className="space-y-3">
-                            {/* Exact Matches */}
-                            <div>
-                              <div className="flex items-center gap-2 mb-2">
-                                <CheckCircle2 className="w-4 h-4 text-neon-green" />
-                                <span className="text-sm font-medium">Exact Matches</span>
-                                <Badge variant="outline" className="text-xs border-neon-green/30 text-neon-green">
-                                  {/* {selectedApplication.keySkills.slice(0, 3).length} */}
-                                </Badge>
-                              </div>
-                              <div className="flex flex-wrap gap-2 mb-3">
-                                {/* {selectedApplication.keySkills.slice(0, 3).map((skill, idx) => (
-                                  <Badge key={idx} variant="outline" className="border-neon-green/30 text-neon-green">
-                                    {skill}
-                                  </Badge>
-                                ))} */}
-                              </div>
-                            </div>
-
-                            {/* Adjacent Skills */}
-                            <div>
-                              <div className="flex items-center gap-2 mb-2">
-                                <Target className="w-4 h-4 text-neon-cyan" />
-                                <span className="text-sm font-medium">Adjacent Skills</span>
-                                <Badge variant="outline" className="text-xs border-neon-cyan/30 text-neon-cyan">
-                                  {/* {selectedApplication.keySkills.length - 3} */}
-                                </Badge>
-                              </div>
-                              <div className="flex flex-wrap gap-2 mb-3">
-                                {/* {selectedApplication.keySkills.slice(3).map((skill, idx) => (
-                                  <Badge key={idx} variant="outline" className="border-neon-cyan/30 text-neon-cyan">
-                                    {skill}
-                                  </Badge>
-                                ))} */}
-                              </div>
-                            </div>
-
-                            {/* Missing */}
-                            {/* {selectedApplication.mustHavesMatched < selectedApplication.mustHavesTotal && (
-                              <div>
-                                <div className="flex items-center gap-2 mb-2">
-                                  <XCircle className="w-4 h-4 text-muted-foreground" />
-                                  <span className="text-sm font-medium text-muted-foreground">Missing</span>
-                                  <Badge variant="outline" className="text-xs">
-                                    {selectedApplication.mustHavesTotal - selectedApplication.mustHavesMatched}
-                                  </Badge>
-                                </div>
-                                <div className="flex flex-wrap gap-2">
-                                  {currentJobPosting?.mustHaves.slice(selectedApplication.mustHavesMatched).map((skill, idx) => (
-                                    <Badge key={idx} variant="outline" className="text-muted-foreground">
-                                      {skill}
-                                    </Badge>
-                                  ))}
-                                </div>
-                              </div>
-                            )} */}
-                          </div>
-                        </div>
-
-                        {/* Application Timeline */}
-                        <div>
-                          <h3 className="font-semibold mb-3">Application Timeline</h3>
-                          <div className="glass-strong rounded-lg p-4 space-y-3">
-                            {selectedApplication.jobApplicationLogs.map((event, idx) => (
-                              <div key={idx} className="flex gap-3">
-                                <div className="flex flex-col items-center">
-                                  <div className={`w-2 h-2 rounded-full ${idx === 0 ? "bg-neon-green" : "bg-muted-foreground/30"}`} />
-                                  {idx < selectedApplication.jobApplicationLogs.length - 1 && <div className="w-px h-full bg-muted-foreground/20 my-1" />}
-                                </div>
-                                <div className="flex-1 pb-2">
-                                  <div className="flex items-center justify-between mb-1">
-                                    <p className="text-sm font-medium">{event.new_status}</p>
-                                    <span className="text-xs text-muted-foreground">{event.createdAt}</span>
-                                  </div>
-                                  {/* {event.note && <p className="text-xs text-muted-foreground">{event.note}</p>} */}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* Notes Section */}
-                        <div>
-                          <h3 className="font-semibold mb-3">Team Notes</h3>
-                          <div className="glass-strong rounded-lg p-4">
-                            <Textarea placeholder="Add notes, @mention team members, or add labels..." rows={3} className="mb-3 glass border-glass-border resize-none" />
-                            <div className="flex items-center gap-2">
-                              <Badge variant="outline" className="cursor-pointer text-xs border-neon-purple/30 text-neon-purple">
-                                + Add Label
-                              </Badge>
-                              <Button size="sm" variant="ghost" className="text-xs">
-                                @ Mention
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
+                          );
+                        })}
                       </div>
-                    </ScrollArea>
-                  </TabsContent>
+                    </div>
 
-                  {/* Resume Tab */}
-                  <TabsContent value="resume" className="mt-0">
-                    <ScrollArea className="h-[calc(100vh-28rem)]">
-                      <div className="p-6">
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                          {/* Sidebar Summary */}
-                          <div className="lg:col-span-1 space-y-4">
-                            <div className="glass-strong rounded-lg p-4 sticky top-0">
-                              <h4 className="text-sm font-semibold mb-3">JD Match Summary</h4>
-                              <div className="space-y-2 mb-4">
-                                {/* {currentJobPosting.mustHaves.slice(0, 4).map((item, idx) => (
-                                  <div key={idx} className="flex items-center gap-2 text-xs">
-                                    {idx < selectedApplicant.mustHavesMatched ? (
-                                      <CheckCircle2 className="w-3 h-3 text-neon-green flex-shrink-0" />
-                                    ) : (
-                                      <XCircle className="w-3 h-3 text-muted-foreground flex-shrink-0" />
-                                    )}
-                                    <span className={idx < selectedApplicant.mustHavesMatched ? "text-foreground" : "text-muted-foreground"}>{item}</span>
-                                  </div>
-                                ))} */}
-                              </div>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="w-full border-neon-cyan/30 text-neon-cyan"
-                                onClick={async () => {
-                                  try {
-                                    const url = `${process.env.NEXT_PUBLIC_API_BASE_URL}${selectedApplication.resume?.file_url}`;
-                                    if (!url) return;
-                                    const res = await fetch(url);
-                                    if (!res.ok) throw new Error("Failed to download file");
-                                    const blob = await res.blob();
-                                    const filename = "resume.pdf";
-                                    const blobUrl = window.URL.createObjectURL(blob);
-                                    const a = document.createElement("a");
-                                    a.href = blobUrl;
-                                    a.download = filename;
-                                    document.body.appendChild(a);
-                                    a.click();
-                                    a.remove();
-                                    window.URL.revokeObjectURL(blobUrl);
-                                  } catch (err) {
-                                    console.error("Download error:", err);
-                                  }
-                                }}
-                              >
-                                <Download className="w-3 h-3 mr-2" />
-                                Download Resume
-                              </Button>
-                            </div>
-                          </div>
+                    <div className="flex items-start justify-between pt-2 text-xs">
+                      <p className="text-white/40">{selectedApplication.competency.totalCount} competencies</p>
+                      <p className="font-semibold text-neon-green">
+                        {selectedApplication.competency.matchedCount} of {selectedApplication.competency.totalCount} matched
+                      </p>
+                    </div>
+                  </div>
+                )}
 
-                          {/* Resume Viewer */}
+                {/* Cover letter — no field on the API; shell only */}
+                <div className="flex flex-col gap-2.5">
+                  <p className="text-[13px] font-semibold text-white/80">Cover Letter</p>
+                  <div className="rounded-xl border border-white/8 bg-white/4 p-4">
+                    <p className="text-[13px] text-white/40">No cover letter provided.</p>
+                  </div>
+                </div>
 
-                          <div className="lg:col-span-2">
-                            <div className="glass-strong rounded-lg p-6">
-                              <div className="flex items-center justify-between mb-4">
-                                <h4 className="font-semibold">Resume</h4>
-                              </div>
+                <div className="h-px w-full bg-white/12" />
 
-                              <PdfPreview pdfUrl={`${process.env.NEXT_PUBLIC_API_BASE_URL}${selectedApplication.resume?.file_url}`} />
-                              
-                              {/* Resume Content Preview */}
-                              {/* <iframe src={`${process.env.NEXT_PUBLIC_API_BASE_URL}${selectedApplication.resume?.file_url}`} width="100%" height="90vh" style={{ border: "none" }} /> */}
-                              {/* <Worker workerUrl="https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js">
-                                <div style={{ height: "90vh" }}>
-                                  <Viewer fileUrl={`${process.env.NEXT_PUBLIC_API_BASE_URL}${selectedApplication.resume?.file_url}`} />
-                                </div>
-                              </Worker> */}
-                              {/* {ReactPDF.render(<PdfPreview />, `${process.env.NEXT_PUBLIC_API_BASE_URL}${selectedApplication.resume?.file_url}`)} */}
-                            </div>
-                          </div>
+                {/* Work experience */}
+                {(selectedApplication.user?.experiences?.length ?? 0) > 0 && (
+                  <>
+                    <div className="flex flex-col gap-3">
+                      <p className="text-[13px] font-semibold text-white/80">Work Experience</p>
+                      {selectedApplication.user.experiences.map((experience, idx) => (
+                        <div key={idx} className="flex flex-col gap-1">
+                          <p className="text-[13px] font-semibold text-white">{experience.job_title?.name ?? experience.position}</p>
+                          <p className="text-[13px] text-white/50">{[experience.company?.name, experience.employment_type].filter(Boolean).join(" · ")}</p>
+                          <p className="text-xs text-white/35">
+                            {monthYear(experience.start_date)} – {experience.is_current || !experience.end_date ? "Present" : monthYear(experience.end_date)}
+                          </p>
                         </div>
+                      ))}
+                    </div>
+                    <div className="h-px w-full bg-white/12" />
+                  </>
+                )}
+
+                {/* Education */}
+                {(selectedApplication.user?.educations?.length ?? 0) > 0 && (
+                  <>
+                    <div className="flex flex-col gap-3">
+                      <p className="text-[13px] font-semibold text-white/80">Education</p>
+                      {selectedApplication.user.educations.map((education, idx) => (
+                        <div key={idx} className="flex flex-col gap-1">
+                          <p className="text-[13px] font-semibold text-white">{education.degree?.name}</p>
+                          <p className="text-[13px] text-white/50">{education.college?.name}</p>
+                          <p className="text-xs text-white/35">{[education.start_year, education.end_year].filter(Boolean).join(" – ")}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="h-px w-full bg-white/12" />
+                  </>
+                )}
+
+                {/* Screening questions */}
+                {(selectedApplication.job_application_answers?.length ?? 0) > 0 && (
+                  <>
+                    <div className="flex flex-col gap-3">
+                      <p className="text-[13px] font-semibold text-white/80">Screening Questions</p>
+                      {selectedApplication.job_application_answers.map((answer, idx) => (
+                        <div key={idx} className="flex flex-col gap-2 rounded-xl border border-white/8 bg-white/4 px-4 py-3">
+                          <p className="text-[13px] font-medium text-white">{answer.question}</p>
+                          <p className="text-[13px] text-white/50">{answer.answer}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="h-px w-full bg-white/12" />
+                  </>
+                )}
+
+                {/* Notes — no endpoint; shell only */}
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-center gap-2">
+                    <p className="text-[13px] font-semibold text-white/80">Notes</p>
+                    <span className="rounded-full bg-white/10 px-1.5 py-0.5 text-[11px] font-medium text-white/60">0</span>
+                  </div>
+
+                  <div className="rounded-xl border border-white/8 bg-white/4 px-3.5 py-3">
+                    <p className="text-[13px] text-white/40">No notes yet.</p>
+                  </div>
+
+                  {showNoteComposer && (
+                    <div className="flex flex-col gap-3 rounded-xl border border-neon-cyan/40 bg-white/5 p-4">
+                      <p className="text-[13px] font-semibold text-white/80">Add a note</p>
+                      <Textarea disabled placeholder="Write your note about this candidate..." rows={3} className="resize-none border-white/10 bg-white/3 text-[13px]" />
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-xs text-white/40">Visible to:</span>
+                        <span className="rounded-full border border-white/10 bg-white/4 px-2.5 py-1 text-xs font-medium text-white/50">Team only</span>
+                        <div className="flex-1" />
+                        <button onClick={() => setShowNoteComposer(false)} className="rounded-full border border-white/20 px-6 py-3 text-sm font-bold text-white/80 hover:bg-white/5 transition-colors">
+                          Cancel
+                        </button>
+                        <button disabled title="Notes have no API endpoint yet" className="cursor-not-allowed rounded-full bg-gradient-to-r from-neon-purple to-neon-pink px-6 py-3 text-sm font-bold text-white opacity-50">
+                          Save Note
+                        </button>
                       </div>
-                    </ScrollArea>
-                  </TabsContent>
-                </Tabs>
-              </Card>
-            ) : (
-              <Card className="glass border-glass-border p-12 flex flex-col items-center justify-center text-center h-[calc(100vh-24rem)]">
-                <Users className="w-16 h-16 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">Select an applicant</h3>
-                <p className="text-sm text-muted-foreground">Choose an applicant from the list to view their details</p>
-              </Card>
+                    </div>
+                  )}
+                </div>
+
+                {/* Actions */}
+                <div className="flex flex-wrap gap-2.5">
+                  <button
+                    onClick={() => setShowNoteComposer((v) => !v)}
+                    className="flex h-11 flex-1 items-center justify-center gap-2 rounded-[10px] border border-white/12 bg-white/4 px-4 text-sm font-medium text-white hover:bg-white/8 transition-colors"
+                  >
+                    ✎ Add Notes
+                  </button>
+                  <button
+                    onClick={() => setShowMessageComposer(true)}
+                    className="flex h-11 flex-1 items-center justify-center gap-2 rounded-full border border-white/12 bg-white/4 px-4 text-sm font-semibold text-white hover:bg-white/8 transition-colors"
+                  >
+                    <MessageCircle className="w-[18px] h-[18px]" />
+                    Message
+                  </button>
+                  <button
+                    onClick={handleDownloadResume}
+                    disabled={!selectedApplication.resume?.file_url}
+                    className="flex h-11 flex-1 items-center justify-center gap-2 rounded-full border border-white/12 bg-white/4 px-4 text-sm font-semibold text-white hover:bg-white/8 transition-colors disabled:opacity-40"
+                  >
+                    <Download className="w-[18px] h-[18px]" />
+                    Resume
+                  </button>
+                  <button
+                    onClick={() => navigator.clipboard?.writeText(window.location.href)}
+                    className="flex h-11 flex-1 items-center justify-center gap-2 rounded-full border border-white/12 bg-white/4 px-4 text-sm font-semibold text-white hover:bg-white/8 transition-colors"
+                  >
+                    <Share2 className="w-[18px] h-[18px]" />
+                    Share
+                  </button>
+                </div>
+
+                {/* Status actions kept from the previous page — the design has no per-candidate shortlist/reject */}
+                <div className="flex flex-wrap gap-2.5">
+                  <button
+                    onClick={() => handleApplicationStatus("sorted", selectedApplication.id)}
+                    className="flex h-11 flex-1 items-center justify-center gap-2 rounded-full border border-neon-green/30 px-4 text-sm font-semibold text-neon-green hover:bg-neon-green/10 transition-colors"
+                  >
+                    <Star className="w-4 h-4" />
+                    Shortlist
+                  </button>
+                  <button
+                    onClick={() => handleApplicationStatus("rejected", selectedApplication.id)}
+                    className="flex h-11 flex-1 items-center justify-center gap-2 rounded-full border border-red-500/30 px-4 text-sm font-semibold text-red-500 hover:bg-red-500/10 transition-colors"
+                  >
+                    <XCircle className="w-4 h-4" />
+                    Reject
+                  </button>
+                </div>
+              </>
             )}
+          </div>
+        </div>
+
+        {/* Pagination — the API returns the full list, so paging is a shell */}
+        <div className="flex items-center justify-between pt-5">
+          <p className="text-sm text-white/50">
+            Showing {sortedApplications.length} of {applicants?.length ?? 0} applicants
+          </p>
+          <div className="flex items-center gap-2">
+            <button disabled className="flex size-8 cursor-not-allowed items-center justify-center rounded border border-white/12 text-white/30">
+              <ChevronLeft className="w-3.5 h-3.5" />
+            </button>
+            <span className="flex size-8 items-center justify-center rounded bg-neon-cyan text-sm font-semibold text-[#06060f]">1</span>
+            <button disabled className="flex size-8 cursor-not-allowed items-center justify-center rounded border border-white/12 text-white/30">
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex flex-wrap items-center justify-between gap-4 py-8 text-[13px] text-white/30">
+          <p>© {new Date().getFullYear()} Qelsa Job Platform. All rights reserved.</p>
+          <div className="flex gap-6">
+            <span>Privacy Policy</span>
+            <span>Terms of Service</span>
+            <span>Help Center</span>
           </div>
         </div>
       </div>
 
-      {/* Message Composer (Optional - shows when clicking Message) */}
+      {/* Message composer */}
       {showMessageComposer && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <Card className="glass-strong border-glass-border p-6 max-w-2xl w-full">
-            <h3 className="font-semibold mb-4">Send Message</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-2xl rounded-[20px] border border-white/12 bg-[#1a1a24] p-6">
+            <h3 className="mb-4 font-semibold text-white">Send Message</h3>
 
             <div className="space-y-4">
               <div>
-                <label className="text-sm font-medium mb-2 block">Template</label>
+                <label className="mb-2 block text-sm font-medium text-white/80">Template</label>
                 <Select
                   value={messageTemplate}
                   onValueChange={(value) => {
@@ -1042,21 +758,21 @@ export function ApplicationsManagementPage() {
               </div>
 
               <div>
-                <label className="text-sm font-medium mb-2 block">Message</label>
+                <label className="mb-2 block text-sm font-medium text-white/80">Message</label>
                 <Textarea value={messageText} onChange={(e) => setMessageText(e.target.value)} placeholder="Type your message..." rows={6} className="glass border-glass-border resize-none" />
               </div>
 
               <div className="flex gap-2">
-                <Button onClick={handleSendMessage} className="gradient-animated flex-1">
+                <Button onClick={handleSendMessage} className="flex-1 rounded-full bg-gradient-to-r from-neon-purple to-neon-pink font-bold text-white border-0">
                   <Send className="w-4 h-4 mr-2" />
                   Send Message
                 </Button>
-                <Button variant="outline" onClick={() => setShowMessageComposer(false)} className="border-glass-border">
+                <Button variant="outline" onClick={() => setShowMessageComposer(false)} className="rounded-full border-white/20">
                   Cancel
                 </Button>
               </div>
             </div>
-          </Card>
+          </div>
         </div>
       )}
     </div>
