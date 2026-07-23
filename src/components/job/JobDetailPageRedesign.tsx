@@ -97,6 +97,18 @@ function formatSalary(job: Job): string | null {
   return null;
 }
 
+/**
+ * The similar-jobs endpoint may send the match score under a few names
+ * (`fitScore` is a UI-only field; the API commonly uses snake_case). Read them
+ * all defensively and normalise to a rounded 0–100 number.
+ */
+function similarMatch(job: Job): number | null {
+  const bag = job as Record<string, unknown>;
+  const raw = job.fitScore ?? bag.fit_score ?? bag.match_score ?? bag.matchScore ?? bag.similarity;
+  const n = typeof raw === "string" ? Number(raw) : raw;
+  return typeof n === "number" && Number.isFinite(n) ? Math.round(n) : null;
+}
+
 function formatPosted(job: Job): string | null {
   const raw = job.published_date ?? job.createdAt;
   if (!raw) return null;
@@ -387,6 +399,8 @@ export function JobDetailPageRedesign() {
                 <div className="flex flex-col gap-3">
                   {similarJobs.map((j) => {
                     const sName = j.page?.name || j.company_name;
+                    const salary = formatSalary(j);
+                    const match = similarMatch(j);
                     return (
                       <div key={j.id} onClick={() => router.push(`/jobs/${j.id}`)} className="flex cursor-pointer items-center gap-3 rounded-2xl border border-glass-border bg-white/[0.03] p-4 transition-colors hover:border-neon-cyan/30">
                         <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white/[0.04]">
@@ -394,19 +408,19 @@ export function JobDetailPageRedesign() {
                             // eslint-disable-next-line @next/next/no-img-element
                             <img src={j.company_logo} alt={sName ?? "Company"} className="size-full object-cover" />
                           ) : (
-                            <Briefcase className="size-5 text-neon-cyan" />
+                            <Briefcase className="size-5 text-white/70" />
                           )}
                         </div>
-                        <div className="flex flex-1 flex-col gap-1 overflow-hidden">
-                          <span className="truncate text-sm font-semibold text-white">{j.job_title?.name ?? j.title}</span>
-                          <span className="truncate text-xs text-white/45">
+                        <div className="flex flex-1 flex-col gap-1">
+                          <span className="text-sm font-semibold leading-tight text-white">{j.job_title?.name ?? j.title}</span>
+                          <span className="text-xs leading-snug text-white/45">
                             {sName}
                             {sName && j.location ? " • " : ""}
                             {j.location}
                           </span>
-                          {formatSalary(j) && <span className="text-xs text-white/45">{formatSalary(j)}</span>}
+                          <span className="text-xs text-white/45">{salary ?? "Salary not disclosed"}</span>
                         </div>
-                        {typeof j.fitScore === "number" && <span className="shrink-0 text-sm font-semibold text-neon-cyan">{j.fitScore}% match</span>}
+                        {match != null && <span className="shrink-0 text-sm font-semibold text-neon-cyan">{match}% match</span>}
                       </div>
                     );
                   })}
