@@ -3,16 +3,10 @@ import { useCreateResumeMutation } from "@/features/api/resumeApi";
 import { Job } from "@/types/job";
 import { ScreeningQuestion } from "@/types/question";
 import { Resume } from "@/types/resume";
-import { AlertCircle, ArrowLeft, ArrowRight, Check, CheckCircle2, File, FileText, Upload, User, X, Zap } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Check, CheckCircle2, FileText, Plus, X } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Badge } from "./ui/badge";
-import { Button } from "./ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
-import { Label } from "./ui/label";
-import { Progress } from "./ui/progress";
-import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
-import { Textarea } from "./ui/textarea";
 
 interface QuickApplyModalProps {
   isOpen: boolean;
@@ -24,584 +18,639 @@ interface QuickApplyModalProps {
   resumes: Resume[];
 }
 
+type Step = "resume" | "questions" | "review" | "success";
+
+const COVER_LETTER_MAX = 2000;
+const STEP_LABELS = ["Resume & Cover Letter", "Screening Questions", "Review & Submit"];
+
 export function QuickApplyModal({ isOpen, onClose, job, companyName, screeningQuestions = [], onSubmit, resumes }: QuickApplyModalProps) {
-  const [currentStep, setCurrentStep] = useState<"questions" | "review">("questions");
+  const router = useRouter();
+
+  const [step, setStep] = useState<Step>("resume");
   const [answers, setAnswers] = useState<Record<string, string | number>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showResumeDialog, setShowResumeDialog] = useState(false);
+  const [coverLetter, setCoverLetter] = useState("");
+  const [consented, setConsented] = useState(false);
   const [isUploadingResume, setIsUploadingResume] = useState(false);
-  const [createResume, { isLoading: isCreating, error: createError }] = useCreateResumeMutation();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [selectedResumeId, setSelectedResumeId] = useState<string | number | null>(resumes?.[0]?.id || null);
-  const [createJobApplication, { isLoading: isCreatingApplication, error: createApplicationError }] = useCreateJobApplicationMutation();
+  const [createResume] = useCreateResumeMutation();
+  const [createJobApplication, { isLoading: isSubmitting }] = useCreateJobApplicationMutation();
+
+  const [selectedResumeId, setSelectedResumeId] = useState<string | number | null>(resumes?.[0]?.id ?? null);
   const selectedResume = resumes?.find((r) => r.id === selectedResumeId);
+
+  const hasScreeningQuestions = screeningQuestions.length > 0;
 
   // Reset state when modal opens
   useEffect(() => {
     if (isOpen) {
-      setCurrentStep(screeningQuestions.length > 0 ? "questions" : "review");
+      setStep("resume");
       setAnswers({});
       setErrors({});
-      setIsSubmitting(false);
-      setShowResumeDialog(false);
+      setCoverLetter("");
+      setConsented(false);
     }
-  }, [isOpen, screeningQuestions.length]);
+  }, [isOpen]);
 
   useEffect(() => {
     if (resumes && resumes.length > 0) {
-      setSelectedResumeId(resumes[0].id);
+      setSelectedResumeId((prev) => prev ?? resumes[0].id ?? null);
     }
   }, [resumes]);
 
-  const hasScreeningQuestions = screeningQuestions.length > 0;
+  /* ------------------------------ answer helpers ---------------------------- */
 
   const handleAnswerChange = (questionId: string, value: string | number) => {
-    setAnswers((prev) => ({
-      ...prev,
-      [questionId]: value,
-    }));
-
-    // Clear error for this question
+    setAnswers((prev) => ({ ...prev, [questionId]: value }));
     if (errors[questionId]) {
       setErrors((prev) => {
-        const newErrors = { ...prev };
-        delete newErrors[questionId];
-        return newErrors;
+        const next = { ...prev };
+        delete next[questionId];
+        return next;
       });
     }
   };
 
   const validateAnswers = () => {
-    const newErrors: Record<string, string> = {};
-
+    const next: Record<string, string> = {};
     screeningQuestions.forEach((question) => {
-      if (question.required && !answers[question.id]) {
-        newErrors[question.id] = "This question is required";
-      }
-
-      // Validate text length for short_text questions
-      if (question.type === "short_text" && answers[question.id]) {
-        const answer = String(answers[question.id]);
-        // if (question.maxLength && answer.length > question.maxLength) {
-        //   newErrors[question.id] = `Maximum ${question.maxLength} characters allowed`;
-        // }
+      if (question.required && (answers[question.id] === undefined || answers[question.id] === "")) {
+        next[question.id] = "This question is required";
       }
     });
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    setErrors(next);
+    return Object.keys(next).length === 0;
   };
 
-  const handleNext = () => {
-    if (currentStep === "questions") {
-      if (validateAnswers()) {
-        setCurrentStep("review");
-      } else {
-        toast.error("Please answer all required questions");
-      }
+  const answerDisplay = (question: ScreeningQuestion): string => {
+    const value = answers[question.id];
+    if (value === undefined || value === "") return "—";
+    if (question.type === "yes_no") return value === "yes" ? "Yes" : "No";
+    if (question.type === "multiple_choice") {
+      const opt = question.options?.find((o) => (typeof o === "string" ? o : o.value) === value);
+      if (!opt) return String(value);
+      return String(typeof opt === "string" ? opt : opt.title);
     }
+    return String(value);
+  };
+
+  /* ------------------------------ navigation -------------------------------- */
+
+  const goNextFromResume = () => setStep(hasScreeningQuestions ? "questions" : "review");
+
+  const goNextFromQuestions = () => {
+    if (validateAnswers()) setStep("review");
+    else toast.error("Please answer all required questions");
   };
 
   const handleBack = () => {
-    if (currentStep === "review") {
-      setCurrentStep("questions");
-    } else {
-      onClose();
-    }
+    if (step === "questions") setStep("resume");
+    else if (step === "review") setStep(hasScreeningQuestions ? "questions" : "resume");
   };
 
   const handleSubmit = async () => {
-    setIsSubmitting(true);
-
-    const data = {
-      id: job.id,
-      applicationData: {
-        resume_id: selectedResumeId,
-        answers,
-      },
-    };
-
-    await createJobApplication(data)
-      .unwrap()
-      .then(() => {
-        onClose();
-        toast.success("Application submitted successfully");
-      })
-      .catch((error) => {
-        toast.error(error?.data?.message || "Failed to submit application");
-      });
-
-    setIsSubmitting(false);
+    if (!selectedResumeId) {
+      toast.error("Please select a resume");
+      return;
+    }
+    try {
+      await createJobApplication({
+        id: job.id,
+        applicationData: {
+          resume_id: selectedResumeId,
+          cover_letter: coverLetter || undefined,
+          answers,
+        },
+      }).unwrap();
+      onSubmit?.();
+      setStep("success");
+    } catch (error: any) {
+      toast.error(error?.data?.message || "Failed to submit application");
+    }
   };
 
-  const handleResumeSelect = (resumeId: string) => {
-    setSelectedResumeId(resumeId);
-    setShowResumeDialog(false);
-    toast.success("Resume updated");
-  };
+  /* -------------------------------- resume ---------------------------------- */
 
   const handleResumeUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    console.log("🚀 ~ handleResumeUpload ~ file:", file);
     if (!file) return;
 
-    // Validate file type
     const validTypes = ["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"];
     if (!validTypes.includes(file.type)) {
       toast.error("Please upload a PDF or DOC file");
       return;
     }
-
-    // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
       toast.error("File size must be less than 5MB");
       return;
     }
 
     setIsUploadingResume(true);
-
     try {
       const formData = new FormData();
       formData.append("title", file.name);
       formData.append("file", file);
-
-      await createResume(formData as any).unwrap();
-
-      setIsUploadingResume(false);
-      setShowResumeDialog(false);
+      const created = await createResume(formData as any).unwrap();
+      const newId = created?.data?.id;
+      if (newId != null) setSelectedResumeId(newId);
       toast.success("Resume uploaded successfully");
     } catch (error: any) {
-      setIsUploadingResume(false);
       toast.error(error?.data?.message || "Failed to save resume entry");
+    } finally {
+      setIsUploadingResume(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
-  const getFileIcon = (fileType: string) => {
-    if (fileType === "pdf") {
-      return (
-        <div className="w-10 h-10 rounded-lg bg-red-500/20 border border-red-500/30 flex items-center justify-center">
-          <FileText className="w-5 h-5 text-red-400" />
-        </div>
-      );
-    }
-    return (
-      <div className="w-10 h-10 rounded-lg bg-blue-500/20 border border-blue-500/30 flex items-center justify-center">
-        <File className="w-5 h-5 text-blue-400" />
-      </div>
-    );
-  };
-
-  const formatDate = (dateStr: string) => {
+  const formatDate = (dateStr?: string) => {
+    if (!dateStr) return null;
     const date = new Date(dateStr);
-    return new Intl.DateTimeFormat("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    }).format(date);
-  };
-
-  const renderQuestionInput = (question: ScreeningQuestion) => {
-    const hasError = !!errors[question.id];
-    console.log("🚀 ~ renderQuestionInput ~ question.type:", question);
-
-    switch (question.type) {
-      case "multiple_choice":
-        return (
-          <RadioGroup value={String(answers[question.id] || "")} onValueChange={(value) => handleAnswerChange(question.id, value)}>
-            <div className="space-y-3">
-              {question.options?.map((option, index) => {
-                const optId = typeof option === "string" ? index : option.id;
-                const optValue = typeof option === "string" ? option : option.value;
-                const optLabel = typeof option === "string" ? option : option.title;
-                return (
-                  <div
-                    key={optId ?? index}
-                    className={`flex items-center space-x-3 p-3 rounded-lg border transition-all ${
-                      answers[question.id] === optValue ? "border-neon-cyan bg-neon-cyan/10" : "border-glass-border hover:border-neon-cyan/50"
-                    }`}
-                  >
-                    <RadioGroupItem value={String(optValue)} id={`${question.id}-${optId ?? index}`} />
-                    <Label htmlFor={`${question.id}-${optId ?? index}`} className="flex-1 cursor-pointer">
-                      {optLabel}
-                    </Label>
-                  </div>
-                );
-              })}
-            </div>
-          </RadioGroup>
-        );
-
-      case "yes_no":
-        return (
-          <RadioGroup value={String(answers[question.id] || "")} onValueChange={(value) => handleAnswerChange(question.id, value)}>
-            <div className="flex gap-3">
-              <div
-                className={`flex-1 flex items-center justify-center space-x-3 p-4 rounded-lg border transition-all cursor-pointer ${
-                  answers[question.id] === "yes" ? "border-neon-green bg-neon-green/10" : "border-glass-border hover:border-neon-green/50"
-                }`}
-                onClick={() => handleAnswerChange(question.id, "yes")}
-              >
-                <RadioGroupItem value="yes" id={`${question.id}-yes`} />
-                <Label htmlFor={`${question.id}-yes`} className="cursor-pointer">
-                  Yes
-                </Label>
-              </div>
-              <div
-                className={`flex-1 flex items-center justify-center space-x-3 p-4 rounded-lg border transition-all cursor-pointer ${
-                  answers[question.id] === "no" ? "border-destructive bg-destructive/10" : "border-glass-border hover:border-destructive/50"
-                }`}
-                onClick={() => handleAnswerChange(question.id, "no")}
-              >
-                <RadioGroupItem value="no" id={`${question.id}-no`} />
-                <Label htmlFor={`${question.id}-no`} className="cursor-pointer">
-                  No
-                </Label>
-              </div>
-            </div>
-          </RadioGroup>
-        );
-
-      case "scale":
-        return (
-          <div className="space-y-4">
-            <div className="flex justify-between text-sm text-muted-foreground">
-              <span>{question.min_value || 1}</span>
-              <span>{question.max_value || 10}</span>
-            </div>
-            <div className="flex gap-2">
-              {Array.from({ length: (question.max_value || 10) - (question.min_value || 1) + 1 }, (_, i) => i + (question.min_value || 1)).map((value) => (
-                <button
-                  key={value}
-                  onClick={() => handleAnswerChange(question.id, value)}
-                  className={`flex-1 p-3 rounded-lg border transition-all ${
-                    answers[question.id] === value ? "border-neon-purple bg-neon-purple/20 text-neon-purple" : "border-glass-border hover:border-neon-purple/50"
-                  }`}
-                >
-                  {value}
-                </button>
-              ))}
-            </div>
-          </div>
-        );
-
-      case "short_text":
-        return (
-          <div className="space-y-2">
-            <Textarea
-              value={String(answers[question.id] || "")}
-              onChange={(e) => handleAnswerChange(question.id, e.target.value)}
-              placeholder="Type your answer here..."
-              className={`min-h-[120px] glass border-glass-border focus:border-neon-cyan ${hasError ? "border-destructive focus:border-destructive" : ""}`}
-              // maxLength={question.maxLength}
-            />
-            {/* {question.maxLength && (
-              <div className="flex justify-end text-xs text-muted-foreground">
-                {String(answers[question.id] || "").length} / {question.maxLength}
-              </div>
-            )} */}
-          </div>
-        );
-
-      default:
-        return null;
-    }
+    if (Number.isNaN(date.getTime())) return null;
+    return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(date);
   };
 
   if (!isOpen) return null;
 
+  const activeIndex = step === "resume" ? 0 : step === "questions" ? 1 : 2;
+  const jobTitle = job.job_title?.name ?? job.title;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-      <div className="relative w-full max-w-3xl max-h-[90vh] glass rounded-2xl border border-glass-border overflow-hidden flex flex-col">
-        {/* Header */}
-        <div className="relative px-6 py-5 border-b border-glass-border flex-shrink-0">
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-2">
-                <Zap className="w-5 h-5 text-neon-green" />
-                <h2 className="text-xl bg-gradient-to-r from-neon-cyan via-neon-purple to-neon-pink bg-clip-text text-transparent">Quick Apply</h2>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                {job.title} at {job.company_name || job.page?.name}
-              </p>
-            </div>
-            <Button variant="ghost" size="icon" onClick={onClose} className="flex-shrink-0">
-              <X className="w-4 h-4" />
-            </Button>
-          </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+      <div className="relative flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-[24px] border border-glass-border bg-[#06060f] text-white">
+        <button
+          onClick={onClose}
+          className="absolute right-5 top-5 z-10 flex size-9 items-center justify-center rounded-full border border-glass-border bg-white/[0.04] text-white/70 transition-colors hover:text-white"
+          aria-label="Close"
+        >
+          <X className="size-4" />
+        </button>
 
-          {/* Progress Indicator */}
-          {hasScreeningQuestions && (
-            <div className="mt-4 space-y-2">
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>Step {currentStep === "questions" ? "1" : "2"} of 2</span>
-                <span>{currentStep === "questions" ? "Screening Questions" : "Review & Submit"}</span>
-              </div>
-              <Progress value={currentStep === "questions" ? 50 : 100} className="h-1" />
-            </div>
-          )}
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto min-h-0">
-          <div className="p-6 space-y-6">
-            {currentStep === "questions" && hasScreeningQuestions && (
-              <div className="space-y-6">
-                <div className="flex items-start gap-3 p-4 glass-strong rounded-lg border border-neon-cyan/30">
-                  <AlertCircle className="w-5 h-5 text-neon-cyan flex-shrink-0 mt-0.5" />
-                  <div className="space-y-1">
-                    <p className="text-sm">Please answer the following screening questions to complete your application.</p>
-                    <p className="text-xs text-muted-foreground">
-                      Questions marked with <span className="text-destructive">*</span> are required.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Questions */}
-                <div className="space-y-4">
-                  {screeningQuestions.map((question, index) => (
-                    <div key={question.id} className={`p-5 glass-strong rounded-lg border transition-all ${errors[question.id] ? "border-destructive" : "border-glass-border"}`}>
-                      {/* Question Header */}
-                      <div className="mb-4">
-                        <div className="flex items-start justify-between gap-3 mb-2">
-                          <Label className="text-base flex-1">
-                            <span className="text-muted-foreground mr-2">Q{index + 1}.</span>
-                            {question.title}
-                            {question.required && <span className="text-destructive ml-1">*</span>}
-                          </Label>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="text-xs">
-                            {question.type === "multiple_choice" && "Multiple Choice"}
-                            {question.type === "yes_no" && "Yes/No"}
-                            {question.type === "scale" && "Rating Scale"}
-                            {question.type === "short_text" && "Text Answer"}
-                          </Badge>
-                          {!question.required && (
-                            <Badge variant="outline" className="text-xs border-muted-foreground/30 text-muted-foreground">
-                              Optional
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Question Input */}
-                      {renderQuestionInput(question)}
-
-                      {/* Error Message */}
-                      {errors[question.id] && (
-                        <div className="flex items-center gap-2 mt-3 text-destructive text-sm">
-                          <AlertCircle className="w-4 h-4" />
-                          <span>{errors[question.id]}</span>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {currentStep === "review" && (
-              <div className="space-y-6">
-                {/* Application Summary */}
-                <div className="space-y-4">
-                  <h3 className="text-lg">Review Your Application</h3>
-
-                  {/* Resume for this Application */}
-                  <div className="space-y-3">
-                    {selectedResume ? (
-                      <div className="p-4 glass-strong rounded-xl border border-glass-border">
-                        <div className="flex items-center gap-4">
-                          {/* {getFileIcon(selectedResume.fileType)} */}
-
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm truncate mb-1">{selectedResume.title}</p>
-                            <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                              {/* <span className="uppercase">{selectedResume.fileType}</span> */}
-                              {/* <span>•</span>
-                              <span>{selectedResume.size}</span> */}
-                              <span>•</span>
-                              <span>Updated {formatDate(selectedResume.updatedAt)}</span>
-                            </div>
+        {step === "success" ? (
+          <SuccessScreen
+            jobTitle={jobTitle ?? "this role"}
+            companyName={companyName}
+            onViewApplications={() => {
+              onClose();
+              router.push("/jobs/my-jobs/applied");
+            }}
+            onBrowseJobs={() => {
+              onClose();
+              router.push("/jobs/smart_matches");
+            }}
+          />
+        ) : (
+          <>
+            {/* Scrollable content */}
+            <div className="flex-1 overflow-y-auto">
+              <div className="flex flex-col gap-10 px-6 pb-12 pt-10 sm:px-10">
+                {/* Stepper */}
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-start justify-between gap-2">
+                    {STEP_LABELS.map((label, i) => {
+                      const done = i < activeIndex;
+                      const active = i === activeIndex;
+                      return (
+                        <div key={label} className="flex items-center gap-2">
+                          <div
+                            className={`flex size-6 shrink-0 items-center justify-center rounded-[12px] text-xs font-bold ${
+                              done || active ? "bg-neon-cyan text-[#06060f]" : "border border-glass-border bg-white/[0.04] text-white/45"
+                            }`}
+                          >
+                            {done ? <Check className="size-3" /> : i + 1}
                           </div>
-
-                          <Button variant="outline" size="sm" onClick={() => setShowResumeDialog(true)} className="flex-shrink-0">
-                            Change Resume
-                          </Button>
+                          <span className={`text-sm ${active ? "font-semibold text-white" : done ? "font-medium text-white/45" : "font-medium text-white/45"}`}>{label}</span>
                         </div>
-                      </div>
-                    ) : (
-                      <div className="p-4 glass-strong rounded-xl border border-destructive/50">
-                        <div className="flex items-center gap-3 text-sm text-destructive">
-                          <AlertCircle className="w-5 h-5" />
-                          <span>No resume selected. Please upload or select a resume.</span>
-                          <Button variant="outline" size="sm" onClick={() => setShowResumeDialog(true)} className="ml-auto">
-                            Select Resume
-                          </Button>
-                        </div>
-                      </div>
-                    )}
+                      );
+                    })}
                   </div>
-
-                  {/* Profile Info */}
-                  <div className="p-5 glass-strong rounded-lg border border-glass-border">
-                    <div className="flex items-start gap-4">
-                      <div className="w-16 h-16 rounded-full bg-gradient-to-br from-neon-cyan to-neon-purple flex items-center justify-center">
-                        <User className="w-8 h-8 text-white" />
-                      </div>
-                      <div className="flex-1">
-                        <h4 className="text-base mb-1">Your Qelsa Profile</h4>
-                        <p className="text-sm text-muted-foreground mb-3">Your profile information will be shared with the employer</p>
-                        <div className="flex items-center gap-2">
-                          <CheckCircle2 className="w-4 h-4 text-neon-green" />
-                          <span className="text-sm text-neon-green">Profile ready</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Screening Answers Review */}
-                  {hasScreeningQuestions && (
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-base">Screening Answers</h4>
-                        <Button variant="ghost" size="sm" onClick={() => setCurrentStep("questions")} className="text-neon-cyan">
-                          Edit
-                        </Button>
-                      </div>
-
-                      <div className="space-y-3">
-                        {screeningQuestions.map((question, index) => (
-                          <div key={question.id} className="p-4 glass rounded-lg border border-glass-border">
-                            <div className="flex items-start gap-3">
-                              <div className="w-6 h-6 rounded-full bg-neon-cyan/20 flex items-center justify-center flex-shrink-0">
-                                <span className="text-xs text-neon-cyan">Q{index + 1}</span>
-                              </div>
-                              <div className="flex-1 space-y-2">
-                                <p className="text-sm text-muted-foreground">{question.title}</p>
-                                <p className="text-sm">{answers[question.id] || <span className="text-muted-foreground italic">Not answered</span>}</p>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Additional Info */}
-                  <div className="p-4 glass rounded-lg border border-neon-purple/30">
-                    <div className="flex items-start gap-3">
-                      <FileText className="w-5 h-5 text-neon-purple flex-shrink-0 mt-0.5" />
-                      <div className="flex-1 space-y-1">
-                        <p className="text-sm">By submitting this application, you agree to share your Qelsa profile with {companyName}.</p>
-                        <p className="text-xs text-muted-foreground">The employer will review your profile and screening answers.</p>
-                      </div>
-                    </div>
+                  <div className="flex h-1 gap-2">
+                    {STEP_LABELS.map((label, i) => (
+                      <div key={label} className={`h-full flex-1 rounded-[2px] ${i <= activeIndex ? "bg-neon-cyan" : "bg-white/[0.04]"}`} />
+                    ))}
                   </div>
                 </div>
-              </div>
-            )}
-          </div>
-        </div>
 
-        {/* Footer */}
-        <div className="px-6 py-4 border-t border-glass-border bg-black/20">
-          <div className="flex items-center justify-between gap-4">
-            <Button variant="outline" onClick={handleBack} disabled={isSubmitting}>
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back
-            </Button>
+                {/* Job context */}
+                <div className="flex flex-col gap-1">
+                  <span className="text-sm font-semibold text-white/45">Applying for</span>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <h2 className="text-[28px] font-bold leading-tight text-white">{jobTitle}</h2>
+                    <span className="rounded-md border border-glass-border bg-white/[0.03] px-2 py-1 text-xs font-semibold text-white/70">{companyName}</span>
+                  </div>
+                </div>
 
-            {currentStep === "questions" && hasScreeningQuestions ? (
-              <Button onClick={handleNext} className="gradient-animated">
-                Continue to Review
-                <ArrowRight className="w-4 h-4 ml-2" />
-              </Button>
-            ) : (
-              <Button onClick={handleSubmit} disabled={isSubmitting || !selectedResumeId} className="gradient-animated min-w-[180px]">
-                {isSubmitting ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
-                    Submitting...
-                  </>
-                ) : (
-                  <>
-                    <Zap className="w-4 h-4 mr-2" />
-                    Submit Application
-                  </>
+                {step === "resume" && (
+                  <ResumeStep
+                    resumes={resumes}
+                    selectedResumeId={selectedResumeId}
+                    onSelect={setSelectedResumeId}
+                    onUploadClick={() => fileInputRef.current?.click()}
+                    isUploading={isUploadingResume}
+                    coverLetter={coverLetter}
+                    onCoverLetterChange={setCoverLetter}
+                    companyName={companyName}
+                    formatDate={formatDate}
+                  />
                 )}
-              </Button>
-            )}
-          </div>
+
+                {step === "questions" && (
+                  <div className="flex flex-col gap-5 rounded-[20px] border border-glass-border bg-white/[0.04] p-6">
+                    <h3 className="text-xl font-semibold text-white">Screening Questions</h3>
+                    <div className="flex flex-col gap-8">
+                      {screeningQuestions.map((question) => (
+                        <QuestionField key={question.id} question={question} value={answers[question.id]} error={errors[question.id]} onChange={handleAnswerChange} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {step === "review" && (
+                  <ReviewStep
+                    selectedResume={selectedResume}
+                    coverLetter={coverLetter}
+                    screeningQuestions={screeningQuestions}
+                    answerDisplay={answerDisplay}
+                    consented={consented}
+                    onConsentChange={setConsented}
+                    onEditResume={() => setStep("resume")}
+                    onEditQuestions={() => setStep("questions")}
+                  />
+                )}
+              </div>
+            </div>
+
+            {/* Action bar */}
+            <div className="flex items-center justify-between border-t border-glass-border bg-[#06060f]/95 px-6 py-5 backdrop-blur-[10px] sm:px-10">
+              <button onClick={step === "resume" ? onClose : handleBack} disabled={isSubmitting} className="text-base font-semibold text-white/70 transition-colors hover:text-white disabled:opacity-50">
+                {step === "resume" ? "Cancel" : "Back"}
+              </button>
+
+              {step === "resume" && (
+                <button onClick={goNextFromResume} disabled={!selectedResumeId} className="gradient-animated rounded-full px-6 py-3 text-sm font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-50">
+                  {hasScreeningQuestions ? "Next: Screening Questions" : "Next: Review"}
+                </button>
+              )}
+              {step === "questions" && (
+                <button onClick={goNextFromQuestions} className="gradient-animated rounded-full px-6 py-3 text-sm font-bold text-white transition-opacity hover:opacity-90">
+                  Next: Review
+                </button>
+              )}
+              {step === "review" && (
+                <button
+                  onClick={handleSubmit}
+                  disabled={isSubmitting || !consented || !selectedResumeId}
+                  className="gradient-animated inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+                >
+                  {isSubmitting && <span className="size-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />}
+                  {isSubmitting ? "Submitting..." : "Submit Application"}
+                </button>
+              )}
+            </div>
+          </>
+        )}
+
+        <input ref={fileInputRef} type="file" accept=".pdf,.doc,.docx" onChange={handleResumeUpload} disabled={isUploadingResume} className="hidden" />
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------ sub-components ----------------------------- */
+
+function RadioDot({ selected, size = 18 }: { selected: boolean; size?: number }) {
+  if (selected) {
+    return (
+      <span className="flex shrink-0 items-center justify-center rounded-full border-2 border-neon-cyan" style={{ width: size, height: size }}>
+        <span className="rounded-full bg-neon-cyan" style={{ width: size * 0.45, height: size * 0.45 }} />
+      </span>
+    );
+  }
+  return <span className="shrink-0 rounded-full border-[1.5px] border-white/20" style={{ width: size, height: size }} />;
+}
+
+function ResumeStep({
+  resumes,
+  selectedResumeId,
+  onSelect,
+  onUploadClick,
+  isUploading,
+  coverLetter,
+  onCoverLetterChange,
+  companyName,
+  formatDate,
+}: {
+  resumes: Resume[];
+  selectedResumeId: string | number | null;
+  onSelect: (id: string | number) => void;
+  onUploadClick: () => void;
+  isUploading: boolean;
+  coverLetter: string;
+  onCoverLetterChange: (v: string) => void;
+  companyName: string;
+  formatDate: (d?: string) => string | null;
+}) {
+  return (
+    <>
+      {/* Resume card */}
+      <div className="flex flex-col gap-5 rounded-[20px] border border-glass-border bg-white/[0.04] p-6">
+        <h3 className="text-xl font-semibold text-white">Resume</h3>
+        <div className="flex flex-col gap-3">
+          {resumes.length === 0 && <p className="text-sm text-white/45">No saved resumes yet. Upload one to continue.</p>}
+          {resumes.map((resume) => {
+            const active = resume.id === selectedResumeId;
+            const updated = formatDate(resume.updatedAt);
+            return (
+              <button
+                key={resume.id}
+                onClick={() => resume.id != null && onSelect(resume.id)}
+                className={`flex items-center gap-4 rounded-[12px] border p-4 text-left transition-colors ${
+                  active ? "border-neon-cyan bg-neon-cyan/[0.06]" : "border-glass-border bg-white/[0.02] hover:border-neon-cyan/40"
+                }`}
+              >
+                <RadioDot selected={active} size={20} />
+                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <span className="truncate text-[15px] font-semibold text-white">{resume.title}</span>
+                  {updated && <span className="text-[13px] text-white/45">Updated {updated}</span>}
+                </div>
+                {active && <CheckCircle2 className="size-5 shrink-0 text-neon-cyan" />}
+              </button>
+            );
+          })}
+        </div>
+        <div className="pt-2">
+          <button
+            onClick={onUploadClick}
+            disabled={isUploading}
+            className="inline-flex items-center gap-2 rounded-full border border-glass-border px-6 py-3 text-sm font-semibold text-white transition-colors hover:border-neon-cyan/40 disabled:opacity-50"
+          >
+            {isUploading ? <span className="size-[18px] animate-spin rounded-full border-2 border-white/30 border-t-white" /> : <Plus className="size-[18px]" />}
+            {isUploading ? "Uploading..." : "Upload New Resume"}
+          </button>
         </div>
       </div>
 
-      {/* Resume Selection Dialog */}
-      <Dialog open={showResumeDialog} onOpenChange={setShowResumeDialog}>
-        <DialogContent className="glass max-w-2xl border-glass-border max-h-[80vh] overflow-hidden flex flex-col">
-          <DialogHeader>
-            <DialogTitle className="text-xl">Select Resume</DialogTitle>
-            <p className="text-sm text-muted-foreground">Choose which resume to submit with this application</p>
-          </DialogHeader>
-
-          <div className="flex-1 overflow-y-auto space-y-4 pr-2">
-            {/* Upload New Resume */}
-            <div className="p-4 glass-strong rounded-xl border-2 border-dashed border-glass-border hover:border-neon-cyan/50 transition-colors">
-              <label htmlFor="resume-upload" className="flex flex-col items-center justify-center cursor-pointer py-4">
-                <div className="w-12 h-12 rounded-full bg-neon-cyan/20 border border-neon-cyan/30 flex items-center justify-center mb-3">
-                  {isUploadingResume ? <div className="w-6 h-6 border-2 border-neon-cyan/30 border-t-neon-cyan rounded-full animate-spin" /> : <Upload className="w-6 h-6 text-neon-cyan" />}
-                </div>
-                <p className="text-sm mb-1">{isUploadingResume ? "Uploading..." : "Upload New Resume"}</p>
-                <p className="text-xs text-muted-foreground">PDF or DOC (max 5MB)</p>
-              </label>
-              <input id="resume-upload" type="file" accept=".pdf,.doc,.docx" onChange={handleResumeUpload} disabled={isUploadingResume} className="hidden" />
-            </div>
-
-            {/* Saved Resumes */}
-            <div className="space-y-3">
-              {resumes.map((resume) => (
-                <button
-                  key={resume.id}
-                  onClick={() => handleResumeSelect(String(resume.id))}
-                  className={`w-full p-4 rounded-xl border-2 transition-all text-left ${
-                    resume.id === selectedResumeId ? "border-neon-cyan bg-neon-cyan/10" : "glass-strong border-glass-border hover:border-neon-cyan/50"
-                  }`}
-                >
-                  <div className="flex items-center gap-4">
-                    {/* {getFileIcon(resume.fileType)} */}
-
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm truncate mb-1">{resume.title}</p>
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                        {/* <span className="uppercase">{resume.fileType}</span> */}
-                        {/* <span>•</span>
-                        <span>{resume.size}</span> */}
-                        <span>•</span>
-                        <span>Updated {formatDate(resume.updatedAt)}</span>
-                      </div>
-                    </div>
-
-                    {resume.id === selectedResumeId && (
-                      <div className="w-5 h-5 rounded-full bg-neon-cyan flex items-center justify-center flex-shrink-0">
-                        <Check className="w-3 h-3 text-black" />
-                      </div>
-                    )}
-                  </div>
-                </button>
-              ))}
-            </div>
+      {/* Cover letter card */}
+      <div className="flex flex-col gap-5 rounded-[20px] border border-glass-border bg-white/[0.04] p-6">
+        <h3 className="text-xl font-semibold text-white">Cover Letter (Optional)</h3>
+        <div className="flex flex-col gap-2">
+          <label className="text-sm font-semibold text-white/70">Introductory Letter</label>
+          <textarea
+            value={coverLetter}
+            maxLength={COVER_LETTER_MAX}
+            onChange={(e) => onCoverLetterChange(e.target.value)}
+            placeholder={`Explain why you are a great fit for this role at ${companyName}...`}
+            className="h-40 resize-none rounded-[12px] border border-glass-border bg-white/[0.02] p-4 text-sm text-white placeholder:text-white/45 focus:border-neon-cyan focus:outline-none"
+          />
+          <div className="flex justify-end text-xs text-white/45">
+            {coverLetter.length} / {COVER_LETTER_MAX}
           </div>
+        </div>
+      </div>
+    </>
+  );
+}
 
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-glass-border">
-            <Button variant="outline" onClick={() => setShowResumeDialog(false)}>
-              Cancel
-            </Button>
-            <Button onClick={() => setShowResumeDialog(false)} className="gradient-animated" disabled={!selectedResumeId}>
-              Confirm Selection
-            </Button>
+function QuestionField({
+  question,
+  value,
+  error,
+  onChange,
+}: {
+  question: ScreeningQuestion;
+  value: string | number | undefined;
+  error?: string;
+  onChange: (id: string, value: string | number) => void;
+}) {
+  const label = (
+    <div className="flex items-start gap-1 text-[15px]">
+      <span className="font-semibold text-white">{question.title}</span>
+      {question.required && <span className="font-normal text-neon-pink">*</span>}
+    </div>
+  );
+
+  let input: React.ReactNode = null;
+
+  if (question.type === "yes_no") {
+    input = (
+      <div className="flex gap-6">
+        {["yes", "no"].map((v) => (
+          <button key={v} onClick={() => onChange(question.id, v)} className="flex items-center gap-2">
+            <RadioDot selected={value === v} />
+            <span className="text-sm capitalize text-white/70">{v}</span>
+          </button>
+        ))}
+      </div>
+    );
+  } else if (question.type === "multiple_choice") {
+    input = (
+      <div className="flex flex-col gap-2">
+        {question.options?.map((option, index) => {
+          const optValue = typeof option === "string" ? option : option.value;
+          const optLabel = typeof option === "string" ? option : option.title;
+          const active = value === optValue;
+          return (
+            <button
+              key={(typeof option === "string" ? index : option.id) ?? index}
+              onClick={() => onChange(question.id, optValue as string | number)}
+              className={`flex items-center gap-3 rounded-[12px] border px-4 py-3 text-left transition-colors ${
+                active ? "border-neon-cyan bg-neon-cyan/[0.06]" : "border-glass-border bg-white/[0.02] hover:border-neon-cyan/40"
+              }`}
+            >
+              <RadioDot selected={active} size={20} />
+              <span className={`flex-1 text-sm ${active ? "text-white" : "text-white/70"}`}>{optLabel}</span>
+            </button>
+          );
+        })}
+      </div>
+    );
+  } else if (question.type === "scale") {
+    const min = question.min_value ?? 1;
+    const max = question.max_value ?? 10;
+    input = (
+      <div className="flex flex-wrap gap-2">
+        {Array.from({ length: max - min + 1 }, (_, i) => i + min).map((v) => (
+          <button
+            key={v}
+            onClick={() => onChange(question.id, v)}
+            className={`size-10 rounded-[12px] border text-sm transition-colors ${
+              value === v ? "border-neon-cyan bg-neon-cyan/[0.1] text-neon-cyan" : "border-glass-border bg-white/[0.02] text-white/70 hover:border-neon-cyan/40"
+            }`}
+          >
+            {v}
+          </button>
+        ))}
+      </div>
+    );
+  } else {
+    const maxLength = question.max_length ?? 1000;
+    const text = String(value ?? "");
+    input = (
+      <div className="flex flex-col gap-2">
+        <textarea
+          value={text}
+          maxLength={maxLength}
+          onChange={(e) => onChange(question.id, e.target.value)}
+          placeholder="Type your answer here..."
+          className="h-40 resize-none rounded-[12px] border border-glass-border bg-white/[0.02] p-4 text-sm text-white placeholder:text-white/45 focus:border-neon-cyan focus:outline-none"
+        />
+        <div className="flex justify-end text-xs text-white/45">
+          {text.length} / {maxLength}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      {label}
+      {input}
+      {error && <span className="text-xs text-neon-pink">{error}</span>}
+    </div>
+  );
+}
+
+function ReviewStep({
+  selectedResume,
+  coverLetter,
+  screeningQuestions,
+  answerDisplay,
+  consented,
+  onConsentChange,
+  onEditResume,
+  onEditQuestions,
+}: {
+  selectedResume?: Resume;
+  coverLetter: string;
+  screeningQuestions: ScreeningQuestion[];
+  answerDisplay: (q: ScreeningQuestion) => string;
+  consented: boolean;
+  onConsentChange: (v: boolean) => void;
+  onEditResume: () => void;
+  onEditQuestions: () => void;
+}) {
+  return (
+    <div className="flex flex-col gap-6">
+      {/* Resume */}
+      <div className="flex flex-col gap-5 rounded-[20px] border border-glass-border bg-white/[0.04] p-6">
+        <div className="flex items-center justify-between">
+          <h3 className="text-xl font-semibold text-white">Resume</h3>
+          <button onClick={onEditResume} className="text-sm text-neon-cyan underline">
+            Edit
+          </button>
+        </div>
+        {selectedResume ? (
+          <div className="flex items-center gap-3 rounded-[12px] bg-white/[0.02] p-4">
+            <div className="flex size-10 items-center justify-center rounded-lg bg-white/[0.04]">
+              <FileText className="size-5 text-neon-cyan" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[15px] font-semibold text-white">{selectedResume.title}</p>
+            </div>
+            <CheckCircle2 className="size-5 shrink-0 text-neon-green" />
           </div>
-        </DialogContent>
-      </Dialog>
+        ) : (
+          <p className="text-sm text-neon-pink">No resume selected.</p>
+        )}
+      </div>
+
+      {/* Cover Letter */}
+      {coverLetter.trim() && (
+        <div className="flex flex-col gap-5 rounded-[20px] border border-glass-border bg-white/[0.04] p-6">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xl font-semibold text-white">Cover Letter</h3>
+            <button onClick={onEditResume} className="text-sm text-neon-cyan underline">
+              Edit
+            </button>
+          </div>
+          <p className="line-clamp-3 text-sm leading-[22px] text-white/70">{coverLetter}</p>
+        </div>
+      )}
+
+      {/* Screening Questions */}
+      {screeningQuestions.length > 0 && (
+        <div className="flex flex-col gap-5 rounded-[20px] border border-glass-border bg-white/[0.04] p-6">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xl font-semibold text-white">Screening Questions</h3>
+            <button onClick={onEditQuestions} className="text-sm text-neon-cyan underline">
+              Edit
+            </button>
+          </div>
+          <div className="flex flex-col gap-5">
+            {screeningQuestions.map((question) => (
+              <div key={question.id} className="flex flex-col gap-1">
+                <span className="text-[13px] text-white/45">{question.title}</span>
+                <span className="text-[15px] font-semibold text-white">{answerDisplay(question)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Consent */}
+      <button onClick={() => onConsentChange(!consented)} className="flex items-center gap-3 pt-2 text-left">
+        <span className={`flex size-5 shrink-0 items-center justify-center rounded ${consented ? "bg-neon-cyan" : "border-[1.5px] border-white/20"}`}>
+          {consented && <Check className="size-3.5 text-[#06060f]" />}
+        </span>
+        <span className="text-sm text-white/70">
+          I confirm that the information provided is accurate and I agree to the <span className="text-neon-cyan underline">terms of use</span>
+        </span>
+      </button>
+    </div>
+  );
+}
+
+function SuccessScreen({
+  jobTitle,
+  companyName,
+  onViewApplications,
+  onBrowseJobs,
+}: {
+  jobTitle: string;
+  companyName: string;
+  onViewApplications: () => void;
+  onBrowseJobs: () => void;
+}) {
+  const nextSteps = [
+    "Your application is being reviewed by the hiring team",
+    "You will receive an email notification about your application status",
+    "If shortlisted, you will be contacted for the next steps",
+  ];
+
+  return (
+    <div className="flex flex-col items-center gap-12 px-6 py-16 sm:px-10">
+      <div className="flex w-full max-w-[560px] flex-col items-center gap-6">
+        <div className="flex size-[120px] items-center justify-center rounded-full border-2 border-neon-cyan bg-neon-cyan/10">
+          <div className="flex size-16 items-center justify-center rounded-[32px] bg-neon-cyan">
+            <Check className="size-8 text-[#06060f]" strokeWidth={3} />
+          </div>
+        </div>
+        <div className="flex flex-col items-center gap-3 text-center">
+          <h2 className="text-[32px] font-bold text-white">Application Submitted!</h2>
+          <p className="text-lg leading-7 text-white/70">
+            Your application for <span className="font-bold text-white">{jobTitle}</span> at {companyName} has been submitted successfully.
+          </p>
+        </div>
+        <div className="flex w-full flex-col gap-4">
+          <h3 className="text-lg font-bold text-white">What happens next?</h3>
+          <div className="flex flex-col gap-3">
+            {nextSteps.map((text, i) => (
+              <div key={i} className="flex items-center gap-3">
+                <div className="flex size-7 shrink-0 items-center justify-center rounded-[14px] bg-neon-cyan text-[13px] font-bold text-[#06060f]">{i + 1}</div>
+                <p className="flex-1 text-base leading-6 text-white/70">{text}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="flex flex-col items-center gap-6">
+        <button onClick={onViewApplications} className="gradient-animated rounded-full px-8 py-4 text-base font-bold text-white transition-opacity hover:opacity-90">
+          View My Applications
+        </button>
+        <button onClick={onBrowseJobs} className="text-base font-semibold text-neon-cyan underline">
+          Browse More Jobs
+        </button>
+      </div>
     </div>
   );
 }
