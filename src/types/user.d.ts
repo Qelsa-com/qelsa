@@ -28,6 +28,8 @@ export type User = {
   id?: number | string;
   name?: string;
   email: string;
+  /** Default experience the user lands in. Null until they pick one at signup. */
+  account_type?: "seeker" | "recruiter" | null;
   profile_image?: string;
   pronoun?: string;
   linkedin_url?: string;
