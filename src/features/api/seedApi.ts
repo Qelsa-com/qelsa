@@ -5,6 +5,7 @@ import { Skill, SkillCategory } from "../../types/userSkill";
 import { College } from "../../types/education";
 import { CertificationCatalog, IssuingBody } from "../../types/certification";
 import { CompanySize } from "../../types/page";
+import { City, State } from "../../types/city";
 
 export const seedApi = createApi({
   reducerPath: "seedApi",
@@ -49,6 +50,14 @@ export const seedApi = createApi({
       query: ({ search = "", limit = 20 }) => `company-sizes?search=${encodeURIComponent(search)}&limit=${limit}`,
       transformResponse: (response: { success: boolean; data: CompanySize[] }) => response.data,
     }),
+    getStates: builder.query<State[], string | void>({
+      query: (search) => (search ? `states?search=${encodeURIComponent(search)}` : "states"),
+      transformResponse: (response: { success: boolean; data: State[] }) => response.data,
+    }),
+    searchCities: builder.query<City[], string>({
+      query: (search) => `cities?search=${encodeURIComponent(search)}`,
+      transformResponse: (response: { success: boolean; data: City[] }) => response.data,
+    }),
   }),
 });
 
@@ -62,4 +71,6 @@ export const {
   useLazyGetCertificationCatalogQuery,
   useLazyGetIssuingBodiesQuery,
   useLazyGetCompanySizesQuery,
+  useGetStatesQuery,
+  useLazySearchCitiesQuery,
 } = seedApi;

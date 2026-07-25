@@ -1,3 +1,4 @@
+import { City } from "./city";
 import { Company } from "./company";
 import { ImpactMetric } from "./impactMetric";
 import { JobTitle } from "./jobTitle";
@@ -13,7 +14,7 @@ export type Experience = {
   end_date?: Date;
   is_current?: boolean;
   description?: string;
-  location?: string;
+  city?: City;
   position?: string;
   team_size?: number;
   responsibilities?: Responsibility[];

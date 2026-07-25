@@ -1,7 +1,9 @@
 import { useLazySearchCompaniesQuery } from "@/features/api/companiesApi";
 import { useCreateExperienceMutation, useDeleteExperienceMutation, useGetExperiencesQuery, useUpdateExperienceMutation, useUpdateExperiencesPositionMutation } from "@/features/api/experiencesApi";
 import { useLazySearchJobTitlesQuery } from "@/features/api/jobTitlesApi";
+import { useLazySearchCitiesQuery } from "@/features/api/seedApi";
 import { useGetUserSkillsQuery } from "@/features/api/userSkillsApi";
+import { City } from "@/types/city";
 import { Experience } from "@/types/experience";
 import { ImpactMetric } from "@/types/impactMetric";
 import { Skill } from "@/types/userSkill";
@@ -19,6 +21,9 @@ import { Textarea } from "./ui/textarea";
 
 const METRIC_TYPES = ["Revenue", "Cost Savings", "User Growth", "Efficiency Improvement", "Customer Satisfaction", "Team Performance", "Time Saved", "Quality Improvement"];
 
+/** "Bangalore, Karnataka" — falls back to just the city name when the state is not loaded. */
+const formatCity = (city: City) => (city.state?.name ? `${city.name}, ${city.state.name}` : city.name);
+
 
 export function WorkExperienceEditorPage() {
   const router = useRouter();
@@ -33,6 +38,7 @@ export function WorkExperienceEditorPage() {
   const [updateExperiencesPosition, { isLoading: isUpdatingPosition, error: updatePositionError }] = useUpdateExperiencesPositionMutation();
   const [triggerCompanySearch, { data: companyResults = [] }] = useLazySearchCompaniesQuery();
   const [triggerJobTitleSearch, { data: jobTitleResults = [] }] = useLazySearchJobTitlesQuery();
+  const [triggerCitySearch, { data: cityResults = [] }] = useLazySearchCitiesQuery();
 
   const [experiences, setExperiences] = useState<Experience[]>(exp || []);
 
@@ -45,7 +51,7 @@ export function WorkExperienceEditorPage() {
   const [formData, setFormData] = useState<Partial<Experience>>({
     job_title: undefined,
     company: undefined,
-    location: "",
+    city: undefined,
     start_date: undefined,
     end_date: undefined,
     is_current: false,
@@ -60,7 +66,7 @@ export function WorkExperienceEditorPage() {
     setFormData({
       job_title: undefined,
       company: undefined,
-      location: "",
+      city: undefined,
       start_date: undefined,
       end_date: undefined,
       is_current: false,
@@ -89,7 +95,7 @@ export function WorkExperienceEditorPage() {
     let newExperience: Experience = {
       job_title: formData.job_title!,
       company: formData.company!,
-      location: formData.location!,
+      city: formData.city,
       start_date: formData.start_date!,
       end_date: formData.end_date,
       is_current: formData.is_current!,
@@ -325,10 +331,12 @@ export function WorkExperienceEditorPage() {
                               <Calendar className="h-3 w-3" />
                               {/* {exp.duration} */}
                             </span>
-                            <span className="flex items-center gap-1">
-                              <MapPin className="h-3 w-3" />
-                              {exp.location}
-                            </span>
+                            {exp.city && (
+                              <span className="flex items-center gap-1">
+                                <MapPin className="h-3 w-3" />
+                                {formatCity(exp.city)}
+                              </span>
+                            )}
                             {exp.team_size && (
                               <span className="flex items-center gap-1">
                                 <Users className="h-3 w-3" />
@@ -469,11 +477,28 @@ export function WorkExperienceEditorPage() {
                   />
                 </div>
 
+                {/* City Search-Select */}
                 <div className="space-y-2">
-                  <Label htmlFor="location" className="text-white">
-                    Location <span className="text-destructive">*</span>
+                  <Label htmlFor="city" className="text-white">
+                    City <span className="text-destructive">*</span>
                   </Label>
-                  <Input id="location" value={formData.location} onChange={(e) => setFormData({ ...formData, location: e.target.value })} placeholder="e.g., Bangalore, India" className="glass border-glass-border focus:border-neon-cyan" />
+                  <Autocomplete
+                    id="city"
+                    value={formData.city ?? null}
+                    onChange={(city) => setFormData({ ...formData, city: city ?? undefined })}
+                    onSearch={triggerCitySearch}
+                    options={cityResults}
+                    placeholder="Search city..."
+                    icon={<Search className="h-4 w-4" />}
+                    getInputLabel={formatCity}
+                    renderOption={(city) => (
+                      <>
+                        <MapPin className="h-4 w-4 text-neon-cyan flex-shrink-0" />
+                        {formatCity(city)}
+                      </>
+                    )}
+                    inputClassName="glass border-glass-border focus:border-neon-cyan"
+                  />
                 </div>
 
                 <div className="space-y-2">

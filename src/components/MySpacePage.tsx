@@ -4,6 +4,7 @@ import { useGetEducationsQuery } from "@/features/api/educationsApi";
 import { useGetExperiencesQuery } from "@/features/api/experiencesApi";
 import { useGetUserSkillsQuery } from "@/features/api/userSkillsApi";
 import { ProficiencyLevel, proficiencyLabel } from "@/constants/skills";
+import { City } from "@/types/city";
 import {
   Activity,
   ArrowRight,
@@ -45,6 +46,9 @@ import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import { Progress } from "./ui/progress";
 import { Separator } from "./ui/separator";
+
+/** "Bangalore, Karnataka" — falls back to just the city name when the state is not loaded. */
+const formatCity = (city: City) => (city.state?.name ? `${city.name}, ${city.state.name}` : city.name);
 
 interface MySpacePageProps {}
 
@@ -551,10 +555,10 @@ export function MySpacePage({}: MySpacePageProps) {
               <h1 className="text-3xl font-bold text-white mb-2">{user?.name}</h1>
               <p className="text-xl text-neon-cyan mb-4">{user?.headline}</p>
               <div className="flex flex-wrap gap-4 text-muted-foreground">
-                {current_company && (
+                {current_company?.city && (
                   <div className="flex items-center gap-2">
                     <MapPin className="h-4 w-4" />
-                    <span>{current_company?.location}</span>
+                    <span>{formatCity(current_company.city)}</span>
                   </div>
                 )}
                 <div className="flex items-center gap-2">
@@ -614,7 +618,7 @@ export function MySpacePage({}: MySpacePageProps) {
                   <div className="flex-1">
                     <h4 className="font-semibold text-white">{exp.job_title?.name}</h4>
                     <p className="text-neon-cyan">{exp.company?.name}</p>
-                    <p className="text-sm text-muted-foreground mb-3">{exp.location}</p>
+                    <p className="text-sm text-muted-foreground mb-3">{exp.city ? formatCity(exp.city) : ""}</p>
                     <ul className="space-y-1">
                       {exp.responsibilities?.map((resp, idx) => (
                         <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
