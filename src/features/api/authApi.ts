@@ -27,6 +27,18 @@ interface RefreshResponse {
   refreshToken: string;
 }
 
+interface RequestOtpResponse {
+  message: string;
+  cooldownSeconds: number;
+}
+
+interface VerifyOtpResponse extends AuthResponse {
+  message: string;
+  isNewUser: boolean;
+}
+
+export type AccountType = "seeker" | "recruiter";
+
 // Provide your API base url via env
 const AUTH_API_BASE = "/api/auth";
 
@@ -143,19 +155,53 @@ export const authApi = createApi({
       },
     }),
 
-    googleLogin: builder.mutation<AuthResponse, { email: string; name: string; picture?: string }>({
+    // ---- Passwordless email sign-in / sign-up ----
+    //
+    // Note none of these persist credentials on success. The auth flow finishes
+    // with the "what to focus on" step, and RouteGuard redirects any
+    // authenticated user away from /auth — so writing tokens here would unmount
+    // that step before it renders. The page holds the tokens in state and
+    // dispatches setCredentials once the flow actually completes.
+    requestOtp: builder.mutation<RequestOtpResponse, { email: string }>({
+      query: (body) => ({ url: "/request-otp", method: "POST", body }),
+    }),
+
+    resendOtp: builder.mutation<RequestOtpResponse, { email: string }>({
+      query: (body) => ({ url: "/resend-otp", method: "POST", body }),
+    }),
+
+    verifyOtp: builder.mutation<VerifyOtpResponse, { email: string; code: string }>({
+      query: (body) => ({ url: "/verify-otp", method: "POST", body }),
+    }),
+
+    // Called during the final step, before the tokens are in Redux — so the
+    // caller passes the access token explicitly.
+    setAccountType: builder.mutation<{ message: string; user: User }, { account_type: AccountType; accessToken: string }>({
+      query: ({ account_type, accessToken }) => ({
+        url: "/account-type",
+        method: "PATCH",
+        body: { account_type },
+        headers: { authorization: `Bearer ${accessToken}` },
+      }),
+    }),
+
+    googleLogin: builder.mutation<AuthResponse & { isNewUser?: boolean }, { email: string; name: string; picture?: string }>({
+      // Credentials are intentionally not persisted here — a first-time Google
+      // user still has the "what to focus on" step to complete, and persisting
+      // would trip RouteGuard's redirect. The page persists once done.
       query: (userDetails) => ({ url: "/google-login", method: "POST", body: userDetails }),
-      async onQueryStarted(arg, { queryFulfilled, dispatch }) {
-        try {
-          const { data } = await queryFulfilled;
-          dispatch(setCredentials({ accessToken: data.accessToken, refreshToken: data.refreshToken, user: data.user || null }));
-          dispatch(authApi.util.invalidateTags(["Profile"]));
-        } catch (err) {
-          console.error("Google Login error:", err);
-        }
-      },
     }),
   }),
 });
 
-export const { useLoginMutation, useRegisterMutation, useGetProfileQuery, useUpdateProfileMutation, useGoogleLoginMutation } = authApi;
+export const {
+  useLoginMutation,
+  useRegisterMutation,
+  useGetProfileQuery,
+  useUpdateProfileMutation,
+  useGoogleLoginMutation,
+  useRequestOtpMutation,
+  useResendOtpMutation,
+  useVerifyOtpMutation,
+  useSetAccountTypeMutation,
+} = authApi;
