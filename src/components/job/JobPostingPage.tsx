@@ -1,56 +1,55 @@
+"use client";
+
+/**
+ * JobPostingPage — Figma "qelsa-post-job-screen" (Qelsa-Screen, node 230:773 / 214:541).
+ *
+ * A single-page posting form (the old multi-step wizard was replaced) wired to
+ * `POST jobs/with-questions`. Sections: Describe the Role (AI, static), Basic
+ * information, Job description, What this role uses daily, Competency framework,
+ * Screening questions (category templates + custom, with expected-answer /
+ * knockout / MC options persisted), Internal Only (static), preview + actions.
+ *
+ * Screening questions round-trip the backend fields: category, type, is_knockout,
+ * knockout_condition, knockout_value, expected_answer, and options[].is_correct.
+ * AI generation, private budget, approvers and drafts are intentionally static.
+ */
+
 import { Autocomplete } from "@/components/ui/autocomplete";
-import { useLazySearchCompaniesQuery } from "@/features/api/companiesApi";
+import { JOB_SKILL_TYPES, JobSkillType, jobSkillTypeLabel, PROFICIENCY_LEVELS, ProficiencyLevel, proficiencyLabel } from "@/constants/skills";
 import { useCreateJobMutation } from "@/features/api/jobsApi";
 import { useLazySearchJobTitlesQuery } from "@/features/api/jobTitlesApi";
-import { useLazyGetSkillsQuery } from "@/features/api/seedApi";
 import { useGetMyPagesQuery } from "@/features/api/pagesApi";
-import { Job } from "@/types/job";
-import { ScreeningQuestion } from "@/types/question";
-import { JOB_SKILL_TYPES, JobSkillType, jobSkillTypeLabel, PROFICIENCY_LEVELS, ProficiencyLevel, proficiencyLabel } from "@/constants/skills";
-import { toast } from "sonner";
+import { useLazyGetSkillsQuery } from "@/features/api/seedApi";
 import {
   AlertCircle,
   ArrowLeft,
-  CheckCircle2,
-  Clock,
-  DollarSign,
+  Check,
+  ChevronDown,
+  ClipboardList,
   Edit2,
+  ExternalLink,
   Eye,
-  FileText,
   GripVertical,
-  HelpCircle,
   Info,
-  Lightbulb,
-  MessageSquare,
+  Lock,
   Plus,
-  Save,
   Search,
   Send,
-  Shield,
   Sparkles,
   Trash2,
-  TrendingUp,
-  Users,
   Wand2,
-  X,
-  Zap,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { ScreeningQuestionsBuilder } from "../ScreeningQuestionsBuilder";
-import { Badge } from "../ui/badge";
-import { Button } from "../ui/button";
-import { Card } from "../ui/card";
-import { Input } from "../ui/input";
-import { Progress } from "../ui/progress";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
-import { Separator } from "../ui/separator";
-import { Textarea } from "../ui/textarea";
+import { toast } from "sonner";
 
-type PostingMode = "select" | "ai-copilot" | "manual";
-type PostingStep = "input" | "review" | "questions" | "final-review" | "published";
+/* -------------------------------- helpers --------------------------------- */
 
 const SALARY_CURRENCY = "INR";
+const CARD = "rounded-[20px] border border-glass-border bg-white/[0.03] p-6";
+const INPUT =
+  "h-11 w-full rounded-xl border border-glass-border bg-white/[0.04] px-4 text-sm text-white placeholder:text-white/45 transition-colors focus:border-neon-cyan focus:outline-none";
+const GRADIENT = "bg-gradient-to-r from-neon-purple to-neon-pink";
 
 function formatMoney(value: number): string {
   try {
@@ -60,19 +59,7 @@ function formatMoney(value: number): string {
   }
 }
 
-// Accepts plain numbers plus the shorthand people actually type: 80k, 5L, 1.2Cr.
-const AMOUNT_MULTIPLIERS: Record<string, number> = {
-  k: 1e3,
-  l: 1e5,
-  lac: 1e5,
-  lakh: 1e5,
-  lakhs: 1e5,
-  lpa: 1e5,
-  cr: 1e7,
-  crore: 1e7,
-  crores: 1e7,
-  m: 1e6,
-};
+const AMOUNT_MULTIPLIERS: Record<string, number> = { k: 1e3, l: 1e5, lac: 1e5, lakh: 1e5, lakhs: 1e5, lpa: 1e5, cr: 1e7, crore: 1e7, crores: 1e7, m: 1e6 };
 
 function parseAmount(raw: string): number | null {
   const cleaned = raw.trim().toLowerCase().replace(/[₹,\s]/g, "");
@@ -85,30 +72,21 @@ function parseAmount(raw: string): number | null {
   return Math.round(parseFloat(digits) * multiplier);
 }
 
-/**
- * Parses the single free-text salary range into min/max.
- * "5L - 8L" / "80k to 120k" / "500000-800000" -> {min, max}; "5L" -> min only.
- * An empty string is valid (salary is optional).
- */
 function parseSalaryRange(input: string): { min: number | null; max: number | null; valid: boolean } {
   const raw = (input ?? "").trim();
   if (!raw) return { min: null, max: null, valid: true };
-
   const parts = raw
     .split(/\s*(?:-|–|—|\bto\b)\s*/i)
     .map((p) => p.trim())
     .filter(Boolean);
   if (parts.length > 2) return { min: null, max: null, valid: false };
-
   const amounts = parts.map(parseAmount);
   if (amounts.some((a) => a === null)) return { min: null, max: null, valid: false };
-
   const [min, max = null] = amounts as number[];
   if (max != null && max < min) return { min, max, valid: false };
   return { min, max, valid: true };
 }
 
-/** Preview label for the parsed salary range; null when nothing is entered. */
 function formatSalaryRange(input: string): string | null {
   const { min, max, valid } = parseSalaryRange(input);
   if (!valid || min == null) return null;
@@ -116,193 +94,125 @@ function formatSalaryRange(input: string): string | null {
   return min === max ? formatMoney(min) : `${formatMoney(min)} - ${formatMoney(max)}`;
 }
 
+const slug = (s: string) => s.toLowerCase().trim().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+
+let idCounter = 0;
+const uid = () => `q_${Date.now().toString(36)}_${idCounter++}`;
+
+/* ------------------------------ screening data ---------------------------- */
+
+type QAnswerType = "yes_no" | "multiple_choice" | "short_text";
+type QCategory = "essential" | "skills" | "logistics" | "custom";
+
+interface SQOption {
+  title: string;
+  is_correct: boolean;
+}
+
+interface ScreeningQ {
+  id: string;
+  category: QCategory;
+  title: string;
+  type: QAnswerType;
+  is_knockout: boolean;
+  expected_answer?: string | null; // yes_no -> "yes" | "no"
+  options?: SQOption[]; // multiple_choice
+  min_length?: number; // short_text (UI only)
+}
+
+const CATEGORY_ORDER: QCategory[] = ["essential", "skills", "logistics", "custom"];
+
+const CATEGORY_META: Record<QCategory, { tag: string; title: string; description: string; badge: string }> = {
+  essential: { tag: "essentials", title: "Essential Requirements", description: "Core eligibility questions", badge: "bg-neon-cyan/15 text-neon-cyan" },
+  skills: { tag: "skills", title: "Skills Assessment", description: "Technical and soft skills evaluation", badge: "bg-neon-purple/15 text-neon-purple" },
+  logistics: { tag: "logistics", title: "Logistics & Availability", description: "Work arrangement preferences", badge: "bg-neon-pink/15 text-neon-pink" },
+  custom: { tag: "custom", title: "Custom Questions", description: "Your own questions", badge: "bg-white/10 text-white/70" },
+};
+
+const TEMPLATE_ORDER: Exclude<QCategory, "custom">[] = ["essential", "skills", "logistics"];
+
+const TEMPLATE_QUESTIONS: Record<Exclude<QCategory, "custom">, Omit<ScreeningQ, "id" | "category">[]> = {
+  essential: [
+    { title: "Are you legally authorized to work in this country?", type: "yes_no", is_knockout: true, expected_answer: "yes" },
+    { title: "Can you start within the next 30 days?", type: "yes_no", is_knockout: false, expected_answer: "yes" },
+  ],
+  skills: [
+    { title: "How many years of relevant experience do you have?", type: "short_text", is_knockout: false },
+    { title: "Are you proficient with the core tools listed for this role?", type: "yes_no", is_knockout: false, expected_answer: "yes" },
+  ],
+  logistics: [
+    {
+      title: "What is your preferred work arrangement?",
+      type: "multiple_choice",
+      is_knockout: false,
+      options: [
+        { title: "Fully remote", is_correct: true },
+        { title: "Hybrid (2-3 days in office)", is_correct: true },
+        { title: "On-site full time", is_correct: false },
+      ],
+    },
+    { title: "Are you willing to relocate if required?", type: "yes_no", is_knockout: false, expected_answer: "yes" },
+  ],
+};
+
+/* --------------------------------- page ----------------------------------- */
+
+interface SkillRow {
+  id: number;
+  name: string;
+  type: JobSkillType;
+  proficiency: ProficiencyLevel;
+  weight: number | "";
+}
+
 export function JobPostingPage() {
-  const [createJob, { isLoading, isSuccess, error }] = useCreateJobMutation();
-  const { data: my_pages } = useGetMyPagesQuery();
   const router = useRouter();
-  const [mode, setMode] = useState<PostingMode>("manual");
-  const [step, setStep] = useState<PostingStep>("input");
+  const [createJob, { isLoading }] = useCreateJobMutation();
+  const { data: myPages } = useGetMyPagesQuery();
+
   const [aiPrompt, setAiPrompt] = useState("");
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [isPremium] = useState(false); // Set to true for premium users
-  const [showScreeningQuestions, setShowScreeningQuestions] = useState(false);
-  const [jobData, setJobData] = useState<{
-    job_title: { id: number; name: string } | null;
-    location: string;
-    work_type: string;
-    workplace_type: string;
-    experience: number;
-    salary_range: string;
-    description: string;
-    skills: { id: number; name: string; type: JobSkillType; proficiency: ProficiencyLevel; weight: number | "" }[];
-    screening_questions: any[];
-    page_id: number | null;
-  }>({
-    job_title: null,
-    location: "",
-    work_type: "full-time",
-    workplace_type: "on-site",
-    experience: 0,
-    salary_range: "",
-    description: "",
-    skills: [],
-    screening_questions: [],
-    page_id: null,
-  });
+  const [jobTitle, setJobTitle] = useState<{ id: number; name: string } | null>(null);
+  const [pageId, setPageId] = useState<number | null>(null);
+  const [location, setLocation] = useState("");
+  const [workType, setWorkType] = useState("full-time");
+  const [workplaceType, setWorkplaceType] = useState("on-site");
+  const [experience, setExperience] = useState(0);
+  const [salaryRange, setSalaryRange] = useState("");
+  const [description, setDescription] = useState("");
+  const [skills, setSkills] = useState<SkillRow[]>([]);
+  const [questions, setQuestions] = useState<ScreeningQ[]>([]);
+  const [targetBudget, setTargetBudget] = useState(""); // static / not submitted
 
   const [searchJobTitles, { data: jobTitleResults = [] }] = useLazySearchJobTitlesQuery();
-  const [searchCompanies, { data: companyResults = [] }] = useLazySearchCompaniesQuery();
   const [searchSkills, { data: skillResults = [] }] = useLazyGetSkillsQuery();
 
-  // AI Insights (mock data)
-  const [aiInsights, setAiInsights] = useState({
-    talentPoolSize: 2840,
-    salaryBenchmark: "$120k - $160k",
-    competitionLevel: "Medium",
-    diversityScore: 85,
-    clarityScore: 92,
-    suggestions: ["Add remote work flexibility to attract 40% more candidates", "Mention learning opportunities to improve appeal", "Consider adding benefits section for better conversion"],
-  });
+  /* ----------------------------- skills logic ---------------------------- */
+  const [skillsEditMode, setSkillsEditMode] = useState(false);
+  const [showAddSkill, setShowAddSkill] = useState(false);
+  const [skillsBackup, setSkillsBackup] = useState<SkillRow[]>([]);
 
-  const [postMetrics, setPostMetrics] = useState({
-    views: 0,
-    applications: 0,
-    avgTimeToApply: "0 days",
-    conversionRate: 0,
-  });
-
-  const handleAIGenerate = () => { };
-
-  // Keyed off the form state, not Job: some fields (salary_range) are input-only
-  // and get transformed into Job fields at submit time.
-  const handleManualUpdate = (field: keyof typeof jobData, value: any) => {
-    setJobData((prev) => ({ ...prev, [field]: value }));
-  };
-
-  const handleArrayAdd = (field: keyof Job, value: string) => {
-    // if (!value.trim()) return;
-    // setJobData((prev) => ({
-    //   ...prev,
-    //   [field]: [...((prev[field] as string[]) || []), value],
-    // }));
-  };
-
-  const handleArrayRemove = (field: keyof Job, index: number) => {
-    // setJobData((prev) => ({
-    //   ...prev,
-    //   [field]: (prev[field] as string[])?.filter((_, i) => i !== index) || [],
-    // }));
-  };
-
-  const handleOptimize = () => {
-    setIsGenerating(true);
-    setTimeout(() => {
-      setAiInsights((prev) => ({
-        ...prev,
-        clarityScore: Math.min(100, prev.clarityScore + 5),
-        suggestions: prev.suggestions.slice(0, -1),
-      }));
-      setIsGenerating(false);
-    }, 1500);
-  };
-
-  const handleScreeningQuestionsChange = (questions: ScreeningQuestion[]) => {
-    setJobData((prev) => ({
-      ...prev,
-      screening_questions: questions,
-    }));
-  };
-
-  function transformJobPayload(formData: any) {
-    const { min: salaryMin, max: salaryMax } = parseSalaryRange(formData.salary_range);
-
-    const questions = formData.screening_questions.map((q: any) => {
-      const base = { title: q.title, type: q.type, is_knockout: q.is_knockout, weight: q.weight ?? 0 };
-
-      if (q.type === "multiple_choice") {
-        return { ...base, options: q.options.map((opt: string) => ({ title: opt })) };
-      }
-
-      if (q.type === "scale") {
-        return { ...base, min_value: q.min_value ?? 1, max_value: q.max_value ?? 5 };
-      }
-
-      return base;
-    });
-
-    return {
-      job: {
-        job_title: formData.job_title,
-        description: formData.description,
-        location: formData.location,
-        work_type: formData.work_type,
-        // Was omitted entirely, so the selected value never reached the API.
-        workplace_type: formData.workplace_type,
-        experience: formData.experience,
-        // Salary is stored as numeric min/max + currency, so the free-text
-        // range ("5L - 8L") is parsed here rather than sent as a string.
-        salary_min: salaryMin,
-        salary_max: salaryMax,
-        salary_currency: SALARY_CURRENCY,
-        resource: "qelsa",
-        page_id: formData.page_id,
-      },
-      questionSet: {
-        title: `Screening - ${new Date().toISOString()}`, // auto generate
-      },
-      questions,
-      skills: buildSkillsPayload(formData.skills || []),
-    };
-  }
-
-  // Weights are all-or-none: include `weight` on every skill only when every
-  // selected skill has one; otherwise omit weight entirely (backend requires this).
-  function buildSkillsPayload(skills: { id: number; type: JobSkillType; proficiency: ProficiencyLevel; weight: number | "" }[]) {
-    const allHaveWeight = skills.length > 0 && skills.every((s) => s.weight !== "" && s.weight != null);
-    return skills.map((s) => ({
-      id: s.id,
-      type: s.type,
-      proficiency: s.proficiency,
-      ...(allHaveWeight && { weight: Number(s.weight) }),
-    }));
-  }
-
-  const updateSkillField = <K extends "type" | "proficiency" | "weight">(id: number, field: K, value: (typeof jobData.skills)[number][K]) => {
-    setJobData((prev) => ({
-      ...prev,
-      skills: prev.skills.map((s) => (s.id === id ? { ...s, [field]: value } : s)),
-    }));
-  };
-
-  const removeSkill = (id: number) => {
-    setJobData((prev) => ({ ...prev, skills: prev.skills.filter((s) => s.id !== id) }));
-  };
+  const enteredWeights = skills.filter((s) => s.weight !== "" && s.weight != null);
+  const anyWeight = enteredWeights.length > 0;
+  const allWeights = skills.length > 0 && enteredWeights.length === skills.length;
+  const weightTotal = enteredWeights.reduce((sum, s) => sum + Number(s.weight || 0), 0);
+  const weightsValid = !anyWeight || (allWeights && weightTotal === 100);
 
   const addSkill = (sel: { id: number; name: string } | null) => {
     if (!sel) return;
-    setJobData((prev) => {
-      if (prev.skills.some((s) => s.id === sel.id)) return prev;
-      return {
-        ...prev,
-        skills: [
-          ...prev.skills,
-          { id: sel.id, name: sel.name, type: "preferred" as JobSkillType, proficiency: "beginner" as ProficiencyLevel, weight: "" as number | "" },
-        ],
-      };
-    });
+    setSkills((prev) => (prev.some((s) => s.id === sel.id) ? prev : [...prev, { id: sel.id, name: sel.name, type: "preferred", proficiency: "beginner", weight: "" }]));
   };
+  const updateSkillField = <K extends "type" | "proficiency" | "weight">(id: number, field: K, value: SkillRow[K]) =>
+    setSkills((prev) => prev.map((s) => (s.id === id ? { ...s, [field]: value } : s)));
+  const removeSkill = (id: number) => setSkills((prev) => prev.filter((s) => s.id !== id));
 
-  // Competency-framework view/edit mode
-  const [skillsEditMode, setSkillsEditMode] = useState(false);
-  const [showAddSkill, setShowAddSkill] = useState(false);
-  const [skillsBackup, setSkillsBackup] = useState<typeof jobData.skills>([]);
   const enterSkillsEdit = () => {
-    setSkillsBackup(jobData.skills);
+    setSkillsBackup(skills);
     setSkillsEditMode(true);
   };
   const cancelSkillsEdit = () => {
-    setJobData((prev) => ({ ...prev, skills: skillsBackup }));
+    setSkills(skillsBackup);
     setSkillsEditMode(false);
+    setShowAddSkill(false);
   };
   const saveSkillsEdit = () => {
     if (!weightsValid) {
@@ -310,1232 +220,694 @@ export function JobPostingPage() {
       return;
     }
     setSkillsEditMode(false);
+    setShowAddSkill(false);
   };
 
-  const typeTextColor = (t: JobSkillType) => (t === "core" ? "text-orange-400" : t === "preferred" ? "text-neon-yellow" : "text-muted-foreground");
+  const typeTag = (t: JobSkillType) =>
+    t === "core" ? "bg-orange-500/10 text-orange-400" : t === "preferred" ? "bg-neon-yellow/10 text-neon-yellow" : "bg-white/10 text-white/60";
 
-  // Weight validation state (live indicator + submit gate)
-  const enteredWeights = jobData.skills.filter((s) => s.weight !== "" && s.weight != null);
-  const anyWeight = enteredWeights.length > 0;
-  const allWeights = jobData.skills.length > 0 && enteredWeights.length === jobData.skills.length;
-  const weightTotal = enteredWeights.reduce((sum, s) => sum + Number(s.weight || 0), 0);
-  const weightsValid = !anyWeight || (allWeights && weightTotal === 100);
+  /* --------------------------- screening logic --------------------------- */
+  const categoriesPresent = new Set(questions.map((q) => q.category));
 
-  const salaryRangeInvalid = !parseSalaryRange(jobData.salary_range).valid;
+  const addTemplate = (cat: Exclude<QCategory, "custom">) => {
+    setQuestions((prev) => {
+      if (prev.some((q) => q.category === cat)) return prev;
+      const added = TEMPLATE_QUESTIONS[cat].map((q) => ({ ...q, id: uid(), category: cat }));
+      return [...prev, ...added];
+    });
+  };
+  const removeCategory = (cat: QCategory) => setQuestions((prev) => prev.filter((q) => q.category !== cat));
+  const addCustomQuestion = () =>
+    setQuestions((prev) => [...prev, { id: uid(), category: "custom", title: "", type: "yes_no", is_knockout: false, expected_answer: "yes" }]);
+  const updateQuestion = (id: string, patch: Partial<ScreeningQ>) => setQuestions((prev) => prev.map((q) => (q.id === id ? { ...q, ...patch } : q)));
+  const removeQuestion = (id: string) => setQuestions((prev) => prev.filter((q) => q.id !== id));
+
+  const changeAnswerType = (id: string, type: QAnswerType) => {
+    const patch: Partial<ScreeningQ> = { type };
+    if (type === "multiple_choice") {
+      patch.options = [
+        { title: "Option 1", is_correct: true },
+        { title: "Option 2", is_correct: false },
+      ];
+      patch.expected_answer = null;
+    } else if (type === "yes_no") {
+      patch.expected_answer = "yes";
+      patch.options = undefined;
+    } else {
+      patch.expected_answer = null;
+      patch.options = undefined;
+    }
+    updateQuestion(id, patch);
+  };
+
+  const updateOption = (qId: string, idx: number, patch: Partial<SQOption>) =>
+    setQuestions((prev) => prev.map((q) => (q.id === qId ? { ...q, options: q.options?.map((o, i) => (i === idx ? { ...o, ...patch } : o)) } : q)));
+  const addOption = (qId: string) =>
+    setQuestions((prev) => prev.map((q) => (q.id === qId ? { ...q, options: [...(q.options ?? []), { title: `Option ${(q.options?.length ?? 0) + 1}`, is_correct: false }] } : q)));
+  const removeOption = (qId: string, idx: number) =>
+    setQuestions((prev) => prev.map((q) => (q.id === qId ? { ...q, options: (q.options ?? []).filter((_, i) => i !== idx) } : q)));
+
+  /* ------------------------------- submit -------------------------------- */
+  const salaryRangeInvalid = !parseSalaryRange(salaryRange).valid;
+
+  function buildSkillsPayload() {
+    const allHaveWeight = skills.length > 0 && skills.every((s) => s.weight !== "" && s.weight != null);
+    return skills.map((s) => ({ id: s.id, type: s.type, proficiency: s.proficiency, ...(allHaveWeight && { weight: Number(s.weight) }) }));
+  }
+
+  function buildQuestionsPayload() {
+    return questions.map((q) => {
+      const base: Record<string, unknown> = { title: q.title, type: q.type, category: q.category, is_knockout: q.is_knockout, weight: 0 };
+      if (q.type === "multiple_choice") {
+        base.options = (q.options ?? []).map((o, i) => ({ title: o.title, value: slug(o.title) || `option_${i + 1}`, order: i, is_correct: o.is_correct }));
+        base.expected_answer = null;
+        base.knockout_condition = q.is_knockout ? "equals" : null;
+        base.knockout_value = null;
+      } else if (q.type === "yes_no") {
+        base.expected_answer = q.expected_answer ?? null;
+        base.knockout_condition = q.is_knockout ? "equals" : null;
+        base.knockout_value = q.is_knockout ? q.expected_answer ?? null : null;
+      } else {
+        base.expected_answer = null;
+        base.knockout_condition = null;
+        base.knockout_value = null;
+      }
+      return base;
+    });
+  }
 
   const handlePublish = async () => {
-    if (!weightsValid) {
-      toast.error("Skill weights must be set on all skills and add up to exactly 100 (or left blank on all).");
-      return;
-    }
-    if (salaryRangeInvalid) {
-      toast.error("Max salary must be greater than or equal to min.");
-      return;
-    }
-    console.log("🚀 ~ handlePublish ~ jobData:", jobData);
-    const newData = transformJobPayload(jobData);
-    console.log("🚀 ~ handlePublish ~ newData:", newData);
+    if (!jobTitle) return toast.error("Job title is required.");
+    if (!description.trim()) return toast.error("Job description is required.");
+    if (!weightsValid) return toast.error("Skill weights must be set on all skills and add up to exactly 100 (or left blank on all).");
+    if (salaryRangeInvalid) return toast.error("Enter a valid salary range (max ≥ min).");
+    const invalidCustom = questions.find((q) => q.category === "custom" && !q.title.trim());
+    if (invalidCustom) return toast.error("Every custom question needs a title.");
+
+    const { min: salaryMin, max: salaryMax } = parseSalaryRange(salaryRange);
+    const payload = {
+      job: {
+        job_title: jobTitle,
+        description,
+        location,
+        work_type: workType,
+        workplace_type: workplaceType,
+        experience,
+        salary_min: salaryMin,
+        salary_max: salaryMax,
+        salary_currency: SALARY_CURRENCY,
+        resource: "qelsa",
+        page_id: pageId,
+      },
+      questionSet: { title: `Screening - ${new Date().toISOString()}` },
+      questions: buildQuestionsPayload(),
+      skills: buildSkillsPayload(),
+    };
 
     try {
-      const result = await createJob(newData).unwrap();
-      console.log("Created job:", result);
-
-      setStep("published");
+      const result = await createJob(payload).unwrap();
+      toast.success("Job published successfully.");
+      const newId = (result as { id?: number })?.id;
+      router.push(newId ? `/jobs/${newId}` : "/jobs/smart_matches");
     } catch (err) {
       console.error("Job creation failed:", err);
+      toast.error("Could not publish the job. Please try again.");
     }
   };
 
-  const handleSaveDraft = () => {
-    console.log("Saving draft:", jobData);
-  };
+  const grouped = CATEGORY_ORDER.filter((c) => categoriesPresent.has(c)).map((c) => ({ category: c, items: questions.filter((q) => q.category === c) }));
 
+  /* -------------------------------- render ------------------------------- */
+  return (
+    <div className="mx-auto w-full max-w-[1200px] px-6 pb-32 pt-6 text-white md:px-12">
+      {/* Breadcrumb */}
+      <button onClick={() => router.push("/jobs/smart_matches")} className="mb-6 flex items-center gap-2 text-sm text-white/70 transition-colors hover:text-white">
+        <ArrowLeft className="size-4" />
+        Back to Jobs
+      </button>
 
-  // Published State
-  if (step === "published") {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-background to-background">
-        <div className="glass-strong border-b border-glass-border">
-          <div className="max-w-5xl mx-auto px-6 py-6">
-            <Button variant="ghost" onClick={() => router.back()} className="mb-4 text-muted-foreground hover:text-foreground">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Jobs
-            </Button>
+      <div className="flex flex-col gap-6">
+        {/* Describe the Role (AI — static) */}
+        <section className={CARD}>
+          <div className="mb-4 flex items-center gap-2">
+            <Sparkles className="size-5 text-neon-purple" />
+            <h2 className="text-lg font-semibold text-white">Describe the Role</h2>
           </div>
-        </div>
-
-        <div className="max-w-5xl mx-auto px-6 py-12">
-          {/* Success Message */}
-          <Card className="p-8 glass border-glass-border text-center mb-8">
-            <div className="w-16 h-16 rounded-full bg-neon-green/20 border-2 border-neon-green flex items-center justify-center mx-auto mb-4">
-              <CheckCircle2 className="w-8 h-8 text-neon-green" />
-            </div>
-            <h2 className="text-2xl font-bold mb-2">Job Posted Successfully! 🎉</h2>
-            <p className="text-muted-foreground mb-6">Your job posting is now live and visible to {aiInsights.talentPoolSize.toLocaleString()} potential candidates</p>
-
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <Button className="gradient-animated">
-                <Eye className="w-4 h-4 mr-2" />
-                View Live Post
-              </Button>
-              <Button variant="outline" className="border-neon-cyan/30 text-neon-cyan">
-                Share on Social
-              </Button>
-            </div>
-          </Card>
-
-          {/* Real-time Metrics */}
-          <div className="mb-8">
-            <h3 className="text-xl font-semibold mb-4">Real-time Performance</h3>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <Card className="p-4 glass border-glass-border">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-neon-cyan/20 flex items-center justify-center">
-                    <Eye className="w-5 h-5 text-neon-cyan" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold">{postMetrics.views}</p>
-                    <p className="text-xs text-muted-foreground">Views</p>
-                  </div>
-                </div>
-              </Card>
-
-              <Card className="p-4 glass border-glass-border">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-neon-purple/20 flex items-center justify-center">
-                    <Users className="w-5 h-5 text-neon-purple" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold">{postMetrics.applications}</p>
-                    <p className="text-xs text-muted-foreground">Applications</p>
-                  </div>
-                </div>
-              </Card>
-
-              <Card className="p-4 glass border-glass-border">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-neon-pink/20 flex items-center justify-center">
-                    <Clock className="w-5 h-5 text-neon-pink" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold">{postMetrics.avgTimeToApply}</p>
-                    <p className="text-xs text-muted-foreground">Avg. Time</p>
-                  </div>
-                </div>
-              </Card>
-
-              <Card className="p-4 glass border-glass-border">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-neon-green/20 flex items-center justify-center">
-                    <TrendingUp className="w-5 h-5 text-neon-green" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold">{postMetrics.conversionRate}%</p>
-                    <p className="text-xs text-muted-foreground">Conversion</p>
-                  </div>
-                </div>
-              </Card>
-            </div>
+          <textarea
+            value={aiPrompt}
+            onChange={(e) => setAiPrompt(e.target.value)}
+            placeholder="Example: I need a backend engineer with 3+ years in Node.js & AWS to build scalable microservices for our career platform..."
+            className="min-h-28 w-full rounded-xl border border-glass-border bg-white/[0.04] p-4 text-sm text-white placeholder:text-white/45 focus:border-neon-cyan focus:outline-none"
+          />
+          <div className="mt-3 flex items-center justify-between gap-4">
+            <p className="flex items-center gap-1.5 text-xs text-white/45">
+              <Info className="size-3.5" /> Tip: Include experience level, key skills, and main responsibilities
+            </p>
+            <button
+              onClick={() => toast.info("AI generation is coming soon.")}
+              disabled={!aiPrompt.trim()}
+              className={`flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40 ${GRADIENT}`}
+            >
+              <Sparkles className="size-4" /> Generate job description
+            </button>
           </div>
+        </section>
 
-          {/* AI Optimization Suggestions */}
-          <Card className="p-6 glass border-glass-border">
-            <div className="flex items-center gap-2 mb-4">
-              <Lightbulb className="w-5 h-5 text-neon-yellow" />
-              <h3 className="font-semibold">AI Recommendations to Boost Performance</h3>
-            </div>
-
-            <div className="space-y-3">
-              <div className="p-4 rounded-lg bg-white/5 border border-glass-border">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1">
-                    <h4 className="font-medium mb-1">Add Benefits Section</h4>
-                    <p className="text-sm text-muted-foreground">Job posts with benefits listed get 35% more applications</p>
-                  </div>
-                  <Button size="sm" className="gradient-animated">
-                    Add Now
-                  </Button>
-                </div>
-              </div>
-
-              <div className="p-4 rounded-lg bg-white/5 border border-glass-border">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1">
-                    <h4 className="font-medium mb-1">Specify Salary Range</h4>
-                    <p className="text-sm text-muted-foreground">Posts with transparent salary get 2.3x more quality applicants</p>
-                  </div>
-                  <Button size="sm" variant="outline" className="border-neon-cyan/30 text-neon-cyan">
-                    Update
-                  </Button>
-                </div>
-              </div>
-
-              <div className="p-4 rounded-lg bg-white/5 border border-glass-border">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1">
-                    <h4 className="font-medium mb-1">Make Title More Specific</h4>
-                    <p className="text-sm text-muted-foreground">Try Senior Backend Engineer (Node.js) instead of generic title</p>
-                  </div>
-                  <Button size="sm" variant="outline" className="border-neon-cyan/30 text-neon-cyan">
-                    Refine
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </Card>
-        </div>
-      </div>
-    );
-  }
-
-  // Questions Step
-  if (step === "questions") {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-background to-background">
-        <div className="glass-strong border-b border-glass-border">
-          <div className="max-w-5xl mx-auto px-6 py-6">
-            <Button variant="ghost" onClick={() => setStep("review")} className="mb-4 text-muted-foreground hover:text-foreground">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Job Details
-            </Button>
-
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-3xl font-bold bg-gradient-to-r from-neon-cyan via-neon-purple to-neon-pink bg-clip-text text-transparent">Screening Questions</h1>
-                <p className="text-muted-foreground mt-2">Pre-screen candidates with smart questions and AI-powered evaluation</p>
-              </div>
-
-              <Badge className="bg-neon-cyan/20 text-neon-cyan border-0">{jobData.screening_questions?.length || 0} Questions</Badge>
-            </div>
+        {/* Basic information */}
+        <section className={CARD}>
+          <h2 className="mb-6 text-lg font-semibold text-white">Basic information</h2>
+          <div className="grid grid-cols-1 gap-x-6 gap-y-5 md:grid-cols-2">
+            <Field label="Job Title" required>
+              <Autocomplete
+                value={jobTitle}
+                onChange={setJobTitle}
+                onSearch={(q) => searchJobTitles(q)}
+                options={jobTitleResults}
+                placeholder="e.g., Senior Backend Engineer"
+                icon={<Search className="h-4 w-4" />}
+                inputClassName={INPUT}
+              />
+            </Field>
+            <Field label="Company">
+              <SelectInput value={pageId?.toString() ?? ""} onChange={(v) => setPageId(v ? Number(v) : null)} placeholder="Select a company page">
+                {myPages?.map((p) => (
+                  <option key={p.id} value={p.id.toString()}>
+                    {p.name}
+                  </option>
+                ))}
+              </SelectInput>
+            </Field>
+            <Field label="Location" required>
+              <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g., San Francisco, CA" className={INPUT} />
+            </Field>
+            <Field label="Work Type" required>
+              <SelectInput value={workType} onChange={setWorkType}>
+                <option value="full-time">Full-time</option>
+                <option value="part-time">Part-time</option>
+                <option value="contract">Contract</option>
+                <option value="internship">Internship</option>
+              </SelectInput>
+            </Field>
+            <Field label="Workplace Type" required>
+              <SelectInput value={workplaceType} onChange={setWorkplaceType}>
+                <option value="on-site">On-site</option>
+                <option value="hybrid">Hybrid</option>
+                <option value="remote">Remote</option>
+              </SelectInput>
+            </Field>
+            <Field label="Experience">
+              <SelectInput value={String(experience)} onChange={(v) => setExperience(Number(v))}>
+                <option value="0">Fresher (0 years)</option>
+                {[1, 2, 3, 5, 7, 10, 12, 15].map((y) => (
+                  <option key={y} value={String(y)}>
+                    {y}+ years
+                  </option>
+                ))}
+              </SelectInput>
+            </Field>
+            <Field label="Salary Range" hint={salaryRangeInvalid ? undefined : formatSalaryRange(salaryRange) ?? undefined} error={salaryRangeInvalid ? "Enter a range like “5L - 8L”, “80k - 120k” or “500000 - 800000”." : undefined}>
+              <input value={salaryRange} onChange={(e) => setSalaryRange(e.target.value)} placeholder="e.g., 5L - 8L" className={INPUT} />
+            </Field>
           </div>
-        </div>
+        </section>
 
-        <div className="max-w-5xl mx-auto px-6 py-8">
-          <Card className="p-6 glass border-glass-border">
-            <ScreeningQuestionsBuilder
-              questions={jobData.screening_questions || []}
-              onChange={handleScreeningQuestionsChange}
-              jobTitle={jobData.job_title?.name ?? ""}
-              jobDescription={jobData.description}
-              isPremium={isPremium}
+        {/* Job description */}
+        <section className={CARD}>
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-white">Job description</h2>
+            <button onClick={() => toast.info("AI improve is coming soon.")} className="flex items-center gap-1.5 rounded-full border border-neon-purple/30 px-3 py-1.5 text-xs font-semibold text-neon-purple transition-colors hover:bg-neon-purple/10">
+              <Wand2 className="size-3.5" /> AI Improve
+            </button>
+          </div>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Describe the role, responsibilities, and what makes this position unique..."
+            className="min-h-44 w-full rounded-xl border border-glass-border bg-white/[0.04] p-4 text-sm leading-relaxed text-white placeholder:text-white/45 focus:border-neon-cyan focus:outline-none"
+          />
+          {description && description.length < 100 && (
+            <p className="mt-2 flex items-center gap-1 text-xs text-neon-yellow">
+              <AlertCircle className="size-3" /> Add more details (min 100 characters for better reach)
+            </p>
+          )}
+        </section>
+
+        {/* What this role uses daily */}
+        <section className={CARD}>
+          <h2 className="mb-4 text-lg font-semibold text-white">What this role uses daily</h2>
+          {skills.length > 0 && (
+            <div className="mb-4 flex flex-wrap gap-2">
+              {skills.map((s) => (
+                <span key={s.id} className="inline-flex items-center gap-1.5 rounded-full border border-neon-cyan/20 bg-neon-cyan/10 px-3 py-1.5 text-xs font-medium text-neon-cyan">
+                  {s.name}
+                  <button onClick={() => removeSkill(s.id)} aria-label={`Remove ${s.name}`} className="text-neon-cyan/60 hover:text-neon-cyan">
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+          <div className="flex items-center gap-3">
+            <Autocomplete
+              value={null}
+              onChange={(sel) => addSkill(sel)}
+              onSearch={(q) => searchSkills(q || undefined)}
+              options={skillResults}
+              placeholder="Add an extra skill and press Enter..."
+              icon={<Search className="h-4 w-4" />}
+              inputClassName={INPUT}
             />
-
-            {/* Action Buttons */}
-            <div className="flex gap-3 mt-6 pt-6 border-t border-glass-border">
-              <Button variant="outline" onClick={handleSaveDraft} className="flex-1 border-neon-cyan/30 text-neon-cyan">
-                <Save className="w-4 h-4 mr-2" />
-                Save as Draft
-              </Button>
-              <Button onClick={() => setStep("final-review")} className="flex-1 gradient-animated">
-                Continue to Final Review
-              </Button>
-            </div>
-          </Card>
-        </div>
-      </div>
-    );
-  }
-
-  // Final Review Step (before publishing)
-  if (step === "final-review") {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-background to-background">
-        <div className="glass-strong border-b border-glass-border">
-          <div className="max-w-5xl mx-auto px-6 py-6">
-            <Button variant="ghost" onClick={() => setStep("questions")} className="mb-4 text-muted-foreground hover:text-foreground">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Questions
-            </Button>
-
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-3xl font-bold bg-gradient-to-r from-neon-cyan via-neon-purple to-neon-pink bg-clip-text text-transparent">Final Review</h1>
-                <p className="text-muted-foreground mt-2">Review everything before publishing your job</p>
-              </div>
-
-              <Badge className="bg-neon-green/20 text-neon-green border-0">
-                <CheckCircle2 className="w-3 h-3 mr-1" />
-                Ready to Publish
-              </Badge>
-            </div>
           </div>
-        </div>
+        </section>
 
-        <div className="max-w-5xl mx-auto px-6 py-8">
-          <div className="space-y-6">
-            {/* Job Details Summary */}
-            <Card className="p-6 glass border-glass-border">
-              <h3 className="font-semibold mb-4">Job Details</h3>
-              <div className="space-y-3">
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1">Position</p>
-                  <p className="font-medium">{jobData.job_title?.name}</p>
-                </div>
-                <div className="flex gap-4">
-                  <div className="flex-1">
-                    <p className="text-sm text-muted-foreground mb-1">Location</p>
-                    <p className="font-medium text-sm">{jobData.location}</p>
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm text-muted-foreground mb-1">Type</p>
-                    <p className="font-medium text-sm">{jobData.work_type}</p>
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm text-muted-foreground mb-1">Salary</p>
-                    <p className="font-medium text-sm">{formatSalaryRange(jobData.salary_range) ?? "—"}</p>
-                  </div>
-                </div>
-              </div>
-            </Card>
-
-            {/* Questions Summary */}
-            <Card className="p-6 glass border-glass-border">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold">Screening Questions</h3>
-                <Badge className="bg-neon-cyan/20 text-neon-cyan border-0">{jobData.screening_questions?.length || 0} Questions</Badge>
-              </div>
-              {jobData.screening_questions && jobData.screening_questions.length > 0 ? (
-                <div className="space-y-2">
-                  {jobData.screening_questions?.slice(0, 3).map((q, idx) => (
-                    <div key={q.id} className="p-3 rounded-lg bg-white/5">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-sm text-muted-foreground">{idx + 1}.</span>
-                        {q.is_knockout && (
-                          <Badge variant="outline" className="text-xs border-destructive/30 text-destructive">
-                            Knockout
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="text-sm">{q.title}</p>
-                    </div>
-                  ))}
-                  {jobData.screening_questions.length > 3 && <p className="text-xs text-muted-foreground text-center py-2">+{jobData.screening_questions.length - 3} more questions</p>}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground text-center py-4">No screening questions added</p>
-              )}
-            </Card>
-
-            {/* AI Insights */}
-            <Card className="p-6 glass border-glass-border">
-              <h3 className="font-semibold mb-4">AI Performance Insights</h3>
-              <div className="grid grid-cols-3 gap-4">
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-neon-cyan">{aiInsights.talentPoolSize.toLocaleString()}</p>
-                  <p className="text-xs text-muted-foreground mt-1">Potential Candidates</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-neon-purple">{aiInsights.clarityScore}%</p>
-                  <p className="text-xs text-muted-foreground mt-1">Clarity Score</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-neon-green">{aiInsights.diversityScore}%</p>
-                  <p className="text-xs text-muted-foreground mt-1">Diversity Score</p>
-                </div>
-              </div>
-            </Card>
-
-            {/* Action Buttons */}
-            <div className="flex gap-3">
-              <Button variant="outline" onClick={handleSaveDraft} className="flex-1 border-neon-cyan/30 text-neon-cyan">
-                <Save className="w-4 h-4 mr-2" />
-                Save as Draft
-              </Button>
-              <Button onClick={handlePublish} className="flex-1 gradient-animated">
-                <Send className="w-4 h-4 mr-2" />
-                Publish Job Now
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Mode Selection Screen
-  if (mode === "select") {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-background to-background">
-        <div className="glass-strong border-b border-glass-border">
-          <div className="max-w-5xl mx-auto px-6 py-6">
-            <Button variant="ghost" onClick={() => router.push("/jobs/smart_matches")} className="mb-4 text-muted-foreground hover:text-foreground">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Jobs
-            </Button>
-
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-neon-cyan via-neon-purple to-neon-pink bg-clip-text text-transparent">Post A Job</h1>
-            <p className="text-muted-foreground mt-2">Choose how youd like to create your job posting</p>
-          </div>
-        </div>
-
-        <div className="max-w-5xl mx-auto px-6 py-12">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* AI Co-Pilot Option */}
-            <Card
-              className="p-8 glass border-glass-border cursor-pointer hover:border-neon-purple/50 transition-all duration-300 hover:shadow-lg hover:shadow-neon-purple/10 hover:-translate-y-1"
-              onClick={() => setMode("ai-copilot")}
-            >
-              <div className="flex flex-col items-center text-center">
-                <div className="w-16 h-16 rounded-2xl gradient-animated flex items-center justify-center mb-4">
-                  <Sparkles className="w-8 h-8 text-black" />
-                </div>
-
-                <h3 className="text-xl font-semibold mb-2">AI Co-Pilot</h3>
-                <Badge className="mb-4 bg-neon-purple/20 text-neon-purple border-0">Recommended • 2-3 min</Badge>
-
-                <p className="text-muted-foreground text-sm mb-6">Describe your role in 1-2 sentences and let AI generate a complete job description with all the details.</p>
-
-                <div className="space-y-2 text-sm text-left w-full">
-                  <div className="flex items-start gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-neon-green mt-0.5 flex-shrink-0" />
-                    <span className="text-muted-foreground">Smart salary suggestions</span>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-neon-green mt-0.5 flex-shrink-0" />
-                    <span className="text-muted-foreground">Talent pool insights</span>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-neon-green mt-0.5 flex-shrink-0" />
-                    <span className="text-muted-foreground">Bias & diversity check</span>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-neon-green mt-0.5 flex-shrink-0" />
-                    <span className="text-muted-foreground">Real-time optimization</span>
-                  </div>
-                </div>
-
-                <Button className="w-full mt-6 gradient-animated">
-                  <Sparkles className="w-4 h-4 mr-2" />
-                  Start with AI
-                </Button>
-              </div>
-            </Card>
-
-            {/* Manual Entry Option */}
-            <Card
-              className="p-8 glass border-glass-border cursor-pointer hover:border-neon-cyan/50 transition-all duration-300 hover:shadow-lg hover:shadow-neon-cyan/10 hover:-translate-y-1"
-              onClick={() => setMode("manual")}
-            >
-              <div className="flex flex-col items-center text-center">
-                <div className="w-16 h-16 rounded-2xl bg-neon-cyan/20 border-2 border-neon-cyan/30 flex items-center justify-center mb-4">
-                  <FileText className="w-8 h-8 text-neon-cyan" />
-                </div>
-
-                <h3 className="text-xl font-semibold mb-2">Manual Entry</h3>
-                <Badge className="mb-4 bg-white/5 text-muted-foreground border-0">Classic • 5-10 min</Badge>
-
-                <p className="text-muted-foreground text-sm mb-6">Fill out standard fields with full control over every detail. AI will assist you along the way.</p>
-
-                <div className="space-y-2 text-sm text-left w-full">
-                  <div className="flex items-start gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-neon-cyan mt-0.5 flex-shrink-0" />
-                    <span className="text-muted-foreground">Complete customization</span>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-neon-cyan mt-0.5 flex-shrink-0" />
-                    <span className="text-muted-foreground">AI suggestions as you type</span>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-neon-cyan mt-0.5 flex-shrink-0" />
-                    <span className="text-muted-foreground">Inline improvements</span>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-neon-cyan mt-0.5 flex-shrink-0" />
-                    <span className="text-muted-foreground">Template library</span>
-                  </div>
-                </div>
-
-                <Button variant="outline" className="w-full mt-6 border-neon-cyan/30 text-neon-cyan hover:bg-neon-cyan/10">
-                  <FileText className="w-4 h-4 mr-2" />
-                  Manual Entry
-                </Button>
-              </div>
-            </Card>
+        {/* Competency framework */}
+        <section className={CARD}>
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-white">Competency framework</h2>
+            {!skillsEditMode ? (
+              <button onClick={enterSkillsEdit} className="flex items-center gap-1 text-sm font-semibold text-neon-cyan hover:opacity-80">
+                <Edit2 className="size-4" /> Edit
+              </button>
+            ) : (
+              <button onClick={cancelSkillsEdit} className="text-sm font-medium text-white/60 hover:text-white">
+                Cancel
+              </button>
+            )}
           </div>
 
-          {/* Trust Indicators */}
-          <div className="mt-12 text-center">
-            <p className="text-sm text-muted-foreground mb-4">Trusted by 10,000+ companies worldwide</p>
-            <div className="flex items-center justify-center gap-8 flex-wrap">
-              <div className="flex items-center gap-2">
-                <Shield className="w-4 h-4 text-neon-green" />
-                <span className="text-xs text-muted-foreground">GDPR Compliant</span>
+          <div className="mb-4 flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2.5">
+            <Info className="size-4 shrink-0 text-blue-400" />
+            <span className="text-xs text-blue-200">Candidates see match scores only — not this framework.</span>
+          </div>
+
+          {skills.length === 0 ? (
+            <p className="text-sm text-white/45">No competencies yet. Add skills above or use Edit → Add skill.</p>
+          ) : !skillsEditMode ? (
+            /* view */
+            <div>
+              <div className="grid grid-cols-12 border-b border-glass-border pb-2 text-[10px] font-medium uppercase tracking-wide text-white/45">
+                <span className="col-span-7">Skill</span>
+                <span className="col-span-3">Proficiency</span>
+                <span className="col-span-2">Type</span>
               </div>
-              <div className="flex items-center gap-2">
-                <Zap className="w-4 h-4 text-neon-yellow" />
-                <span className="text-xs text-muted-foreground">90% Faster Posting</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Users className="w-4 h-4 text-neon-cyan" />
-                <span className="text-xs text-muted-foreground">3x More Applicants</span>
+              {skills.map((s) => (
+                <div key={s.id} className="grid grid-cols-12 items-center border-b border-glass-border py-3 last:border-0">
+                  <span className="col-span-7 text-sm text-white">{s.name}</span>
+                  <span className="col-span-3 text-sm text-white/70">{proficiencyLabel(s.proficiency)}</span>
+                  <span className="col-span-2">
+                    <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${typeTag(s.type)}`}>{jobSkillTypeLabel(s.type)}</span>
+                  </span>
+                </div>
+              ))}
+              <div className="pt-3 text-xs text-white/45">
+                {skills.length} competenc{skills.length === 1 ? "y" : "ies"}
+                {anyWeight && <span className={weightsValid ? " text-neon-green" : " text-red-400"}> · Total {weightTotal}/100</span>}
               </div>
             </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // AI Co-Pilot Mode
-  if (mode === "ai-copilot") {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-background to-background">
-        <div className="glass-strong border-b border-glass-border">
-          <div className="max-w-5xl mx-auto px-6 py-6">
-            <Button variant="ghost" onClick={() => (step === "input" ? setMode("select") : setStep("input"))} className="mb-4 text-muted-foreground hover:text-foreground">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back
-            </Button>
-
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-3xl font-bold bg-gradient-to-r from-neon-cyan via-neon-purple to-neon-pink bg-clip-text text-transparent">AI Co-Pilot</h1>
-                <p className="text-muted-foreground mt-2">{step === "input" ? "Describe your role and let AI do the rest" : "Review and refine your job posting"}</p>
-              </div>
-
-              {step === "review" && (
-                <Badge className="bg-neon-green/20 text-neon-green border-0">
-                  <CheckCircle2 className="w-3 h-3 mr-1" />
-                  Ready to Publish
-                </Badge>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="max-w-5xl mx-auto px-6 py-8">
-          {step === "input" ? (
-            <>
-              {/* AI Prompt Input */}
-              <Card className="p-6 glass border-glass-border mb-6">
-                <div className="flex items-center gap-2 mb-4">
-                  <Sparkles className="w-5 h-5 text-neon-purple" />
-                  <h3 className="font-semibold">Describe the Role</h3>
-                </div>
-
-                <Textarea
-                  placeholder="Example: I need a backend engineer with 3+ years in Node.js & AWS to build scalable microservices for our career platform..."
-                  value={aiPrompt}
-                  onChange={(e) => setAiPrompt(e.target.value)}
-                  className="glass border-glass-border min-h-32 mb-4"
-                />
-
-                <div className="flex items-center justify-between">
-                  <p className="text-sm text-muted-foreground">💡 Tip: Include experience level, key skills, and main responsibilities</p>
-
-                  <Button onClick={handleAIGenerate} disabled={!aiPrompt.trim() || isGenerating} className="gradient-animated">
-                    {isGenerating ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin mr-2" />
-                        Generating...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="w-4 h-4 mr-2" />
-                        Generate Job Description
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </Card>
-
-              {/* Preview Generated Content */}
-              {jobData.job_title && (
-                <Card className="p-6 glass border-glass-border">
-                  <div className="flex items-center justify-between mb-6">
-                    <h3 className="font-semibold">Generated Job Description</h3>
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="outline" onClick={handleAIGenerate} className="border-neon-purple/30 text-neon-purple">
-                        <Wand2 className="w-3 h-3 mr-2" />
-                        Regenerate
-                      </Button>
-                      <Button size="sm" onClick={() => setStep("review")} className="gradient-animated">
-                        Continue to Review
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div>
-                      <h4 className="text-xl font-bold">{jobData.job_title?.name}</h4>
-                    </div>
-
-                    <div className="flex flex-wrap gap-2">
-                      <Badge variant="secondary">{jobData.location}</Badge>
-                      <Badge variant="secondary">{jobData.work_type}</Badge>
-                      <Badge variant="secondary">{jobData.workplace_type}</Badge>
-                      <Badge variant="secondary">{jobData.experience} years</Badge>
-                      {formatSalaryRange(jobData.salary_range) && <Badge className="bg-neon-green/20 text-neon-green border-0">{formatSalaryRange(jobData.salary_range)}</Badge>}
-                    </div>
-
-                    <Separator />
-
-                    <div>
-                      <h5 className="font-semibold mb-2">Description</h5>
-                      <p className="text-muted-foreground text-sm">{jobData.description}</p>
-                    </div>
-
-                    <div>
-                      <h5 className="font-semibold mb-2">Key Responsibilities</h5>
-                      <ul className="space-y-1">
-                        {/* {jobData.responsibilities?.map((item, idx) => (
-                          <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
-                            <span className="text-neon-cyan mt-1">•</span>
-                            <span>{item}</span>
-                          </li>
-                        ))} */}
-                      </ul>
-                    </div>
-
-                    <div>
-                      <h5 className="font-semibold mb-2">Requirements</h5>
-                      <ul className="space-y-1">
-                        {/* {jobData.requirements?.map((item, idx) => (
-                          <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
-                            <span className="text-neon-purple mt-1">•</span>
-                            <span>{item}</span>
-                          </li>
-                        ))} */}
-                      </ul>
-                    </div>
-
-                    <div>
-                      <h5 className="font-semibold mb-2">Required Skills</h5>
-                      <div className="flex flex-wrap gap-2">
-                        {jobData.skills?.map((skill) => (
-                          <Badge key={skill.id} variant="secondary" className="text-xs">
-                            {skill.name}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-              )}
-            </>
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Main Content */}
-              <div className="lg:col-span-2 space-y-6">
-                {/* Job Preview */}
-                <Card className="p-6 glass border-glass-border">
-                  <div className="flex items-center justify-between mb-6">
-                    <h3 className="font-semibold">Final Review</h3>
-                    <div className="flex items-center gap-2">
-                      <div className="flex items-center gap-1">
-                        <div className="w-2 h-2 rounded-full bg-neon-green animate-pulse"></div>
-                        <span className="text-xs text-muted-foreground">AI Optimized</span>
-                      </div>
+            /* edit */
+            <div>
+              <div className="hidden grid-cols-12 gap-2 px-1 pb-2 text-[10px] font-medium uppercase tracking-wide text-white/45 md:grid">
+                <span className="col-span-5 pl-6">Skill</span>
+                <span className="col-span-3">Proficiency</span>
+                <span className="col-span-2">Type</span>
+                <span className="col-span-2">Weight</span>
+              </div>
+              <div className="flex flex-col gap-2">
+                {skills.map((s) => (
+                  <div key={s.id} className="grid grid-cols-12 items-center gap-2">
+                    <div className="col-span-12 flex items-center gap-2 md:col-span-5">
+                      <GripVertical className="size-4 shrink-0 text-white/30" />
+                      <span className="truncate rounded-lg border border-glass-border bg-white/[0.04] px-3 py-2 text-sm text-white">{s.name}</span>
                     </div>
+                    <select
+                      value={s.proficiency}
+                      onChange={(e) => updateSkillField(s.id, "proficiency", e.target.value as ProficiencyLevel)}
+                      className="col-span-6 rounded-lg border border-glass-border bg-white/[0.04] px-2 py-2 text-sm text-white focus:border-neon-cyan focus:outline-none md:col-span-3"
+                    >
+                      {PROFICIENCY_LEVELS.map((p) => (
+                        <option key={p.value} value={p.value} className="bg-[#0d0d1a]">
+                          {p.label}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      value={s.type}
+                      onChange={(e) => updateSkillField(s.id, "type", e.target.value as JobSkillType)}
+                      className="col-span-4 rounded-lg border border-glass-border bg-white/[0.04] px-2 py-2 text-sm text-white focus:border-neon-cyan focus:outline-none md:col-span-2"
+                    >
+                      {JOB_SKILL_TYPES.map((t) => (
+                        <option key={t.value} value={t.value} className="bg-[#0d0d1a]">
+                          {t.label}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="relative col-span-6 md:col-span-1">
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={s.weight}
+                        onChange={(e) => updateSkillField(s.id, "weight", e.target.value === "" ? "" : Number(e.target.value))}
+                        className="w-full rounded-lg border border-glass-border bg-white/[0.04] px-2 py-2 pr-5 text-sm text-white focus:border-neon-cyan focus:outline-none"
+                      />
+                      <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs text-white/45">%</span>
+                    </div>
+                    <button onClick={() => removeSkill(s.id)} aria-label="Remove skill" className="col-span-2 justify-self-end text-white/40 hover:text-red-400 md:col-span-1">
+                      <Trash2 className="size-4" />
+                    </button>
                   </div>
-
-                  {/* Editable Fields */}
-                  <div className="space-y-4">
-                    <div>
-                      <label className="text-sm font-medium mb-2 block">Job Title</label>
-                      <Input value={jobData.job_title?.name ?? ""} readOnly className="glass border-glass-border" />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-sm font-medium mb-2 block">Location</label>
-                        <Input value={jobData.location} onChange={(e) => handleManualUpdate("location", e.target.value)} className="glass border-glass-border" />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium mb-2 block">Work Type</label>
-                        <Select value={jobData.work_type} onValueChange={(value) => handleManualUpdate("work_type", value)}>
-                          <SelectTrigger className="glass border-glass-border">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="full-time">Full-time</SelectItem>
-                            <SelectItem value="part-time">Part-time</SelectItem>
-                            <SelectItem value="contract">Contract</SelectItem>
-                            <SelectItem value="internship">Internship</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium mb-2 block">Workplace Type</label>
-                        <Select value={jobData.workplace_type} onValueChange={(value) => handleManualUpdate("workplace_type", value)}>
-                          <SelectTrigger className="glass border-glass-border">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="on-site">On-site</SelectItem>
-                            <SelectItem value="hybrid">Hybrid</SelectItem>
-                            <SelectItem value="remote">Remote</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="text-sm font-medium mb-2 block">Description</label>
-                      <Textarea value={jobData.description} onChange={(e) => handleManualUpdate("description", e.target.value)} className="glass border-glass-border min-h-24" />
-                    </div>
-
-                    <Separator />
-
-                    <div className="flex gap-2">
-                      <Button variant="outline" onClick={handleSaveDraft} className="flex-1 border-neon-cyan/30 text-neon-cyan">
-                        <Save className="w-4 h-4 mr-2" />
-                        Save as Draft
-                      </Button>
-                      <Button onClick={() => setStep("questions")} className="flex-1 gradient-animated">
-                        <HelpCircle className="w-4 h-4 mr-2" />
-                        Add Screening Questions
-                      </Button>
-                    </div>
-                  </div>
-                </Card>
+                ))}
               </div>
 
-              {/* AI Insights Sidebar */}
-              <div className="space-y-6">
-                {/* Optimization Score */}
-                <Card className="p-4 glass border-glass-border">
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="font-medium text-sm">Optimization Score</h4>
-                    <span className="text-xl font-bold text-neon-purple">{aiInsights.clarityScore}%</span>
-                  </div>
-                  <Progress value={aiInsights.clarityScore} className="h-2 mb-4" />
+              {showAddSkill && (
+                <div className="mt-3">
+                  <Autocomplete
+                    value={null}
+                    onChange={(sel) => {
+                      addSkill(sel);
+                      setShowAddSkill(false);
+                    }}
+                    onSearch={(q) => searchSkills(q || undefined)}
+                    options={skillResults}
+                    placeholder="Search a skill to add..."
+                    icon={<Search className="h-4 w-4" />}
+                    inputClassName={INPUT}
+                  />
+                </div>
+              )}
+              {anyWeight && !weightsValid && <p className="mt-3 text-xs text-red-400">Weights must be filled on every skill and sum to exactly 100 — or left blank on all.</p>}
 
-                  <Button size="sm" onClick={handleOptimize} disabled={isGenerating} className="w-full gradient-animated">
-                    {isGenerating ? "Optimizing..." : "Run AI Optimization"}
-                  </Button>
-                </Card>
-
-                {/* Talent Pool */}
-                <Card className="p-4 glass border-glass-border">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Users className="w-4 h-4 text-neon-cyan" />
-                    <h4 className="font-medium text-sm">Talent Pool</h4>
-                  </div>
-                  <p className="text-2xl font-bold mb-1">{aiInsights.talentPoolSize.toLocaleString()}</p>
-                  <p className="text-xs text-muted-foreground">Available candidates</p>
-                </Card>
-
-                {/* Salary Benchmark */}
-                <Card className="p-4 glass border-glass-border">
-                  <div className="flex items-center gap-2 mb-3">
-                    <DollarSign className="w-4 h-4 text-neon-green" />
-                    <h4 className="font-medium text-sm">Salary Benchmark</h4>
-                  </div>
-                  <p className="text-xl font-bold mb-1">{aiInsights.salaryBenchmark}</p>
-                  <p className="text-xs text-muted-foreground">Market average</p>
-                </Card>
-
-                {/* Diversity Score */}
-                <Card className="p-4 glass border-glass-border">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Shield className="w-4 h-4 text-neon-purple" />
-                    <h4 className="font-medium text-sm">Diversity Score</h4>
-                  </div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xl font-bold">{aiInsights.diversityScore}%</span>
-                    <Badge className="bg-neon-green/20 text-neon-green border-0 text-xs">Excellent</Badge>
-                  </div>
-                  <p className="text-xs text-muted-foreground">No bias detected</p>
-                </Card>
-
-                {/* AI Suggestions */}
-                {aiInsights.suggestions.length > 0 && (
-                  <Card className="p-4 glass border-glass-border">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Lightbulb className="w-4 h-4 text-neon-yellow" />
-                      <h4 className="font-medium text-sm">Suggestions</h4>
-                    </div>
-                    <div className="space-y-2">
-                      {aiInsights.suggestions.map((suggestion, idx) => (
-                        <div key={idx} className="p-2 rounded bg-white/5 border border-glass-border">
-                          <p className="text-xs text-muted-foreground">{suggestion}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </Card>
-                )}
+              <div className="mt-4 flex items-center justify-between border-t border-glass-border pt-3">
+                <span className="text-xs text-white/45">
+                  {skills.length} competenc{skills.length === 1 ? "y" : "ies"}
+                  {anyWeight && <span className={weightsValid ? " text-neon-green" : " text-red-400"}> · Total {weightTotal}/100</span>}
+                </span>
+                <div className="flex items-center gap-4">
+                  <button onClick={() => setShowAddSkill((v) => !v)} className="flex items-center gap-1 text-sm font-semibold text-neon-cyan hover:opacity-80">
+                    <Plus className="size-4" /> Add skill
+                  </button>
+                  <button onClick={saveSkillsEdit} className="text-sm font-semibold text-neon-cyan hover:opacity-80">
+                    Save
+                  </button>
+                </div>
               </div>
             </div>
           )}
-        </div>
-      </div>
-    );
-  }
+        </section>
 
-  // Manual Entry Mode
-  if (mode === "manual") {
-    // If in review step, show review interface
-    if (step === "review") {
-      return (
-        <div className="min-h-screen bg-gradient-to-br from-background via-background to-background">
-          <div className="glass-strong border-b border-glass-border">
-            <div className="max-w-5xl mx-auto px-6 py-6">
-              <Button variant="ghost" onClick={() => setStep("input")} className="mb-4 text-muted-foreground hover:text-foreground">
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Edit
-              </Button>
+        {/* Screening questions */}
+        <section className={CARD}>
+          <div className="mb-1 flex items-center gap-2">
+            <ClipboardList className="size-5 text-neon-cyan" />
+            <h2 className="text-lg font-semibold text-white">Screening questions</h2>
+          </div>
+          <p className="mb-5 text-sm text-white/45">Pre-screen candidates with smart questions</p>
 
-              <div className="flex items-center justify-between">
-                <div>
-                  <h1 className="text-3xl font-bold bg-gradient-to-r from-neon-cyan via-neon-purple to-neon-pink bg-clip-text text-transparent">Review & Publish</h1>
-                  <p className="text-muted-foreground mt-2">Review your job posting and add screening questions</p>
+          {/* Template cards */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            {TEMPLATE_ORDER.map((cat) => {
+              const meta = CATEGORY_META[cat];
+              const added = categoriesPresent.has(cat);
+              return (
+                <div key={cat} className="flex flex-col gap-2 rounded-2xl border border-glass-border bg-white/[0.03] p-4">
+                  <div className="flex items-start justify-between">
+                    <span className={`rounded-md px-2 py-0.5 text-xs font-semibold ${meta.badge}`}>{meta.tag}</span>
+                    <button
+                      onClick={() => (added ? removeCategory(cat) : addTemplate(cat))}
+                      aria-label={added ? "Remove" : "Add"}
+                      className={`flex size-6 items-center justify-center rounded-full transition-colors ${added ? "bg-neon-cyan text-[#06060f]" : "border border-glass-border text-white/70 hover:border-neon-cyan/40 hover:text-white"}`}
+                    >
+                      {added ? <Check className="size-3.5" /> : <Plus className="size-3.5" />}
+                    </button>
+                  </div>
+                  <p className="text-sm font-semibold text-white">{meta.title}</p>
+                  <p className="text-xs text-white/45">{meta.description}</p>
+                  <p className="mt-1 text-xs text-white/45">{TEMPLATE_QUESTIONS[cat].length} questions</p>
                 </div>
+              );
+            })}
+          </div>
 
-                <Badge className="bg-neon-green/20 text-neon-green border-0">
-                  <CheckCircle2 className="w-3 h-3 mr-1" />
-                  Ready
-                </Badge>
+          {/* Grouped questions */}
+          {grouped.map(({ category, items }) => {
+            const meta = CATEGORY_META[category];
+            return (
+              <div key={category} className="mt-6">
+                <div className="mb-3 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className={`rounded-md px-2 py-0.5 text-xs font-semibold ${meta.badge}`}>{meta.tag}</span>
+                    <span className="text-sm font-semibold text-white">{meta.title}</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-xs">
+                    <span className="text-white/45">{items.length} question{items.length === 1 ? "" : "s"} added</span>
+                    <button onClick={() => removeCategory(category)} className="font-semibold text-red-400 hover:opacity-80">
+                      Remove
+                    </button>
+                  </div>
+                </div>
+                <div className="flex flex-col gap-3">
+                  {items.map((q, i) => (
+                    <QuestionCard
+                      key={q.id}
+                      index={i}
+                      q={q}
+                      onChangeTitle={(t) => updateQuestion(q.id, { title: t })}
+                      onChangeType={(t) => changeAnswerType(q.id, t)}
+                      onChangeExpected={(v) => updateQuestion(q.id, { expected_answer: v })}
+                      onToggleKnockout={(v) => updateQuestion(q.id, { is_knockout: v })}
+                      onDelete={() => removeQuestion(q.id)}
+                      onOptionChange={(idx, patch) => updateOption(q.id, idx, patch)}
+                      onOptionAdd={() => addOption(q.id)}
+                      onOptionRemove={(idx) => removeOption(q.id, idx)}
+                    />
+                  ))}
+                </div>
               </div>
+            );
+          })}
+
+          <button onClick={addCustomQuestion} className="mt-6 flex items-center gap-2 rounded-full border border-glass-border px-4 py-2.5 text-sm font-medium text-white transition-colors hover:border-neon-cyan/40">
+            <Plus className="size-4" /> Add Custom Question
+          </button>
+        </section>
+
+        {/* Internal Only (static) */}
+        <section className={CARD}>
+          <div className="mb-6 flex items-start justify-between gap-4">
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-2">
+                <Lock className="size-5 text-neon-cyan" />
+                <h2 className="text-lg font-semibold text-white">Internal Only (Private)</h2>
+              </div>
+              <p className="text-sm text-white/45">This information is visible only to you and designated approvers</p>
+            </div>
+            <span className="shrink-0 rounded-full bg-neon-purple/10 px-3 py-1.5 text-xs font-semibold text-neon-purple">Confidential</span>
+          </div>
+          <div className="flex flex-col gap-6">
+            <div>
+              <label className="mb-2 block text-[13px] text-white/70">Target Budget / Salary Ceiling (Optional)</label>
+              <input value={targetBudget} onChange={(e) => setTargetBudget(e.target.value)} placeholder="e.g., 150,000" className={`${INPUT} max-w-[220px]`} />
+              <p className="mt-2 text-xs text-white/40">This budget is never shown to candidates and won&apos;t appear in the public job posting</p>
+            </div>
+            <div>
+              <label className="mb-2 block text-[13px] text-white/70">Invite Approvers (Optional)</label>
+              <div className="flex max-w-md items-center gap-2 rounded-xl border border-glass-border bg-white/[0.04] px-4 py-2.5">
+                <Search className="size-4 shrink-0 text-white/45" />
+                <input placeholder="Search for team members to approve this job..." className="w-full bg-transparent text-sm text-white placeholder:text-white/45 focus:outline-none" />
+              </div>
+              <p className="mt-2 text-xs text-white/40">Selected approvers will receive an email notification to review and approve this job post</p>
             </div>
           </div>
+        </section>
 
-          <div className="max-w-5xl mx-auto px-6 py-8">
-            <Card className="p-6 glass border-glass-border">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="font-semibold">Job Preview</h3>
-                <Button size="sm" variant="outline" onClick={() => setStep("input")} className="border-neon-cyan/30 text-neon-cyan">
-                  <Edit2 className="w-3 h-3 mr-2" />
-                  Edit
-                </Button>
-              </div>
-
-              <div className="space-y-4 mb-6">
-                <div>
-                  <h4 className="text-xl font-bold">{jobData.job_title?.name}</h4>
-                </div>
-
-                <div className="flex flex-wrap gap-2">
-                  <Badge variant="secondary">{jobData.location}</Badge>
-                  <Badge variant="secondary">{jobData.work_type}</Badge>
-                </div>
-
-                <Separator />
-
-                <div>
-                  <h5 className="font-semibold mb-2">Description</h5>
-                  <p className="text-muted-foreground text-sm">{jobData.description}</p>
-                </div>
-              </div>
-
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={handleSaveDraft} className="flex-1 border-neon-cyan/30 text-neon-cyan">
-                  <Save className="w-4 h-4 mr-2" />
-                  Save Draft
-                </Button>
-                <Button onClick={() => setStep("questions")} className="flex-1 gradient-animated">
-                  <HelpCircle className="w-4 h-4 mr-2" />
-                  Add Screening Questions
-                </Button>
-              </div>
-            </Card>
-          </div>
-        </div>
-      );
-    }
-
-    // Default input form
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-background to-background">
-        <div className="glass-strong border-b border-glass-border">
-          <div className="max-w-5xl mx-auto px-6 py-6">
-            <Button variant="ghost" onClick={() => setMode("select")} className="mb-4 text-muted-foreground hover:text-foreground">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back
-            </Button>
-
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-neon-cyan via-neon-purple to-neon-pink bg-clip-text text-transparent">Post a Job</h1>
-            <p className="text-muted-foreground mt-2">Fill out the job details with AI assistance</p>
-          </div>
-        </div>
-
-        <div className="max-w-5xl mx-auto px-6 py-8">
-          <div className="space-y-6">
-            {/* AI Quick Fill Section */}
-            <Card className="p-6 glass border-glass-border">
-              <div className="flex items-center gap-2 mb-4">
-                <Sparkles className="w-5 h-5 text-neon-purple" />
-                <h3 className="font-semibold">Describe the Role</h3>
-              </div>
-
-              <Textarea
-                placeholder="Example: I need a backend engineer with 3+ years in Node.js & AWS to build scalable microservices for our career platform..."
-                value={aiPrompt}
-                onChange={(e) => setAiPrompt(e.target.value)}
-                className="glass border-glass-border min-h-32 mb-4"
-              />
-
-              <div className="flex items-center justify-between">
-                <p className="text-sm text-muted-foreground flex items-center gap-2">
-                  <Lightbulb className="w-4 h-4" />
-                  Tip: Include experience level, key skills, and main responsibilities
-                </p>
-
-                <Button onClick={handleAIGenerate} disabled={!aiPrompt.trim() || isGenerating} className="gradient-animated">
-                  {isGenerating ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin mr-2" />
-                      Generating...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-4 h-4 mr-2" />
-                      Generate Job Description
-                    </>
-                  )}
-                </Button>
-              </div>
-            </Card>
-
-            {/* Manual Form */}
-            <Card className="p-6 glass border-glass-border">
-              <div className="space-y-6">
-                {/* Basic Info */}
-                <div>
-                  <h3 className="font-semibold mb-4">Basic Information</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-sm font-medium mb-2 block">Job Title *</label>
-                      <Autocomplete
-                        value={jobData.job_title}
-                        onChange={(val) => setJobData((prev) => ({ ...prev, job_title: val }))}
-                        onSearch={(q) => searchJobTitles(q)}
-                        options={jobTitleResults}
-                        placeholder="Search job title..."
-                        icon={<Search className="h-4 w-4" />}
-                        inputClassName="glass border-glass-border focus:border-neon-cyan"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium mb-2 block">Company *</label>
-                      {/* <Input placeholder="e.g., Qelsa Technologies" value={jobData.company} onChange={(e) => handleManualUpdate("company", e.target.value)} className="glass border-glass-border" /> */}
-                      <Select value={jobData.page_id?.toString()} onValueChange={(value) => handleManualUpdate("page_id", Number(value))}>
-                        <SelectTrigger className="glass border-glass-border">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {my_pages?.map((page) => (
-                            <SelectItem key={page.id} value={page.id.toString()}>
-                              {page.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium mb-2 block">Location *</label>
-                      <Input placeholder="e.g., San Francisco, CA" value={jobData.location} onChange={(e) => handleManualUpdate("location", e.target.value)} className="glass border-glass-border" />
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium mb-2 block">Work Type *</label>
-                      <Select value={jobData.work_type} onValueChange={(value) => handleManualUpdate("work_type", value)}>
-                        <SelectTrigger className="glass border-glass-border">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="full-time">Full-time</SelectItem>
-                          <SelectItem value="part-time">Part-time</SelectItem>
-                          <SelectItem value="contract">Contract</SelectItem>
-                          <SelectItem value="internship">Internship</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium mb-2 block">Workplace Type *</label>
-                      <Select value={jobData.workplace_type} onValueChange={(value) => handleManualUpdate("workplace_type", value)}>
-                        <SelectTrigger className="glass border-glass-border">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="on-site">On-site</SelectItem>
-                          <SelectItem value="hybrid">Hybrid</SelectItem>
-                          <SelectItem value="remote">Remote</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium mb-2 block">Experience *</label>
-                      <Select value={String(jobData.experience)} onValueChange={(value) => handleManualUpdate("experience", Number(value))}>
-                        <SelectTrigger className="glass border-glass-border">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="0">0 years</SelectItem>
-                          <SelectItem value="1">1 years</SelectItem>
-                          <SelectItem value="2">2 years</SelectItem>
-                          <SelectItem value="3">3 years</SelectItem>
-                          <SelectItem value="5">5 years</SelectItem>
-                          <SelectItem value="7">7 years</SelectItem>
-                          <SelectItem value="10">10 years</SelectItem>
-                          <SelectItem value="12">12 years</SelectItem>
-                          <SelectItem value="15">15 years</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium mb-2 block">Salary Range (₹)</label>
-                      <Input
-                        placeholder="e.g., 5L - 8L"
-                        value={jobData.salary_range}
-                        onChange={(e) => handleManualUpdate("salary_range", e.target.value)}
-                        className="glass border-glass-border"
-                      />
-                      {salaryRangeInvalid ? (
-                        <p className="text-xs text-destructive mt-1">Enter a range like “5L - 8L”, “80k - 120k” or “500000 - 800000”.</p>
-                      ) : (
-                        formatSalaryRange(jobData.salary_range) && <p className="text-xs text-muted-foreground mt-1">{formatSalaryRange(jobData.salary_range)}</p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Competency Framework (Skills) */}
-                  <div>
-                    {!skillsEditMode ? (
-                      /* ===== VIEW MODE ===== */
-                      <div className="glass border border-glass-border rounded-xl p-4">
-                        <div className="flex items-center justify-between mb-3">
-                          <h4 className="font-semibold">Competency framework</h4>
-                          <Button variant="ghost" size="sm" onClick={enterSkillsEdit} className="text-neon-cyan hover:text-neon-cyan">
-                            <Edit2 className="w-4 h-4 mr-1" />
-                            Edit
-                          </Button>
-                        </div>
-                        {jobData.skills.length === 0 ? (
-                          <p className="text-sm text-muted-foreground">No competencies defined yet. Click Edit to add required skills.</p>
-                        ) : (
-                          <div className="space-y-1">
-                            {jobData.skills.map((skill) => (
-                              <div key={skill.id} className="flex items-center gap-2 flex-wrap py-2 border-b border-glass-border last:border-0">
-                                <span className="text-sm font-medium">{skill.name}</span>
-                                <Badge variant="outline" className="text-xs border-neon-cyan/30 text-neon-cyan">
-                                  {proficiencyLabel(skill.proficiency)}
-                                </Badge>
-                                <Badge variant="outline" className={`text-xs border-current ${typeTextColor(skill.type)}`}>
-                                  {jobSkillTypeLabel(skill.type)}
-                                </Badge>
-                                {skill.weight !== "" && skill.weight != null && <span className="ml-auto text-xs text-muted-foreground">{skill.weight}%</span>}
-                              </div>
-                            ))}
-                            <div className="pt-2 text-xs text-muted-foreground">
-                              {jobData.skills.length} competenc{jobData.skills.length === 1 ? "y" : "ies"}
-                              {anyWeight && <span className={weightsValid ? "text-neon-green" : "text-destructive"}> · Total {weightTotal}/100</span>}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      /* ===== EDIT MODE ===== */
-                      <div className="glass border border-glass-border rounded-xl p-4">
-                        <div className="flex items-center justify-between mb-4">
-                          <h4 className="font-semibold">Competency framework</h4>
-                          <Button variant="ghost" size="sm" onClick={cancelSkillsEdit} className="text-muted-foreground">
-                            Cancel
-                          </Button>
-                        </div>
-
-                        <div className="flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2 mb-4">
-                          <Info className="w-4 h-4 text-blue-400 flex-shrink-0" />
-                          <span className="text-xs text-blue-300">Candidates see match scores only — not this framework.</span>
-                        </div>
-
-                        {jobData.skills.length > 0 && (
-                          <>
-                            <div className="hidden md:grid grid-cols-12 gap-2 px-2 pb-2 text-[10px] uppercase tracking-wide text-muted-foreground">
-                              <span className="col-span-5 pl-6">Skill</span>
-                              <span className="col-span-3">Proficiency</span>
-                              <span className="col-span-2">Type</span>
-                              <span className="col-span-2">Weight</span>
-                            </div>
-                            <div className="space-y-2">
-                              {jobData.skills.map((skill) => (
-                                <div key={skill.id} className="grid grid-cols-12 gap-2 items-center">
-                                  <div className="col-span-12 md:col-span-5 flex items-center gap-2">
-                                    <GripVertical className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                                    <Input value={skill.name} readOnly className="glass border-glass-border text-sm" />
-                                  </div>
-                                  <select
-                                    value={skill.proficiency}
-                                    onChange={(e) => updateSkillField(skill.id, "proficiency", e.target.value as ProficiencyLevel)}
-                                    className="col-span-5 md:col-span-3 text-sm glass border border-glass-border rounded-lg px-2 py-2 bg-transparent focus:border-neon-cyan focus:outline-none"
-                                  >
-                                    {PROFICIENCY_LEVELS.map((p) => (
-                                      <option key={p.value} value={p.value} className="bg-gray-900">
-                                        {p.label}
-                                      </option>
-                                    ))}
-                                  </select>
-                                  <select
-                                    value={skill.type}
-                                    onChange={(e) => updateSkillField(skill.id, "type", e.target.value as JobSkillType)}
-                                    className={`col-span-4 md:col-span-2 text-sm glass border border-glass-border rounded-lg px-2 py-2 bg-transparent focus:border-neon-cyan focus:outline-none font-medium ${typeTextColor(skill.type)}`}
-                                  >
-                                    {JOB_SKILL_TYPES.map((t) => (
-                                      <option key={t.value} value={t.value} className="bg-gray-900 text-white">
-                                        {t.label}
-                                      </option>
-                                    ))}
-                                  </select>
-                                  <div className="col-span-2 md:col-span-1 relative">
-                                    <Input
-                                      type="number"
-                                      min={0}
-                                      max={100}
-                                      value={skill.weight}
-                                      onChange={(e) => updateSkillField(skill.id, "weight", e.target.value === "" ? "" : Number(e.target.value))}
-                                      className="glass border-glass-border focus:border-neon-cyan text-sm pr-5"
-                                    />
-                                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">%</span>
-                                  </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => removeSkill(skill.id)}
-                                    className="col-span-1 justify-self-end text-muted-foreground hover:text-destructive transition-colors"
-                                    aria-label="Remove skill"
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </button>
-                                </div>
-                              ))}
-                            </div>
-                          </>
-                        )}
-
-                        {/* Add-skill search (revealed by "+ Add skill") */}
-                        {showAddSkill && (
-                          <div className="mt-3">
-                            <Autocomplete
-                              value={null}
-                              onChange={(sel) => {
-                                addSkill(sel);
-                                setShowAddSkill(false);
-                              }}
-                              onSearch={(q) => searchSkills(q || undefined)}
-                              options={skillResults}
-                              placeholder="Search a skill to add..."
-                              icon={<Search className="h-4 w-4" />}
-                              inputClassName="glass border-glass-border focus:border-neon-cyan"
-                            />
-                          </div>
-                        )}
-
-                        {anyWeight && !weightsValid && (
-                          <p className="text-xs text-destructive mt-3">Weights must be filled on every skill and sum to exactly 100 — or left blank on all.</p>
-                        )}
-
-                        {/* Footer */}
-                        <div className="flex items-center justify-between mt-4 pt-3 border-t border-glass-border">
-                          <span className="text-xs text-muted-foreground">
-                            {jobData.skills.length} competenc{jobData.skills.length === 1 ? "y" : "ies"}
-                            {anyWeight && <span className={weightsValid ? "text-neon-green" : "text-destructive"}> · Total: {weightTotal}/100</span>}
-                          </span>
-                          <div className="flex items-center gap-4">
-                            <Button variant="ghost" size="sm" onClick={() => setShowAddSkill((v) => !v)} className="text-neon-cyan hover:text-neon-cyan">
-                              <Plus className="w-4 h-4 mr-1" />
-                              Add skill
-                            </Button>
-                            <Button size="sm" onClick={saveSkillsEdit} className="text-neon-cyan hover:text-neon-cyan bg-transparent hover:bg-transparent px-0">
-                              Save
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <Separator />
-
-                {/* Description */}
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="text-sm font-medium">Job Description *</label>
-                    <Button size="sm" variant="ghost" className="text-neon-purple text-xs">
-                      <Wand2 className="w-3 h-3 mr-1" />
-                      AI Improve
-                    </Button>
-                  </div>
-                  <Textarea
-                    placeholder="Describe the role, responsibilities, and what makes this position unique..."
-                    value={jobData.description}
-                    onChange={(e) => handleManualUpdate("description", e.target.value)}
-                    className="glass border-glass-border min-h-32"
-                  />
-                  {jobData.description && jobData.description.length < 100 && (
-                    <p className="text-xs text-neon-yellow mt-2 flex items-center gap-1">
-                      <AlertCircle className="w-3 h-3" />
-                      AI suggests adding more details (min 100 characters for better reach)
-                    </p>
-                  )}
-                </div>
-
-                <Separator />
-
-                {/* Screening Questions Section */}
-                <div>
-                  <div className="flex items-center justify-between cursor-pointer p-4 rounded-lg hover:bg-white/5 transition-all" onClick={() => setShowScreeningQuestions(!showScreeningQuestions)}>
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-neon-purple/20 flex items-center justify-center">
-                        <MessageSquare className="w-5 h-5 text-neon-purple" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold">Add Screening Questions</h3>
-                        <p className="text-sm text-muted-foreground">
-                          {jobData.screening_questions && jobData.screening_questions.length > 0
-                            ? `${jobData.screening_questions.length} question${jobData.screening_questions.length !== 1 ? "s" : ""} added`
-                            : "Pre-screen candidates with smart questions"}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {jobData.screening_questions && jobData.screening_questions.length > 0 && (
-                        <Badge className="bg-neon-purple/20 text-neon-purple border-0">{jobData.screening_questions.length}</Badge>
-                      )}
-                      <Button variant="ghost" size="sm" className="text-neon-cyan">
-                        {showScreeningQuestions ? (
-                          <>
-                            <X className="w-4 h-4 mr-1" />
-                            Hide
-                          </>
-                        ) : (
-                          <>
-                            <Plus className="w-4 h-4 mr-1" />
-                            Add
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-
-                  {showScreeningQuestions && (
-                    <div className="mt-4 p-4 rounded-lg border border-glass-border bg-white/5">
-                      <ScreeningQuestionsBuilder
-                        questions={jobData.screening_questions || []}
-                        onChange={handleScreeningQuestionsChange}
-                        jobTitle={jobData.job_title?.name ?? ""}
-                        jobDescription={jobData.description}
-                        isPremium={isPremium}
-                      />
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex gap-3 pt-4">
-                  <Button variant="outline" onClick={handleSaveDraft} className="flex-1 border-neon-cyan/30 text-neon-cyan">
-                    <Save className="w-4 h-4 mr-2" />
-                    Save Draft
-                  </Button>
-                  <Button onClick={handlePublish} disabled={!jobData.job_title || !jobData.description} className="flex-1 gradient-animated">
-                    <Send className="w-4 h-4 mr-2" />
-                    Post
-                  </Button>
-                </div>
-              </div>
-            </Card>
-          </div>
+        {/* Preview bar (static) */}
+        <div className="flex items-center justify-between rounded-[20px] border border-glass-border bg-white/[0.06] px-5 py-4">
+          <span className="flex items-center gap-2 text-sm text-white/80">
+            <Eye className="size-5" /> Preview: What candidates will see
+          </span>
+          <button onClick={() => toast.info("Live preview is coming soon.")} className="flex items-center gap-1.5 text-sm font-semibold text-neon-cyan hover:opacity-80">
+            Live Preview <ExternalLink className="size-3.5" />
+          </button>
         </div>
       </div>
-    );
-  }
 
-  return null;
+      {/* Action bar */}
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-glass-border bg-[#06060f]/90 backdrop-blur">
+        <div className="mx-auto flex max-w-[1200px] items-center justify-between px-6 py-4 md:px-12">
+          <button onClick={() => toast.info("Draft saving is coming soon.")} className="rounded-full border border-white/20 px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-white/5">
+            Save draft
+          </button>
+          <button
+            onClick={handlePublish}
+            disabled={isLoading}
+            className={`flex items-center gap-2 rounded-full px-6 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50 ${GRADIENT}`}
+          >
+            <Send className="size-4" /> {isLoading ? "Publishing..." : "Publish job"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
+
+/* ------------------------------ sub-components ----------------------------- */
+
+function Field({ label, required, hint, error, children }: { label: string; required?: boolean; hint?: string; error?: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-2">
+      <label className="text-[13px] text-white/70">
+        {label}
+        {required && <span className="ml-0.5 text-red-400">*</span>}
+      </label>
+      {children}
+      {error ? <p className="text-xs text-red-400">{error}</p> : hint ? <p className="text-xs text-white/45">{hint}</p> : null}
+    </div>
+  );
+}
+
+function SelectInput({ value, onChange, children, placeholder }: { value: string; onChange: (v: string) => void; children: React.ReactNode; placeholder?: string }) {
+  return (
+    <div className="relative">
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={`${INPUT} cursor-pointer appearance-none pr-10 ${value ? "" : "text-white/45"}`}
+      >
+        {placeholder && (
+          <option value="" disabled className="bg-[#0d0d1a] text-white/45">
+            {placeholder}
+          </option>
+        )}
+        <>{children}</>
+      </select>
+      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-white/45" />
+    </div>
+  );
+}
+
+interface QuestionCardProps {
+  index: number;
+  q: ScreeningQ;
+  onChangeTitle: (t: string) => void;
+  onChangeType: (t: QAnswerType) => void;
+  onChangeExpected: (v: string) => void;
+  onToggleKnockout: (v: boolean) => void;
+  onDelete: () => void;
+  onOptionChange: (idx: number, patch: Partial<SQOption>) => void;
+  onOptionAdd: () => void;
+  onOptionRemove: (idx: number) => void;
+}
+
+function QuestionCard({ index, q, onChangeTitle, onChangeType, onChangeExpected, onToggleKnockout, onDelete, onOptionChange, onOptionAdd, onOptionRemove }: QuestionCardProps) {
+  const isCustom = q.category === "custom";
+  const selectCls = `${INPUT} h-9 cursor-pointer appearance-none pr-9`;
+  return (
+    <div className="rounded-2xl border border-glass-border bg-white/[0.03] p-3">
+      {/* top row */}
+      <div className="flex items-start gap-3">
+        <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md bg-white/10 text-[11px] font-bold text-white">Q{index + 1}</span>
+        {isCustom ? (
+          <input
+            value={q.title}
+            onChange={(e) => onChangeTitle(e.target.value)}
+            placeholder="Type your question..."
+            className="min-w-0 flex-1 rounded-lg border border-glass-border bg-white/[0.04] px-3 py-1.5 text-sm text-white placeholder:text-white/45 focus:border-neon-cyan focus:outline-none"
+          />
+        ) : (
+          <p className="min-w-0 flex-1 text-sm text-white">{q.title}</p>
+        )}
+        {q.is_knockout && (
+          <span className="flex shrink-0 items-center gap-1 rounded-md bg-red-500/10 px-2 py-1 text-[11px] font-semibold text-red-400">
+            <AlertCircle className="size-3.5" /> Knockout
+          </span>
+        )}
+        <button onClick={onDelete} aria-label="Delete question" className="shrink-0 text-white/40 hover:text-red-400">
+          <Trash2 className="size-4" />
+        </button>
+      </div>
+
+      {/* config row */}
+      <div className="mt-3 flex flex-wrap items-end gap-3">
+        <div className="min-w-[180px] flex-1">
+          <label className="mb-1 block text-xs text-white/45">Answer type</label>
+          <div className="relative">
+            <select value={q.type} onChange={(e) => onChangeType(e.target.value as QAnswerType)} className={selectCls}>
+              <option value="yes_no" className="bg-[#0d0d1a]">Yes / No</option>
+              <option value="multiple_choice" className="bg-[#0d0d1a]">Multiple choice</option>
+              <option value="short_text" className="bg-[#0d0d1a]">Short text</option>
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-white/45" />
+          </div>
+        </div>
+
+        {q.type === "yes_no" && (
+          <div className="min-w-[180px] flex-1">
+            <label className="mb-1 block text-xs text-white/45">Expected answer</label>
+            <div className="relative">
+              <select value={q.expected_answer ?? "yes"} onChange={(e) => onChangeExpected(e.target.value)} className={selectCls}>
+                <option value="yes" className="bg-[#0d0d1a]">Yes</option>
+                <option value="no" className="bg-[#0d0d1a]">No</option>
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-white/45" />
+            </div>
+          </div>
+        )}
+
+        <div className="w-[160px]">
+          <label className="mb-1 block text-xs text-white/45">Knockout</label>
+          <Toggle on={q.is_knockout} onChange={onToggleKnockout} />
+        </div>
+      </div>
+
+      {/* MC options */}
+      {q.type === "multiple_choice" && (
+        <div className="mt-3">
+          <p className="mb-2 text-xs text-white/45">Select acceptable answers — candidates who choose other options will be auto-rejected</p>
+          <div className="flex flex-col gap-2">
+            {(q.options ?? []).map((o, idx) => (
+              <div key={idx} className="flex items-center gap-3">
+                <button
+                  onClick={() => onOptionChange(idx, { is_correct: !o.is_correct })}
+                  aria-label={o.is_correct ? "Acceptable" : "Not acceptable"}
+                  className={`flex size-5 shrink-0 items-center justify-center rounded-md border transition-colors ${o.is_correct ? "border-neon-cyan bg-neon-cyan text-[#06060f]" : "border-glass-border bg-white/[0.04]"}`}
+                >
+                  {o.is_correct && <Check className="size-3.5" />}
+                </button>
+                <input
+                  value={o.title}
+                  onChange={(e) => onOptionChange(idx, { title: e.target.value })}
+                  className="min-w-0 flex-1 rounded-lg border border-glass-border bg-white/[0.04] px-3 py-1.5 text-sm text-white focus:border-neon-cyan focus:outline-none"
+                />
+                <button onClick={() => onOptionRemove(idx)} aria-label="Remove option" className="shrink-0 text-white/40 hover:text-red-400">
+                  <Trash2 className="size-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+          <button onClick={onOptionAdd} className="mt-2 text-sm font-semibold text-neon-cyan hover:opacity-80">
+            + Add option
+          </button>
+        </div>
+      )}
+
+      {q.is_knockout && q.type !== "multiple_choice" && <p className="mt-3 text-xs text-white/40">Auto-reject if answer doesn&apos;t match</p>}
+    </div>
+  );
+}
+
+function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button
+      onClick={() => onChange(!on)}
+      className={`flex h-9 w-full items-center justify-between rounded-xl border px-3 transition-colors ${on ? "border-neon-cyan/40 bg-neon-cyan/10" : "border-glass-border bg-white/[0.04]"}`}
+    >
+      <span className={`text-sm font-medium ${on ? "text-neon-cyan" : "text-white/60"}`}>{on ? "On" : "Off"}</span>
+      <span className={`relative h-5 w-9 rounded-full transition-colors ${on ? "bg-neon-cyan" : "bg-white/20"}`}>
+        <span className={`absolute top-0.5 size-4 rounded-full bg-white transition-all ${on ? "left-[18px]" : "left-0.5"}`} />
+      </span>
+    </button>
+  );
+}
+
+export default JobPostingPage;

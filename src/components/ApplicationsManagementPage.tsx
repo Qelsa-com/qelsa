@@ -2,6 +2,7 @@ import { jobSkillTypeLabel, proficiencyLabel } from "@/constants/skills";
 import { useEditBulkStatusMutation, useGetJobApplicationDetailQuery, useGetJobApplicationsQuery } from "@/features/api/jobApplicationsApi";
 import { useGetJobByIdQuery } from "@/features/api/jobsApi";
 import { AlertTriangle, Archive, ArrowLeft, ArrowRight, ChevronDown, ChevronLeft, ChevronRight, Download, Lock, Mail, MessageCircle, Phone, Send, Share2, Star, Users, XCircle } from "lucide-react";
+import { JobApplicationAnswer } from "@/types/jobApplicationAnswers";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 import { CandidateNLPSearch } from "./CandidateNLPSearch";
@@ -24,6 +25,21 @@ const competencyTypeStyles: Record<string, string> = {
   core: "bg-orange-500/10 text-orange-500",
   preferred: "bg-neon-yellow/10 text-neon-yellow",
   nice_to_have: "bg-white/4 text-white/45",
+};
+
+/**
+ * Reads the knockout / requirement-evaluation signal off a screening answer.
+ * Tolerates a few field-name variants the API may use; `meets` is null when the
+ * question isn't evaluated (open-ended answers), which hides the status row.
+ */
+const screeningEval = (answer: JobApplicationAnswer): { knockout: boolean; meets: boolean | null } => {
+  const bag = answer as Record<string, unknown>;
+  const knockout = Boolean(answer.is_knockout ?? bag.knockout ?? bag.is_knockout_question);
+  const rawMeets = answer.meets_requirement ?? bag.meets ?? bag.is_match ?? bag.passed;
+  let meets: boolean | null = null;
+  if (typeof rawMeets === "boolean") meets = rawMeets;
+  else if (typeof bag.does_not_meet === "boolean") meets = !bag.does_not_meet;
+  return { knockout, meets };
 };
 
 const readinessStyles = (readiness: number) => {
@@ -608,12 +624,31 @@ export function ApplicationsManagementPage() {
                   <>
                     <div className="flex flex-col gap-3">
                       <p className="text-[13px] font-semibold text-white/80">Screening Questions</p>
-                      {selectedApplication.job_application_answers.map((answer, idx) => (
-                        <div key={idx} className="flex flex-col gap-2 rounded-xl border border-white/8 bg-white/4 px-4 py-3">
-                          <p className="text-[13px] font-medium text-white">{answer.question}</p>
-                          <p className="text-[13px] text-white/50">{answer.answer}</p>
-                        </div>
-                      ))}
+                      {selectedApplication.job_application_answers.map((answer, idx) => {
+                        const { knockout, meets } = screeningEval(answer);
+                        return (
+                          <div key={idx} className="flex flex-col gap-2 rounded-xl border border-white/8 bg-white/4 px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <p className="flex-1 text-[13px] font-medium text-white">{answer.question}</p>
+                              {knockout && (
+                                <span className="flex shrink-0 items-center gap-1 rounded-full bg-red-500/15 px-2 py-0.5 text-[10px] font-semibold text-red-400">
+                                  <AlertTriangle className="size-3" />
+                                  Knockout
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[13px] text-white/50">{answer.answer}</p>
+                            {meets !== null && (
+                              <div className="flex items-center gap-1.5">
+                                <span className={`size-2 shrink-0 rounded-full ${meets ? "bg-neon-green" : "bg-red-400"}`} />
+                                <span className={`text-xs font-medium ${meets ? "text-neon-green" : "text-red-400"}`}>
+                                  {meets ? "Meets requirement" : "Does not meet requirement"}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                     <div className="h-px w-full bg-white/12" />
                   </>
