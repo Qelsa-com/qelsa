@@ -1,5 +1,6 @@
 import { useCreateEducationMutation, useDeleteEducationMutation, useGetEducationsQuery, useUpdateEducationMutation, useUpdateEducationsPositionMutation } from "@/features/api/educationsApi";
-import { useGetDegreeNamesQuery, useGetFieldsOfStudyQuery, useLazyGetCollegesQuery } from "@/features/api/seedApi";
+import { useGetDegreeNamesQuery, useGetFieldsOfStudyQuery, useLazyGetCollegesQuery, useLazySearchCitiesQuery } from "@/features/api/seedApi";
+import { formatCity } from "@/constants/city";
 import { College, Education } from "@/types/education";
 import { ArrowLeft, Award, Calendar, Check, Edit3, FileText, FolderOpen, GraduationCap, GripVertical, MapPin, Plus, Search, Sparkles, Trash2, Trophy, Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -27,6 +28,7 @@ export function EducationEditorPage() {
   const [updateEducationsPosition, { isLoading: isUpdatingPosition, error: updatePositionError }] = useUpdateEducationsPositionMutation();
 
   const [triggerCollegeSearch, { data: collegeOptions = [] }] = useLazyGetCollegesQuery();
+  const [triggerCitySearch, { data: cityResults = [] }] = useLazySearchCitiesQuery();
 
   const [degreeSearch, setDegreeSearch] = useState("");
   const [fieldSearch, setFieldSearch] = useState("");
@@ -52,7 +54,7 @@ export function EducationEditorPage() {
   const emptyForm: Partial<Education> = {
     degree: undefined,
     college: undefined,
-    location: "",
+    city: undefined,
     start_year: null,
     end_year: null,
     field_of_study: undefined,
@@ -79,7 +81,7 @@ export function EducationEditorPage() {
   };
 
   const handleSaveEducation = () => {
-    if (!formData.degree || !formData.college || !formData.start_year || !formData.end_year || !formData.field_of_study || !formData.location) {
+    if (!formData.degree || !formData.college || !formData.start_year || !formData.end_year || !formData.field_of_study || !formData.city) {
       toast.error("Please fill in all required fields");
       return;
     }
@@ -87,7 +89,7 @@ export function EducationEditorPage() {
     let newEducation: Education = {
       degree: formData.degree!,
       college: { id: formData.college!.id } as College,
-      location: formData.location!,
+      city: formData.city,
       start_year: formData.start_year!,
       end_year: formData.end_year!,
       field_of_study: formData.field_of_study!,
@@ -271,10 +273,12 @@ export function EducationEditorPage() {
                           </h3>
                           <p className="text-neon-purple">{edu.college?.name}</p>
                           <div className="flex flex-wrap gap-3 mt-2 text-sm text-muted-foreground">
-                            <span className="flex items-center gap-1">
-                              <MapPin className="h-3 w-3" />
-                              {edu.location}
-                            </span>
+                            {edu.city && (
+                              <span className="flex items-center gap-1">
+                                <MapPin className="h-3 w-3" />
+                                {formatCity(edu.city)}
+                              </span>
+                            )}
                             <span className="flex items-center gap-1">
                               <Calendar className="h-3 w-3" />
                               {edu.start_year} - {edu.end_year}
@@ -410,17 +414,27 @@ export function EducationEditorPage() {
                   />
                 </div>
 
-                {/* Location */}
+                {/* City Search-Select */}
                 <div className="space-y-2">
-                  <Label htmlFor="location" className="text-white">
-                    Location <span className="text-destructive">*</span>
+                  <Label htmlFor="city" className="text-white">
+                    City <span className="text-destructive">*</span>
                   </Label>
-                  <Input
-                    id="location"
-                    value={formData.location}
-                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                    placeholder="e.g., New Delhi, India"
-                    className="glass border-glass-border focus:border-neon-purple"
+                  <Autocomplete
+                    id="city"
+                    value={formData.city ?? null}
+                    onChange={(city) => setFormData({ ...formData, city: city ?? undefined })}
+                    onSearch={triggerCitySearch}
+                    options={cityResults}
+                    placeholder="Search city..."
+                    icon={<Search className="h-4 w-4" />}
+                    getInputLabel={formatCity}
+                    renderOption={(city) => (
+                      <>
+                        <MapPin className="h-4 w-4 text-neon-purple flex-shrink-0" />
+                        {formatCity(city)}
+                      </>
+                    )}
+                    inputClassName="glass border-glass-border focus:border-neon-purple"
                   />
                 </div>
 

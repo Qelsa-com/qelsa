@@ -3,7 +3,7 @@ import { useCreateExperienceMutation, useDeleteExperienceMutation, useGetExperie
 import { useLazySearchJobTitlesQuery } from "@/features/api/jobTitlesApi";
 import { useLazySearchCitiesQuery } from "@/features/api/seedApi";
 import { useGetUserSkillsQuery } from "@/features/api/userSkillsApi";
-import { City } from "@/types/city";
+import { formatCity } from "@/constants/city";
 import { Experience } from "@/types/experience";
 import { ImpactMetric } from "@/types/impactMetric";
 import { Skill } from "@/types/userSkill";
@@ -20,9 +20,6 @@ import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
 
 const METRIC_TYPES = ["Revenue", "Cost Savings", "User Growth", "Efficiency Improvement", "Customer Satisfaction", "Team Performance", "Time Saved", "Quality Improvement"];
-
-/** "Bangalore, Karnataka" — falls back to just the city name when the state is not loaded. */
-const formatCity = (city: City) => (city.state?.name ? `${city.name}, ${city.state.name}` : city.name);
 
 
 export function WorkExperienceEditorPage() {

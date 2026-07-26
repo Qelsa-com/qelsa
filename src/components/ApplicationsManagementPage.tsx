@@ -1,3 +1,4 @@
+import { formatCity } from "@/constants/city";
 import { jobSkillTypeLabel, proficiencyLabel } from "@/constants/skills";
 import { useEditBulkStatusMutation, useGetJobApplicationDetailQuery, useGetJobApplicationsQuery } from "@/features/api/jobApplicationsApi";
 import { useGetJobByIdQuery } from "@/features/api/jobsApi";
@@ -433,8 +434,8 @@ export function ApplicationsManagementPage() {
                     <p className="text-lg font-semibold text-white">{selectedApplication.user?.name}</p>
                     {selectedApplication.user?.headline && <p className="text-sm text-white/60">{selectedApplication.user.headline}</p>}
                     <div className="flex items-center gap-2 text-[13px] text-white/50">
-                      {(selectedApplication.user?.location || selectedApplication.user?.city) && <span>{selectedApplication.user.location ?? selectedApplication.user.city}</span>}
-                      {(selectedApplication.user?.location || selectedApplication.user?.city) && candidateYears != null && <span>•</span>}
+                      {selectedApplication.user?.city && <span>{formatCity(selectedApplication.user.city)}</span>}
+                      {selectedApplication.user?.city && candidateYears != null && <span>•</span>}
                       {candidateYears != null && <span>{candidateYears} yrs</span>}
                     </div>
                   </div>

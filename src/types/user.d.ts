@@ -1,3 +1,4 @@
+import { City } from "./city";
 import { Education } from "./education";
 import { Experience } from "./experience";
 import { UserSkill } from "./userSkill";
@@ -45,7 +46,6 @@ export type User = {
   expected_max_salary?: number;
   expected_salary_currency?: string;
   nationality?: string;
-  location?: string;
   phone?: string;
   username?: string;
   custom_profile_url?: string;
@@ -69,7 +69,7 @@ export type User = {
   is_active?: boolean;
   about?: string;
   last_login_at?: string;
-  city?: string;
+  city?: City;
   relocate_location?: string;
   show_phone_number?: boolean
 

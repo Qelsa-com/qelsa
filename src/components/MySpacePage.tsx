@@ -4,7 +4,7 @@ import { useGetEducationsQuery } from "@/features/api/educationsApi";
 import { useGetExperiencesQuery } from "@/features/api/experiencesApi";
 import { useGetUserSkillsQuery } from "@/features/api/userSkillsApi";
 import { ProficiencyLevel, proficiencyLabel } from "@/constants/skills";
-import { City } from "@/types/city";
+import { formatCity } from "@/constants/city";
 import {
   Activity,
   ArrowRight,
@@ -46,9 +46,6 @@ import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import { Progress } from "./ui/progress";
 import { Separator } from "./ui/separator";
-
-/** "Bangalore, Karnataka" — falls back to just the city name when the state is not loaded. */
-const formatCity = (city: City) => (city.state?.name ? `${city.name}, ${city.state.name}` : city.name);
 
 interface MySpacePageProps {}
 

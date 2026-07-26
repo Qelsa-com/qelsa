@@ -1,4 +1,5 @@
 import { Achievement } from "./achievement";
+import { City } from "./city";
 import { DegreeName } from "./degreeName";
 import { FieldOfStudy } from "./fieldOfStudy";
 import { Project } from "./project";
@@ -19,7 +20,7 @@ export type Education = {
   end_year?: number;
   grade?: string;
   description?: string;
-  location?: string;
+  city?: City;
   projects?: Project[];
   achievements?: Achievement[];
 };

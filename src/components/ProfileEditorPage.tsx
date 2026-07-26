@@ -1,4 +1,6 @@
+import { formatCity } from "@/constants/city";
 import { useGetProfileQuery, useUpdateProfileMutation } from "@/features/api/authApi";
+import { useLazySearchCitiesQuery } from "@/features/api/seedApi";
 import { CulturePreference, User as UserProfile } from "@/types/user";
 import {
   AlertTriangle,
@@ -51,6 +53,7 @@ import {
 import { useRouter } from "next/navigation";
 import React, { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { Autocomplete } from "./ui/autocomplete";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
@@ -163,7 +166,7 @@ const initialUser: UserProfile = {
   expected_max_salary: 3500000,
   expected_salary_currency: "INR",
   nationality: "India",
-  location: "Bangalore",
+  city: undefined,
   phone: "",
   username: "",
   custom_profile_url: "",
@@ -219,6 +222,7 @@ export function ProfileEditorPage() {
 
   const { data: user, isFetching } = useGetProfileQuery();
   const [updateProfile, { isLoading: isUpdating }] = useUpdateProfileMutation();
+  const [triggerCitySearch, { data: cityResults = [] }] = useLazySearchCitiesQuery();
 
   useEffect(() => {
     if (user) {
@@ -982,15 +986,20 @@ export function ProfileEditorPage() {
                       <Label htmlFor="city" className="text-white">
                         City <span className="text-destructive">*</span>
                       </Label>
-                      <Input
+                      <Autocomplete
                         id="city"
-                        value={profile.city}
-                        onChange={(e) => {
-                          setProfile({ ...profile, city: e.target.value });
+                        value={profile.city ?? null}
+                        onChange={(city) => {
+                          setProfile({ ...profile, city: city ?? undefined });
                           setIsDraft(true);
                         }}
-                        placeholder="Bangalore"
-                        className="glass border-glass-border focus:border-neon-cyan"
+                        onSearch={triggerCitySearch}
+                        options={cityResults}
+                        placeholder="Search city..."
+                        icon={<MapPin className="h-4 w-4" />}
+                        getInputLabel={formatCity}
+                        renderOption={(city) => formatCity(city)}
+                        inputClassName="glass border-glass-border focus:border-neon-cyan"
                       />
                     </div>
                   </div>

@@ -1,3 +1,4 @@
+import { formatCity } from "@/constants/city";
 import { useAuth } from "@/contexts/AuthContext";
 import { Award, Bell, Briefcase, Calendar, Github, Globe, GraduationCap, Linkedin, LogOut, Mail, MapPin, Settings, Shield, Twitter, User, X } from "lucide-react";
 import { Button } from "./ui/button";
@@ -59,7 +60,7 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
             {user?.city && (
               <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground mb-3">
                 <MapPin className="h-3 w-3" />
-                <span>{user.city}</span>
+                <span>{formatCity(user.city)}</span>
               </div>
             )}
 
