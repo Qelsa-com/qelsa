@@ -1,3 +1,4 @@
+import { formatCity } from "@/constants/city";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGetJobsQuery } from "@/features/api/jobsApi";
 import { Job } from "@/types/job";
@@ -316,7 +317,7 @@ export function CompanyPage() {
                         <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
                           <div className="flex items-center gap-1">
                             <MapPin className="w-4 h-4" />
-                            <span>{job.location}</span>
+                            <span>{job.city && formatCity(job.city)}</span>
                           </div>
                           <div className="flex items-center gap-1">
                             <Briefcase className="w-4 h-4" />

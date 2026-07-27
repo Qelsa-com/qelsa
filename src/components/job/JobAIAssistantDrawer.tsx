@@ -1,3 +1,4 @@
+import { formatCity } from "@/constants/city";
 import { ChevronUp, FileText, Lightbulb, RotateCcw, Send, Sparkles, Target, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "../ui/button";
@@ -116,7 +117,7 @@ export function JobAIAssistantDrawer({ isOpen, onClose, selectedJob, jobs }: Job
       return `**${job.title} at ${job.company_name}**
 
 **Key Highlights:**
-• ${job.work_type} role in ${job.location}
+• ${job.work_type} role in ${job.city ? formatCity(job.city) : "an unspecified location"}
 • ${job.experience} of experience required
 • Salary range: ${job.salary || "Competitive compensation"}
 • ${job.applications?.length ?? 0} applications so far
@@ -246,7 +247,7 @@ I would welcome the opportunity to discuss how my experience with ${job.skills[0
 ${recentJobs
   .map(
     (j, i) => `**${i + 1}. ${j.title} at ${j.company_name}**
-• Location: ${j.location} (${j.work_type})
+• Location: ${j.city ? formatCity(j.city) : "Not specified"} (${j.work_type})
 • Experience: ${j.experience}
 • Salary: ${j.salary || "Not disclosed"}
 • Key Stack: ${j.skills.slice(0, 3).join(", ")}
@@ -361,7 +362,7 @@ What would you like me to help with? Try asking "Summarize this job" or "What's 
               <div className="flex-1 min-w-0">
                 <h3 className="font-medium text-sm line-clamp-1">{selectedJob.title}</h3>
                 <p className="text-xs text-muted-foreground">
-                  {selectedJob.company_name} • {selectedJob.location}
+                  {selectedJob.company_name} • {selectedJob.city && formatCity(selectedJob.city)}
                 </p>
                 {selectedJob.fitScore && (
                   <div className="flex items-center gap-1 mt-1">

@@ -220,7 +220,7 @@ export function ApplicationsManagementPage() {
             <div className="flex flex-col gap-3">
               <h1 className="text-4xl lg:text-5xl font-extrabold text-white">Applications</h1>
               <p className="text-base text-white/60">
-                {[jobTitle, currentJobPosting?.location].filter(Boolean).join(" · ")}
+                {[jobTitle, currentJobPosting?.city && formatCity(currentJobPosting.city)].filter(Boolean).join(" · ")}
                 {applicants ? ` - ${applicants.length} applicants` : ""}
               </p>
             </div>

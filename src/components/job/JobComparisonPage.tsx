@@ -1,3 +1,4 @@
+import { formatCity } from "@/constants/city";
 import { ArrowLeft, Award, Brain, Briefcase, CheckCircle2, ChevronDown, ChevronUp, Clock, DollarSign, ExternalLink, MapPin, Save, Share2, Sparkles, Star, Target, TrendingUp } from "lucide-react";
 import { useState } from "react";
 import { Badge } from "../ui/badge";
@@ -245,7 +246,7 @@ export function JobComparisonPage({ jobs, onBack, onRemoveJob }: JobComparisonPa
                     <div className="space-y-2">
                       <div className="flex items-center gap-2 text-sm">
                         <MapPin className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-white">{job.location}</span>
+                        <span className="text-white">{job.city && formatCity(job.city)}</span>
                       </div>
                       <div className="flex items-center gap-2 text-sm">
                         <Briefcase className="w-4 h-4 text-muted-foreground" />

@@ -1,3 +1,4 @@
+import { formatCity } from "@/constants/city";
 import { useAuth } from "@/contexts/AuthContext";
 import { jobSkillTypeLabel, proficiencyLabel } from "@/constants/skills";
 import { CompetencySummary, CompetencyTable } from "./CompetencyMatch";
@@ -253,7 +254,7 @@ export function JobDetailPage() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                 <div className="flex items-center gap-2 text-sm">
                   <MapPin className="w-4 h-4 text-neon-cyan" />
-                  <span>{job.location}</span>
+                  <span>{job.city && formatCity(job.city)}</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm">
                   {getWorkTypeIcon(job.other_info?.types.map((type) => type.name))}
@@ -717,8 +718,8 @@ export function JobDetailPage() {
                       <h4 className="font-medium text-sm">{similarJob.job_title?.name ?? similarJob.title}</h4>
                       <p className="text-xs text-muted-foreground">
                         {companyName}
-                        {companyName && similarJob.location && " • "}
-                        {similarJob.location}
+                        {companyName && similarJob.city && " • "}
+                        {similarJob.city && formatCity(similarJob.city)}
                       </p>
                       {similarJob.competency && <CompetencySummary competency={similarJob.competency} className="mt-2" />}
                     </div>

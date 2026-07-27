@@ -1,3 +1,4 @@
+import { formatCity } from "@/constants/city";
 import { Job } from "@/types/job";
 import { Award, Bookmark, BookmarkCheck, Briefcase, ChevronLeft, ChevronRight, Clock, EyeOff, MapPin, MoreVertical, Pin, Sparkles, Star } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -281,7 +282,7 @@ function JobRailCard({ job, onToggleCompare, isCompared, onToggleBookmark, is_bo
         <div className="space-y-2">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <MapPin className="w-4 h-4 flex-shrink-0" />
-            <span className="line-clamp-1">{job.location}</span>
+            <span className="line-clamp-1">{job.city && formatCity(job.city)}</span>
           </div>
           <div className="flex items-center gap-2 text-sm text-muted-foreground flex-wrap">
             <Briefcase className="w-4 h-4 flex-shrink-0" />

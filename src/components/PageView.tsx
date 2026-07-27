@@ -1,3 +1,4 @@
+import { formatCity } from "@/constants/city";
 import { useGetJobsQuery } from "@/features/api/jobsApi";
 import { useGetPageByIdQuery } from "@/features/api/pagesApi";
 import { ArrowLeft, Building2, CheckCircle2, Eye, Globe, Instagram, Linkedin, MapPin, MessageCircle, Send, Share2, Sparkles, Twitter, UserPlus, Users } from "lucide-react";
@@ -197,7 +198,7 @@ export function PageView() {
                     <div className="flex items-start justify-between mb-3">
                       <div>
                         <h3 className="font-semibold mb-1">{job.title}</h3>
-                        <p className="text-sm text-muted-foreground">{job.location}</p>
+                        <p className="text-sm text-muted-foreground">{job.city && formatCity(job.city)}</p>
                       </div>
                       <Badge className="bg-neon-green/20 text-neon-green border-0">{job.salary}</Badge>
                     </div>

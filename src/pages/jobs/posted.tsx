@@ -1,3 +1,4 @@
+import { formatCity } from "@/constants/city";
 import { useDeleteJobMutation, useEditJobMutation, useGetPostedJobsQuery } from "@/features/api/jobsApi";
 import Layout from "@/layout";
 import { Briefcase, Calendar, Clock, Copy, FileText, MapPin, MoreVertical, PauseCircle, Pencil, PlayCircle, Plus, Search, Share2, Trash2, XCircle } from "lucide-react";
@@ -213,10 +214,10 @@ export default function Posted() {
 
               {/* Meta row */}
               <div className="flex flex-wrap items-center gap-3">
-                {job.location && (
+                {job.city && (
                   <div className="flex items-center gap-1.5">
                     <MapPin className="w-3.5 h-3.5 text-white/50" />
-                    <span className="text-[13px] text-white/50">{job.location}</span>
+                    <span className="text-[13px] text-white/50">{formatCity(job.city)}</span>
                   </div>
                 )}
                 {job.workplace_type && (

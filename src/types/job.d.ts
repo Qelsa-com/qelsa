@@ -1,3 +1,4 @@
+import { City } from "./city";
 import { Competency } from "./competency";
 import { JobApplication } from "./jobApplication";
 import { JobSkill } from "./jobSkill";
@@ -11,7 +12,7 @@ export type Job = {
   experience_level?: string | null;
   has_remote: boolean;
   language?: string | null;
-  location?: string | null;
+  city?: City | null;
   published_date?: string | null;
   salary_currency?: string | null;
   salary_max?: number | null;

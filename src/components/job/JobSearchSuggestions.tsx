@@ -1,3 +1,4 @@
+import { formatCity } from "@/constants/city";
 import { Award, Briefcase, Building2, MapPin, Search } from "lucide-react";
 import { Badge } from "../ui/badge";
 import { Card } from "../ui/card";
@@ -26,7 +27,7 @@ export function JobSearchSuggestions({ query, allJobs, onSelectSuggestion, onSel
   const skillSuggestions = []
 
   // Get matching locations
-  const locationSuggestions = Array.from(new Set(allJobs.map((job) => job.location).filter((location) => location.toLowerCase().includes(lowerQuery)))).slice(0, 3);
+  const locationSuggestions = Array.from(new Set(allJobs.filter((job) => job.city).map((job) => formatCity(job.city!)).filter((location) => location.toLowerCase().includes(lowerQuery)))).slice(0, 3);
 
   const hasAnySuggestions = roleSuggestions.length > 0 || companySuggestions.length > 0 || skillSuggestions.length > 0 || locationSuggestions.length > 0;
 

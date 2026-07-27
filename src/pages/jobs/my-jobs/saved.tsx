@@ -1,3 +1,4 @@
+import { formatCity } from "@/constants/city";
 import MyJobLayout from "@/components/job/MyJobLayout";
 import { useLazyGetSavedJobsQuery, useToggleSaveJobMutation } from "@/features/api/jobsApi";
 import Layout from "@/layout";
@@ -83,7 +84,7 @@ const Saved = () => {
                         )} */}
                       </div>
                       <p className="text-muted-foreground mb-3">
-                        {job.page?.name || job.company_name} • {job.location}
+                        {job.page?.name || job.company_name} • {job.city && formatCity(job.city)}
                       </p>
 
                       {/* Auto-enriched highlights */}

@@ -1,3 +1,4 @@
+import { formatCity } from "@/constants/city";
 import { Award, Bookmark, BookOpen, BrainCircuit, CheckCircle2, ExternalLink, FileText, MessageCircle, Search, Send, Sparkles, Target, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { Job } from "@/types/job";
@@ -517,7 +518,7 @@ function SimilarJobsResults({
               <div className="flex-1 min-w-0">
                 <h4 className="font-semibold text-sm line-clamp-2 mb-1">{job.title}</h4>
                 <p className="text-xs text-muted-foreground">{job.company_name}</p>
-                <p className="text-xs text-muted-foreground mt-1">{job.location}</p>
+                <p className="text-xs text-muted-foreground mt-1">{job.city && formatCity(job.city)}</p>
               </div>
               {job.fitScore && <Badge className="bg-neon-purple/20 text-neon-purple border-0">{job.fitScore}%</Badge>}
             </div>

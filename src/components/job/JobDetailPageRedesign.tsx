@@ -14,6 +14,7 @@
  * have no backing data in the model and were intentionally dropped.
  */
 
+import { formatCity } from "@/constants/city";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGetJobByIdQuery, useGetSimilarJobsQuery, useToggleSaveJobMutation } from "@/features/api/jobsApi";
 import { useGetMyResumesQuery } from "@/features/api/resumeApi";
@@ -222,7 +223,7 @@ export function JobDetailPageRedesign() {
                 </span>
                 <div className="flex items-center gap-2">
                   {job.page?.name && <span className="rounded-full border border-neon-green/20 bg-neon-green/10 px-2 py-1 text-xs font-semibold text-neon-green">Verified</span>}
-                  {job.location && <span className="text-xs text-white/45">{job.location}</span>}
+                  {job.city && <span className="text-xs text-white/45">{formatCity(job.city)}</span>}
                 </div>
               </div>
             </div>
@@ -415,8 +416,8 @@ export function JobDetailPageRedesign() {
                           <span className="text-sm font-semibold leading-tight text-white">{j.job_title?.name ?? j.title}</span>
                           <span className="text-xs leading-snug text-white/45">
                             {sName}
-                            {sName && j.location ? " • " : ""}
-                            {j.location}
+                            {sName && j.city ? " • " : ""}
+                            {j.city && formatCity(j.city)}
                           </span>
                           <span className="text-xs text-white/45">{salary ?? "Salary not disclosed"}</span>
                         </div>

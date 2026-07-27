@@ -11,6 +11,7 @@
  * Figma: Qelsa-Screen — smart matches (246:11) / all jobs (261:10).
  */
 
+import { formatCity } from "@/constants/city";
 import { useAuth } from "@/contexts/AuthContext";
 import { Job } from "@/types/job";
 import { Building2, ChevronDown, MapPin, Search } from "lucide-react";
@@ -131,7 +132,7 @@ export function JobCard({ job, onClick }: { job: Job; onClick: () => void }) {
         <div className="flex flex-col gap-1.5">
           <p className="line-clamp-2 text-[15px] font-bold text-white">{title}</p>
           {company && <p className="line-clamp-1 text-[13px] text-white/70">{company}</p>}
-          {job.location && <p className="line-clamp-1 text-xs text-white/45">{job.location}</p>}
+          {job.city && <p className="line-clamp-1 text-xs text-white/45">{formatCity(job.city)}</p>}
         </div>
 
         {chips.length > 0 && (

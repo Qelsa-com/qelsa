@@ -15,11 +15,13 @@
  */
 
 import { Autocomplete } from "@/components/ui/autocomplete";
+import { formatCity } from "@/constants/city";
 import { JOB_SKILL_TYPES, JobSkillType, jobSkillTypeLabel, PROFICIENCY_LEVELS, ProficiencyLevel, proficiencyLabel } from "@/constants/skills";
 import { useCreateJobMutation } from "@/features/api/jobsApi";
 import { useLazySearchJobTitlesQuery } from "@/features/api/jobTitlesApi";
 import { useGetMyPagesQuery } from "@/features/api/pagesApi";
-import { useLazyGetSkillsQuery } from "@/features/api/seedApi";
+import { useLazyGetSkillsQuery, useLazySearchCitiesQuery } from "@/features/api/seedApi";
+import { City } from "@/types/city";
 import {
   AlertCircle,
   ArrowLeft,
@@ -33,6 +35,7 @@ import {
   Info,
   Lock,
   Plus,
+  MapPin,
   Search,
   Send,
   Sparkles,
@@ -173,7 +176,7 @@ export function JobPostingPage() {
   const [aiPrompt, setAiPrompt] = useState("");
   const [jobTitle, setJobTitle] = useState<{ id: number; name: string } | null>(null);
   const [pageId, setPageId] = useState<number | null>(null);
-  const [location, setLocation] = useState("");
+  const [city, setCity] = useState<City | null>(null);
   const [workType, setWorkType] = useState("full-time");
   const [workplaceType, setWorkplaceType] = useState("on-site");
   const [experience, setExperience] = useState(0);
@@ -184,6 +187,7 @@ export function JobPostingPage() {
   const [targetBudget, setTargetBudget] = useState(""); // static / not submitted
 
   const [searchJobTitles, { data: jobTitleResults = [] }] = useLazySearchJobTitlesQuery();
+  const [searchCities, { data: cityResults = [] }] = useLazySearchCitiesQuery();
   const [searchSkills, { data: skillResults = [] }] = useLazyGetSkillsQuery();
 
   /* ----------------------------- skills logic ---------------------------- */
@@ -309,7 +313,7 @@ export function JobPostingPage() {
       job: {
         job_title: jobTitle,
         description,
-        location,
+        city,
         work_type: workType,
         workplace_type: workplaceType,
         experience,
@@ -397,8 +401,18 @@ export function JobPostingPage() {
                 ))}
               </SelectInput>
             </Field>
-            <Field label="Location" required>
-              <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g., San Francisco, CA" className={INPUT} />
+            <Field label="City" required>
+              <Autocomplete
+                value={city}
+                onChange={setCity}
+                onSearch={(q) => searchCities(q)}
+                options={cityResults}
+                placeholder="Search city..."
+                icon={<MapPin className="h-4 w-4" />}
+                getInputLabel={formatCity}
+                renderOption={(c) => formatCity(c)}
+                inputClassName={INPUT}
+              />
             </Field>
             <Field label="Work Type" required>
               <SelectInput value={workType} onChange={setWorkType}>
