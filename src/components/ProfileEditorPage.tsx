@@ -1408,7 +1408,7 @@ export function ProfileEditorPage() {
                                 </div>
                                 {culturePref.statement && (
                                   <p className="text-sm text-muted-foreground italic">
-                                    "{culturePref.statement}"
+                                    &quot;{culturePref.statement}&quot;
                                   </p>
                                 )}
                               </div>

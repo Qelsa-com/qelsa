@@ -624,7 +624,7 @@ export function CompanyPageEditor() {
           <Lock className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-white mb-2">Access Restricted</h2>
           <p className="text-muted-foreground mb-6">
-            You don't have permission to edit this company page.
+            You don&apos;t have permission to edit this company page.
           </p>
           <Button onClick={onClose}>Go Back</Button>
         </Card>
@@ -1402,7 +1402,7 @@ export function CompanyPageEditor() {
                 {activeSection === 'culture' && (
                   <div className="space-y-4">
                     {page.culture?.tagline && (
-                      <p className="text-sm italic text-muted-foreground">"{page.culture.tagline}"</p>
+                      <p className="text-sm italic text-muted-foreground">&quot;{page.culture.tagline}&quot;</p>
                     )}
                     {(page.culture?.values?.length ?? 0) > 0 && (
                       <div>
