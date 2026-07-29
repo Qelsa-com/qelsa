@@ -19,7 +19,7 @@ import { formatCity } from "@/constants/city";
 import { JOB_SKILL_TYPES, JobSkillType, jobSkillTypeLabel, PROFICIENCY_LEVELS, ProficiencyLevel, proficiencyLabel } from "@/constants/skills";
 import { useCreateJobMutation } from "@/features/api/jobsApi";
 import { useLazySearchJobTitlesQuery } from "@/features/api/jobTitlesApi";
-import { useGetMyPagesQuery } from "@/features/api/pagesApi";
+import { useLazyGetMyPagesQuery } from "@/features/api/pagesApi";
 import { useLazyGetSkillsQuery, useLazySearchCitiesQuery } from "@/features/api/seedApi";
 import { City } from "@/types/city";
 import {
@@ -35,6 +35,7 @@ import {
   Info,
   Lock,
   Plus,
+  Building2,
   MapPin,
   Search,
   Send,
@@ -53,6 +54,9 @@ const CARD = "rounded-[20px] border border-glass-border bg-white/[0.03] p-6";
 const INPUT =
   "h-11 w-full rounded-xl border border-glass-border bg-white/[0.04] px-4 text-sm text-white placeholder:text-white/45 transition-colors focus:border-neon-cyan focus:outline-none";
 const GRADIENT = "bg-gradient-to-r from-neon-purple to-neon-pink";
+
+/** The company page a job is posted under, narrowed to what Autocomplete needs. */
+type CompanyOption = { id: number; name: string };
 
 function formatMoney(value: number): string {
   try {
@@ -171,11 +175,13 @@ interface SkillRow {
 export function JobPostingPage() {
   const router = useRouter();
   const [createJob, { isLoading }] = useCreateJobMutation();
-  const { data: myPages } = useGetMyPagesQuery();
+  const [searchMyPages, { data: pageResults = [] }] = useLazyGetMyPagesQuery();
 
   const [aiPrompt, setAiPrompt] = useState("");
   const [jobTitle, setJobTitle] = useState<{ id: number; name: string } | null>(null);
-  const [pageId, setPageId] = useState<number | null>(null);
+  const [company, setCompany] = useState<CompanyOption | null>(null);
+  // What the user typed, whether or not it matched one of their pages.
+  const [companyName, setCompanyName] = useState("");
   const [city, setCity] = useState<City | null>(null);
   const [workType, setWorkType] = useState("full-time");
   const [workplaceType, setWorkplaceType] = useState("on-site");
@@ -189,6 +195,11 @@ export function JobPostingPage() {
   const [searchJobTitles, { data: jobTitleResults = [] }] = useLazySearchJobTitlesQuery();
   const [searchCities, { data: cityResults = [] }] = useLazySearchCitiesQuery();
   const [searchSkills, { data: skillResults = [] }] = useLazyGetSkillsQuery();
+
+  // Jobs can only be posted on a page the user owns, so the search is scoped to
+  // their own pages. A name that matches none of them is sent as `page_name` and
+  // the backend creates the page in the same transaction as the job.
+  const companyOptions: CompanyOption[] = pageResults.flatMap((p) => (p.id == null ? [] : [{ id: p.id, name: p.name }]));
 
   /* ----------------------------- skills logic ---------------------------- */
   const [skillsEditMode, setSkillsEditMode] = useState(false);
@@ -302,6 +313,7 @@ export function JobPostingPage() {
 
   const handlePublish = async () => {
     if (!jobTitle) return toast.error("Job title is required.");
+    if (!company && !companyName.trim()) return toast.error("Company is required — pick one of your pages or type a new company name.");
     if (!description.trim()) return toast.error("Job description is required.");
     if (!weightsValid) return toast.error("Skill weights must be set on all skills and add up to exactly 100 (or left blank on all).");
     if (salaryRangeInvalid) return toast.error("Enter a valid salary range (max ≥ min).");
@@ -321,7 +333,9 @@ export function JobPostingPage() {
         salary_max: salaryMax,
         salary_currency: SALARY_CURRENCY,
         resource: "qelsa",
-        page_id: pageId,
+        // Either an existing page, or a name the backend turns into one.
+        page_id: company?.id ?? null,
+        page_name: company ? null : companyName.trim(),
       },
       questionSet: { title: `Screening - ${new Date().toISOString()}` },
       questions: buildQuestionsPayload(),
@@ -392,14 +406,22 @@ export function JobPostingPage() {
                 inputClassName={INPUT}
               />
             </Field>
-            <Field label="Company">
-              <SelectInput value={pageId?.toString() ?? ""} onChange={(v) => setPageId(v ? Number(v) : null)} placeholder="Select a company page">
-                {myPages?.map((p) => (
-                  <option key={p.id} value={p.id.toString()}>
-                    {p.name}
-                  </option>
-                ))}
-              </SelectInput>
+            <Field label="Company" required>
+              <Autocomplete
+                value={company}
+                onChange={(page) => {
+                  setCompany(page);
+                  setCompanyName(page?.name ?? "");
+                }}
+                onSearch={(q) => searchMyPages({ search: q })}
+                onQueryChange={setCompanyName}
+                allowFreeText
+                options={companyOptions}
+                minChars={0}
+                placeholder="Pick one of your pages, or type a new company name"
+                icon={<Building2 className="h-4 w-4" />}
+                inputClassName={INPUT}
+              />
             </Field>
             <Field label="City" required>
               <Autocomplete

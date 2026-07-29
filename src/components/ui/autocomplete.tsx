@@ -25,6 +25,14 @@ interface AutocompleteProps<T extends AutocompleteOption> {
   className?: string;
   inputClassName?: string;
   id?: string;
+  /**
+   * Keeps whatever the user typed on blur instead of clearing it, for fields
+   * where an unmatched name is still meaningful to the caller. Pair with
+   * `onQueryChange` to read that text.
+   */
+  allowFreeText?: boolean;
+  /** Fires on every keystroke and on clear, with the raw text. */
+  onQueryChange?: (query: string) => void;
 }
 
 export function Autocomplete<T extends AutocompleteOption>({
@@ -41,6 +49,8 @@ export function Autocomplete<T extends AutocompleteOption>({
   className,
   inputClassName,
   id,
+  allowFreeText,
+  onQueryChange,
 }: AutocompleteProps<T>) {
   const getLabel = (option: T) => (getInputLabel ? getInputLabel(option) : option.name);
 
@@ -134,6 +144,7 @@ export function Autocomplete<T extends AutocompleteOption>({
     fromUserRef.current = true;
     if (value) onChange(null);
     setInputValue(e.target.value);
+    onQueryChange?.(e.target.value);
     setActiveIndex(-1);
   };
 
@@ -141,6 +152,7 @@ export function Autocomplete<T extends AutocompleteOption>({
     fromUserRef.current = true;
     onChange(option);
     setInputValue(getLabel(option));
+    onQueryChange?.(getLabel(option));
     setOpen(false);
     setActiveIndex(-1);
   };
@@ -148,6 +160,7 @@ export function Autocomplete<T extends AutocompleteOption>({
   const handleClear = () => {
     if (value) onChange(null);
     setInputValue("");
+    onQueryChange?.("");
     setOpen(false);
     setActiveIndex(-1);
     inputRef.current?.focus();
@@ -199,6 +212,7 @@ export function Autocomplete<T extends AutocompleteOption>({
           {renderOption ? renderOption(option, index === activeIndex) : option.name}
         </li>
       ))}
+
     </ul>
   ) : null;
 
@@ -219,17 +233,21 @@ export function Autocomplete<T extends AutocompleteOption>({
           onKeyDown={handleKeyDown}
           onFocus={() => {
             isFocusedRef.current = true;
-            if (!value && inputValue.length >= minChars && options.length > 0) {
-              setOpen(true);
-            }
+            if (value || inputValue.length < minChars) return;
+            // With minChars={0} the first focus has nothing to debounce off, so
+            // ask for the unfiltered list here. Opening now is safe: the dropdown
+            // renders nothing until options (or a create row) exist.
+            if (options.length === 0) onSearch(inputValue);
+            setOpen(true);
           }}
           onBlur={() => {
             isFocusedRef.current = false;
-            if (!value) {
-              setInputValue("");
-              setOpen(false);
-              setActiveIndex(-1);
-            }
+            if (value) return;
+            // Free-text fields keep the unmatched name; the caller decides what
+            // it means. Everything else discards a half-typed query.
+            if (!allowFreeText) setInputValue("");
+            setOpen(false);
+            setActiveIndex(-1);
           }}
           placeholder={placeholder}
           autoComplete="off"

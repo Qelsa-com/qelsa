@@ -67,4 +67,4 @@ export const pagesApi = createApi({
   }),
 });
 
-export const { useGetPagesQuery, useGetMyPagesQuery, useGetDiscoverPagesQuery, useGetPageByIdQuery, useCreatePageMutation, useUpdatePageMutation } = pagesApi;
+export const { useGetPagesQuery, useGetMyPagesQuery, useLazyGetMyPagesQuery, useGetDiscoverPagesQuery, useGetPageByIdQuery, useCreatePageMutation, useUpdatePageMutation } = pagesApi;
