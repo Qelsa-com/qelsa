@@ -228,8 +228,10 @@ export function MultiAutocomplete<T extends MultiAutocompleteOption>({
             "flex h-9 w-full rounded-md border bg-transparent px-3 py-1 text-sm transition-colors outline-none",
             "placeholder:text-muted-foreground",
             "disabled:cursor-not-allowed disabled:opacity-50",
-            icon && "pl-9",
-            inputClassName
+            inputClassName,
+            // After inputClassName on purpose: a caller's `px-*` would otherwise
+            // win under twMerge and the text would sit under the icon.
+            icon && "pl-10"
           )}
         />
         {mounted && dropdown ? ReactDOM.createPortal(dropdown, document.body) : null}

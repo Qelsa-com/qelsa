@@ -205,6 +205,8 @@ export function JobPostingPage() {
   const [skillsEditMode, setSkillsEditMode] = useState(false);
   const [showAddSkill, setShowAddSkill] = useState(false);
   const [skillsBackup, setSkillsBackup] = useState<SkillRow[]>([]);
+  // Bumping the key remounts the field, which is how it gets cleared after an add.
+  const [skillFieldKey, setSkillFieldKey] = useState(0);
 
   const enteredWeights = skills.filter((s) => s.weight !== "" && s.weight != null);
   const anyWeight = enteredWeights.length > 0;
@@ -215,6 +217,7 @@ export function JobPostingPage() {
   const addSkill = (sel: { id: number; name: string } | null) => {
     if (!sel) return;
     setSkills((prev) => (prev.some((s) => s.id === sel.id) ? prev : [...prev, { id: sel.id, name: sel.name, type: "preferred", proficiency: "beginner", weight: "" }]));
+    setSkillFieldKey((k) => k + 1);
   };
   const updateSkillField = <K extends "type" | "proficiency" | "weight">(id: number, field: K, value: SkillRow[K]) =>
     setSkills((prev) => prev.map((s) => (s.id === id ? { ...s, [field]: value } : s)));
@@ -503,17 +506,16 @@ export function JobPostingPage() {
               ))}
             </div>
           )}
-          <div className="flex items-center gap-3">
-            <Autocomplete
-              value={null}
-              onChange={(sel) => addSkill(sel)}
-              onSearch={(q) => searchSkills(q || undefined)}
-              options={skillResults}
-              placeholder="Add an extra skill and press Enter..."
-              icon={<Search className="h-4 w-4" />}
-              inputClassName={INPUT}
-            />
-          </div>
+          <Autocomplete
+            key={skillFieldKey}
+            value={null}
+            onChange={(sel) => addSkill(sel)}
+            onSearch={(q) => searchSkills(q || undefined)}
+            options={skillResults}
+            placeholder="Add an extra skill and press Enter..."
+            icon={<Search className="h-4 w-4" />}
+            inputClassName={INPUT}
+          />
         </section>
 
         {/* Competency framework */}

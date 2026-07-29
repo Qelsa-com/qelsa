@@ -259,9 +259,12 @@ export function Autocomplete<T extends AutocompleteOption>({
             "flex h-9 w-full rounded-md border bg-transparent px-3 py-1 text-sm transition-colors outline-none",
             "placeholder:text-muted-foreground",
             "disabled:cursor-not-allowed disabled:opacity-50",
-            icon && "pl-9",
-            showClear && "pr-8",
-            inputClassName
+            inputClassName,
+            // After inputClassName on purpose: callers pass their own `px-*`, and
+            // twMerge lets the last class win. Listed earlier, a caller's px-4
+            // would beat these and the text would sit under the icon.
+            icon && "pl-10",
+            showClear && "pr-9"
           )}
         />
         {showClear && (
