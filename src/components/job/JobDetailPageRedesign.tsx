@@ -192,7 +192,9 @@ export function JobDetailPageRedesign() {
       <div className="relative mx-auto flex max-w-[1280px] flex-col gap-6 px-20 pb-12 pt-8">
         {/* Floating share / bookmark pill */}
         <div className="glass-strong absolute right-20 top-[46px] flex items-center gap-2 rounded-full p-2">
-          <ShareButton onClick={() => toggleSaveJob(job.id)}>{job.is_bookmarked ? <BookmarkCheck className="size-[18px] text-neon-cyan" /> : <Bookmark className="size-[18px]" />}</ShareButton>
+          {isAuthenticated && (
+            <ShareButton onClick={() => toggleSaveJob(job.id)}>{job.is_bookmarked ? <BookmarkCheck className="size-[18px] text-neon-cyan" /> : <Bookmark className="size-[18px]" />}</ShareButton>
+          )}
           <ShareButton onClick={share.copy}><LinkIcon className="size-[18px]" /></ShareButton>
           <ShareButton onClick={share.linkedin}><Linkedin className="size-[18px]" /></ShareButton>
           <ShareButton onClick={share.twitter}><Twitter className="size-[18px]" /></ShareButton>
@@ -228,9 +230,12 @@ export function JobDetailPageRedesign() {
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <Button variant="outline" onClick={() => toggleSaveJob(job.id)} className="h-auto rounded-full border-[1.5px] border-white/20 bg-transparent px-6 py-3.5 text-sm text-white hover:bg-white/5">
-                {job.is_bookmarked ? "Saved" : "Save job"}
-              </Button>
+              {/* Saving a job needs an account — hidden while signed out. */}
+              {isAuthenticated && (
+                <Button variant="outline" onClick={() => toggleSaveJob(job.id)} className="h-auto rounded-full border-[1.5px] border-white/20 bg-transparent px-6 py-3.5 text-sm text-white hover:bg-white/5">
+                  {job.is_bookmarked ? "Saved" : "Save job"}
+                </Button>
+              )}
               {applied ? (
                 <span className="rounded-full border border-neon-green/30 bg-neon-green/10 px-6 py-3.5 text-base font-semibold text-neon-green">Applied</span>
               ) : (

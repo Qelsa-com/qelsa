@@ -1,3 +1,4 @@
+import { City } from "@/types/city";
 import { JobCard, JobsBrowseHeader, SearchFilters } from "@/components/job/jobBrowseShared";
 import { useLazyGetDiscoverJobsQuery } from "@/features/api/jobsApi";
 import { Job } from "@/types/job";
@@ -15,7 +16,7 @@ const All = () => {
 
   const [jobs, setJobs] = useState<Job[]>([]);
   const [query, setQuery] = useState("");
-  const [locationInput, setLocationInput] = useState("");
+  const [cityFilter, setCityFilter] = useState<City | null>(null);
   const [page, setPage] = useState(1);
 
   const [filters, setFilters] = useState<SearchFilters>({
@@ -67,8 +68,8 @@ const All = () => {
           onSearch={() => runSearch(filters, query)}
           filters={filters}
           onApplyFilters={applyFilters}
-          locationInput={locationInput}
-          setLocationInput={setLocationInput}
+          cityFilter={cityFilter}
+          setCityFilter={setCityFilter}
           profileBanner={{ text: "Completing your profile could unlock more strongly-matched roles", percent: 70 }}
         />
 

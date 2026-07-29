@@ -11,8 +11,11 @@
  * Figma: Qelsa-Screen — smart matches (246:11) / all jobs (261:10).
  */
 
+import { Autocomplete } from "@/components/ui/autocomplete";
 import { formatCity } from "@/constants/city";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLazySearchCitiesQuery } from "@/features/api/seedApi";
+import { City } from "@/types/city";
 import { Job } from "@/types/job";
 import { Building2, ChevronDown, MapPin, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -232,8 +235,8 @@ interface JobsBrowseHeaderProps {
   onSearch: () => void;
   filters: SearchFilters;
   onApplyFilters: (partial: Partial<SearchFilters>) => void;
-  locationInput: string;
-  setLocationInput: (v: string) => void;
+  cityFilter: City | null;
+  setCityFilter: (city: City | null) => void;
   /** Optional profile-completion banner (shown to authenticated users). */
   profileBanner?: { text: string; percent: number };
 }
@@ -245,12 +248,21 @@ export function JobsBrowseHeader({
   onSearch,
   filters,
   onApplyFilters,
-  locationInput,
-  setLocationInput,
+  cityFilter,
+  setCityFilter,
   profileBanner,
 }: JobsBrowseHeaderProps) {
   const router = useRouter();
   const { isAuthenticated } = useAuth();
+  const [searchCities, { data: cityResults = [] }] = useLazySearchCitiesQuery();
+
+  // The listing filters on the bare city name (`cities=Pune`), which is what the
+  // backend matches against — both the job's city relation and the scraped
+  // `other_info` blob. The input shows the fuller "Pune, Maharashtra" label.
+  const handleCitySelect = (city: City | null) => {
+    setCityFilter(city);
+    onApplyFilters({ cities: city ? [city.name] : [] });
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -260,20 +272,23 @@ export function JobsBrowseHeader({
           <h1 className="text-4xl font-extrabold text-white md:text-5xl">Job opportunities</h1>
           <p className="text-lg text-white/70">Find your next career move with AI-powered matching</p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            onClick={() => router.push("/jobs/create-job")}
-            className="rounded-full bg-gradient-to-r from-neon-purple to-neon-pink px-6 py-3 text-sm font-bold text-white transition-opacity hover:opacity-90"
-          >
-            Post job
-          </button>
-          <button onClick={() => router.push("/jobs/my-jobs/applied")} className="rounded-full border border-white/20 px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-white/5">
-            Track jobs
-          </button>
-          <button onClick={() => router.push("/jobs/posted")} className="rounded-full border border-white/20 px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-white/5">
-            Manage job post
-          </button>
-        </div>
+        {/* Posting and tracking all need an account — hidden while signed out. */}
+        {isAuthenticated && (
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              onClick={() => router.push("/jobs/create-job")}
+              className="rounded-full bg-gradient-to-r from-neon-purple to-neon-pink px-6 py-3 text-sm font-bold text-white transition-opacity hover:opacity-90"
+            >
+              Post job
+            </button>
+            <button onClick={() => router.push("/jobs/my-jobs/applied")} className="rounded-full border border-white/20 px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-white/5">
+              Track jobs
+            </button>
+            <button onClick={() => router.push("/jobs/posted")} className="rounded-full border border-white/20 px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-white/5">
+              Manage job post
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Search */}
@@ -327,16 +342,23 @@ export function JobsBrowseHeader({
           ]}
           onSelect={(v) => onApplyFilters({ job_types: v ? [v] : [] })}
         />
-        <div className="flex w-[221px] items-center gap-1.5 rounded-full border border-glass-border px-5 py-3">
-          <MapPin className="size-3.5 shrink-0 text-white/45" />
-          <input
-            value={locationInput}
-            onChange={(e) => setLocationInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && onApplyFilters({ cities: locationInput ? [locationInput] : [] })}
-            placeholder="Enter location"
-            className="w-full bg-transparent text-[13px] font-medium text-white placeholder:text-white/45 focus:outline-none"
-          />
-        </div>
+        <Autocomplete
+          className="w-[221px]"
+          value={cityFilter}
+          onChange={handleCitySelect}
+          onSearch={searchCities}
+          options={cityResults}
+          placeholder="Enter location"
+          icon={<MapPin className="size-3.5 shrink-0 text-white/45" />}
+          getInputLabel={formatCity}
+          renderOption={(city) => (
+            <>
+              <MapPin className="size-3.5 shrink-0 text-white/45" />
+              {formatCity(city)}
+            </>
+          )}
+          inputClassName="h-auto rounded-full border-glass-border py-3 text-[13px] font-medium text-white placeholder:text-white/45"
+        />
       </div>
 
       {/* Profile completion banner */}

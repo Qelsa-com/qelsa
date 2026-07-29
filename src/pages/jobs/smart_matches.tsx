@@ -1,3 +1,4 @@
+import { City } from "@/types/city";
 import { JobCard, JobsBrowseHeader, matchScore, SearchFilters } from "@/components/job/jobBrowseShared";
 import { useLazyGetDiscoverJobsQuery } from "@/features/api/jobsApi";
 import { Job } from "@/types/job";
@@ -57,7 +58,7 @@ const SmartMatches = () => {
 
   const [jobs, setJobs] = useState<Job[]>([]);
   const [query, setQuery] = useState("");
-  const [locationInput, setLocationInput] = useState("");
+  const [cityFilter, setCityFilter] = useState<City | null>(null);
   const [exploreTab, setExploreTab] = useState<ExploreTab>("moving_fast");
 
   const [filters, setFilters] = useState<SearchFilters>({
@@ -120,8 +121,8 @@ const SmartMatches = () => {
           onSearch={() => runSearch(filters, query)}
           filters={filters}
           onApplyFilters={applyFilters}
-          locationInput={locationInput}
-          setLocationInput={setLocationInput}
+          cityFilter={cityFilter}
+          setCityFilter={setCityFilter}
           profileBanner={{ text: "Completing your profile could unlock more strongly-matched roles", percent: 70 }}
         />
 
