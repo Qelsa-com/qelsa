@@ -194,7 +194,7 @@ export function CertificationsEditorPage() {
               <p className="text-muted-foreground">
                 {isLoading ? "Loading..." : `${certifications.length} certification${certifications.length === 1 ? "" : "s"}`}
               </p>
-              <Button onClick={handleAddNew} className="bg-gradient-to-r from-neon-yellow to-neon-cyan text-black hover:scale-105 transition-all">
+              <Button onClick={handleAddNew} className="gradient-primary text-white hover:scale-105 transition-all">
                 <Plus className="h-4 w-4 mr-2" />
                 Add Certification
               </Button>
@@ -258,7 +258,7 @@ export function CertificationsEditorPage() {
                     </div>
                     <h3 className="text-xl font-semibold mb-2">No Certifications Yet</h3>
                     <p className="text-muted-foreground mb-6">Add your professional certifications to stand out and demonstrate your expertise</p>
-                    <Button onClick={handleAddNew} className="bg-gradient-to-r from-neon-yellow to-neon-cyan text-black">
+                    <Button onClick={handleAddNew} className="gradient-primary text-white">
                       <Plus className="w-4 h-4 mr-2" />
                       Add Your First Certification
                     </Button>
@@ -462,7 +462,7 @@ export function CertificationsEditorPage() {
                 <Button variant="outline" onClick={handleCancel} className="glass hover:glass-strong">
                   Cancel
                 </Button>
-                <Button onClick={handleSave} className="bg-gradient-to-r from-neon-yellow to-neon-cyan text-black hover:scale-105 transition-all">
+                <Button onClick={handleSave} className="gradient-primary text-white hover:scale-105 transition-all">
                   <Check className="h-4 w-4 mr-2" />
                   Save Certification
                 </Button>

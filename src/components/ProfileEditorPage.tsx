@@ -563,7 +563,7 @@ export function ProfileEditorPage() {
                 <Save className="h-4 w-4 mr-2" />
                 Save Draft
               </Button>
-              <Button onClick={handleSaveProfile} className="bg-gradient-to-r from-neon-cyan to-neon-purple text-white hover:scale-105 transition-all">
+              <Button onClick={handleSaveProfile} className="gradient-primary text-white hover:scale-105 transition-all">
                 <Check className="h-4 w-4 mr-2" />
                 Publish Changes
               </Button>
@@ -582,7 +582,7 @@ export function ProfileEditorPage() {
                     <button
                       key={section.id}
                       onClick={() => setActiveSection(section.id)}
-                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeSection === section.id ? "bg-gradient-to-r from-neon-cyan to-neon-purple text-white" : "text-muted-foreground hover:text-white hover:glass-strong"
+                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeSection === section.id ? "gradient-primary text-white" : "text-muted-foreground hover:text-white hover:glass-strong"
                         }`}
                     >
                       <Icon className="h-5 w-5" />

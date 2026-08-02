@@ -111,7 +111,7 @@ export function JobContextAI({ jobs, onAskQuestion, onCompareJobs }: JobContextA
         <div className="pt-4 border-t border-glass-border">
           <Button
             onClick={() => onCompareJobs(jobs.slice(0, 4).map((j) => String(j.id)))}
-            className="w-full bg-gradient-to-r from-neon-cyan to-neon-purple text-black hover:opacity-90 transition-all duration-300 glow-cyan"
+            className="w-full gradient-primary text-white hover:opacity-90 transition-all duration-300 glow-cyan"
           >
             <Award className="h-4 w-4 mr-2" />
             Compare Top Jobs Side-by-Side
@@ -305,7 +305,7 @@ export function CareerPathForecast({ currentRole, targetRole, timelineMonths, st
       </div>
 
       {/* Action Button */}
-      <Button className="w-full bg-gradient-to-r from-neon-purple to-neon-pink text-white hover:opacity-90">
+      <Button className="w-full gradient-primary text-white hover:opacity-90">
         <TrendingUp className="h-4 w-4 mr-2" />
         Start Your Journey
       </Button>

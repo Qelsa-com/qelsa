@@ -909,7 +909,7 @@ Feel free to ask specific questions about your career goals, and I'll provide de
                                     onViewAllJobs(lastSearchQuery, lastJobResults);
                                   }
                                 }}
-                                className="bg-gradient-to-r from-neon-cyan to-neon-purple hover:from-neon-cyan/80 hover:to-neon-purple/80 text-white px-8 py-3 rounded-xl font-medium transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-xl glow-cyan"
+                                className="gradient-primary text-white px-8 py-3 rounded-xl font-medium transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-xl glow-cyan"
                                 size="lg"
                               >
                                 <Search className="h-5 w-5 mr-2" />

@@ -109,7 +109,7 @@ export function HomePage({ onNavigate }: HomePageProps) {
           <div className="flex items-center justify-center gap-4">
             <Button 
               onClick={() => onNavigate('kelsa-ai')}
-              className="group glass-strong hover:glow-cyan transition-all duration-300 px-8 py-3 rounded-2xl border-0 bg-gradient-to-r from-neon-cyan to-neon-purple hover:scale-105"
+              className="group glass-strong hover:glow-cyan transition-all duration-300 px-8 py-3 rounded-2xl border-0 gradient-primary hover:scale-105"
             >
               <Brain className="h-5 w-5 mr-2 group-hover:rotate-12 transition-transform" />
               Ask Kelsa AI

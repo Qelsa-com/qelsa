@@ -299,7 +299,7 @@ export function WorkExperienceEditorPage() {
                   {experiences?.length} work {experiences?.length === 1 ? "experience" : "experiences"} • Drag to reorder
                 </p>
               </div>
-              <Button onClick={handleAddNew} className="bg-gradient-to-r from-neon-cyan to-neon-purple text-white hover:scale-105 transition-all">
+              <Button onClick={handleAddNew} className="gradient-primary text-white hover:scale-105 transition-all">
                 <Plus className="h-4 w-4 mr-2" />
                 Add Experience
               </Button>
@@ -408,7 +408,7 @@ export function WorkExperienceEditorPage() {
                 <Button variant="outline" className="glass hover:glass-strong">
                   Cancel
                 </Button>
-                <Button onClick={handleSaveAll} className="bg-gradient-to-r from-neon-cyan to-neon-purple text-white hover:scale-105 transition-all">
+                <Button onClick={handleSaveAll} className="gradient-primary text-white hover:scale-105 transition-all">
                   <Check className="h-4 w-4 mr-2" />
                   Save All Changes
                 </Button>
@@ -665,7 +665,7 @@ export function WorkExperienceEditorPage() {
                 <Button variant="outline" onClick={handleCancel} className="glass hover:glass-strong">
                   Cancel
                 </Button>
-                <Button onClick={handleSaveExperience} className="bg-gradient-to-r from-neon-cyan to-neon-purple text-white hover:scale-105 transition-all">
+                <Button onClick={handleSaveExperience} className="gradient-primary text-white hover:scale-105 transition-all">
                   <Check className="h-4 w-4 mr-2" />
                   Save Experience
                 </Button>

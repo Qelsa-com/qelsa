@@ -76,7 +76,7 @@ export function SkillsViewPage() {
               <p className="text-muted-foreground mt-1">Complete overview of your professional skill set</p>
             </div>
           </div>
-          <Button onClick={handleEdit} className="bg-gradient-to-r from-neon-cyan to-neon-purple text-black hover:scale-105 transition-all duration-300">
+          <Button onClick={handleEdit} className="gradient-primary text-white hover:scale-105 transition-all duration-300">
             <Award className="h-4 w-4 mr-2" />
             Edit Skills
           </Button>
@@ -230,7 +230,7 @@ export function SkillsViewPage() {
             <Award className="h-16 w-16 text-neon-cyan mx-auto mb-4 opacity-50" />
             <h3 className="text-xl font-bold text-white mb-2">No Skills Added Yet</h3>
             <p className="text-muted-foreground mb-6">Start building your professional profile by adding your skills and expertise</p>
-            <Button onClick={handleEdit} className="bg-gradient-to-r from-neon-cyan to-neon-purple text-black hover:scale-105 transition-all duration-300">
+            <Button onClick={handleEdit} className="gradient-primary text-white hover:scale-105 transition-all duration-300">
               <Award className="h-4 w-4 mr-2" />
               Add Your First Skill
             </Button>

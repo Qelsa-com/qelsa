@@ -185,6 +185,13 @@
     box-shadow: 0 0 12px rgba(245, 158, 11, 0.2), 0 4px 20px rgba(245, 158, 11, 0.1);
   }
 
+  /* Primary action fill. Every gradient CTA in the app uses this one class, so
+     the brand gradient is defined in exactly one place. It is dark enough that
+     the label on top must be white. */
+  .gradient-primary {
+    background-image: linear-gradient(90deg, #4d33cc 0%, #802ebf 50%, #bf1f66 100%);
+  }
+
   /* Professional gradient backgrounds */
   .gradient-animated {
     background: linear-gradient(135deg, #0ea5e9 0%, #7c3aed 50%, #ec4899 100%);

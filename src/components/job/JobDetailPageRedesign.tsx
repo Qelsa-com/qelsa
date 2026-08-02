@@ -46,7 +46,8 @@ import { CompetencyTable } from "./CompetencyMatch";
 
 /* -------------------------------- helpers --------------------------------- */
 
-const GRADIENT = "bg-gradient-to-r from-neon-cyan via-neon-purple to-neon-pink";
+/** Primary-action fill — defined once as `.gradient-primary` in globals.css. */
+const GRADIENT = "gradient-primary";
 const CHIP = "border border-glass-border bg-white/[0.04] rounded-full";
 
 // Feed jobs send experience as a short code; Qelsa-posted jobs send `experience` in years.

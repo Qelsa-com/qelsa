@@ -40,7 +40,7 @@ const ROLE_OPTIONS: { value: AccountType; Icon: () => React.ReactElement; title:
 // Shared button styles. Tailwind v4's preflight no longer sets `cursor: pointer`
 // on <button>, so it has to be opted into explicitly.
 const PRIMARY_BTN =
-  "flex h-14 w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-gradient-to-r from-neon-purple to-neon-pink text-[15px] font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40";
+  "flex h-14 w-full cursor-pointer items-center justify-center gap-2 rounded-full gradient-primary text-[15px] font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40";
 
 const SECONDARY_BTN =
   "flex h-14 w-full cursor-pointer items-center justify-center gap-3 rounded-full border border-white/12 bg-white/[0.02] text-[15px] font-medium text-white transition-colors hover:bg-white/[0.06]";

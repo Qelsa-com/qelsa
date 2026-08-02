@@ -277,7 +277,7 @@ export function JobsBrowseHeader({
           <div className="flex flex-wrap items-center gap-3">
             <button
               onClick={() => router.push("/jobs/create-job")}
-              className="rounded-full bg-gradient-to-r from-neon-purple to-neon-pink px-6 py-3 text-sm font-bold text-white transition-opacity hover:opacity-90"
+              className="rounded-full gradient-primary px-6 py-3 text-sm font-bold text-white transition-opacity hover:opacity-90"
             >
               Post job
             </button>

@@ -324,7 +324,7 @@ export function WorkExperienceEditor({ isOpen, onClose, experiences: initialExpe
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <p className="text-muted-foreground">Manage your work experience. Drag to reorder.</p>
-                <Button onClick={handleAddNew} className="bg-gradient-to-r from-neon-cyan to-neon-purple text-black hover:scale-105 transition-all">
+                <Button onClick={handleAddNew} className="gradient-primary text-white hover:scale-105 transition-all">
                   <Plus className="h-4 w-4 mr-2" />
                   Add Experience
                 </Button>
@@ -407,7 +407,7 @@ export function WorkExperienceEditor({ isOpen, onClose, experiences: initialExpe
                 <Button variant="outline" onClick={onClose} className="glass hover:glass-strong">
                   Cancel
                 </Button>
-                <Button onClick={handleSaveAll} className="bg-gradient-to-r from-neon-cyan to-neon-purple text-black hover:scale-105 transition-all">
+                <Button onClick={handleSaveAll} className="gradient-primary text-white hover:scale-105 transition-all">
                   <Check className="h-4 w-4 mr-2" />
                   Save All Changes
                 </Button>
@@ -697,7 +697,7 @@ export function WorkExperienceEditor({ isOpen, onClose, experiences: initialExpe
                 <Button variant="outline" onClick={handleCancel} className="glass hover:glass-strong">
                   Cancel
                 </Button>
-                <Button onClick={handleSaveExperience} className="bg-gradient-to-r from-neon-cyan to-neon-purple text-black hover:scale-105 transition-all">
+                <Button onClick={handleSaveExperience} className="gradient-primary text-white hover:scale-105 transition-all">
                   <Check className="h-4 w-4 mr-2" />
                   Save Experience
                 </Button>

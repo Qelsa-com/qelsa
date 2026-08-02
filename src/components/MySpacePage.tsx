@@ -250,7 +250,7 @@ export function MySpacePage({}: MySpacePageProps) {
           </div>
 
           <div className="flex items-center justify-center gap-4">
-            <Button className="group glass-strong hover:glow-cyan transition-all duration-300 px-8 py-3 rounded-2xl border-0 bg-gradient-to-r from-neon-cyan to-neon-purple hover:scale-105">
+            <Button className="group glass-strong hover:glow-cyan transition-all duration-300 px-8 py-3 rounded-2xl border-0 gradient-primary hover:scale-105">
               <Brain className="h-5 w-5 mr-2 group-hover:rotate-12 transition-transform" />
               Ask Qelsa AI
               <Sparkles className="h-4 w-4 ml-2 group-hover:rotate-45 transition-transform" />
@@ -577,7 +577,7 @@ export function MySpacePage({}: MySpacePageProps) {
             </div>
 
             <div className="flex gap-3">
-              <Button className="bg-gradient-to-r from-neon-cyan to-neon-purple text-black hover:scale-105 transition-all duration-300">
+              <Button className="gradient-primary text-white hover:scale-105 transition-all duration-300">
                 <Download className="h-4 w-4 mr-2" />
                 Download Resume
               </Button>

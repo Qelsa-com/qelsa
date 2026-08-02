@@ -262,7 +262,7 @@ export function SkillsEditorPage() {
               <AlertCircle className="h-4 w-4 mr-2" />
               Validate Skills
             </Button>
-            <Button onClick={() => { setNewCategory(selectedCategory); setShowAddSkill(true); }} className="bg-gradient-to-r from-neon-pink to-neon-yellow text-black hover:scale-105 transition-all" size="sm">
+            <Button onClick={() => { setNewCategory(selectedCategory); setShowAddSkill(true); }} className="gradient-primary text-white hover:scale-105 transition-all" size="sm">
               <Plus className="h-4 w-4 mr-2" />
               Add Skill
             </Button>
@@ -389,7 +389,7 @@ export function SkillsEditorPage() {
                     handleAddSkill(newSkill, newCategory);
                   }
                 }}
-                className="bg-gradient-to-r from-neon-cyan to-neon-purple text-white"
+                className="gradient-primary text-white"
                 size="sm"
               >
                 <Plus className="h-4 w-4 mr-2" />
@@ -413,7 +413,7 @@ export function SkillsEditorPage() {
                   onClick={() => setSelectedCategory(category)}
                   variant={selectedCategory?.id === category.id ? "default" : "outline"}
                   size="sm"
-                  className={selectedCategory?.id === category.id ? "bg-gradient-to-r from-neon-pink to-neon-yellow text-black" : "glass hover:glass-strong border-glass-border"}
+                  className={selectedCategory?.id === category.id ? "gradient-primary text-white" : "glass hover:glass-strong border-glass-border"}
                 >
                   {category.name.toLowerCase().includes("professional") && <Briefcase className="h-4 w-4 mr-2" />}
                   {category.name.toLowerCase().includes("technical") && <Code className="h-4 w-4 mr-2" />}
@@ -500,7 +500,7 @@ export function SkillsEditorPage() {
             <Button variant="outline" className="glass hover:glass-strong">
               Cancel
             </Button>
-            <Button onClick={handleSaveAll} className="bg-gradient-to-r from-neon-pink to-neon-yellow text-black hover:scale-105 transition-all">
+            <Button onClick={handleSaveAll} className="gradient-primary text-white hover:scale-105 transition-all">
               <Check className="h-4 w-4 mr-2" />
               Save All Changes
             </Button>

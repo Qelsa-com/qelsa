@@ -308,7 +308,7 @@ export function ApplicationsManagementPage() {
                 <DropdownMenuTrigger asChild>
                   <button
                     disabled={selectedApplications.length === 0}
-                    className="flex items-center gap-2 rounded-full bg-gradient-to-r from-neon-purple to-neon-pink px-5 py-3 text-sm font-bold text-white transition-opacity disabled:opacity-40"
+                    className="flex items-center gap-2 rounded-full gradient-primary px-5 py-3 text-sm font-bold text-white transition-opacity disabled:opacity-40"
                   >
                     Bulk actions
                     {selectedApplications.length > 0 && <span className="rounded-full bg-white/20 px-1.5 text-xs">{selectedApplications.length}</span>}
@@ -442,7 +442,7 @@ export function ApplicationsManagementPage() {
                   <button
                     disabled
                     title="There is no public candidate profile route yet"
-                    className="flex cursor-not-allowed items-center gap-1.5 rounded-full bg-gradient-to-r from-neon-purple to-neon-pink px-4 py-2 text-xs font-medium text-white opacity-50"
+                    className="flex cursor-not-allowed items-center gap-1.5 rounded-full gradient-primary px-4 py-2 text-xs font-medium text-white opacity-50"
                   >
                     View qelsa profile
                     <ArrowRight className="w-3 h-3" />
@@ -677,7 +677,7 @@ export function ApplicationsManagementPage() {
                         <button onClick={() => setShowNoteComposer(false)} className="rounded-full border border-white/20 px-6 py-3 text-sm font-bold text-white/80 hover:bg-white/5 transition-colors">
                           Cancel
                         </button>
-                        <button disabled title="Notes have no API endpoint yet" className="cursor-not-allowed rounded-full bg-gradient-to-r from-neon-purple to-neon-pink px-6 py-3 text-sm font-bold text-white opacity-50">
+                        <button disabled title="Notes have no API endpoint yet" className="cursor-not-allowed rounded-full gradient-primary px-6 py-3 text-sm font-bold text-white opacity-50">
                           Save Note
                         </button>
                       </div>
@@ -799,7 +799,7 @@ export function ApplicationsManagementPage() {
               </div>
 
               <div className="flex gap-2">
-                <Button onClick={handleSendMessage} className="flex-1 rounded-full bg-gradient-to-r from-neon-purple to-neon-pink font-bold text-white border-0">
+                <Button onClick={handleSendMessage} className="flex-1 rounded-full gradient-primary font-bold text-white border-0">
                   <Send className="w-4 h-4 mr-2" />
                   Send Message
                 </Button>

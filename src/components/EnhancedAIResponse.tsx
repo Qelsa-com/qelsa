@@ -288,7 +288,7 @@ function JobComparisonResponse({ data, onAction }: { data: JobComparison; onActi
 
       {/* Action Buttons */}
       <div className="grid grid-cols-2 gap-3 pt-4 border-t border-glass-border">
-        <Button onClick={() => onAction?.("view-full-comparison")} className="bg-gradient-to-r from-neon-cyan to-neon-purple text-black hover:opacity-90">
+        <Button onClick={() => onAction?.("view-full-comparison")} className="gradient-primary text-white hover:opacity-90">
           <Award className="h-4 w-4 mr-2" />
           Detailed Comparison
         </Button>

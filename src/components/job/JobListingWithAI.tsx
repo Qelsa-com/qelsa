@@ -36,7 +36,7 @@ export function JobListingWithAI({ visibleJobs, onApplyJob, onViewJob, onViewAll
       {showFloatingAI && !showFullscreenAI && (
         <div className={`fixed bottom-6 right-6 z-40 transition-all duration-300 ${minimized ? "w-auto" : "w-96"}`}>
           {minimized ? (
-            <Button onClick={() => setMinimized(false)} className="bg-gradient-to-r from-neon-cyan to-neon-purple text-black hover:opacity-90 rounded-full w-14 h-14 p-0 glow-cyan">
+            <Button onClick={() => setMinimized(false)} className="gradient-primary text-white hover:opacity-90 rounded-full w-14 h-14 p-0 glow-cyan">
               <Bot className="h-6 w-6" />
             </Button>
           ) : (

@@ -93,7 +93,7 @@ export default function Posted() {
 
             <Button
               onClick={() => router.push("/jobs/create-job")}
-              className="rounded-full bg-gradient-to-r from-neon-purple to-neon-pink px-6 py-3 h-auto text-sm font-bold text-white border-0 shadow-lg hover:shadow-xl hover:shadow-neon-purple/30 transition-all duration-300"
+              className="rounded-full gradient-primary px-6 py-3 h-auto text-sm font-bold text-white border-0 shadow-lg hover:shadow-xl hover:shadow-neon-purple/30 transition-all duration-300"
             >
               <Plus className="w-4 h-4 mr-2" />
               Post job
@@ -280,7 +280,7 @@ export default function Posted() {
               <h3 className="mb-2 text-xl font-semibold text-white">No jobs found</h3>
               <p className="mb-4 text-white/70">{searchQuery ? "Try adjusting your search criteria" : "Start by posting your first job"}</p>
               {!searchQuery && (
-                <Button onClick={() => router.push("/jobs/create-job")} className="rounded-full bg-gradient-to-r from-neon-purple to-neon-pink px-6 py-3 h-auto text-sm font-bold text-white border-0">
+                <Button onClick={() => router.push("/jobs/create-job")} className="rounded-full gradient-primary px-6 py-3 h-auto text-sm font-bold text-white border-0">
                   <Plus className="w-4 h-4 mr-2" />
                   Post Your First Job
                 </Button>

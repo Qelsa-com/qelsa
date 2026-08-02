@@ -246,7 +246,7 @@ export function EducationEditorPage() {
               <p className="text-muted-foreground">
                 {education.length} education {education.length === 1 ? "entry" : "entries"} • Drag to reorder
               </p>
-              <Button onClick={handleAddNew} className="bg-gradient-to-r from-neon-purple to-neon-pink text-white hover:scale-105 transition-all">
+              <Button onClick={handleAddNew} className="gradient-primary text-white hover:scale-105 transition-all">
                 <Plus className="h-4 w-4 mr-2" />
                 Add Degree
               </Button>
@@ -349,7 +349,7 @@ export function EducationEditorPage() {
                 <Button variant="outline" className="glass hover:glass-strong">
                   Cancel
                 </Button>
-                <Button onClick={handleSaveAll} className="bg-gradient-to-r from-neon-purple to-neon-pink text-white hover:scale-105 transition-all">
+                <Button onClick={handleSaveAll} className="gradient-primary text-white hover:scale-105 transition-all">
                   <Check className="h-4 w-4 mr-2" />
                   Save All Changes
                 </Button>
@@ -587,7 +587,7 @@ export function EducationEditorPage() {
                 <Button variant="outline" onClick={handleCancel} className="glass hover:glass-strong">
                   Cancel
                 </Button>
-                <Button onClick={handleSaveEducation} className="bg-gradient-to-r from-neon-purple to-neon-pink text-white hover:scale-105 transition-all">
+                <Button onClick={handleSaveEducation} className="gradient-primary text-white hover:scale-105 transition-all">
                   <Check className="h-4 w-4 mr-2" />
                   Save Education
                 </Button>

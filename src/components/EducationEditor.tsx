@@ -311,7 +311,7 @@ export function EducationEditor({
                 </p>
                 <Button
                   onClick={handleAddNew}
-                  className="bg-gradient-to-r from-neon-purple to-neon-pink text-white hover:scale-105 transition-all"
+                  className="gradient-primary text-white hover:scale-105 transition-all"
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   Add Degree
@@ -432,7 +432,7 @@ export function EducationEditor({
                 </Button>
                 <Button
                   onClick={handleSaveAll}
-                  className="bg-gradient-to-r from-neon-purple to-neon-pink text-white hover:scale-105 transition-all"
+                  className="gradient-primary text-white hover:scale-105 transition-all"
                 >
                   <Check className="h-4 w-4 mr-2" />
                   Save All Changes
@@ -741,7 +741,7 @@ export function EducationEditor({
                 </Button>
                 <Button
                   onClick={handleSaveEducation}
-                  className="bg-gradient-to-r from-neon-purple to-neon-pink text-white hover:scale-105 transition-all"
+                  className="gradient-primary text-white hover:scale-105 transition-all"
                 >
                   <Check className="h-4 w-4 mr-2" />
                   Save Education
