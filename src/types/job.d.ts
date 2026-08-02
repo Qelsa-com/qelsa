@@ -62,4 +62,7 @@ export type Job = {
 
   // Seeker-side match data (optional-auth; null when logged out)
   competency?: Competency | null;
+
+  /** Distinct signed-in users who have opened this posting. Detail view only. */
+  view_count?: number;
 };

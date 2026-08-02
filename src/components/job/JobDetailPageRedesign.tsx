@@ -16,7 +16,7 @@
 
 import { formatCity } from "@/constants/city";
 import { useAuth } from "@/contexts/AuthContext";
-import { useGetJobByIdQuery, useGetSimilarJobsQuery, useToggleSaveJobMutation } from "@/features/api/jobsApi";
+import { useGetJobByIdQuery, useGetSimilarJobsQuery, useRecordJobViewMutation, useToggleSaveJobMutation } from "@/features/api/jobsApi";
 import { useGetMyResumesQuery } from "@/features/api/resumeApi";
 import { Job } from "@/types/job";
 import DOMPurify from "dompurify";
@@ -37,7 +37,7 @@ import {
   Zap,
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { QuickApplyModal } from "../QuickApplyModal";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
@@ -110,6 +110,13 @@ function similarMatch(job: Job): number | null {
   return typeof n === "number" && Number.isFinite(n) ? Math.round(n) : null;
 }
 
+/** 1240 -> "1.2k", so a busy posting doesn't blow out the metric tile. */
+function formatCount(value: number): string {
+  if (value < 1000) return `${value}`;
+  if (value < 1_000_000) return `${(value / 1000).toFixed(value < 10_000 ? 1 : 0).replace(/\.0$/, "")}k`;
+  return `${(value / 1_000_000).toFixed(1).replace(/\.0$/, "")}m`;
+}
+
 function formatPosted(job: Job): string | null {
   const raw = job.published_date ?? job.createdAt;
   if (!raw) return null;
@@ -147,6 +154,15 @@ export function JobDetailPageRedesign() {
   const { data: similarJobs, isLoading: isSimilarLoading } = useGetSimilarJobsQuery(id!, { skip: !id });
   const { data: myResumes } = useGetMyResumesQuery(undefined, { skip: !isAuthenticated });
   const [toggleSaveJob] = useToggleSaveJobMutation();
+  const [recordJobView] = useRecordJobViewMutation();
+
+  // Count this visit once the viewer is known. Views are unique per (job, user)
+  // server-side, so a reload or a revisit refreshes the timestamp rather than
+  // inflating the total; signed-out visits are not counted at all.
+  useEffect(() => {
+    if (!id || !isAuthenticated) return;
+    recordJobView(id);
+  }, [id, isAuthenticated, recordJobView]);
 
   if (!id || isLoading) return <p className="p-6 text-white/70 lg:p-8">Loading job...</p>;
   if (error) return <p className="p-6 text-white/70 lg:p-8">Error loading job.</p>;
@@ -165,8 +181,8 @@ export function JobDetailPageRedesign() {
 
   const metrics = [
     { label: "Readiness Score", value: competency ? `${competency.readiness}%` : "—" },
+    { label: "Views", value: formatCount(job.view_count ?? 0) },
     { label: "Applications", value: `${job.applications?.length ?? 0}` },
-    { label: "Priority", value: job.resource === "qelsa" ? "High" : "Medium" },
   ];
 
   const handleApply = () => {

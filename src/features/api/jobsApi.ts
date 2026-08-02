@@ -165,6 +165,18 @@ export const jobsApi = createApi({
       transformResponse: (response: { success: boolean; data: Job }) => response.data,
       invalidatesTags: (result, error, jobId) => [{ type: "Job", id: jobId }, "Jobs"],
     }),
+    // Idempotent per (job, user) — safe to fire on every visit. Invalidating the
+    // job tag lets the detail page pick up the new count on a first-ever view.
+    recordJobView: builder.mutation<{ view_count: number }, string>({
+      query: (jobId) => ({
+        url: `jobs/${jobId}/view`,
+        method: "POST",
+      }),
+
+      transformResponse: (response: { success: boolean; data: { view_count: number } }) => response.data,
+      invalidatesTags: (result, error, jobId) => [{ type: "Job", id: jobId }],
+    }),
+
     deleteJob: builder.mutation({
       query: (jobId) => ({
         url: `jobs/${jobId}`,
@@ -206,6 +218,7 @@ export const {
   useGetJobTypesQuery,
   useCreateJobMutation,
   useToggleSaveJobMutation,
+  useRecordJobViewMutation,
   useDeleteJobMutation,
   useEditJobMutation,
 } = jobsApi;
