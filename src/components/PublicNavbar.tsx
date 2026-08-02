@@ -150,8 +150,8 @@ export function PublicNavbar() {
         </div>
       </nav>
 
-      {/* Bottom spacing for mobile content */}
-      <div className="lg:hidden h-20"></div>
+      {/* The spacer that clears this fixed bar lives in Layout, after the page
+          content — here it only pushed the page down by 80px. */}
 
       {/* Profile Panel */}
       <ProfilePanel isOpen={isProfilePanelOpen} onClose={() => setIsProfilePanelOpen(false)} />

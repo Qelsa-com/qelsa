@@ -148,9 +148,9 @@ export function JobDetailPageRedesign() {
   const { data: myResumes } = useGetMyResumesQuery(undefined, { skip: !isAuthenticated });
   const [toggleSaveJob] = useToggleSaveJobMutation();
 
-  if (!id || isLoading) return <p className="p-8 text-white/70">Loading job...</p>;
-  if (error) return <p className="p-8 text-white/70">Error loading job.</p>;
-  if (!job) return <p className="p-8 text-white/70">No job found.</p>;
+  if (!id || isLoading) return <p className="p-6 text-white/70 lg:p-8">Loading job...</p>;
+  if (error) return <p className="p-6 text-white/70 lg:p-8">Error loading job.</p>;
+  if (!job) return <p className="p-6 text-white/70 lg:p-8">No job found.</p>;
 
   const companyName = job.page?.name || job.company_name || "Company";
   const title = job.job_title?.name ?? job.title;
@@ -188,10 +188,21 @@ export function JobDetailPageRedesign() {
 
   return (
     <div className="text-white">
-      {/* Content */}
-      <div className="relative mx-auto flex max-w-[1280px] flex-col gap-6 px-20 pb-12 pt-8">
-        {/* Floating share / bookmark pill */}
-        <div className="glass-strong absolute right-20 top-[46px] flex items-center gap-2 rounded-full p-2">
+      {/* Content. Tighter padding on a phone; the lg values are the desktop
+          layout unchanged. Clearance for the fixed mobile tab bar comes from
+          Layout, so there's no extra bottom padding to add here. */}
+      <div className="relative mx-auto flex max-w-[1280px] flex-col gap-4 px-4 pb-8 pt-4 sm:px-6 lg:gap-6 lg:px-20 lg:pb-12 lg:pt-8">
+        {/* Breadcrumb */}
+        <button onClick={() => router.push("/jobs/smart_matches")} className="flex w-fit items-center gap-2 text-sm text-white/70 transition-colors hover:text-neon-cyan">
+          <ArrowLeft className="size-4" />
+          Back to Jobs
+        </button>
+
+        {/* Share / bookmark pill. It floats over the hero on desktop; on a phone
+            there is no room to float, so it sits in the flow under the
+            breadcrumb. Absolute positioning ignores DOM order, so the desktop
+            placement is unaffected by where this sits in the markup. */}
+        <div className="glass-strong flex w-fit items-center gap-1.5 self-end rounded-full p-1.5 lg:absolute lg:right-20 lg:top-[46px] lg:gap-2 lg:p-2">
           {isAuthenticated && (
             <ShareButton onClick={() => toggleSaveJob(job.id)}>{job.is_bookmarked ? <BookmarkCheck className="size-[18px] text-neon-cyan" /> : <Bookmark className="size-[18px]" />}</ShareButton>
           )}
@@ -201,58 +212,53 @@ export function JobDetailPageRedesign() {
           <ShareButton onClick={share.whatsapp}><MessageCircle className="size-[18px]" /></ShareButton>
         </div>
 
-        {/* Breadcrumb */}
-        <button onClick={() => router.push("/jobs/smart_matches")} className="flex w-fit items-center gap-2 text-sm text-white/70 transition-colors hover:text-neon-cyan">
-          <ArrowLeft className="size-4" />
-          Back to Jobs
-        </button>
-
         {/* Job Hero */}
-        <Card className="gap-6 rounded-[20px] border-glass-border bg-white/[0.03] p-8">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="flex size-16 items-center justify-center overflow-hidden rounded-2xl border border-glass-border bg-white/[0.04]">
+        <Card className="gap-5 rounded-[20px] border-glass-border bg-white/[0.03] p-5 lg:gap-6 lg:p-8">
+          {/* Company on one line, actions on the next — a phone can't fit both. */}
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between lg:gap-0">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-glass-border bg-white/[0.04] lg:size-16">
                 {job.company_logo ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={job.company_logo} alt={companyName} className="size-full object-cover" />
                 ) : (
-                  <Building2 className="size-8 text-white/80" />
+                  <Building2 className="size-6 text-white/80 lg:size-8" />
                 )}
               </div>
-              <div className="flex flex-col gap-1">
+              <div className="flex min-w-0 flex-col gap-1">
                 <span className="cursor-pointer text-sm font-semibold text-white/70 hover:text-neon-cyan" onClick={() => job.page?.id && router.push(`/pages/${job.page.id}`)}>
                   {companyName}
                 </span>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   {job.page?.name && <span className="rounded-full border border-neon-green/20 bg-neon-green/10 px-2 py-1 text-xs font-semibold text-neon-green">Verified</span>}
                   {job.city && <span className="text-xs text-white/45">{formatCity(job.city)}</span>}
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex w-full items-center gap-3 lg:w-auto">
               {/* Saving a job needs an account — hidden while signed out. */}
               {isAuthenticated && (
-                <Button variant="outline" onClick={() => toggleSaveJob(job.id)} className="h-auto rounded-full border-[1.5px] border-white/20 bg-transparent px-6 py-3.5 text-sm text-white hover:bg-white/5">
+                <Button variant="outline" onClick={() => toggleSaveJob(job.id)} className="h-auto flex-1 rounded-full border-[1.5px] border-white/20 bg-transparent px-4 py-3 text-sm text-white hover:bg-white/5 lg:flex-none lg:px-6 lg:py-3.5">
                   {job.is_bookmarked ? "Saved" : "Save job"}
                 </Button>
               )}
               {applied ? (
-                <span className="rounded-full border border-neon-green/30 bg-neon-green/10 px-6 py-3.5 text-base font-semibold text-neon-green">Applied</span>
+                <span className="flex-1 rounded-full border border-neon-green/30 bg-neon-green/10 px-4 py-3 text-center text-sm font-semibold text-neon-green lg:flex-none lg:px-6 lg:py-3.5 lg:text-base">Applied</span>
               ) : (
-                <Button onClick={handleApply} className={`h-auto rounded-full px-6 py-3.5 text-base font-semibold text-white ${GRADIENT} hover:opacity-90`}>
+                <Button onClick={handleApply} className={`h-auto flex-1 rounded-full px-4 py-3 text-sm font-semibold text-white lg:flex-none lg:px-6 lg:py-3.5 lg:text-base ${GRADIENT} hover:opacity-90`}>
                   {job.resource === "qelsa" ? "Quick Apply" : "Apply now"}
                 </Button>
               )}
             </div>
           </div>
 
-          <h1 className="text-[32px] font-bold leading-10 text-white">{title}</h1>
+          <h1 className="text-2xl font-bold leading-8 text-white lg:text-[32px] lg:leading-10">{title}</h1>
 
-          <div className="flex gap-3">
+          <div className="flex gap-2 lg:gap-3">
             {metrics.map((m) => (
-              <div key={m.label} className="flex flex-1 flex-col gap-1.5 rounded-2xl border border-glass-border bg-white/[0.03] p-4">
-                <span className="text-xs text-white/45">{m.label}</span>
-                <span className="text-2xl font-bold text-white">{m.value}</span>
+              <div key={m.label} className="flex min-w-0 flex-1 flex-col gap-1.5 rounded-2xl border border-glass-border bg-white/[0.03] p-3 lg:p-4">
+                <span className="text-[11px] leading-tight text-white/45 lg:text-xs lg:leading-4">{m.label}</span>
+                <span className="text-xl font-bold text-white lg:text-2xl">{m.value}</span>
               </div>
             ))}
           </div>
@@ -268,26 +274,27 @@ export function JobDetailPageRedesign() {
           )}
         </Card>
 
-        {/* Two columns */}
-        <div className="flex items-start gap-6">
+        {/* Two columns on desktop; the sidebar drops below the content on a phone. */}
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-6">
           {/* Left */}
-          <div className="flex flex-1 flex-col gap-6">
+          <div className="flex min-w-0 flex-1 flex-col gap-4 lg:gap-6">
             {/* AI Summary */}
-            <Card className="flex-row items-center gap-4 rounded-[20px] border-glass-border bg-white/[0.03] p-5">
-              <div className="flex size-10 items-center justify-center rounded-[20px] border border-glass-border bg-white/[0.04]">
+            <Card className="flex-col items-start gap-3 rounded-[20px] border-glass-border bg-white/[0.03] p-4 lg:flex-row lg:items-center lg:gap-4 lg:p-5">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-[20px] border border-glass-border bg-white/[0.04]">
                 <Zap className="size-5 text-neon-cyan" />
               </div>
-              <div className="flex flex-1 flex-col gap-1">
+              <div className="flex w-full flex-1 flex-col gap-1 lg:w-auto">
                 <span className="text-xs font-semibold text-white">AI summary</span>
                 <span className="text-sm leading-5 text-white/70">Get a quick AI-powered summary of all job requirements, skills, and qualifications</span>
               </div>
-              <Button className={`h-auto rounded-full px-4 py-2.5 text-sm font-semibold text-white ${GRADIENT} hover:opacity-90`}>Summarize Requirements</Button>
+              <Button className={`h-auto w-full shrink-0 rounded-full px-4 py-2.5 text-sm font-semibold text-white lg:w-auto ${GRADIENT} hover:opacity-90`}>Summarize Requirements</Button>
             </Card>
 
             {/* Job Description */}
             {description && (
               <SectionCard icon={<FileText className="size-5 text-neon-cyan" />} title="Job Description">
-                <div className="text-sm leading-[22px] text-white/70" dangerouslySetInnerHTML={{ __html: description }} />
+                {/* Employer-authored HTML — long unbroken strings must not push the page sideways. */}
+                <div className="break-words text-sm leading-[22px] text-white/70 max-lg:overflow-x-auto" dangerouslySetInnerHTML={{ __html: description }} />
               </SectionCard>
             )}
 
@@ -309,23 +316,24 @@ export function JobDetailPageRedesign() {
             {competency && <CompetencyTable competency={competency} />}
 
             {/* Resume upload (mock analysis, matching prior behaviour) */}
-            <Card className="items-stretch gap-8 rounded-[20px] border-glass-border bg-white/[0.03] p-6">
+            <Card className="items-stretch gap-6 rounded-[20px] border-glass-border bg-white/[0.03] p-4 lg:gap-8 lg:p-6">
               <div className="flex items-center gap-3">
-                <Zap className="size-5 text-neon-cyan" />
-                <h3 className="text-xl font-semibold text-white">AI Resume Fit Analysis</h3>
+                <Zap className="size-5 shrink-0 text-neon-cyan" />
+                <h3 className="text-lg font-semibold text-white lg:text-xl">AI Resume Fit Analysis</h3>
               </div>
-              <div className="flex flex-col items-center gap-6">
-                <div className="flex size-[120px] items-center justify-center rounded-full border border-glass-border bg-white/[0.04]">
-                  <FileText className="size-12 text-neon-cyan" />
+              <div className="flex flex-col items-center gap-5 lg:gap-6">
+                <div className="flex size-24 items-center justify-center rounded-full border border-glass-border bg-white/[0.04] lg:size-[120px]">
+                  <FileText className="size-10 text-neon-cyan lg:size-12" />
                 </div>
                 <div className="flex flex-col items-center gap-3 text-center">
-                  <p className="text-2xl font-bold text-white">See how well you match this role</p>
+                  <p className="text-xl font-bold text-white lg:text-2xl">See how well you match this role</p>
                   <p className="max-w-[480px] text-sm leading-[22px] text-white/70">Upload a new resume or use your existing one to get a detailed AI-powered fit analysis.</p>
                 </div>
-                <div className="flex flex-wrap justify-center gap-4">
+                {/* Stacked full-width buttons on a phone; side by side from sm up. */}
+                <div className="flex w-full flex-col items-stretch justify-center gap-3 sm:flex-row sm:flex-wrap sm:items-center lg:gap-4">
                   <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
                     <DialogTrigger asChild>
-                      <Button className={`h-auto rounded-full px-6 py-3.5 text-base font-semibold text-white ${GRADIENT} hover:opacity-90`}>
+                      <Button className={`h-auto w-full rounded-full px-6 py-3.5 text-base font-semibold text-white sm:w-auto ${GRADIENT} hover:opacity-90`}>
                         <Upload className="mr-2 size-4" />
                         Upload New Resume
                       </Button>
@@ -335,45 +343,60 @@ export function JobDetailPageRedesign() {
                         <DialogTitle>Upload Your Resume</DialogTitle>
                         <DialogDescription>Upload your resume to get AI-powered insights on how well you match this job.</DialogDescription>
                       </DialogHeader>
-                      <div className="rounded-lg border-2 border-dashed border-glass-border p-8 text-center">
+                      <div className="rounded-lg border-2 border-dashed border-glass-border p-6 text-center lg:p-8">
                         <Upload className="mx-auto mb-2 size-8 text-white/45" />
                         <p className="mb-2 text-sm text-white/45">Drop your resume here or click to browse</p>
                         <Button variant="outline">Choose File</Button>
                       </div>
                     </DialogContent>
                   </Dialog>
-                  <Button variant="outline" disabled={!myResumes?.length} className="h-auto rounded-full border-glass-border bg-white/[0.04] px-6 py-3.5 text-base font-semibold text-white hover:bg-white/10 disabled:opacity-50">
+                  <Button variant="outline" disabled={!myResumes?.length} className="h-auto w-full rounded-full border-glass-border bg-white/[0.04] px-6 py-3.5 text-base font-semibold text-white hover:bg-white/10 disabled:opacity-50 sm:w-auto">
                     Use Existing Resume
                   </Button>
                 </div>
               </div>
-              <div className="flex items-center justify-center gap-2">
-                <Shield className="size-3.5 text-white/45" />
+              <div className="flex flex-wrap items-center justify-center gap-2 text-center">
+                <Shield className="size-3.5 shrink-0 text-white/45" />
                 <span className="text-xs text-white/45">Your resume is analyzed privately and never shared without your consent.</span>
               </div>
             </Card>
 
             {/* About the Company */}
             <SectionCard icon={<Building2 className="size-5 text-neon-cyan" />} title="About the Company">
-              <div className="flex items-center gap-4">
-                <div className="flex size-16 items-center justify-center overflow-hidden rounded-2xl border border-glass-border bg-white/[0.04]">
+              {/*
+                Two shapes, one DOM. On a phone this is a 2-column grid: the logo
+                takes the first cell and the name/Verified block sits beside it,
+                while the description and the button span the full width below —
+                so the copy gets the whole card instead of a ~200px gutter next
+                to the logo.
+
+                From lg it is the desktop row again: the wrapper below flips to
+                `contents` on mobile (its children become grid items) and back to
+                the flex-1 column at lg, and the name block does the reverse. Both
+                boxes disappear at the size where the other one is doing the work,
+                so the desktop rendering is byte-for-byte what it was.
+              */}
+              <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-3 lg:flex lg:gap-4">
+                <div className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-glass-border bg-white/[0.04] lg:size-16">
                   {job.company_logo ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={job.company_logo} alt={companyName} className="size-full object-cover" />
                   ) : (
-                    <Building2 className="size-8 text-white/80" />
+                    <Building2 className="size-6 text-white/80 lg:size-8" />
                   )}
                 </div>
-                <div className="flex flex-1 flex-col gap-2">
-                  <p className="text-lg font-bold text-white">{companyName}</p>
-                  {job.page?.name && (
-                    <div className="flex items-center gap-2">
-                      <span className="rounded-full border border-neon-green/20 bg-neon-green/10 px-2 py-1 text-xs font-semibold text-neon-green">Verified</span>
-                    </div>
-                  )}
-                  <p className="text-sm leading-[22px] text-white/70">{job.page?.description || "Company description not available."}</p>
+                <div className="contents lg:flex lg:min-w-0 lg:flex-1 lg:flex-col lg:gap-2">
+                  <div className="flex min-w-0 flex-col gap-1 lg:contents">
+                    <p className="text-lg font-bold text-white">{companyName}</p>
+                    {job.page?.name && (
+                      <div className="flex items-center gap-2">
+                        <span className="rounded-full border border-neon-green/20 bg-neon-green/10 px-2 py-1 text-xs font-semibold text-neon-green">Verified</span>
+                      </div>
+                    )}
+                  </div>
+                  <p className="col-span-2 text-sm leading-[22px] text-white/70">{job.page?.description || "Company description not available."}</p>
                   {job.page?.id && (
-                    <Button variant="outline" onClick={() => router.push(`/pages/${job.page!.id}`)} className="mt-1 h-auto w-fit rounded-full border-[1.5px] border-white/20 bg-transparent px-6 py-3.5 text-sm text-white hover:bg-white/5">
+                    <Button variant="outline" onClick={() => router.push(`/pages/${job.page!.id}`)} className="col-span-2 mt-1 h-auto w-full rounded-full border-[1.5px] border-white/20 bg-transparent px-4 py-3 text-sm text-white hover:bg-white/5 sm:w-fit lg:px-6 lg:py-3.5">
                       Visit Company Page
                     </Button>
                   )}
@@ -395,8 +418,8 @@ export function JobDetailPageRedesign() {
           </div>
 
           {/* Right */}
-          <div className="w-80 shrink-0">
-            <SectionCard title="Similar Jobs" titleSize="text-lg">
+          <div className="w-full lg:w-80 lg:shrink-0">
+            <SectionCard title="Similar Jobs" titleSize="text-base lg:text-lg">
               {isSimilarLoading ? (
                 <p className="text-sm text-white/45">Loading similar jobs...</p>
               ) : !similarJobs || similarJobs.length === 0 ? (
@@ -417,7 +440,7 @@ export function JobDetailPageRedesign() {
                             <Briefcase className="size-5 text-white/70" />
                           )}
                         </div>
-                        <div className="flex flex-1 flex-col gap-1">
+                        <div className="flex min-w-0 flex-1 flex-col gap-1">
                           <span className="text-sm font-semibold leading-tight text-white">{j.job_title?.name ?? j.title}</span>
                           <span className="text-xs leading-snug text-white/45">
                             {sName}
@@ -454,17 +477,17 @@ export function JobDetailPageRedesign() {
 
 function ShareButton({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) {
   return (
-    <button onClick={onClick} className="flex size-10 items-center justify-center rounded-[20px] border border-glass-border bg-white/[0.03] text-white/80 transition-colors hover:text-white">
+    <button onClick={onClick} className="flex size-9 items-center justify-center rounded-[20px] border border-glass-border bg-white/[0.03] text-white/80 transition-colors hover:text-white lg:size-10">
       {children}
     </button>
   );
 }
 
-function SectionCard({ icon, title, titleSize = "text-xl", children }: { icon?: React.ReactNode; title: string; titleSize?: string; children: React.ReactNode }) {
+function SectionCard({ icon, title, titleSize = "text-lg lg:text-xl", children }: { icon?: React.ReactNode; title: string; titleSize?: string; children: React.ReactNode }) {
   return (
-    <Card className="gap-4 rounded-[20px] border-glass-border bg-white/[0.03] p-6">
+    <Card className="gap-4 rounded-[20px] border-glass-border bg-white/[0.03] p-4 lg:p-6">
       <div className="flex items-center gap-3">
-        {icon}
+        {icon && <span className="shrink-0">{icon}</span>}
         <h3 className={`${titleSize} font-semibold text-white`}>{title}</h3>
       </div>
       {children}

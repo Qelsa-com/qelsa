@@ -95,8 +95,9 @@ function MatchBar({ label, value }: { label: string; value: number }) {
 function CompetencyRow({ item }: { item: CompetencyItem }) {
   const candidate = hasCandidate(item);
   return (
-    <div className="flex items-center gap-3 flex-wrap py-2.5 border-b border-glass-border last:border-0">
-      <span className="text-sm font-semibold text-white w-32 flex-shrink-0 truncate">{item.skill_name}</span>
+    <div className="flex items-center gap-x-3 gap-y-1.5 lg:gap-3 flex-wrap py-2.5 border-b border-glass-border last:border-0">
+      {/* Full width on a phone so the badges below it get a whole line. */}
+      <span className="text-sm font-semibold text-white w-full sm:w-32 flex-shrink-0 truncate">{item.skill_name}</span>
       <div className="flex items-center gap-2 flex-wrap">
         {candidate ? (
           <Badge variant="outline" className="text-xs border-neon-cyan/40 text-neon-cyan">
@@ -141,10 +142,10 @@ export function CompetencyTable({ competency }: { competency?: Competency | null
   const skillsMatch = totalCount > 0 ? Math.round((matchedCount / totalCount) * 100) : 0;
 
   return (
-    <div className="glass border border-glass-border rounded-2xl p-6 space-y-6">
+    <div className="glass border border-glass-border rounded-2xl p-4 lg:p-6 space-y-6">
       <div className="flex items-center gap-2">
-        <Zap className="w-5 h-5 text-neon-purple" />
-        <h3 className="text-xl font-bold text-white">How you fit this role</h3>
+        <Zap className="w-5 h-5 shrink-0 text-neon-purple" />
+        <h3 className="text-lg lg:text-xl font-bold text-white">How you fit this role</h3>
       </div>
 
       {/* Summary: ring + bars */}
