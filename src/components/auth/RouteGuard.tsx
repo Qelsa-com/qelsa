@@ -8,6 +8,18 @@ import { useEffect, useState } from "react";
 const PUBLIC_ROUTES = ["/login", "/register", "/auth", "/jobs/all", "/jobs"];
 const PUBLIC_DYNAMIC = /^\/jobs\/\d+$/;
 
+// /profile/<handle> is the read-only profile and needs no session. The owner's
+// editors live at the same depth, so those handles are reserved and stay gated.
+const PUBLIC_PROFILE = /^\/profile\/([^/]+)$/;
+const RESERVED_PROFILE_HANDLES = ["edit", "certifications", "educations", "skills", "work-experience"];
+
+const isPublicPath = (path) => {
+  if (PUBLIC_ROUTES.includes(path) || PUBLIC_DYNAMIC.test(path)) return true;
+
+  const handle = PUBLIC_PROFILE.exec(path)?.[1];
+  return Boolean(handle) && !RESERVED_PROFILE_HANDLES.includes(handle);
+};
+
 export default function RouteGuard({ children }) {
   const router = useRouter();
   const { setUserProfile, logout, isAuthenticated } = useAuth();
@@ -41,7 +53,7 @@ export default function RouteGuard({ children }) {
     // numeric PUBLIC_DYNAMIC regex and would wrongly gate public job pages.
     const path = router.asPath.split(/[?#]/)[0];
 
-    const isPublic = PUBLIC_ROUTES.includes(path) || PUBLIC_DYNAMIC.test(path);
+    const isPublic = isPublicPath(path);
 
     // ⭐ CASE 1 — No token and protected route
     if (!token && !isPublic) {
@@ -49,10 +61,13 @@ export default function RouteGuard({ children }) {
       return;
     }
 
-    // ⭐ CASE 2 — Token exists but 401 (expired + refresh failed)
+    // ⭐ CASE 2 — Token exists but 401 (expired + refresh failed).
+    // Drop the dead session either way, but only bounce off the page when it
+    // actually needs one — a stale token shouldn't eject a reader from a public
+    // profile or job listing.
     if (error) {
       logout();
-      router.replace("/jobs");
+      if (!isPublic) router.replace("/jobs");
       return;
     }
 

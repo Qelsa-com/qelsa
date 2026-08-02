@@ -1,10 +1,10 @@
-import { MySpacePage } from "../../components/MySpacePage";
-import Layout from "../../layout";
+import { ProfilePage } from "@/components/profile/ProfilePage";
+import Layout from "@/layout";
 
 const Profile = () => {
   return (
     <Layout activeSection={"profile"}>
-      <MySpacePage />;
+      <ProfilePage isOwner />
     </Layout>
   );
 };

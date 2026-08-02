@@ -1,5 +1,9 @@
 // src/store/api/authApi.ts
+import type { Certification } from "@/types/certification";
+import type { Education } from "@/types/education";
+import type { Experience } from "@/types/experience";
 import type { User } from "@/types/user";
+import type { UserSkill } from "@/types/userSkill";
 import { createApi, fetchBaseQuery, FetchBaseQueryError } from "@reduxjs/toolkit/query/react";
 import type { BaseQueryFn } from "@reduxjs/toolkit/query/react";
 import type { RootState } from "../../store"; // adjust path
@@ -38,6 +42,15 @@ interface VerifyOtpResponse extends AuthResponse {
 }
 
 export type AccountType = "seeker" | "recruiter";
+
+/** Everything the public /profile/[username] view renders, in one request. */
+export interface PublicProfile {
+  user: User;
+  experiences: Experience[];
+  educations: Education[];
+  certifications: Certification[];
+  skills: UserSkill[];
+}
 
 // Provide your API base url via env
 const AUTH_API_BASE = "/api/auth";
@@ -142,6 +155,13 @@ export const authApi = createApi({
       },
     }),
 
+    // Read-only counterpart to /me, keyed by handle instead of by token, so a
+    // signed-out visitor can open /profile/<username>. The payload is trimmed
+    // server-side — it carries no contact details or account settings.
+    getPublicProfile: builder.query<PublicProfile, string>({
+      query: (username) => `/profile/${encodeURIComponent(username)}`,
+    }),
+
     updateProfile: builder.mutation<User, Partial<User>>({
       query: (profile) => ({ url: "/edit-profile", method: "PUT", body: profile }),
       invalidatesTags: ["Profile"],
@@ -198,6 +218,7 @@ export const {
   useLoginMutation,
   useRegisterMutation,
   useGetProfileQuery,
+  useGetPublicProfileQuery,
   useUpdateProfileMutation,
   useGoogleLoginMutation,
   useRequestOtpMutation,

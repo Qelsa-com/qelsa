@@ -3,9 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { OnboardingFlow } from "../components/OnboardingFlow";
 
+import { ProfilePage } from "@/components/profile/ProfilePage";
 import { useAuth } from "@/contexts/AuthContext";
 import { Provider } from "react-redux";
-import { MySpacePage } from "../components/MySpacePage";
 import Layout from "../layout";
 import { store } from "../store";
 
@@ -39,9 +39,11 @@ export default function App() {
     );
   }
 
+  // Home is the signed-in user's own profile: the same page /profile/[username]
+  // serves to visitors, plus the Add/Edit affordances.
   return (
     <Layout activeSection={"profile"}>
-      <MySpacePage />
+      <ProfilePage isOwner />
     </Layout>
   );
 }
