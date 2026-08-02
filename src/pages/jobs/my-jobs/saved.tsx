@@ -1,198 +1,110 @@
-import { formatCity } from "@/constants/city";
-import MyJobLayout from "@/components/job/MyJobLayout";
+"use client";
+
+/**
+ * Saved tab of the job tracker — bookmarked roles the seeker hasn't started
+ * applying to yet.
+ *
+ * Figma: Qelsa-Screen — saved jobs (649:2560).
+ */
+
+import { MyJobsHeader, TrackedJobCard } from "@/components/job/myJobsShared";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useLazyGetSavedJobsQuery, useToggleSaveJobMutation } from "@/features/api/jobsApi";
 import Layout from "@/layout";
-import { Box } from "@mui/material";
-import { Archive, ArrowRight, Bell, DollarSign, Eye, MessageSquare, MoreVertical, Share2, Star, Target, Trash2, Zap } from "lucide-react";
+import { Job } from "@/types/job";
+import { Archive, Eye, MoreVertical, Share2, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Button } from "../../../components/ui/button";
-import { Card } from "../../../components/ui/card";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../../components/ui/dropdown-menu";
-import { SearchFilters } from "../smart_matches";
 
 const Saved = () => {
-  const [toggleSaveJob] = useToggleSaveJobMutation();
   const router = useRouter();
+  const [toggleSaveJob] = useToggleSaveJobMutation();
 
-  const [jobs, setJobs] = useState([]);
+  const [jobs, setJobs] = useState<Job[]>([]);
   const [query, setQuery] = useState("");
 
-  const [filters, setFilters] = useState<SearchFilters>({
-    cities: [],
-    job_types: [],
-    experience_levels: [],
-    departments: [],
-    remote: false,
-    sort_by: "relevance",
-  });
+  const [triggerGetJobs, { isLoading }] = useLazyGetSavedJobsQuery();
 
-  const [triggerGetJobs, { data: jobsList, error, isLoading }] = useLazyGetSavedJobsQuery();
-
-  useEffect(() => {
-    if (jobsList) {
-      setJobs(jobsList);
+  const runSearch = async (nextQuery: string) => {
+    try {
+      const result = await triggerGetJobs({ search: nextQuery }, false).unwrap();
+      setJobs(result ?? []);
+    } catch {
+      setJobs([]);
     }
-  }, [jobsList]);
+  };
 
   useEffect(() => {
-    triggerGetJobs(
-      {
-        ...filters,
-        search: query,
-      },
-      false
-    );
+    runSearch(query);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const onSearch = async () => {
-    console.log({
-      ...filters,
-      search: query,
-    });
-
-    await triggerGetJobs(
-      {
-        ...filters,
-        search: query,
-      },
-      false
-    ).unwrap();
-  };
+  const openJob = (id: number) => router.push(`/jobs/${id}`);
 
   return (
     <Layout activeSection={"jobs"}>
-      <MyJobLayout active_page={"saved"} {...{ jobs, filters, setFilters, query, setQuery, onSearch }}>
-        <Box className="space-y-4">
-          {jobs?.map((job) => (
-            <Card key={job.id} className="glass border-glass-border p-6 hover:border-neon-cyan/50 transition-all">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1">
-                  <div className="flex items-start gap-3 mb-3">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <h3 className="text-lg font-semibold">{job.title}</h3>
-                        {/* <Badge variant="outline" className={`text-xs ${getStatusColor(job.source.toLowerCase())}`}>
-                          {job.source}
-                        </Badge> */}
-                        {/* {job.hasReminder && (
-                          <Badge variant="outline" className="text-xs border-neon-yellow/30 text-neon-yellow">
-                            <Bell className="w-3 h-3 mr-1" />
-                            Reminder
-                          </Badge>
-                        )} */}
-                      </div>
-                      <p className="text-muted-foreground mb-3">
-                        {job.page?.name || job.company_name} • {job.city && formatCity(job.city)}
-                      </p>
+      <div className="mx-auto w-full max-w-[1400px] px-6 py-8 text-white md:px-12">
+        <MyJobsHeader
+          activeTab="saved"
+          subtitle="Monitor your job applications and stay on top of your career moves"
+          query={query}
+          setQuery={setQuery}
+          onSearch={() => runSearch(query)}
+          searchPlaceholder="Search applications by company or role..."
+          stats={[{ label: "Saved Jobs", value: jobs.length }]}
+          counts={{ saved: jobs.length }}
+        />
 
-                      {/* Auto-enriched highlights */}
-                      <div className="flex flex-wrap items-center gap-3 mb-3">
-                        {job.salary && (
-                          <div className="flex items-center gap-1 text-sm">
-                            <DollarSign className="w-4 h-4 text-neon-green" />
-                            <span className="text-neon-green">{job.salary}</span>
-                          </div>
-                        )}
-                        <div className="flex items-center gap-1 text-sm">
-                          <Target className="w-4 h-4 text-neon-cyan" />
-                          {/* <span className="text-neon-cyan">{job.matchScore}% Match</span> */}
-                        </div>
-                        <div className="flex items-center gap-1 text-sm">
-                          {/* <Flag className={`w-4 h-4 ${getPriorityColor(job.priority)}`} />
-                          <span className={getPriorityColor(job.priority)}>{job.priority} priority</span> */}
-                        </div>
-                      </div>
-
-                      {/* Skills */}
-                      {/* <div className="flex flex-wrap gap-2 mb-3">
-                        {job.skills.map((skill, idx) => (
-                          <Badge key={idx} variant="outline" className="text-xs border-neon-purple/30 text-neon-purple">
-                            {skill}
-                          </Badge>
-                        ))}
-                      </div> */}
-
-                      {/* Notes preview */}
-                      {/* {job.notes && (
-                        <div className="glass-strong rounded p-2 text-sm text-muted-foreground mb-3">
-                          <MessageSquare className="w-3 h-3 inline mr-1" />
-                          {job.notes}
-                        </div>
-                      )} */}
-
-                      {/* <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          Posted {job.postedDate}
-                        </span>
-                        {job.deadline && (
-                          <span className="flex items-center gap-1 text-destructive">
-                            <AlertCircle className="w-3 h-3" />
-                            Deadline: {job.deadline}
-                          </span>
-                        )}
-                      </div> */}
-                    </div>
-                  </div>
-
-                  {/* One-tap actions */}
-                  <div className="flex flex-wrap gap-2">
-                    <Button size="sm" className="gradient-animated">
-                      <Zap className="w-4 h-4 mr-2" />
-                      Tailor Resume
-                    </Button>
-                    <Button size="sm" variant="outline" className="border-neon-purple/30 text-neon-purple">
-                      <Star className="w-4 h-4 mr-2" />
-                      Set Priority
-                    </Button>
-                    <Button size="sm" variant="outline" className="border-neon-cyan/30 text-neon-cyan">
-                      <Bell className="w-4 h-4 mr-2" />
-                      Set Reminder
-                    </Button>
-                    <Button size="sm" variant="outline" className="border-glass-border">
-                      <MessageSquare className="w-4 h-4 mr-2" />
-                      Add Note
-                    </Button>
-                    <Button size="sm" variant="outline" className="border-glass-border" onClick={() => router.push(`/jobs/${job.id}`)}>
-                      <ArrowRight className="w-4 h-4 mr-2" />
-                      Apply Now
-                    </Button>
-                  </div>
-                </div>
-
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon">
-                      <MoreVertical className="w-4 h-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="glass border-glass-border">
-                    <DropdownMenuItem onClick={() => router.push(`/jobs/${job.id}`)}>
-                      <Eye className="w-4 h-4 mr-2" />
-                      View Details
-                    </DropdownMenuItem>
-                    <DropdownMenuItem>
-                      <Share2 className="w-4 h-4 mr-2" />
-                      Share
-                    </DropdownMenuItem>
-                    <DropdownMenuItem>
-                      <Archive className="w-4 h-4 mr-2" />
-                      Archive
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem className="text-destructive" onClick={() => toggleSaveJob(job.id)}>
-                      <Trash2 className="w-4 h-4 mr-2" />
-                      Remove
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            </Card>
-          ))}
-        </Box>
-      </MyJobLayout>
+        <div className="flex flex-col gap-5 pt-6 pb-24">
+          {isLoading ? (
+            <p className="text-sm text-white/45">Loading saved jobs...</p>
+          ) : jobs.length === 0 ? (
+            <p className="text-sm text-white/45">Nothing saved yet. Bookmark a role and it will show up here.</p>
+          ) : (
+            <>
+              {jobs.map((job) => (
+                <TrackedJobCard
+                  key={job.id}
+                  job={job}
+                  actionLabel="Apply now"
+                  onAction={() => openJob(job.id)}
+                  menu={
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button className="rounded-lg p-1 text-white/60 transition-colors hover:bg-white/5 hover:text-white" aria-label="Saved job actions">
+                          <MoreVertical className="size-5" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="glass border-glass-border">
+                        <DropdownMenuItem onClick={() => openJob(job.id)}>
+                          <Eye className="mr-2 size-4" />
+                          View Details
+                        </DropdownMenuItem>
+                        <DropdownMenuItem>
+                          <Share2 className="mr-2 size-4" />
+                          Share
+                        </DropdownMenuItem>
+                        <DropdownMenuItem>
+                          <Archive className="mr-2 size-4" />
+                          Archive
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem className="text-destructive" onClick={() => toggleSaveJob(job.id)}>
+                          <Trash2 className="mr-2 size-4" />
+                          Remove
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  }
+                />
+              ))}
+              <p className="pt-8 text-center text-sm text-white/45">
+                Showing 1-{jobs.length} of {jobs.length} saved jobs
+              </p>
+            </>
+          )}
+        </div>
+      </div>
     </Layout>
   );
 };

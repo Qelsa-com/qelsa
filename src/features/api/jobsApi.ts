@@ -209,6 +209,7 @@ export const {
   useGetAppliedJobsQuery,
   useLazyGetAppliedJobsQuery,
   useGetInProgressJobsQuery,
+  useLazyGetInProgressJobsQuery,
   useGetPostedJobsQuery,
   useGetSavedJobsQuery,
   useLazyGetSavedJobsQuery,

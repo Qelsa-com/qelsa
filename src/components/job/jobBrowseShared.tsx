@@ -75,8 +75,7 @@ export function salaryText(job: Job): string | null {
   return null;
 }
 
-export function postedAgo(job: Job): string | null {
-  const raw = job.published_date ?? job.createdAt;
+export function timeAgo(raw?: string | Date | null): string | null {
   if (!raw) return null;
   const date = new Date(raw);
   if (Number.isNaN(date.getTime())) return null;
@@ -88,6 +87,10 @@ export function postedAgo(job: Job): string | null {
   if (days < 30) return `${Math.floor(days / 7)}w ago`;
   if (days < 365) return `${Math.floor(days / 30)}mo ago`;
   return `${Math.floor(days / 365)}y ago`;
+}
+
+export function postedAgo(job: Job): string | null {
+  return timeAgo(job.published_date ?? job.createdAt);
 }
 
 export function matchScore(job: Job): number | null {
