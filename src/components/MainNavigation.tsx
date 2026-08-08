@@ -1,9 +1,7 @@
-import { Activity, Bell, BookOpen, Briefcase, FileText, Home, Rss, User, Users, Zap } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Briefcase, FileText, Home } from "lucide-react";
+import { DesktopTopBar } from "./DesktopTopBar";
 import { MobileTopBar } from "./MobileTopBar";
 import { Badge } from "./ui/badge";
-import { Button } from "./ui/button";
 
 interface NavigationItem {
   id: string;
@@ -31,86 +29,10 @@ const mainNavigationItems: NavigationItem[] = [
 ];
 
 export function MainNavigation({ activeSection, onProfileClick }: MainNavigationProps) {
-  const router = useRouter();
-  const [isScrolled, setIsScrolled] = useState(false);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 20);
-    };
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
-
-  const handleTabChange = (tab: string) => {
-    router.push(tab);
-  };
-
   return (
     <>
-      {/* Desktop Header (Simple) */}
-      <header
-        className={`hidden lg:flex items-center justify-between px-6 py-4 transition-all duration-300 sticky top-0 z-50 ${isScrolled ? "glass-strong backdrop-blur-xl" : "glass backdrop-blur-lg"}`}
-      >
-        {/* Logo */}
-        <div className="flex items-center gap-3 group cursor-pointer">
-          <div className="relative">
-            <div className="w-10 h-10 rounded-xl gradient-animated flex items-center justify-center shadow-lg group-hover:scale-110 transition-all duration-300">
-              <Zap className="h-5 w-5 text-black" />
-            </div>
-            <div className="absolute inset-0 w-10 h-10 rounded-xl bg-gradient-to-r from-neon-cyan to-neon-purple opacity-50 blur-md group-hover:opacity-70 transition-opacity"></div>
-          </div>
-          <div className="flex flex-col">
-            <h1 className="text-xl font-bold bg-gradient-to-r from-neon-cyan via-neon-purple to-neon-pink bg-clip-text text-transparent">Qelsa</h1>
-            <span className="text-xs text-muted-foreground -mt-1">Future of Work</span>
-          </div>
-        </div>
-
-        {/* Desktop Navigation Icons */}
-        <div className="flex items-center gap-6">
-          {mainNavigationItems.map((item, index) => {
-            const Icon = item.icon;
-            const isActive = activeSection === item.id;
-
-            return (
-              <Button
-                key={item.id}
-                onClick={() => handleTabChange(item.url)}
-                // sx={{ textDecoration: "none", color: "inherit" }}
-                className={`relative group flex flex-col items-center gap-1 p-2 rounded-xl transition-all duration-300 hover:scale-110 ${
-                  isActive ? "text-neon-cyan" : "text-muted-foreground hover:text-white"
-                }`}
-              >
-                <div className="relative">
-                  <Icon className={`h-6 w-6 transition-all duration-300 ${isActive ? "text-neon-cyan glow-cyan" : "group-hover:text-neon-cyan"}`} />
-                  {item.badge && (
-                    <Badge className="absolute -top-2 -right-2 h-5 min-w-[20px] text-xs bg-gradient-to-r from-neon-pink to-neon-purple text-white border-0 animate-pulse">{item.badge}</Badge>
-                  )}
-                </div>
-                <span className={`text-xs font-medium ${isActive ? "text-neon-cyan" : "text-muted-foreground group-hover:text-white"}`}>{item.label}</span>
-                {isActive && <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-neon-cyan rounded-full glow-cyan"></div>}
-              </Button>
-            );
-          })}
-        </div>
-
-        {/* User Section */}
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" className="relative glass rounded-full hover:glass-strong hover:glow-cyan transition-all duration-300">
-            <Bell className="h-5 w-5 text-neon-cyan" />
-            <div className="absolute -top-1 -right-1 w-3 h-3 bg-neon-pink rounded-full animate-pulse"></div>
-          </Button>
-
-          <div className="relative group cursor-pointer" onClick={onProfileClick}>
-            <div className="w-10 h-10 rounded-full bg-gradient-to-r from-neon-cyan via-neon-purple to-neon-pink p-0.5 hover:scale-110 transition-all duration-300">
-              <div className="w-full h-full rounded-full glass flex items-center justify-center">
-                <User className="h-5 w-5 text-white" />
-              </div>
-            </div>
-            <div className="absolute inset-0 w-10 h-10 rounded-full bg-gradient-to-r from-neon-cyan to-neon-purple opacity-0 group-hover:opacity-50 blur-md transition-opacity"></div>
-          </div>
-        </div>
-      </header>
+      {/* Desktop Header */}
+      <DesktopTopBar activeSection={activeSection} onProfileClick={onProfileClick} />
 
       {/* Mobile Header */}
       <MobileTopBar onProfileClick={onProfileClick} />

@@ -5,7 +5,9 @@ import { useGetProfileQuery } from "@/features/api/authApi";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 
-const PUBLIC_ROUTES = ["/login", "/register", "/auth", "/jobs/all", "/jobs"];
+// The last four are the Coming Soon screens behind nav links that aren't built
+// yet — static, no session needed, and the top bar shows them signed out too.
+const PUBLIC_ROUTES = ["/login", "/register", "/auth", "/jobs/all", "/jobs", "/qelsa-ai", "/network", "/courses", "/blogs"];
 const PUBLIC_DYNAMIC = /^\/jobs\/\d+$/;
 
 // /profile/<handle> is the read-only profile and needs no session. The owner's

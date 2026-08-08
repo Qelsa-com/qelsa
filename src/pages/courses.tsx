@@ -1,15 +1,13 @@
-"use client";
+import { ComingSoon } from "@/components/ComingSoon";
+import Layout from "../layout";
 
-import React from 'react'
-import Layout from '../layout'
-import { CoursesPage } from '../components/CoursesPage'
-
+// Not built yet — see the note in qelsa-ai.tsx. CoursesPage is still in src/components.
 const Courses = () => {
   return (
     <Layout activeSection={"courses"}>
-      <CoursesPage />
+      <ComingSoon />
     </Layout>
-  )
-}
+  );
+};
 
-export default Courses
+export default Courses;
