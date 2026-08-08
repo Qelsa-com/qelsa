@@ -756,18 +756,23 @@ export function ApplicationsManagementPage() {
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="flex flex-wrap items-center justify-between gap-4 py-8 text-[13px] text-white/30">
-          <p>© {new Date().getFullYear()} Qelsa Job Platform. All rights reserved.</p>
-          <div className="flex gap-6">
-            <Link href="/privacy" className="transition-colors hover:text-white/70">
-              Privacy Policy
-            </Link>
-            <Link href="/terms" className="transition-colors hover:text-white/70">
-              Terms of Service
-            </Link>
-            {/* Help Center has no route yet. */}
-            <span>Help Center</span>
+        {/* Footer — mirrors ProfileFooter (Figma 653:3765); the page container
+            already supplies the horizontal padding. */}
+        <div className="flex flex-col gap-8 pb-10 pt-20">
+          <div className="h-px w-full bg-white/[0.12]" />
+          <div className="flex flex-col items-center justify-between gap-4 text-xs text-white/50 sm:flex-row">
+            <p>© {new Date().getFullYear()} Qelsa. All rights reserved.</p>
+            <div className="flex flex-wrap items-center justify-center gap-6">
+              <Link href="/privacy" className="transition-colors hover:text-white/70">
+                Privacy Policy
+              </Link>
+              <Link href="/terms" className="transition-colors hover:text-white/70">
+                Terms of Service
+              </Link>
+              <Link href="/cookies" className="transition-colors hover:text-white/70">
+                Cookie Policy
+              </Link>
+            </div>
           </div>
         </div>
       </div>
