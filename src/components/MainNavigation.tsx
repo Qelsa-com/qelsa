@@ -1,6 +1,7 @@
-import { Activity, Bell, BookOpen, Briefcase, FileText, Filter, Home, Mail, Rss, Search, User, Users, Zap } from "lucide-react";
+import { Activity, Bell, BookOpen, Briefcase, FileText, Home, Rss, User, Users, Zap } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { MobileTopBar } from "./MobileTopBar";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 
@@ -14,8 +15,6 @@ interface NavigationItem {
 
 interface MainNavigationProps {
   activeSection: string;
-  onJobSearch?: (query: string) => void;
-  onJobFilter?: () => void;
   onProfileClick?: () => void;
 }
 
@@ -31,10 +30,9 @@ const mainNavigationItems: NavigationItem[] = [
   // { id: "blog", label: "Blog", icon: Rss, url: "/blogs" },
 ];
 
-export function MainNavigation({ activeSection, onJobSearch, onJobFilter, onProfileClick }: MainNavigationProps) {
+export function MainNavigation({ activeSection, onProfileClick }: MainNavigationProps) {
   const router = useRouter();
   const [isScrolled, setIsScrolled] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     const handleScroll = () => {
@@ -114,81 +112,8 @@ export function MainNavigation({ activeSection, onJobSearch, onJobFilter, onProf
         </div>
       </header>
 
-      {/* Mobile Header - Jobs Page */}
-      {activeSection === "jobs" ? (
-        <header className="lg:hidden glass backdrop-blur-xl sticky top-0 z-40">
-          <div className="flex items-center gap-3 px-4 py-3">
-            {/* Profile Avatar */}
-            <div className="relative group cursor-pointer" onClick={onProfileClick}>
-              <div className="w-8 h-8 rounded-full bg-gradient-to-r from-neon-cyan via-neon-purple to-neon-pink p-0.5 hover:scale-110 transition-all duration-300">
-                <div className="w-full h-full rounded-full glass flex items-center justify-center">
-                  <User className="h-4 w-4 text-white" />
-                </div>
-              </div>
-              <div className="absolute inset-0 w-8 h-8 rounded-full bg-gradient-to-r from-neon-cyan to-neon-purple opacity-0 group-hover:opacity-50 blur-md transition-opacity"></div>
-            </div>
-
-            {/* Search Bar */}
-            <div className="flex-1 relative">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <input
-                  type="text"
-                  placeholder="Search jobs..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && onJobSearch) {
-                      onJobSearch(searchQuery);
-                    }
-                  }}
-                  className="w-full pl-10 pr-4 py-2 glass rounded-xl border border-glass-border text-sm text-white placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-neon-cyan focus:border-transparent transition-all duration-300"
-                />
-              </div>
-            </div>
-
-            {/* Filter Icon */}
-            <button onClick={onJobFilter} className="w-8 h-8 rounded-full glass hover:glass-strong flex items-center justify-center hover:scale-110 transition-all duration-300">
-              <Filter className="h-4 w-4 text-neon-purple" />
-            </button>
-          </div>
-        </header>
-      ) : (
-        /* Mobile Header (Standard) */
-        <header className="lg:hidden glass backdrop-blur-xl sticky top-0 z-40">
-          <div className="flex items-center justify-between px-4 py-3">
-            <div className="relative group cursor-pointer" onClick={onProfileClick}>
-              <div className="w-8 h-8 rounded-full bg-gradient-to-r from-neon-cyan via-neon-purple to-neon-pink p-0.5 hover:scale-110 transition-all duration-300">
-                <div className="w-full h-full rounded-full glass flex items-center justify-center">
-                  <User className="h-4 w-4 text-white" />
-                </div>
-              </div>
-              <div className="absolute inset-0 w-8 h-8 rounded-full bg-gradient-to-r from-neon-cyan to-neon-purple opacity-0 group-hover:opacity-50 blur-md transition-opacity"></div>
-            </div>
-
-            {/* Right side icons */}
-            <div className="flex items-center gap-3">
-              {/* Messages */}
-              <div className="relative cursor-pointer group">
-                <div className="w-8 h-8 rounded-full glass hover:glass-strong flex items-center justify-center hover:scale-110 transition-all duration-300">
-                  <Mail className="h-4 w-4 text-neon-cyan" />
-                </div>
-                {/* Message notification badge */}
-                <div className="absolute -top-1 -right-1 w-3 h-3 bg-neon-pink rounded-full animate-pulse"></div>
-              </div>
-
-              {/* Notifications */}
-              <div className="relative cursor-pointer group">
-                <div className="w-8 h-8 rounded-full glass hover:glass-strong flex items-center justify-center hover:scale-110 transition-all duration-300">
-                  <Bell className="h-4 w-4 text-neon-purple" />
-                </div>
-                {/* Notification badge */}
-                <div className="absolute -top-1 -right-1 w-3 h-3 bg-neon-cyan rounded-full animate-pulse"></div>
-              </div>
-            </div>
-          </div>
-        </header>
-      )}
+      {/* Mobile Header */}
+      <MobileTopBar onProfileClick={onProfileClick} />
 
       {/* Instagram-style Bottom Navigation (Mobile) */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 glass-strong backdrop-blur-xl border-t border-glass-border">

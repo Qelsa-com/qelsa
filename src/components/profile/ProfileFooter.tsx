@@ -1,4 +1,11 @@
-const LINKS = ["Privacy Policy", "Terms of Service", "Help Center"];
+import Link from "next/link";
+
+// Help Center has no route yet, so it stays a placeholder.
+const LINKS = [
+  { label: "Privacy Policy", href: "/privacy" },
+  { label: "Terms of Service", href: "/terms" },
+  { label: "Help Center", href: "#" },
+];
 
 export function ProfileFooter() {
   return (
@@ -7,9 +14,9 @@ export function ProfileFooter() {
         <p>© {new Date().getFullYear()} Qelsa Job Platform. All rights reserved.</p>
         <div className="flex flex-wrap items-center justify-center gap-6">
           {LINKS.map((link) => (
-            <a key={link} href="#" className="transition-colors hover:text-white/70">
-              {link}
-            </a>
+            <Link key={link.label} href={link.href} className="transition-colors hover:text-white/70">
+              {link.label}
+            </Link>
           ))}
         </div>
       </div>

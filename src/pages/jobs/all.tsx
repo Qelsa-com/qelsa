@@ -60,7 +60,7 @@ const All = () => {
 
   return (
     <Layout activeSection={"jobs"}>
-      <div className="mx-auto w-full max-w-[1400px] px-6 py-8 text-white md:px-12">
+      <div className="mx-auto w-full max-w-[1400px] px-4 py-6 text-white sm:px-6 sm:py-8 md:px-12">
         <JobsBrowseHeader
           activeTab="all"
           query={query}
@@ -74,11 +74,13 @@ const All = () => {
         />
 
         {/* ----------------------------- All jobs ------------------------------ */}
-        <div className="mt-10 flex flex-col gap-6">
-          <p className="text-sm text-white/45">{isLoading ? "Loading jobs..." : total === 0 ? "No jobs found" : `Showing ${rangeStart}-${rangeEnd} of ${total} jobs`}</p>
+        <div className="mt-6 flex flex-col gap-4 pb-16 sm:mt-10 sm:gap-6 sm:pb-24">
+          <p className="text-[13px] text-white/45 sm:text-sm">
+            {isLoading ? "Loading jobs..." : total === 0 ? "No jobs found" : `Showing ${rangeStart}-${rangeEnd} of ${total} jobs`}
+          </p>
 
           {total > 0 && (
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
               {pageJobs.map((job) => (
                 <JobCard key={job.id} job={job} onClick={() => router.push(`/jobs/${job.id}`)} />
               ))}
@@ -86,12 +88,12 @@ const All = () => {
           )}
 
           {total === 0 && !isLoading && (
-            <div className="flex flex-col items-center gap-4 py-16 text-center">
-              <div className="flex size-20 items-center justify-center rounded-full border border-glass-border bg-white/[0.04]">
-                <Search className="size-9 text-white/45" />
+            <div className="flex flex-col items-center gap-4 py-12 text-center sm:py-16">
+              <div className="flex size-16 items-center justify-center rounded-full border border-glass-border bg-white/[0.04] sm:size-20">
+                <Search className="size-7 text-white/45 sm:size-9" />
               </div>
-              <p className="text-xl font-semibold text-white">No jobs found</p>
-              <p className="max-w-md text-sm text-white/70">Try adjusting your search or filters to find more opportunities.</p>
+              <p className="text-lg font-semibold text-white sm:text-xl">No jobs found</p>
+              <p className="max-w-md text-[13px] text-white/70 sm:text-sm">Try adjusting your search or filters to find more opportunities.</p>
             </div>
           )}
 
@@ -118,11 +120,11 @@ function Pagination({ page, totalPages, onChange }: { page: number; totalPages: 
   }
 
   return (
-    <div className="flex items-center justify-center gap-2 pt-4">
+    <div className="flex flex-wrap items-center justify-center gap-1.5 pt-4 sm:gap-2">
       <button
         onClick={() => onChange(Math.max(1, page - 1))}
         disabled={page === 1}
-        className="rounded-full border border-glass-border px-4 py-2 text-[13px] font-medium text-white/70 transition-colors hover:bg-white/5 disabled:opacity-40"
+        className="rounded-full border border-glass-border px-3 py-1.5 text-xs font-medium text-white/70 transition-colors hover:bg-white/5 disabled:opacity-40 sm:px-4 sm:py-2 sm:text-[13px]"
       >
         Previous
       </button>
@@ -135,7 +137,7 @@ function Pagination({ page, totalPages, onChange }: { page: number; totalPages: 
           <button
             key={p}
             onClick={() => onChange(p)}
-            className={`flex size-9 items-center justify-center rounded-full text-[13px] font-semibold transition-colors ${
+            className={`flex size-8 items-center justify-center rounded-full text-xs font-semibold transition-colors sm:size-9 sm:text-[13px] ${
               p === page ? "bg-neon-cyan text-[#06060f]" : "text-white/70 hover:bg-white/5"
             }`}
           >
@@ -146,7 +148,7 @@ function Pagination({ page, totalPages, onChange }: { page: number; totalPages: 
       <button
         onClick={() => onChange(Math.min(totalPages, page + 1))}
         disabled={page === totalPages}
-        className="rounded-full border border-glass-border px-4 py-2 text-[13px] font-medium text-white/70 transition-colors hover:bg-white/5 disabled:opacity-40"
+        className="rounded-full border border-glass-border px-3 py-1.5 text-xs font-medium text-white/70 transition-colors hover:bg-white/5 disabled:opacity-40 sm:px-4 sm:py-2 sm:text-[13px]"
       >
         Next
       </button>

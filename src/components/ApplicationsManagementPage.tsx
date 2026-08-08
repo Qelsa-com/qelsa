@@ -4,6 +4,7 @@ import { useEditBulkStatusMutation, useGetJobApplicationDetailQuery, useGetJobAp
 import { useGetJobByIdQuery } from "@/features/api/jobsApi";
 import { AlertTriangle, Archive, ArrowLeft, ArrowRight, ChevronDown, ChevronLeft, ChevronRight, Download, Lock, Mail, MessageCircle, Phone, Send, Share2, Star, Users, XCircle } from "lucide-react";
 import { JobApplicationAnswer } from "@/types/jobApplicationAnswers";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 import { CandidateNLPSearch } from "./CandidateNLPSearch";
@@ -759,8 +760,13 @@ export function ApplicationsManagementPage() {
         <div className="flex flex-wrap items-center justify-between gap-4 py-8 text-[13px] text-white/30">
           <p>© {new Date().getFullYear()} Qelsa Job Platform. All rights reserved.</p>
           <div className="flex gap-6">
-            <span>Privacy Policy</span>
-            <span>Terms of Service</span>
+            <Link href="/privacy" className="transition-colors hover:text-white/70">
+              Privacy Policy
+            </Link>
+            <Link href="/terms" className="transition-colors hover:text-white/70">
+              Terms of Service
+            </Link>
+            {/* Help Center has no route yet. */}
             <span>Help Center</span>
           </div>
         </div>

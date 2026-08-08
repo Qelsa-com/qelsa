@@ -1,6 +1,7 @@
 import { Briefcase, Rss, User, Zap } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { MobileTopBar } from "./MobileTopBar";
 import { ProfilePanel } from "./ProfilePanel";
 import { Badge } from "./ui/badge";
 
@@ -102,6 +103,9 @@ export function PublicNavbar() {
           </button>
         </div>
       </header>
+
+      {/* Mobile Header */}
+      <MobileTopBar onProfileClick={() => setIsProfilePanelOpen(true)} />
 
       {/* Instagram-style Bottom Navigation (Mobile) */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 glass-strong backdrop-blur-xl border-t border-glass-border">

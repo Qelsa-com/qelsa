@@ -8,7 +8,9 @@
  * ring, title/company/location, chip row, salary + posted). They live here so
  * the two pages stay visually identical.
  *
- * Figma: Qelsa-Screen — smart matches (246:11) / all jobs (261:10).
+ * Figma: Qelsa-Screen — smart matches (246:11) / all jobs (261:10),
+ * mobile (777:17). The `sm:` breakpoint is the desktop/mobile line: bare
+ * classes are the mobile frame, `sm:` restores the wide layout.
  */
 
 import { Autocomplete } from "@/components/ui/autocomplete";
@@ -19,7 +21,7 @@ import { City } from "@/types/city";
 import { Job } from "@/types/job";
 import { Building2, ChevronDown, MapPin, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 /* --------------------------------- types ---------------------------------- */
 
@@ -118,9 +120,9 @@ export function JobCard({ job, onClick }: { job: Job; onClick: () => void }) {
   return (
     <button
       onClick={onClick}
-      className="flex h-72 flex-col justify-between rounded-[20px] border border-glass-border bg-white/[0.04] p-5 text-left transition-all hover:-translate-y-0.5 hover:border-neon-cyan/30 hover:bg-white/[0.06]"
+      className="flex flex-col gap-4 rounded-2xl border border-glass-border bg-white/[0.04] p-4 text-left transition-all hover:-translate-y-0.5 hover:border-neon-cyan/30 hover:bg-white/[0.06] sm:h-72 sm:justify-between sm:gap-0 sm:rounded-[20px] sm:p-5"
     >
-      <div className="flex min-h-0 flex-1 flex-col gap-4">
+      <div className="flex min-h-0 flex-col gap-4 sm:flex-1">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex size-9 items-center justify-center overflow-hidden rounded-lg border border-glass-border bg-white/[0.04]">
@@ -146,7 +148,7 @@ export function JobCard({ job, onClick }: { job: Job; onClick: () => void }) {
             <div className="h-px w-full bg-white/[0.08]" />
             <div className="flex flex-wrap gap-1.5">
               {chips.map((c) => (
-                <span key={c} className="rounded-md border border-glass-border bg-white/[0.1] px-2 py-0.5 text-[11px] font-medium text-white/70">
+                <span key={c} className="rounded-md border border-glass-border bg-white/[0.1] px-2 py-[3px] text-[11px] font-medium text-white/70">
                   {c}
                 </span>
               ))}
@@ -158,7 +160,7 @@ export function JobCard({ job, onClick }: { job: Job; onClick: () => void }) {
       {/* Footer */}
       <div className="flex items-center justify-between">
         <span className="text-[13px] font-semibold text-white/70">{salary ?? "—"}</span>
-        {posted && <span className="text-xs text-white/35">{posted}</span>}
+        {posted && <span className="text-[11px] text-white/35 sm:text-xs">{posted}</span>}
       </div>
     </button>
   );
@@ -170,12 +172,14 @@ export function MatchRing({ value }: { value: number }) {
   const offset = circumference * (1 - Math.min(100, Math.max(0, value)) / 100);
   const color = ringColor(value);
   return (
-    <div className="relative size-12">
-      <svg className="size-12 -rotate-90" viewBox="0 0 48 48">
-        <circle cx="24" cy="24" r={r} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="3" />
-        <circle cx="24" cy="24" r={r} fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={offset} />
+    // The ring itself stays 36px at every breakpoint (Figma 777:77 / 246:11) —
+    // only the box around it shrinks, so the svg is centred rather than filled.
+    <div className="relative size-11 sm:size-12">
+      <svg className="absolute left-1/2 top-1/2 size-10 -translate-x-1/2 -translate-y-1/2 -rotate-90" viewBox="0 0 40 40">
+        <circle cx="20" cy="20" r={r} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="3" />
+        <circle cx="20" cy="20" r={r} fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={offset} />
       </svg>
-      <span className="absolute inset-0 flex items-center justify-center text-[11px] font-bold text-white">{value}%</span>
+      <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-white sm:text-[11px]">{value}%</span>
     </div>
   );
 }
@@ -199,12 +203,12 @@ export function PillDropdown({
     <div className="relative">
       <button
         onClick={() => setOpen((o) => !o)}
-        className={`flex items-center gap-1.5 rounded-full border py-3 pl-5 pr-4 text-[13px] font-medium transition-colors ${
+        className={`flex items-center gap-1 rounded-full border py-2 pl-3 pr-2.5 text-xs font-medium transition-colors sm:gap-1.5 sm:py-3 sm:pl-5 sm:pr-4 sm:text-[13px] ${
           current ? "border-neon-cyan/40 text-white" : "border-glass-border text-white/70 hover:border-white/25"
         }`}
       >
         <span>{current?.label ?? label}</span>
-        <ChevronDown className={`size-4 transition-transform ${open ? "rotate-180" : ""}`} />
+        <ChevronDown className={`size-3.5 transition-transform sm:size-4 ${open ? "rotate-180" : ""}`} />
       </button>
       {open && (
         <>
@@ -230,6 +234,23 @@ export function PillDropdown({
 }
 
 /* ------------------------------ page header ------------------------------- */
+
+/**
+ * Tracks the `sm` breakpoint for the handful of spots a media query can't reach
+ * (a placeholder string). Starts false so SSR renders the desktop copy and the
+ * first client effect corrects it.
+ */
+function useIsMobile(): boolean {
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 639px)");
+    const sync = () => setIsMobile(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+  return isMobile;
+}
 
 interface JobsBrowseHeaderProps {
   activeTab: "smart_matches" | "all";
@@ -258,6 +279,7 @@ export function JobsBrowseHeader({
   const router = useRouter();
   const { isAuthenticated } = useAuth();
   const [searchCities, { data: cityResults = [] }] = useLazySearchCitiesQuery();
+  const isMobile = useIsMobile();
 
   // The listing filters on the bare city name (`cities=Pune`), which is what the
   // backend matches against — both the job's city relation and the scraped
@@ -268,52 +290,60 @@ export function JobsBrowseHeader({
   };
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-5 sm:gap-6">
       {/* Title row */}
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex flex-col gap-3">
-          <h1 className="text-4xl font-extrabold text-white md:text-5xl">Job opportunities</h1>
-          <p className="text-lg text-white/70">Find your next career move with AI-powered matching</p>
+      <div className="flex flex-wrap items-start justify-between gap-5 sm:gap-4">
+        <div className="flex flex-col gap-2 sm:gap-3">
+          <h1 className="text-[30px] font-extrabold text-white sm:text-4xl md:text-5xl">Job opportunities</h1>
+          <p className="text-sm text-white/70 sm:text-lg">Find your next career move with AI-powered matching</p>
         </div>
         {/* Posting and tracking all need an account — hidden while signed out. */}
         {isAuthenticated && (
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <button
               onClick={() => router.push("/jobs/create-job")}
-              className="rounded-full gradient-primary px-6 py-3 text-sm font-bold text-white transition-opacity hover:opacity-90"
+              className="rounded-full gradient-primary px-4 py-2.5 text-[13px] font-bold text-white transition-opacity hover:opacity-90 sm:px-6 sm:py-3 sm:text-sm"
             >
               Post job
             </button>
-            <button onClick={() => router.push("/jobs/my-jobs/applied")} className="rounded-full border border-white/20 px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-white/5">
+            <button
+              onClick={() => router.push("/jobs/my-jobs/applied")}
+              className="rounded-full border border-white/20 px-4 py-2.5 text-[13px] font-bold text-white transition-colors hover:bg-white/5 sm:px-6 sm:py-3 sm:text-sm"
+            >
               Track jobs
             </button>
-            <button onClick={() => router.push("/jobs/posted")} className="rounded-full border border-white/20 px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-white/5">
-              Manage job post
+            <button
+              onClick={() => router.push("/jobs/posted")}
+              className="rounded-full border border-white/20 px-4 py-2.5 text-[13px] font-bold text-white transition-colors hover:bg-white/5 sm:px-6 sm:py-3 sm:text-sm"
+            >
+              {/* The mobile frame trims this to fit alongside the other two pills. */}
+              <span className="sm:hidden">Manage</span>
+              <span className="hidden sm:inline">Manage job post</span>
             </button>
           </div>
         )}
       </div>
 
       {/* Search */}
-      <div className="flex h-14 items-center gap-3 rounded-[28px] border border-glass-border bg-white/[0.04] px-5">
-        <Search className="size-5 shrink-0 text-white/45" />
+      <div className="flex h-11 items-center gap-2.5 rounded-xl border border-glass-border bg-white/[0.04] px-4 sm:h-14 sm:gap-3 sm:rounded-[28px] sm:px-5">
+        <Search className="size-4 shrink-0 text-white/45 sm:size-5" />
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && onSearch()}
-          placeholder="Search jobs by title, skill, or company..."
-          className="flex-1 bg-transparent text-[15px] text-white placeholder:text-white/45 focus:outline-none"
+          placeholder={isMobile ? "Search title, skill, or company..." : "Search jobs by title, skill, or company..."}
+          className="min-w-0 flex-1 bg-transparent text-sm text-white placeholder:text-white/45 focus:outline-none sm:text-[15px]"
         />
       </div>
 
       {/* View tabs */}
-      <div className="flex items-center">
+      <div className="flex items-center gap-2 sm:gap-0">
         <TabButton active={activeTab === "smart_matches"} label="Smart Matches" onClick={() => router.push("/jobs/smart_matches")} />
         <TabButton active={activeTab === "all"} label="All Jobs" onClick={() => router.push("/jobs/all")} />
       </div>
 
       {/* Filter pills */}
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
         <PillDropdown
           label="Date posted"
           value={filters.sort_by}
@@ -346,7 +376,7 @@ export function JobsBrowseHeader({
           onSelect={(v) => onApplyFilters({ job_types: v ? [v] : [] })}
         />
         <Autocomplete
-          className="w-[221px]"
+          className="w-[141px] sm:w-[221px]"
           value={cityFilter}
           onChange={handleCitySelect}
           onSearch={searchCities}
@@ -360,20 +390,23 @@ export function JobsBrowseHeader({
               {formatCity(city)}
             </>
           )}
-          inputClassName="h-auto rounded-full border-glass-border py-3 text-[13px] font-medium text-white placeholder:text-white/45"
+          inputClassName="h-auto rounded-full border-glass-border py-2 text-xs font-medium text-white placeholder:text-white/45 sm:py-3 sm:text-[13px]"
         />
       </div>
 
       {/* Profile completion banner */}
       {isAuthenticated && profileBanner && (
-        <div className="flex items-center gap-5 rounded-[20px] border border-glass-border bg-white/[0.04] p-6">
+        <div className="flex flex-col gap-3 rounded-2xl border border-glass-border bg-white/[0.04] p-4 sm:flex-row sm:items-center sm:gap-5 sm:rounded-[20px] sm:p-6">
           <div className="flex flex-1 flex-col gap-3">
-            <p className="text-[15px] font-semibold text-white">{profileBanner.text}</p>
+            <p className="text-[13px] font-semibold text-white sm:text-[15px]">{profileBanner.text}</p>
             <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
               <div className="h-full rounded-full bg-neon-cyan" style={{ width: `${profileBanner.percent}%` }} />
             </div>
           </div>
-          <button onClick={() => router.push("/profile/edit")} className="shrink-0 text-sm font-bold text-neon-cyan transition-opacity hover:opacity-80">
+          <button
+            onClick={() => router.push("/profile/edit")}
+            className="shrink-0 self-start text-[13px] font-bold text-neon-cyan transition-opacity hover:opacity-80 sm:self-auto sm:text-sm"
+          >
             Complete Profile
           </button>
         </div>
@@ -384,8 +417,8 @@ export function JobsBrowseHeader({
 
 function TabButton({ active, label, onClick }: { active: boolean; label: string; onClick: () => void }) {
   return (
-    <button onClick={onClick} className="flex flex-col items-center justify-center px-5 py-2.5">
-      <span className={`text-[15px] font-semibold transition-colors ${active ? "text-white" : "text-white/50 hover:text-white/80"}`}>{label}</span>
+    <button onClick={onClick} className="flex flex-col items-center justify-center px-3 py-2 sm:px-5 sm:py-2.5">
+      <span className={`text-sm font-semibold transition-colors sm:text-[15px] ${active ? "text-white" : "text-white/50 hover:text-white/80"}`}>{label}</span>
       <span className={`mt-1 h-0.5 w-full rounded-full ${active ? "bg-neon-cyan" : "bg-transparent"}`} />
     </button>
   );

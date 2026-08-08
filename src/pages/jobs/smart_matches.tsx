@@ -113,7 +113,7 @@ const SmartMatches = () => {
 
   return (
     <Layout activeSection={"jobs"}>
-      <div className="mx-auto w-full max-w-[1400px] px-6 py-8 text-white md:px-12">
+      <div className="mx-auto w-full max-w-[1400px] px-4 py-6 text-white sm:px-6 sm:py-8 md:px-12">
         <JobsBrowseHeader
           activeTab="smart_matches"
           query={query}
@@ -127,11 +127,11 @@ const SmartMatches = () => {
         />
 
         {/* ---------------------------- Job sections --------------------------- */}
-        <div className="mt-12 flex flex-col gap-16 pb-24">
+        <div className="mt-6 flex flex-col gap-12 pb-16 sm:mt-12 sm:gap-16 sm:pb-24">
           {isLoading ? (
-            <p className="text-sm text-white/45">Loading matches...</p>
+            <p className="text-[13px] text-white/45 sm:text-sm">Loading matches...</p>
           ) : jobs.length === 0 ? (
-            <p className="text-sm text-white/45">No matches found. Try adjusting your search or filters.</p>
+            <p className="text-[13px] text-white/45 sm:text-sm">No matches found. Try adjusting your search or filters.</p>
           ) : (
             <>
               {ready.length > 0 && (
@@ -147,23 +147,23 @@ const SmartMatches = () => {
               )}
 
               {explore.length > 0 && (
-                <div className="flex flex-col gap-8">
-                  <div className="flex flex-col gap-2">
-                    <h2 className="text-2xl font-bold text-white">Explore More</h2>
-                    <p className="text-sm text-white/45">
+                <div className="flex flex-col gap-4 sm:gap-8">
+                  <div className="flex flex-col gap-1 sm:gap-2">
+                    <h2 className="text-xl font-bold text-white sm:text-2xl">Explore More</h2>
+                    <p className="text-[13px] text-white/45 sm:text-sm">
                       {missingTiers ? "Roles across your interests — complete your profile to unlock tailored match tiers." : "More roles to explore across your interests."}
                     </p>
                   </div>
 
                   {/* Sub-tabs */}
-                  <div className="flex flex-wrap gap-8 border-b border-glass-border">
+                  <div className="flex flex-wrap gap-x-4 gap-y-0 border-b border-glass-border sm:gap-8">
                     {EXPLORE_TABS.map((t) => {
                       const active = t.id === exploreTab;
                       return (
                         <button
                           key={t.id}
                           onClick={() => setExploreTab(t.id)}
-                          className={`-mb-px border-b-2 py-3 text-sm font-semibold transition-colors ${
+                          className={`-mb-px whitespace-nowrap border-b-2 py-2 text-[13px] font-semibold transition-colors sm:py-3 sm:text-sm ${
                             active ? "border-neon-cyan text-white" : "border-transparent text-white/45 hover:text-white/70"
                           }`}
                         >
@@ -176,7 +176,7 @@ const SmartMatches = () => {
                   {exploreJobs.length > 0 ? (
                     <JobGrid jobs={exploreJobs} onOpen={openJob} />
                   ) : (
-                    <p className="text-sm text-white/45">No roles in this view right now.</p>
+                    <p className="text-[13px] text-white/45 sm:text-sm">No roles in this view right now.</p>
                   )}
                 </div>
               )}
@@ -192,13 +192,13 @@ const SmartMatches = () => {
 
 function MatchSection({ dotColor, title, subtitle, children }: { dotColor: string; title: string; subtitle: string; children: React.ReactNode }) {
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center gap-3">
+    <div className="flex flex-col gap-4 sm:gap-6">
+      <div className="flex flex-col gap-1 sm:gap-2">
+        <div className="flex items-center gap-2 sm:gap-3">
           <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: dotColor }} />
-          <h2 className="text-2xl font-bold text-white">{title}</h2>
+          <h2 className="text-xl font-bold text-white sm:text-2xl">{title}</h2>
         </div>
-        <p className="text-sm text-white/45">{subtitle}</p>
+        <p className="text-[13px] text-white/45 sm:text-sm">{subtitle}</p>
       </div>
       {children}
     </div>
@@ -207,7 +207,7 @@ function MatchSection({ dotColor, title, subtitle, children }: { dotColor: strin
 
 function JobGrid({ jobs, onOpen }: { jobs: Job[]; onOpen: (id: number) => void }) {
   return (
-    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
       {jobs.map((job) => (
         <JobCard key={job.id} job={job} onClick={() => onOpen(job.id)} />
       ))}
