@@ -9,6 +9,8 @@ export type JobFilters = {
   sort_by?: string;
   city?: string;
   page_id?: string;
+  /** Workplace-type filter. The listing reads it as `remote` (or `has_remote`). */
+  remote?: boolean;
 };
 
 export const buildJobQueryParams = (filters?: JobFilters | void) => {
@@ -29,6 +31,11 @@ export const buildJobQueryParams = (filters?: JobFilters | void) => {
 
   if (filters.city) params.append("city", filters.city);
   if (filters.page_id) params.append("page_id", filters.page_id);
+
+  // Only send it when it is on: the listing treats any present `remote` value as
+  // an active filter, so `remote=false` would hide every remote job rather than
+  // meaning "no preference".
+  if (filters.remote) params.append("remote", "true");
 
   if (typeof filters.salary_min === "number") {
     params.append("salary_min", String(filters.salary_min));
