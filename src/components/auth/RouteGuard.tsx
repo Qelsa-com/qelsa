@@ -53,7 +53,10 @@ export default function RouteGuard({ children }) {
     // numeric PUBLIC_DYNAMIC regex and would wrongly gate public job pages.
     const path = router.asPath.split(/[?#]/)[0];
 
-    const isPublic = isPublicPath(path);
+    // An unmatched URL renders /404, where asPath is the bad path and so never
+    // matches a public route — without this, a signed-out visitor typing a wrong
+    // URL is bounced to /jobs instead of seeing the 404 page.
+    const isPublic = isPublicPath(path) || router.pathname === "/404";
 
     // ⭐ CASE 1 — No token and protected route
     if (!token && !isPublic) {
