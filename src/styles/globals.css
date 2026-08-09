@@ -145,6 +145,15 @@
     @apply border-border outline-ring/50;
   }
 
+  /* Tailwind v3's Preflight set `cursor: pointer` on buttons; v4 dropped it, so
+     they fall back to the UA default arrow. Restore it for anything that acts
+     like a button, minus disabled controls. Wrapped in :where() so it carries
+     zero specificity and any explicit cursor-* utility still wins — the build
+     flattens cascade layers, so layer order alone would not guarantee that. */
+  :where(button:not(:disabled), [role="button"]:not([aria-disabled="true"]), label[for], summary) {
+    cursor: pointer;
+  }
+
   body {
     @apply bg-background text-foreground;
     background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);

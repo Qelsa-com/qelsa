@@ -66,7 +66,7 @@ const SmartMatches = () => {
     job_types: [],
     experience_levels: [],
     departments: [],
-    remote: false,
+    workplace_types: [],
     sort_by: "relevance",
   });
 

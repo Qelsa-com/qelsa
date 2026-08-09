@@ -19,7 +19,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useLazySearchCitiesQuery } from "@/features/api/seedApi";
 import { City } from "@/types/city";
 import { Job } from "@/types/job";
-import { Building2, ChevronDown, MapPin, Search } from "lucide-react";
+import { Building2, Check, ChevronDown, MapPin, Search, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -32,9 +32,23 @@ export interface SearchFilters {
   departments: string[];
   salary_min?: number;
   salary_max?: number;
-  remote: boolean;
+  /** on-site | remote | hybrid — multi-select, matching the Job model's enum. */
+  workplace_types: string[];
   sort_by: "relevance" | "date" | "salary";
 }
+
+export const WORKPLACE_TYPE_OPTIONS = [
+  { label: "On-site", value: "on-site" },
+  { label: "Remote", value: "remote" },
+  { label: "Hybrid", value: "hybrid" },
+];
+
+export const WORK_TYPE_OPTIONS = [
+  { label: "Full-time", value: "Full-time" },
+  { label: "Part-time", value: "Part-time" },
+  { label: "Contract", value: "Contract" },
+  { label: "Internship", value: "Internship" },
+];
 
 /* -------------------------------- helpers --------------------------------- */
 
@@ -184,6 +198,101 @@ export function MatchRing({ value }: { value: number }) {
   );
 }
 
+/* --------------------------- multi-select pill ---------------------------- */
+
+/**
+ * Filter pill whose dropdown holds checkboxes rather than radio-style options.
+ * Figma: Qelsa-Screen — all-jobs-filter-active (262:10); the pill turns cyan
+ * once anything is picked, and the picks surface as chips under the row.
+ */
+export function MultiSelectPill({
+  label,
+  options,
+  values,
+  onChange,
+}: {
+  label: string;
+  options: { label: string; value: string }[];
+  values: string[];
+  onChange: (values: string[]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const active = values.length > 0;
+
+  const toggle = (value: string) => {
+    onChange(values.includes(value) ? values.filter((v) => v !== value) : [...values, value]);
+  };
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className={`flex items-center gap-1 rounded-full border py-2 pl-3 pr-2.5 text-xs font-medium transition-colors sm:gap-1.5 sm:py-3 sm:pl-5 sm:pr-4 sm:text-[13px] ${
+          active ? "border-neon-cyan bg-neon-cyan/10 text-neon-cyan" : "border-glass-border text-white/70 hover:border-white/25"
+        }`}
+      >
+        <span>{label}</span>
+        {active && <span className="text-[11px]">({values.length})</span>}
+        <ChevronDown className={`size-3.5 transition-transform sm:size-4 ${open ? "rotate-180" : ""}`} />
+      </button>
+
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="absolute left-0 z-20 mt-2 flex w-[220px] flex-col gap-0.5 rounded-xl border border-glass-border bg-[#1a1a24] p-2 shadow-2xl">
+            {options.map((o) => {
+              const checked = values.includes(o.value);
+              return (
+                <button
+                  key={o.value}
+                  onClick={() => toggle(o.value)}
+                  className={`flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors ${checked ? "bg-white/[0.08]" : "hover:bg-white/5"}`}
+                >
+                  <span
+                    className={`flex size-[18px] shrink-0 items-center justify-center rounded border-2 ${
+                      checked ? "border-neon-cyan bg-neon-cyan" : "border-white/35"
+                    }`}
+                  >
+                    {checked && <Check className="size-2.5 text-[#06060f]" strokeWidth={4} />}
+                  </span>
+                  <span className="text-sm font-medium text-white/90">{o.label}</span>
+                </button>
+              );
+            })}
+
+            <div className="my-1 h-px w-full bg-white/[0.12]" />
+            <button onClick={() => setOpen(false)} className="flex w-full items-center justify-center p-2.5 text-[13px] font-semibold text-neon-cyan">
+              Show results
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/** The "Applied:" chip row (Figma 265:76) — one chip per active selection. */
+export function AppliedFilters({ chips, onClear }: { chips: { key: string; label: string; onRemove: () => void }[]; onClear: () => void }) {
+  if (chips.length === 0) return null;
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="text-sm font-medium text-white/70">Applied:</span>
+      {chips.map((chip) => (
+        <span key={chip.key} className="flex items-center gap-2 rounded-lg border border-neon-cyan/20 bg-neon-cyan/10 py-1.5 pl-3 pr-2 text-[13px] font-medium text-neon-cyan">
+          {chip.label}
+          <button onClick={chip.onRemove} aria-label={`Remove ${chip.label}`} className="transition-opacity hover:opacity-70">
+            <X className="size-3.5" />
+          </button>
+        </span>
+      ))}
+      <button onClick={onClear} className="pl-2 text-sm font-semibold text-neon-cyan underline transition-opacity hover:opacity-80">
+        Clear all
+      </button>
+    </div>
+  );
+}
+
 /* ------------------------------ filter pill ------------------------------- */
 
 export function PillDropdown({
@@ -289,6 +398,28 @@ export function JobsBrowseHeader({
     onApplyFilters({ cities: city ? [city.name] : [] });
   };
 
+  // One chip per active selection, in the order the pills appear.
+  const labelFor = (options: { label: string; value: string }[], value: string) => options.find((o) => o.value === value)?.label ?? value;
+
+  const appliedChips = [
+    ...filters.workplace_types.map((v) => ({
+      key: `workplace-${v}`,
+      label: labelFor(WORKPLACE_TYPE_OPTIONS, v),
+      onRemove: () => onApplyFilters({ workplace_types: filters.workplace_types.filter((x) => x !== v) }),
+    })),
+    ...filters.job_types.map((v) => ({
+      key: `work-${v}`,
+      label: labelFor(WORK_TYPE_OPTIONS, v),
+      onRemove: () => onApplyFilters({ job_types: filters.job_types.filter((x) => x !== v) }),
+    })),
+    ...(cityFilter ? [{ key: `city-${cityFilter.id}`, label: cityFilter.name, onRemove: () => handleCitySelect(null) }] : []),
+  ];
+
+  const clearAll = () => {
+    setCityFilter(null);
+    onApplyFilters({ workplace_types: [], job_types: [], cities: [] });
+  };
+
   return (
     <div className="flex flex-col gap-5 sm:gap-6">
       {/* Title row */}
@@ -354,27 +485,13 @@ export function JobsBrowseHeader({
           ]}
           onSelect={(v) => onApplyFilters({ sort_by: v as SearchFilters["sort_by"] })}
         />
-        <PillDropdown
+        <MultiSelectPill
           label="Workplace type"
-          value={filters.remote ? "remote" : ""}
-          options={[
-            { label: "Any", value: "" },
-            { label: "Remote", value: "remote" },
-          ]}
-          onSelect={(v) => onApplyFilters({ remote: v === "remote" })}
+          options={WORKPLACE_TYPE_OPTIONS}
+          values={filters.workplace_types}
+          onChange={(v) => onApplyFilters({ workplace_types: v })}
         />
-        <PillDropdown
-          label="Work type"
-          value={filters.job_types[0] ?? ""}
-          options={[
-            { label: "Any", value: "" },
-            { label: "Full-time", value: "Full-time" },
-            { label: "Part-time", value: "Part-time" },
-            { label: "Contract", value: "Contract" },
-            { label: "Internship", value: "Internship" },
-          ]}
-          onSelect={(v) => onApplyFilters({ job_types: v ? [v] : [] })}
-        />
+        <MultiSelectPill label="Work type" options={WORK_TYPE_OPTIONS} values={filters.job_types} onChange={(v) => onApplyFilters({ job_types: v })} />
         <Autocomplete
           className="w-[141px] sm:w-[221px]"
           value={cityFilter}
@@ -393,6 +510,9 @@ export function JobsBrowseHeader({
           inputClassName="h-auto rounded-full border-glass-border py-2 text-xs font-medium text-white placeholder:text-white/45 sm:py-3 sm:text-[13px]"
         />
       </div>
+
+      {/* Applied filter chips */}
+      <AppliedFilters chips={appliedChips} onClear={clearAll} />
 
       {/* Profile completion banner */}
       {isAuthenticated && profileBanner && (
