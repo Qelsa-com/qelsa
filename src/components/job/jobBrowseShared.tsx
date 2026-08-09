@@ -21,7 +21,7 @@ import { City } from "@/types/city";
 import { Job } from "@/types/job";
 import { Building2, Check, ChevronDown, MapPin, Search, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 /* --------------------------------- types ---------------------------------- */
 
@@ -397,6 +397,22 @@ export function JobsBrowseHeader({
     setCityFilter(city);
     onApplyFilters({ cities: city ? [city.name] : [] });
   };
+
+  // Search as you type — Enter still fires it immediately. Kept in a ref because
+  // both pages pass a fresh inline `onSearch` on every render, which would
+  // otherwise restart the timer continuously.
+  const onSearchRef = useRef(onSearch);
+  onSearchRef.current = onSearch;
+  const skipInitialSearch = useRef(true);
+
+  useEffect(() => {
+    if (skipInitialSearch.current) {
+      skipInitialSearch.current = false;
+      return;
+    }
+    const timer = setTimeout(() => onSearchRef.current(), 400);
+    return () => clearTimeout(timer);
+  }, [query]);
 
   // One chip per active selection, in the order the pills appear.
   const labelFor = (options: { label: string; value: string }[], value: string) => options.find((o) => o.value === value)?.label ?? value;
