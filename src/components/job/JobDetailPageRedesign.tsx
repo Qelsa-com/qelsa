@@ -31,6 +31,7 @@ import {
   Link as LinkIcon,
   Linkedin,
   MessageCircle,
+  Share2,
   Shield,
   Twitter,
   Upload,
@@ -203,23 +204,45 @@ export function JobDetailPageRedesign() {
     whatsapp: () => window.open(`https://wa.me/?text=${encodeURIComponent(`${title} — ${shareUrl}`)}`, "_blank"),
   };
 
+  // The mobile frame has a single share control; use the native sheet where the
+  // browser offers it and fall back to copying the link.
+  const handleMobileShare = () => {
+    if (typeof navigator !== "undefined" && navigator.share) navigator.share({ title, url: shareUrl }).catch(() => {});
+    else share.copy();
+  };
+
   return (
     <div className="text-white">
+      {/* Mobile header bar (Figma 721:264). Desktop keeps the breadcrumb below. */}
+      <div className="flex h-16 items-center justify-between border-b border-white/[0.12] bg-white/[0.06] px-4 lg:hidden">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => router.back()}
+            aria-label="Back"
+            className="flex size-10 shrink-0 items-center justify-center rounded-full border border-white/[0.12] bg-white/[0.03]"
+          >
+            <ArrowLeft className="size-5" />
+          </button>
+          <span className="text-lg font-bold text-white">Job Detail</span>
+        </div>
+        <button onClick={handleMobileShare} aria-label="Share job" className="flex size-10 shrink-0 items-center justify-center rounded-full border border-white/[0.12] bg-white/[0.03]">
+          <Share2 className="size-5" />
+        </button>
+      </div>
+
       {/* Content. Tighter padding on a phone; the lg values are the desktop
           layout unchanged. Clearance for the fixed mobile tab bar comes from
           Layout, so there's no extra bottom padding to add here. */}
       <div className="relative mx-auto flex max-w-[1280px] flex-col gap-4 px-4 pb-8 pt-4 sm:px-6 lg:gap-6 lg:px-20 lg:pb-12 lg:pt-8">
         {/* Breadcrumb */}
-        <button onClick={() => router.push("/jobs/smart_matches")} className="flex w-fit items-center gap-2 text-sm text-white/70 transition-colors hover:text-neon-cyan">
+        <button onClick={() => router.push("/jobs/smart_matches")} className="hidden w-fit items-center gap-2 text-sm text-white/70 transition-colors hover:text-neon-cyan lg:flex">
           <ArrowLeft className="size-4" />
           Back to Jobs
         </button>
 
-        {/* Share / bookmark pill. It floats over the hero on desktop; on a phone
-            there is no room to float, so it sits in the flow under the
-            breadcrumb. Absolute positioning ignores DOM order, so the desktop
-            placement is unaffected by where this sits in the markup. */}
-        <div className="glass-strong flex w-fit items-center gap-1.5 self-end rounded-full p-1.5 lg:absolute lg:right-20 lg:top-[46px] lg:gap-2 lg:p-2">
+        {/* Share / bookmark pill. Desktop only — the mobile frame replaces it
+            with the single share button in the header above. */}
+        <div className="glass-strong hidden w-fit items-center gap-1.5 self-end rounded-full p-1.5 lg:absolute lg:right-20 lg:top-[46px] lg:flex lg:gap-2 lg:p-2">
           {isAuthenticated && (
             <ShareButton onClick={() => toggleSaveJob(job.id)}>{job.is_bookmarked ? <BookmarkCheck className="size-[18px] text-neon-cyan" /> : <Bookmark className="size-[18px]" />}</ShareButton>
           )}
@@ -230,11 +253,11 @@ export function JobDetailPageRedesign() {
         </div>
 
         {/* Job Hero */}
-        <Card className="gap-5 rounded-[20px] border-glass-border bg-white/[0.03] p-5 lg:gap-6 lg:p-8">
+        <Card className="gap-3 rounded-xl border-glass-border bg-white/[0.03] p-4 lg:gap-6 lg:rounded-[20px] lg:p-8">
           {/* Company on one line, actions on the next — a phone can't fit both. */}
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between lg:gap-0">
             <div className="flex min-w-0 items-center gap-3">
-              <div className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-glass-border bg-white/[0.04] lg:size-16">
+              <div className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-full border border-glass-border bg-white/[0.04] lg:size-16 lg:rounded-2xl">
                 {job.company_logo ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={job.company_logo} alt={companyName} className="size-full object-cover" />
@@ -252,7 +275,9 @@ export function JobDetailPageRedesign() {
                 </div>
               </div>
             </div>
-            <div className="flex w-full items-center gap-3 lg:w-auto">
+            {/* Desktop keeps these in the hero; the mobile frame moves them to a
+                full-width row at the end of the page (Figma 721:285). */}
+            <div className="hidden w-full items-center gap-3 lg:flex lg:w-auto">
               {/* Saving a job needs an account — hidden while signed out. */}
               {isAuthenticated && (
                 <Button variant="outline" onClick={() => toggleSaveJob(job.id)} className="h-auto flex-1 rounded-full border-[1.5px] border-white/20 bg-transparent px-4 py-3 text-sm text-white hover:bg-white/5 lg:flex-none lg:px-6 lg:py-3.5">
@@ -271,11 +296,11 @@ export function JobDetailPageRedesign() {
 
           <h1 className="text-2xl font-bold leading-8 text-white lg:text-[32px] lg:leading-10">{title}</h1>
 
-          <div className="flex gap-2 lg:gap-3">
+          <div className="flex gap-3">
             {metrics.map((m) => (
-              <div key={m.label} className="flex min-w-0 flex-1 flex-col gap-1.5 rounded-2xl border border-glass-border bg-white/[0.03] p-3 lg:p-4">
-                <span className="text-[11px] leading-tight text-white/45 lg:text-xs lg:leading-4">{m.label}</span>
-                <span className="text-xl font-bold text-white lg:text-2xl">{m.value}</span>
+              <div key={m.label} className="flex min-w-0 flex-1 flex-col gap-1 rounded-xl border border-glass-border bg-white/[0.03] p-3 lg:gap-1.5 lg:rounded-2xl lg:p-4">
+                <span className="text-xs leading-tight text-white/45 lg:leading-4">{m.label}</span>
+                <span className="text-lg font-bold text-white lg:text-2xl">{m.value}</span>
               </div>
             ))}
           </div>
@@ -394,7 +419,7 @@ export function JobDetailPageRedesign() {
                 so the desktop rendering is byte-for-byte what it was.
               */}
               <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-3 lg:flex lg:gap-4">
-                <div className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-glass-border bg-white/[0.04] lg:size-16">
+                <div className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-full border border-glass-border bg-white/[0.04] lg:size-16 lg:rounded-2xl">
                   {job.company_logo ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={job.company_logo} alt={companyName} className="size-full object-cover" />
@@ -475,6 +500,26 @@ export function JobDetailPageRedesign() {
             </SectionCard>
           </div>
         </div>
+
+        {/* Mobile action row (Figma 721:285) — the desktop copy lives in the hero. */}
+        <div className="flex items-center gap-3 lg:hidden">
+          {isAuthenticated && (
+            <Button
+              variant="outline"
+              onClick={() => toggleSaveJob(job.id)}
+              className="h-auto flex-1 rounded-full border-[1.5px] border-white/20 bg-transparent px-6 py-3.5 text-sm text-white hover:bg-white/5"
+            >
+              {job.is_bookmarked ? "Saved" : "Save job"}
+            </Button>
+          )}
+          {applied ? (
+            <span className="flex-1 rounded-full border border-neon-green/30 bg-neon-green/10 px-6 py-3.5 text-center text-base font-semibold text-neon-green">Applied</span>
+          ) : (
+            <Button onClick={handleApply} className={`h-auto flex-1 rounded-full px-6 py-3.5 text-base font-semibold text-white ${GRADIENT} hover:opacity-90`}>
+              {job.resource === "qelsa" ? "Quick Apply" : "Apply now"}
+            </Button>
+          )}
+        </div>
       </div>
 
       <QuickApplyModal
@@ -483,7 +528,9 @@ export function JobDetailPageRedesign() {
         job={job}
         companyName={companyName}
         screeningQuestions={job.questionSets ? job.questionSets?.[0]?.questions : []}
-        onSubmit={() => setShowQuickApplyModal(false)}
+        // Must not close the modal: it stays open to show the success screen,
+        // which closes itself from its own CTAs.
+        onSubmit={() => {}}
         resumes={myResumes}
       />
     </div>
@@ -502,10 +549,10 @@ function ShareButton({ children, onClick }: { children: React.ReactNode; onClick
 
 function SectionCard({ icon, title, titleSize = "text-lg lg:text-xl", children }: { icon?: React.ReactNode; title: string; titleSize?: string; children: React.ReactNode }) {
   return (
-    <Card className="gap-4 rounded-[20px] border-glass-border bg-white/[0.03] p-4 lg:p-6">
+    <Card className="gap-3 rounded-xl border-glass-border bg-white/[0.03] p-4 lg:gap-4 lg:rounded-[20px] lg:p-6">
       <div className="flex items-center gap-3">
         {icon && <span className="shrink-0">{icon}</span>}
-        <h3 className={`${titleSize} font-semibold text-white`}>{title}</h3>
+        <h3 className={`${titleSize} font-bold text-white lg:font-semibold`}>{title}</h3>
       </div>
       {children}
     </Card>

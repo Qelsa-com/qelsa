@@ -618,15 +618,19 @@ function SuccessScreen({
   ];
 
   return (
-    <div className="flex flex-col items-center gap-12 px-6 py-16 sm:px-10">
-      <div className="flex w-full max-w-[560px] flex-col items-center gap-6">
+    <div className="relative flex flex-col items-center gap-12 overflow-hidden px-6 py-16 sm:px-10">
+      {/* bg glows (Figma 242:90 / 242:91) — the two ends of the brand gradient. */}
+      <div aria-hidden="true" className="pointer-events-none absolute -left-40 top-40 size-[600px] rounded-full bg-[#4d33cc]/[0.08] blur-[60px]" />
+      <div aria-hidden="true" className="pointer-events-none absolute -right-32 bottom-0 size-[500px] rounded-full bg-[#bf1f66]/[0.08] blur-[50px]" />
+
+      <div className="relative flex w-full max-w-[640px] flex-col items-center gap-6">
         <div className="flex size-[120px] items-center justify-center rounded-full border-2 border-neon-cyan bg-neon-cyan/10">
           <div className="flex size-16 items-center justify-center rounded-[32px] bg-neon-cyan">
             <Check className="size-8 text-[#06060f]" strokeWidth={3} />
           </div>
         </div>
         <div className="flex flex-col items-center gap-3 text-center">
-          <h2 className="text-[32px] font-bold text-white">Application Submitted!</h2>
+          <h2 className="text-[28px] font-bold text-white sm:text-4xl">Application Submitted!</h2>
           <p className="text-lg leading-7 text-white/70">
             Your application for <span className="font-bold text-white">{jobTitle}</span> at {companyName} has been submitted successfully.
           </p>
@@ -643,8 +647,8 @@ function SuccessScreen({
           </div>
         </div>
       </div>
-      <div className="flex flex-col items-center gap-6">
-        <button onClick={onViewApplications} className="gradient-animated rounded-full px-8 py-4 text-base font-bold text-white transition-opacity hover:opacity-90">
+      <div className="relative flex flex-col items-center gap-6">
+        <button onClick={onViewApplications} className="gradient-primary rounded-full px-8 py-4 text-base font-bold text-white transition-opacity hover:opacity-90">
           View My Applications
         </button>
         <button onClick={onBrowseJobs} className="text-base font-semibold text-neon-cyan underline">
