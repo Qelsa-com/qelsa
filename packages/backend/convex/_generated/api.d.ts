@@ -17,7 +17,9 @@ import type * as files from "../files.js";
 import type * as http from "../http.js";
 import type * as jobApplications from "../jobApplications.js";
 import type * as jobs from "../jobs.js";
+import type * as jobsGenerate from "../jobsGenerate.js";
 import type * as jobsScraper from "../jobsScraper.js";
+import type * as lib_ai from "../lib/ai.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_customFunctions from "../lib/customFunctions.js";
 import type * as lib_helpers from "../lib/helpers.js";
@@ -45,7 +47,9 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   jobApplications: typeof jobApplications;
   jobs: typeof jobs;
+  jobsGenerate: typeof jobsGenerate;
   jobsScraper: typeof jobsScraper;
+  "lib/ai": typeof lib_ai;
   "lib/auth": typeof lib_auth;
   "lib/customFunctions": typeof lib_customFunctions;
   "lib/helpers": typeof lib_helpers;
@@ -86,4 +90,5 @@ export declare const internal: FilterApi<
 
 export declare const components: {
   betterAuth: import("@convex-dev/better-auth/_generated/component.js").ComponentApi<"betterAuth">;
+  agent: import("@convex-dev/agent/_generated/component.js").ComponentApi<"agent">;
 };

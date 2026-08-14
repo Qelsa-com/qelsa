@@ -162,6 +162,7 @@ export default defineSchema({
     .index("by_status", ["status"])
     .index("by_owner", ["owner_id"])
     .index("by_page", ["page_id"])
+    .index("by_job_title", ["job_title_id"])
     .index("by_external_id", ["external_id"])
     .index("by_status_and_published", ["status", "published_date"])
     .searchIndex("search_title", { searchField: "title" }),

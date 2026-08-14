@@ -4,24 +4,27 @@
  * JobPostingPage — Figma "qelsa-post-job-screen" (Qelsa-Screen, node 230:773 / 214:541).
  *
  * A single-page posting form (the old multi-step wizard was replaced) wired to
- * `POST jobs/with-questions`. Sections: Describe the Role (AI, static), Basic
- * information, Job description, What this role uses daily, Competency framework,
- * Screening questions (category templates + custom, with expected-answer /
- * knockout / MC options persisted), Internal Only (static), preview + actions.
+ * `POST jobs/with-questions`. Sections: Basic information (catalog title /
+ * location / company, then Generate with AI), Job description, What this role
+ * uses daily, Competency framework, Screening questions, Internal Only (static),
+ * preview + actions.
  *
  * Screening questions round-trip the backend fields: category, type, is_knockout,
  * knockout_condition, knockout_value, expected_answer, and options[].is_correct.
- * AI generation, private budget, approvers and drafts are intentionally static.
+ * Private budget, approvers and drafts are still static. AI generation fills
+ * work type, workplace, experience, salary, description, and skills from a
+ * Qelsa-locked title/location/company context; the recruiter reviews before publish.
  */
 
 import { Autocomplete } from "@/components/ui/autocomplete";
 import { formatCity } from "@/constants/city";
 import { JOB_SKILL_TYPES, JobSkillType, jobSkillTypeLabel, PROFICIENCY_LEVELS, ProficiencyLevel, proficiencyLabel } from "@/constants/skills";
-import { useCreateJobMutation } from "@/features/api/jobsApi";
+import { useCreateJobMutation, useGenerateJobDraftAction } from "@/features/api/jobsApi";
 import { useLazySearchJobTitlesQuery } from "@/features/api/jobTitlesApi";
 import { useLazyGetMyPagesQuery } from "@/features/api/pagesApi";
 import { useLazyGetSkillsQuery, useLazySearchCitiesQuery } from "@/features/api/seedApi";
 import { City } from "@/types/city";
+import type { Id } from "@qelsa/backend";
 import {
   AlertCircle,
   ArrowLeft,
@@ -56,7 +59,8 @@ const INPUT =
 const GRADIENT = "bg-gradient-to-r from-neon-purple to-neon-pink";
 
 /** The company page a job is posted under, narrowed to what Autocomplete needs. */
-type CompanyOption = { id: number; name: string };
+type CompanyOption = { id: string | number; name: string };
+type CatalogOption = { id: string | number; name: string };
 
 function formatMoney(value: number): string {
   try {
@@ -165,7 +169,7 @@ const TEMPLATE_QUESTIONS: Record<Exclude<QCategory, "custom">, Omit<ScreeningQ, 
 /* --------------------------------- page ----------------------------------- */
 
 interface SkillRow {
-  id: number;
+  id: string | number;
   name: string;
   type: JobSkillType;
   proficiency: ProficiencyLevel;
@@ -175,10 +179,13 @@ interface SkillRow {
 export function JobPostingPage() {
   const router = useRouter();
   const [createJob, { isLoading }] = useCreateJobMutation();
+  const generateDraft = useGenerateJobDraftAction();
   const [searchMyPages, { data: pageResults = [] }] = useLazyGetMyPagesQuery();
 
   const [aiPrompt, setAiPrompt] = useState("");
-  const [jobTitle, setJobTitle] = useState<{ id: number; name: string } | null>(null);
+  const [generating, setGenerating] = useState(false);
+  const [aiGenerated, setAiGenerated] = useState(false);
+  const [jobTitle, setJobTitle] = useState<CatalogOption | null>(null);
   const [company, setCompany] = useState<CompanyOption | null>(null);
   // What the user typed, whether or not it matched one of their pages.
   const [companyName, setCompanyName] = useState("");
@@ -214,14 +221,14 @@ export function JobPostingPage() {
   const weightTotal = enteredWeights.reduce((sum, s) => sum + Number(s.weight || 0), 0);
   const weightsValid = !anyWeight || (allWeights && weightTotal === 100);
 
-  const addSkill = (sel: { id: number; name: string } | null) => {
+  const addSkill = (sel: CatalogOption | null) => {
     if (!sel) return;
     setSkills((prev) => (prev.some((s) => s.id === sel.id) ? prev : [...prev, { id: sel.id, name: sel.name, type: "preferred", proficiency: "beginner", weight: "" }]));
     setSkillFieldKey((k) => k + 1);
   };
-  const updateSkillField = <K extends "type" | "proficiency" | "weight">(id: number, field: K, value: SkillRow[K]) =>
+  const updateSkillField = <K extends "type" | "proficiency" | "weight">(id: string | number, field: K, value: SkillRow[K]) =>
     setSkills((prev) => prev.map((s) => (s.id === id ? { ...s, [field]: value } : s)));
-  const removeSkill = (id: number) => setSkills((prev) => prev.filter((s) => s.id !== id));
+  const removeSkill = (id: string | number) => setSkills((prev) => prev.filter((s) => s.id !== id));
 
   const enterSkillsEdit = () => {
     setSkillsBackup(skills);
@@ -314,6 +321,43 @@ export function JobPostingPage() {
     });
   }
 
+  const canGenerate = Boolean(jobTitle && city && (company || companyName.trim()));
+
+  const handleGenerate = async () => {
+    if (!jobTitle) return toast.error("Select a job title from the Qelsa catalog.");
+    if (!city) return toast.error("Select a location from the Qelsa catalog.");
+    if (!company && !companyName.trim()) return toast.error("Select a company page or enter a company name.");
+
+    setGenerating(true);
+    try {
+      const draft = await generateDraft({
+        jobTitleId: String(jobTitle.id) as Id<"job_titles">,
+        cityId: String(city.id) as Id<"cities">,
+        pageId: company ? (String(company.id) as Id<"pages">) : undefined,
+        companyName: company ? undefined : companyName.trim() || undefined,
+        existingSkillIds: skills.map((s) => String(s.id) as Id<"skills">),
+        notes: aiPrompt.trim() || undefined,
+      });
+      setWorkType(draft.work_type);
+      setWorkplaceType(draft.workplace_type);
+      setExperience(draft.experience);
+      setSalaryRange(draft.salary_range);
+      setDescription(draft.description);
+      setSkills(draft.skills.map((s) => ({ id: s.id, name: s.name, type: s.type, proficiency: s.proficiency, weight: "" })));
+      setAiGenerated(true);
+      if (draft.warnings.length) {
+        toast.warning(draft.warnings[0]);
+      } else {
+        toast.success("AI draft ready — review and edit before publishing.");
+      }
+    } catch (err) {
+      console.error("Job generation failed:", err);
+      toast.error(err instanceof Error ? err.message : "Could not generate a job description.");
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   const handlePublish = async () => {
     if (!jobTitle) return toast.error("Job title is required.");
     if (!company && !companyName.trim()) return toast.error("Company is required — pick one of your pages or type a new company name.");
@@ -368,33 +412,7 @@ export function JobPostingPage() {
       </button>
 
       <div className="flex flex-col gap-6">
-        {/* Describe the Role (AI — static) */}
-        <section className={CARD}>
-          <div className="mb-4 flex items-center gap-2">
-            <Sparkles className="size-5 text-neon-purple" />
-            <h2 className="text-lg font-semibold text-white">Describe the Role</h2>
-          </div>
-          <textarea
-            value={aiPrompt}
-            onChange={(e) => setAiPrompt(e.target.value)}
-            placeholder="Example: I need a backend engineer with 3+ years in Node.js & AWS to build scalable microservices for our career platform..."
-            className="min-h-28 w-full rounded-xl border border-glass-border bg-white/[0.04] p-4 text-sm text-white placeholder:text-white/45 focus:border-neon-cyan focus:outline-none"
-          />
-          <div className="mt-3 flex items-center justify-between gap-4">
-            <p className="flex items-center gap-1.5 text-xs text-white/45">
-              <Info className="size-3.5" /> Tip: Include experience level, key skills, and main responsibilities
-            </p>
-            <button
-              onClick={() => toast.info("AI generation is coming soon.")}
-              disabled={!aiPrompt.trim()}
-              className={`flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40 ${GRADIENT}`}
-            >
-              <Sparkles className="size-4" /> Generate job description
-            </button>
-          </div>
-        </section>
-
-        {/* Basic information */}
+        {/* Locked identity fields + generate */}
         <section className={CARD}>
           <h2 className="mb-6 text-lg font-semibold text-white">Basic information</h2>
           <div className="grid grid-cols-1 gap-x-6 gap-y-5 md:grid-cols-2">
@@ -427,7 +445,7 @@ export function JobPostingPage() {
               />
             </Field>
             <Field label="City" required>
-              <Autocomplete
+              <Autocomplete<City>
                 value={city}
                 onChange={setCity}
                 onSearch={(q) => searchCities(q)}
@@ -439,6 +457,46 @@ export function JobPostingPage() {
                 inputClassName={INPUT}
               />
             </Field>
+          </div>
+
+          <div className="mt-6 rounded-2xl border border-neon-purple/25 bg-neon-purple/5 p-4">
+            <div className="mb-3 flex items-center gap-2">
+              <Sparkles className="size-4 text-neon-purple" />
+              <h3 className="text-sm font-semibold text-white">Generate with AI</h3>
+            </div>
+            <textarea
+              value={aiPrompt}
+              onChange={(e) => setAiPrompt(e.target.value)}
+              placeholder="Optional notes — e.g. payments domain, 3–5 years, Node.js & AWS. Title, location, and company stay as selected above."
+              className="min-h-24 w-full rounded-xl border border-glass-border bg-white/[0.04] p-3 text-sm text-white placeholder:text-white/45 focus:border-neon-cyan focus:outline-none"
+            />
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+              <p className="flex items-center gap-1.5 text-xs text-white/45">
+                <Info className="size-3.5" /> AI will not invent the job title or location.
+              </p>
+              <button
+                onClick={handleGenerate}
+                disabled={!canGenerate || generating}
+                className={`flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40 ${GRADIENT}`}
+              >
+                <Sparkles className="size-4" /> {generating ? "Generating…" : "Generate with AI"}
+              </button>
+            </div>
+          </div>
+
+          {aiGenerated && (
+            <div className="mt-5 flex items-start gap-3 rounded-2xl border border-neon-purple/30 bg-neon-purple/10 px-4 py-3">
+              <Sparkles className="mt-0.5 size-4 shrink-0 text-neon-purple" />
+              <div>
+                <p className="text-sm font-semibold text-white">AI-generated job details</p>
+                <p className="mt-1 text-xs leading-relaxed text-white/70">
+                  Review and edit anything before publishing. Job title, location, and company came from Qelsa and were not changed.
+                </p>
+              </div>
+            </div>
+          )}
+
+          <div className="mt-6 grid grid-cols-1 gap-x-6 gap-y-5 md:grid-cols-2">
             <Field label="Work Type" required>
               <SelectInput value={workType} onChange={setWorkType}>
                 <option value="full-time">Full-time</option>

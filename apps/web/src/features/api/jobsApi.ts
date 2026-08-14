@@ -1,5 +1,6 @@
 "use client";
 
+import { useAction } from "convex/react";
 import { api } from "@/lib/convexApi";
 import { useConvexMutationHook, useConvexQueryHook, useLazyConvexQueryHook } from "@/lib/convexHooks";
 import type { JobFilters } from "./utils/buildJobQueryParams";
@@ -84,6 +85,9 @@ export function useGetJobTypesQuery() {
 }
 export function useCreateJobMutation() {
   return useConvexMutationHook(api.jobs.createWithQuestions, (payload) => ({ payload }));
+}
+export function useGenerateJobDraftAction() {
+  return useAction(api.jobsGenerate.generateDraft);
 }
 export function useToggleSaveJobMutation() {
   return useConvexMutationHook(api.jobs.toggleSave, (jobId: string | number) => ({ jobId: String(jobId) }));

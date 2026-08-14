@@ -16,15 +16,20 @@
     "./convex/_generated/dataModel": "./convex/_generated/dataModel.d.ts"
   },
   "dependencies": {
+    "@ai-sdk/provider-utils": "^4.0.45",
+    "@convex-dev/agent": "^0.6.4",
     "@convex-dev/better-auth": "catalog:",
+    "@openrouter/ai-sdk-provider": "^2.10.0",
+    "ai": "^6.0.255",
     "better-auth": "catalog:",
     "convex": "catalog:",
-    "convex-helpers": "catalog:"
+    "convex-helpers": "catalog:",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@convex-dev/eslint-plugin": "^4.0.0",
-    "eslint": "^9",
     "@types/node": "24.9.1",
+    "eslint": "^9",
     "typescript": "catalog:"
   }
 }

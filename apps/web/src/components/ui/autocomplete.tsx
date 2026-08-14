@@ -6,7 +6,7 @@ import ReactDOM from "react-dom";
 import { cn } from "./utils";
 
 export interface AutocompleteOption {
-  id: number;
+  id: string | number;
   name: string;
 }
 
