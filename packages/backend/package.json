@@ -1,0 +1,30 @@
+{
+  "name": "@qelsa/backend",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "convex dev",
+    "dev:once": "convex dev --once",
+    "deploy": "convex deploy",
+    "check-types": "tsc --noEmit -p tsconfig.json",
+    "lint": "eslint convex"
+  },
+  "exports": {
+    ".": "./index.ts",
+    "./convex/_generated/api": "./convex/_generated/api.js",
+    "./convex/_generated/dataModel": "./convex/_generated/dataModel.d.ts"
+  },
+  "dependencies": {
+    "@convex-dev/better-auth": "catalog:",
+    "better-auth": "catalog:",
+    "convex": "catalog:",
+    "convex-helpers": "catalog:"
+  },
+  "devDependencies": {
+    "@convex-dev/eslint-plugin": "^4.0.0",
+    "eslint": "^9",
+    "@types/node": "24.9.1",
+    "typescript": "catalog:"
+  }
+}
