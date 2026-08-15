@@ -1,5 +1,6 @@
 import { City } from "@/types/city";
 import { JobCard, JobsBrowseHeader, matchScore, SearchFilters } from "@/components/job/jobBrowseShared";
+import { useOpenQelsaMatch } from "@/features/job/useOpenQelsaMatch";
 import { useLazyGetDiscoverJobsQuery } from "@/features/api/jobsApi";
 import { Job } from "@/types/job";
 import { useRouter } from "next/navigation";
@@ -109,6 +110,7 @@ const SmartMatches = () => {
   const exploreJobs = useMemo(() => applyExploreTab(explore, exploreTab), [explore, exploreTab]);
 
   const openJob = (id: string | number) => router.push(`/jobs/${id}`);
+  const { open: openMatch, pendingId } = useOpenQelsaMatch();
   const missingTiers = ready.length === 0 && almost.length === 0;
 
   return (
@@ -136,13 +138,13 @@ const SmartMatches = () => {
             <>
               {ready.length > 0 && (
                 <MatchSection dotColor="#00d4ff" title="Ready Now" subtitle="These roles match your experience. It's go time for these roles.">
-                  <JobGrid jobs={ready} onOpen={openJob} />
+                  <JobGrid jobs={ready} onOpen={openJob} onMatch={openMatch} pendingId={pendingId} />
                 </MatchSection>
               )}
 
               {almost.length > 0 && (
                 <MatchSection dotColor="#f59e0b" title="Almost There" subtitle="Close to 80% match — stand out! Fill gaps to boost these roles.">
-                  <JobGrid jobs={almost} onOpen={openJob} />
+                  <JobGrid jobs={almost} onOpen={openJob} onMatch={openMatch} pendingId={pendingId} />
                 </MatchSection>
               )}
 
@@ -174,7 +176,7 @@ const SmartMatches = () => {
                   </div>
 
                   {exploreJobs.length > 0 ? (
-                    <JobGrid jobs={exploreJobs} onOpen={openJob} />
+                    <JobGrid jobs={exploreJobs} onOpen={openJob} onMatch={openMatch} pendingId={pendingId} />
                   ) : (
                     <p className="text-[13px] text-white/45 sm:text-sm">No roles in this view right now.</p>
                   )}
@@ -205,11 +207,27 @@ function MatchSection({ dotColor, title, subtitle, children }: { dotColor: strin
   );
 }
 
-function JobGrid({ jobs, onOpen }: { jobs: Job[]; onOpen: (id: string | number) => void }) {
+function JobGrid({
+  jobs,
+  onOpen,
+  onMatch,
+  pendingId,
+}: {
+  jobs: Job[];
+  onOpen: (id: string | number) => void;
+  onMatch: (id: string | number) => void;
+  pendingId: string | null;
+}) {
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
       {jobs.map((job) => (
-        <JobCard key={job.id} job={job} onClick={() => onOpen(job.id)} />
+        <JobCard
+          key={job.id}
+          job={job}
+          onClick={() => onOpen(job.id)}
+          onMatch={() => onMatch(job.id)}
+          matching={pendingId === String(job.id)}
+        />
       ))}
     </div>
   );

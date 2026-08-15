@@ -1,5 +1,6 @@
 import { Bot, Menu, User } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { AiMarkdown } from "./ai/AiMarkdown";
 import { ChatInput } from "./ChatInput";
 import { EnhancedAIResponse } from "./EnhancedAIResponse";
 import { FeedbackButtons } from "./FeedbackButtons";
@@ -373,7 +374,7 @@ What would you like to explore?`,
                   </div>
                   <div className="flex-1 space-y-4">
                     <div className="glass border-glass-border rounded-2xl px-4 py-3">
-                      <p className="text-foreground">{message.content}</p>
+                      <AiMarkdown markdown={message.content} />
                     </div>
 
                     {/* Enhanced Response Component */}

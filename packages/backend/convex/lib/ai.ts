@@ -9,3 +9,12 @@ export const openRouter = process.env.OPENROUTER_API_KEY
   : null;
 
 export const AI_AGENT_MODEL = process.env.AI_AGENT_MODEL ?? "openai/gpt-4o-mini";
+
+export function requireOpenRouter() {
+  if (!openRouter) {
+    throw new Error(
+      "OPENROUTER_API_KEY is not configured. Set it on the Convex deployment before using AI Match.",
+    );
+  }
+  return openRouter;
+}

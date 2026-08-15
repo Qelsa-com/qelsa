@@ -89,6 +89,22 @@ export function useCreateJobMutation() {
 export function useGenerateJobDraftAction() {
   return useAction(api.jobsGenerate.generateDraft);
 }
+export function useStartQelsaMatchAction() {
+  return useAction(api.jobMatchGenerate.startForJob);
+}
+export function useStartExternalMatchAction() {
+  return useAction(api.jobMatchGenerate.startForExternal);
+}
+export function useSendMatchMessageAction() {
+  return useAction(api.jobMatchGenerate.sendMessage);
+}
+export function useGetMatchSessionQuery(sessionId?: string, options?: { skip?: boolean }) {
+  return useConvexQueryHook(
+    api.jobMatch.getSession,
+    sessionId ? { sessionId } : undefined,
+    { skip: options?.skip || !sessionId },
+  );
+}
 export function useToggleSaveJobMutation() {
   return useConvexMutationHook(api.jobs.toggleSave, (jobId: string | number) => ({ jobId: String(jobId) }));
 }

@@ -21,6 +21,12 @@ const workplaceType = v.union(
   v.literal("remote"),
 );
 
+const demoTable = v.union(
+  v.literal("on-site"),
+  v.literal("hybrid"),
+  v.literal("remote"),
+);
+
 const applicationStatus = v.union(
   v.literal("applied"),
   v.literal("viewed"),
@@ -38,6 +44,13 @@ const skillType = v.union(
 );
 
 export default defineSchema({
+  demos: defineTable({
+    name: v.string(),
+    description: v.optional(v.string()),
+    image: v.optional(v.string()),
+    image_storage_id: v.optional(v.id("_storage")),
+    url: v.string(),
+  }),
   users: defineTable({
     authId: v.string(),
     name: v.optional(v.string()),
@@ -526,4 +539,45 @@ export default defineSchema({
     .index("by_state", ["state_id"])
     .index("by_name_and_state", ["name", "state_id"])
     .searchIndex("search_name", { searchField: "name" }),
+
+  job_match_sessions: defineTable({
+    user_id: v.id("users"),
+    source: v.union(v.literal("qelsa"), v.literal("external")),
+    job_id: v.optional(v.id("jobs")),
+    thread_id: v.string(),
+    title: v.string(),
+    company: v.optional(v.string()),
+    location: v.optional(v.string()),
+    description: v.string(),
+    work_type: v.optional(v.string()),
+    workplace_type: v.optional(workplaceType),
+    experience: v.optional(v.number()),
+    source_url: v.optional(v.string()),
+    skills: v.array(
+      v.object({
+        name: v.string(),
+        skill_id: v.optional(v.id("skills")),
+        type: v.optional(skillType),
+      }),
+    ),
+    responsibilities: v.array(v.string()),
+    requirements: v.array(v.string()),
+    analysis: v.object({
+      overall: v.number(),
+      headline: v.string(),
+      strong: v.array(v.string()),
+      partial: v.array(v.string()),
+      missing: v.array(v.string()),
+      experience_match: v.number(),
+      education_match: v.number(),
+      domain_match: v.number(),
+      responsibilities_match: v.number(),
+      resume_evidence: v.array(v.string()),
+      actions: v.array(v.string()),
+      can_apply: v.string(),
+    }),
+  })
+    .index("by_user", ["user_id"])
+    .index("by_user_and_job", ["user_id", "job_id"])
+    .index("by_thread", ["thread_id"]),
 });
