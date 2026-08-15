@@ -1,5 +1,6 @@
 import { City } from "@/types/city";
 import { JobCard, JobsBrowseHeader, SearchFilters } from "@/components/job/jobBrowseShared";
+import { useOpenQelsaMatch } from "@/features/job/useOpenQelsaMatch";
 import { useLazyGetDiscoverJobsQuery } from "@/features/api/jobsApi";
 import { Job } from "@/types/job";
 import { Search } from "lucide-react";
@@ -13,6 +14,7 @@ const PAGE_SIZE = 12;
 
 const All = () => {
   const router = useRouter();
+  const { open: openMatch, pendingId } = useOpenQelsaMatch();
 
   const [jobs, setJobs] = useState<Job[]>([]);
   const [query, setQuery] = useState("");
@@ -82,7 +84,13 @@ const All = () => {
           {total > 0 && (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
               {pageJobs.map((job) => (
-                <JobCard key={job.id} job={job} onClick={() => router.push(`/jobs/${job.id}`)} />
+                <JobCard
+                  key={job.id}
+                  job={job}
+                  onClick={() => router.push(`/jobs/${job.id}`)}
+                  onMatch={() => openMatch(job.id)}
+                  matching={pendingId === String(job.id)}
+                />
               ))}
             </div>
           )}

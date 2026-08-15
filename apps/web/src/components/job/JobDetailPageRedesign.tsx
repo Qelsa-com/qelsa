@@ -17,6 +17,7 @@
 import { formatCity } from "@/constants/city";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGetJobByIdQuery, useGetSimilarJobsQuery, useRecordJobViewMutation, useToggleSaveJobMutation } from "@/features/api/jobsApi";
+import { useOpenQelsaMatch } from "@/features/job/useOpenQelsaMatch";
 import { useGetMyResumesQuery } from "@/features/api/resumeApi";
 import { Job } from "@/types/job";
 import DOMPurify from "dompurify";
@@ -32,9 +33,8 @@ import {
   Linkedin,
   MessageCircle,
   Share2,
-  Shield,
+  Sparkles,
   Twitter,
-  Upload,
   Zap,
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
@@ -42,7 +42,6 @@ import { useEffect, useState } from "react";
 import { QuickApplyModal } from "../QuickApplyModal";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "../ui/dialog";
 import { CompetencyTable } from "./CompetencyMatch";
 
 /* -------------------------------- helpers --------------------------------- */
@@ -150,13 +149,13 @@ export function JobDetailPageRedesign() {
   const id = params?.id;
 
   const [showQuickApplyModal, setShowQuickApplyModal] = useState(false);
-  const [showUploadDialog, setShowUploadDialog] = useState(false);
 
   const { data: job, error, isLoading } = useGetJobByIdQuery(id!, { skip: !id });
   const { data: similarJobs, isLoading: isSimilarLoading } = useGetSimilarJobsQuery(id!, { skip: !id });
   const { data: myResumes } = useGetMyResumesQuery(undefined, { skip: !isAuthenticated });
   const [toggleSaveJob] = useToggleSaveJobMutation();
   const [recordJobView] = useRecordJobViewMutation();
+  const { open: openMatch, pendingId } = useOpenQelsaMatch();
 
   // Count this visit once the viewer is known. Views are unique per (job, user)
   // server-side, so a reload or a revisit refreshes the timestamp rather than
@@ -291,6 +290,19 @@ export function JobDetailPageRedesign() {
                   {job.resource === "qelsa" ? "Quick Apply" : "Apply now"}
                 </Button>
               )}
+              <Button
+                variant="outline"
+                onClick={() =>
+                  isAuthenticated
+                    ? openMatch(job.id)
+                    : router.push(`/auth?actionType=profile&returnUrl=${encodeURIComponent(`/jobs/${id}`)}`)
+                }
+                disabled={pendingId === String(job.id)}
+                className="h-auto flex-1 rounded-full border-neon-purple/40 bg-transparent px-4 py-3 text-sm text-neon-purple hover:bg-neon-purple/10 lg:flex-none lg:px-6 lg:py-3.5"
+              >
+                <Sparkles className="mr-2 size-4" />
+                {pendingId === String(job.id) ? "Matching…" : "Check My Match"}
+              </Button>
             </div>
           </div>
 
@@ -357,50 +369,22 @@ export function JobDetailPageRedesign() {
             {/* How you fit this role — reuses the data-wired competency panel */}
             {competency && <CompetencyTable competency={competency} />}
 
-            {/* Resume upload (mock analysis, matching prior behaviour) */}
-            <Card className="items-stretch gap-6 rounded-[20px] border-glass-border bg-white/[0.03] p-4 lg:gap-8 lg:p-6">
+            <Card className="items-stretch gap-5 rounded-[20px] border border-neon-purple/25 bg-neon-purple/5 p-4 lg:p-6">
               <div className="flex items-center gap-3">
-                <Zap className="size-5 shrink-0 text-neon-cyan" />
-                <h3 className="text-lg font-semibold text-white lg:text-xl">AI Resume Fit Analysis</h3>
+                <Sparkles className="size-5 shrink-0 text-neon-purple" />
+                <h3 className="text-lg font-semibold text-white lg:text-xl">Check My Match</h3>
               </div>
-              <div className="flex flex-col items-center gap-5 lg:gap-6">
-                <div className="flex size-24 items-center justify-center rounded-full border border-glass-border bg-white/[0.04] lg:size-[120px]">
-                  <FileText className="size-10 text-neon-cyan lg:size-12" />
-                </div>
-                <div className="flex flex-col items-center gap-3 text-center">
-                  <p className="text-xl font-bold text-white lg:text-2xl">See how well you match this role</p>
-                  <p className="max-w-[480px] text-sm leading-[22px] text-white/70">Upload a new resume or use your existing one to get a detailed AI-powered fit analysis.</p>
-                </div>
-                {/* Stacked full-width buttons on a phone; side by side from sm up. */}
-                <div className="flex w-full flex-col items-stretch justify-center gap-3 sm:flex-row sm:flex-wrap sm:items-center lg:gap-4">
-                  <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
-                    <DialogTrigger asChild>
-                      <Button className={`h-auto w-full rounded-full px-6 py-3.5 text-base font-semibold text-white sm:w-auto ${GRADIENT} hover:opacity-90`}>
-                        <Upload className="mr-2 size-4" />
-                        Upload New Resume
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="glass border-glass-border">
-                      <DialogHeader>
-                        <DialogTitle>Upload Your Resume</DialogTitle>
-                        <DialogDescription>Upload your resume to get AI-powered insights on how well you match this job.</DialogDescription>
-                      </DialogHeader>
-                      <div className="rounded-lg border-2 border-dashed border-glass-border p-6 text-center lg:p-8">
-                        <Upload className="mx-auto mb-2 size-8 text-white/45" />
-                        <p className="mb-2 text-sm text-white/45">Drop your resume here or click to browse</p>
-                        <Button variant="outline">Choose File</Button>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                  <Button variant="outline" disabled={!myResumes?.length} className="h-auto w-full rounded-full border-glass-border bg-white/[0.04] px-6 py-3.5 text-base font-semibold text-white hover:bg-white/10 disabled:opacity-50 sm:w-auto">
-                    Use Existing Resume
-                  </Button>
-                </div>
-              </div>
-              <div className="flex flex-wrap items-center justify-center gap-2 text-center">
-                <Shield className="size-3.5 shrink-0 text-white/45" />
-                <span className="text-xs text-white/45">Your resume is analyzed privately and never shared without your consent.</span>
-              </div>
+              <p className="text-sm leading-relaxed text-white/70">
+                See how ready you are for this role, where the gaps are, and what to do next. Same AI Match coach you can use on any external JD.
+              </p>
+              <Button
+                onClick={() => (isAuthenticated ? openMatch(job.id) : router.push(`/auth?actionType=profile&returnUrl=${encodeURIComponent(`/jobs/${id}`)}`))}
+                disabled={pendingId === String(job.id)}
+                className={`h-auto w-full rounded-full px-6 py-3.5 text-base font-semibold text-white sm:w-auto ${GRADIENT} hover:opacity-90`}
+              >
+                <Sparkles className="mr-2 size-4" />
+                {pendingId === String(job.id) ? "Matching…" : "Check My Match"}
+              </Button>
             </Card>
 
             {/* About the Company */}
@@ -501,24 +485,34 @@ export function JobDetailPageRedesign() {
           </div>
         </div>
 
-        {/* Mobile action row (Figma 721:285) — the desktop copy lives in the hero. */}
-        <div className="flex items-center gap-3 lg:hidden">
-          {isAuthenticated && (
-            <Button
-              variant="outline"
-              onClick={() => toggleSaveJob(job.id)}
-              className="h-auto flex-1 rounded-full border-[1.5px] border-white/20 bg-transparent px-6 py-3.5 text-sm text-white hover:bg-white/5"
-            >
-              {job.is_bookmarked ? "Saved" : "Save job"}
-            </Button>
-          )}
-          {applied ? (
-            <span className="flex-1 rounded-full border border-neon-green/30 bg-neon-green/10 px-6 py-3.5 text-center text-base font-semibold text-neon-green">Applied</span>
-          ) : (
-            <Button onClick={handleApply} className={`h-auto flex-1 rounded-full px-6 py-3.5 text-base font-semibold text-white ${GRADIENT} hover:opacity-90`}>
-              {job.resource === "qelsa" ? "Quick Apply" : "Apply now"}
-            </Button>
-          )}
+        <div className="flex flex-col gap-3 lg:hidden">
+          <div className="flex items-center gap-3">
+            {isAuthenticated && (
+              <Button
+                variant="outline"
+                onClick={() => toggleSaveJob(job.id)}
+                className="h-auto flex-1 rounded-full border-[1.5px] border-white/20 bg-transparent px-6 py-3.5 text-sm text-white hover:bg-white/5"
+              >
+                {job.is_bookmarked ? "Saved" : "Save job"}
+              </Button>
+            )}
+            {applied ? (
+              <span className="flex-1 rounded-full border border-neon-green/30 bg-neon-green/10 px-6 py-3.5 text-center text-base font-semibold text-neon-green">Applied</span>
+            ) : (
+              <Button onClick={handleApply} className={`h-auto flex-1 rounded-full px-6 py-3.5 text-base font-semibold text-white ${GRADIENT} hover:opacity-90`}>
+                {job.resource === "qelsa" ? "Quick Apply" : "Apply now"}
+              </Button>
+            )}
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => (isAuthenticated ? openMatch(job.id) : router.push(`/auth?actionType=profile&returnUrl=${encodeURIComponent(`/jobs/${id}`)}`))}
+            disabled={pendingId === String(job.id)}
+            className="h-auto w-full rounded-full border-neon-purple/40 bg-transparent px-6 py-3.5 text-sm font-semibold text-neon-purple hover:bg-neon-purple/10"
+          >
+            <Sparkles className="mr-2 size-4" />
+            {pendingId === String(job.id) ? "Matching…" : "Check My Match"}
+          </Button>
         </div>
       </div>
 

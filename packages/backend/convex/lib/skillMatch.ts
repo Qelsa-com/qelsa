@@ -18,6 +18,16 @@ export function matchStatus(required?: string | null, candidate?: string | null)
 
 const isMatched = (status: string) => status === "match" || status === "exceeds";
 
+export function clipPlainText(text: string | undefined, max: number) {
+  if (!text) return "";
+  const plain = text.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  return plain.length > max ? `${plain.slice(0, max)}…` : plain;
+}
+
+export function normalizeSkillName(name: string) {
+  return name.toLowerCase().replace(/[^a-z0-9+#]+/g, " ").trim();
+}
+
 export function buildCompetencyFramework(
   jobSkills: Array<{
     skill_id: string;

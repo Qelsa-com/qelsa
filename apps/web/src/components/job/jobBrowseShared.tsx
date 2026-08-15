@@ -19,7 +19,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useLazySearchCitiesQuery } from "@/features/api/seedApi";
 import { City } from "@/types/city";
 import { Job } from "@/types/job";
-import { Building2, Check, ChevronDown, MapPin, Search, X } from "lucide-react";
+import { Building2, Check, ChevronDown, MapPin, Search, Sparkles, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
@@ -123,7 +123,17 @@ function ringColor(score: number): string {
 
 /* ------------------------------ job card ---------------------------------- */
 
-export function JobCard({ job, onClick }: { job: Job; onClick: () => void }) {
+export function JobCard({
+  job,
+  onClick,
+  onMatch,
+  matching,
+}: {
+  job: Job;
+  onClick: () => void;
+  onMatch?: () => void;
+  matching?: boolean;
+}) {
   const title = job.job_title?.name ?? job.title;
   const company = job.page?.name || job.company_name;
   const score = matchScore(job);
@@ -132,11 +142,8 @@ export function JobCard({ job, onClick }: { job: Job; onClick: () => void }) {
   const posted = postedAgo(job);
 
   return (
-    <button
-      onClick={onClick}
-      className="flex flex-col gap-4 rounded-2xl border border-glass-border bg-white/[0.04] p-4 text-left transition-all hover:-translate-y-0.5 hover:border-neon-cyan/30 hover:bg-white/[0.06] sm:h-72 sm:justify-between sm:gap-0 sm:rounded-[20px] sm:p-5"
-    >
-      <div className="flex min-h-0 flex-col gap-4 sm:flex-1">
+    <div className="flex flex-col gap-4 rounded-2xl border border-glass-border bg-white/[0.04] p-4 text-left transition-all hover:-translate-y-0.5 hover:border-neon-cyan/30 hover:bg-white/[0.06] sm:h-80 sm:justify-between sm:gap-0 sm:rounded-[20px] sm:p-5">
+      <button type="button" onClick={onClick} className="flex min-h-0 flex-col gap-4 text-left sm:flex-1">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex size-9 items-center justify-center overflow-hidden rounded-lg border border-glass-border bg-white/[0.04]">
@@ -169,14 +176,25 @@ export function JobCard({ job, onClick }: { job: Job; onClick: () => void }) {
             </div>
           </>
         )}
-      </div>
+      </button>
 
       {/* Footer */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <span className="text-[13px] font-semibold text-white/70">{salary ?? "—"}</span>
         {posted && <span className="text-[11px] text-white/35 sm:text-xs">{posted}</span>}
       </div>
-    </button>
+      {onMatch && (
+        <button
+          type="button"
+          onClick={onMatch}
+          disabled={matching}
+          className="flex items-center justify-center gap-1.5 rounded-full border border-neon-purple/30 py-2 text-[12px] font-semibold text-neon-purple hover:bg-neon-purple/10 disabled:opacity-40"
+        >
+          <Sparkles className="size-3.5" />
+          {matching ? "Matching…" : "Check My Match"}
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -452,6 +470,12 @@ export function JobsBrowseHeader({
               className="rounded-full gradient-primary px-4 py-2.5 text-[13px] font-bold text-white transition-opacity hover:opacity-90 sm:px-6 sm:py-3 sm:text-sm"
             >
               Post job
+            </button>
+            <button
+              onClick={() => router.push("/jobs/match")}
+              className="rounded-full border border-neon-purple/40 px-4 py-2.5 text-[13px] font-bold text-neon-purple transition-colors hover:bg-neon-purple/10 sm:px-6 sm:py-3 sm:text-sm"
+            >
+              Check Match for Any Job
             </button>
             <button
               onClick={() => router.push("/jobs/my-jobs/applied")}

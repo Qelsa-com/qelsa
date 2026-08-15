@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronUp, Bot, Target, ArrowRight, Sparkles, Lightbulb, Send } from 'lucide-react';
+import { AiMarkdown } from './ai/AiMarkdown';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
@@ -73,15 +74,8 @@ export function AIResponseBlock({
           <Card className="glass border-glass-border rounded-2xl p-6">
             <div className="space-y-4">
               {/* Summary Text */}
-              <div className="prose prose-sm prose-invert max-w-none">
-                <div 
-                  className="text-foreground leading-relaxed text-base"
-                  dangerouslySetInnerHTML={{
-                    __html: summary
-                      .replace(/\*\*(.*?)\*\*/g, '<strong class="text-neon-cyan font-semibold">$1</strong>')
-                      .replace(/\n/g, '<br/>')
-                  }} 
-                />
+              <div className="text-foreground leading-relaxed text-base">
+                <AiMarkdown markdown={summary} />
               </div>
 
               {/* View Reasoning Toggle */}
@@ -109,16 +103,8 @@ export function AIResponseBlock({
                         <Lightbulb className="h-4 w-4 text-neon-purple" />
                         <span className="font-medium text-neon-purple">AI Reasoning</span>
                       </div>
-                      <div className="prose prose-sm prose-invert max-w-none">
-                        <div 
-                          className="text-sm text-muted-foreground leading-relaxed"
-                          dangerouslySetInnerHTML={{
-                            __html: reasoning
-                              .replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-semibold">$1</strong>')
-                              .replace(/•/g, '<span class="text-neon-cyan">•</span>')
-                              .replace(/\n/g, '<br/>')
-                          }} 
-                        />
+                      <div className="text-sm text-muted-foreground leading-relaxed">
+                        <AiMarkdown markdown={reasoning} />
                       </div>
                     </div>
                   </CollapsibleContent>

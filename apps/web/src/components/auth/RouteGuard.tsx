@@ -6,7 +6,7 @@ import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 
 const PUBLIC_ROUTES = ["/login", "/register", "/auth", "/jobs/all", "/jobs", "/qelsa-ai", "/network", "/courses", "/blogs"];
-const JOB_STATIC = new Set(["all", "posted", "smart_matches", "create-job"]);
+const JOB_STATIC = new Set(["all", "posted", "smart_matches", "create-job", "match"]);
 const PUBLIC_JOB = /^\/jobs\/([^/]+)$/;
 const PUBLIC_PROFILE = /^\/profile\/([^/]+)$/;
 const RESERVED_PROFILE_HANDLES = ["edit", "certifications", "educations", "skills", "work-experience"];

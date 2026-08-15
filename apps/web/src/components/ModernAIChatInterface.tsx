@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { AiMarkdown } from './ai/AiMarkdown';
 import {
   MessageSquare,
   ChevronDown,
@@ -503,7 +504,11 @@ export function ModernAIChatInterface({ userName = 'User' }: ModernAIChatInterfa
                         : 'glass border-glass-border'
                     }`}
                   >
-                    <p className="whitespace-pre-wrap">{msg.content}</p>
+                    {msg.role === 'assistant' ? (
+                      <AiMarkdown markdown={msg.content} />
+                    ) : (
+                      <p className="whitespace-pre-wrap">{msg.content}</p>
+                    )}
                     <p className="text-xs text-muted-foreground mt-2">
                       {new Date(msg.timestamp).toLocaleTimeString()}
                     </p>

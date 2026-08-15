@@ -1,5 +1,6 @@
 import { ArrowRight, ChevronDown, ChevronUp, Menu, Search, User } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { AiMarkdown } from "./ai/AiMarkdown";
 import { ChatInput } from "./ChatInput";
 import { FeedbackModal } from "./FeedbackModal";
 import { ResponseCard } from "./ResponseCard";
@@ -885,7 +886,7 @@ Feel free to ask specific questions about your career goals, and I'll provide de
               ) : (
                 <div className="space-y-6">
                   <div className="glass rounded-2xl p-6">
-                    <div className="whitespace-pre-wrap text-muted-foreground">{message.content}</div>
+                    <AiMarkdown markdown={message.content} className="text-muted-foreground" />
                   </div>
 
                   {message.responses && message.responses.length > 0 && (
