@@ -1,13 +1,16 @@
 import { v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
-import { authedMutation, authedQuery, optionalAuthQuery } from "./lib/customFunctions";
+import { authedMutation, optionalAuthQuery } from "./lib/customFunctions";
 import { query } from "./_generated/server";
 import { asUserJson, iso, withId } from "./lib/helpers";
 
-export const me = authedQuery({
+export const me = optionalAuthQuery({
   args: {},
   returns: v.any(),
   handler: async (ctx) => {
+    // Returns null instead of throwing when the app user has not been
+    // provisioned yet; the client calls auth.ensureCurrentAppUser to create it.
+    if (!ctx.user) return null;
     const city = ctx.user.city_id ? await ctx.db.get(ctx.user.city_id) : null;
     const state = city ? await ctx.db.get(city.state_id) : null;
     const culture = await ctx.db

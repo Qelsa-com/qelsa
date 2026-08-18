@@ -22,14 +22,14 @@ export default function App() {
 
   if (!user) return null;
 
-  const isFirstTimeUser =
-    !user.username ||
-    user.username.trim() === "" ||
-    (!user.find_job && !user.explore_career && !user.upskill_and_learn && !user.prepare_interview);
+  // const isFirstTimeUser =
+  //   !user.username ||
+  //   user.username.trim() === "" ||
+  //   (!user.find_job && !user.explore_career && !user.upskill_and_learn && !user.prepare_interview);
 
-  if (isFirstTimeUser) {
-    return <OnboardingFlow />;
-  }
+  // if (isFirstTimeUser) {
+  //   return <OnboardingFlow />;
+  // }
 
   return (
     <Layout activeSection={"profile"}>
