@@ -3,35 +3,61 @@ import { convex } from "@convex-dev/better-auth/plugins";
 import { betterAuth } from "better-auth/minimal";
 import { emailOTP } from "better-auth/plugins";
 import { components, internal } from "./_generated/api";
-import type { DataModel } from "./_generated/dataModel";
-import { query, internalMutation } from "./_generated/server";
+import type { DataModel, Id } from "./_generated/dataModel";
+import { query, mutation, internalMutation, type ActionCtx, type MutationCtx } from "./_generated/server";
 import { v } from "convex/values";
 import authConfig from "./auth.config";
 
 const siteUrl = process.env.SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+
+type AppUserFields = { authId: string; email: string; name?: string; image?: string };
+
+/**
+ * Creates the app `users` row for a Better Auth user, or links an existing row
+ * by email. Idempotent, so it is safe to call on every sign in.
+ */
+async function upsertAppUser(ctx: MutationCtx, fields: AppUserFields): Promise<Id<"users">> {
+  const byAuthId = await ctx.db
+    .query("users")
+    .withIndex("by_authId", (q) => q.eq("authId", fields.authId))
+    .unique();
+  if (byAuthId) return byAuthId._id;
+
+  const byEmail = await ctx.db
+    .query("users")
+    .withIndex("by_email", (q) => q.eq("email", fields.email))
+    .unique();
+  if (byEmail) {
+    await ctx.db.patch(byEmail._id, {
+      authId: fields.authId,
+      name: fields.name ?? byEmail.name,
+      profile_image: fields.image ?? byEmail.profile_image,
+    });
+    return byEmail._id;
+  }
+
+  return await ctx.db.insert("users", {
+    authId: fields.authId,
+    email: fields.email,
+    name: fields.name,
+    profile_image: fields.image,
+    role: "user",
+    isActive: true,
+    show_phone_number: false,
+    expected_salary_currency: "INR",
+  });
+}
 
 export const authComponent = createClient<DataModel>(components.betterAuth, {
   authFunctions: internal.auth,
   triggers: {
     user: {
       onCreate: async (ctx, doc) => {
-        const existing = await ctx.db
-          .query("users")
-          .withIndex("by_email", (q) => q.eq("email", doc.email))
-          .unique();
-        if (existing) {
-          await ctx.db.patch(existing._id, { authId: doc._id, name: doc.name ?? existing.name });
-          return;
-        }
-        await ctx.db.insert("users", {
+        await upsertAppUser(ctx, {
           authId: doc._id,
           email: doc.email,
           name: doc.name ?? undefined,
-          profile_image: doc.image ?? undefined,
-          role: "user",
-          isActive: true,
-          show_phone_number: false,
-          expected_salary_currency: "INR",
+          image: doc.image ?? undefined,
         });
       },
       onUpdate: async (ctx, newDoc) => {
@@ -75,6 +101,25 @@ export const createAuth = (ctx: Parameters<typeof authComponent.adapter>[0]) =>
         enabled: Boolean(process.env.GOOGLE_CLIENT_SECRET),
       },
     },
+    databaseHooks: {
+      session: {
+        create: {
+          // The user trigger only runs the first time a Better Auth user is
+          // created, so a missing app user (e.g. wiped table, user created
+          // before the trigger existed) would never recover. Re-provisioning on
+          // session creation makes every sign in self healing.
+          after: async (session) => {
+            // `createAuth` is also called with a stub ctx (schema generation)
+            // and with query ctxs, neither of which can run mutations.
+            const writeCtx = ctx as Partial<ActionCtx> | undefined;
+            if (!writeCtx?.runMutation) return;
+            await writeCtx.runMutation(internal.auth.ensureAppUserForAuthId, {
+              authId: session.userId,
+            });
+          },
+        },
+      },
+    },
     plugins: [
       convex({ authConfig }),
       emailOTP({
@@ -109,29 +154,40 @@ export const ensureAppUser = internalMutation({
     image: v.optional(v.string()),
   },
   returns: v.id("users"),
+  handler: async (ctx, args) => upsertAppUser(ctx, args),
+});
+
+export const ensureAppUserForAuthId = internalMutation({
+  args: { authId: v.string() },
+  returns: v.union(v.id("users"), v.null()),
   handler: async (ctx, args) => {
-    const byAuth = await ctx.db
-      .query("users")
-      .withIndex("by_authId", (q) => q.eq("authId", args.authId))
-      .unique();
-    if (byAuth) return byAuth._id;
-    const byEmail = await ctx.db
-      .query("users")
-      .withIndex("by_email", (q) => q.eq("email", args.email))
-      .unique();
-    if (byEmail) {
-      await ctx.db.patch(byEmail._id, { authId: args.authId, name: args.name ?? byEmail.name });
-      return byEmail._id;
-    }
-    return await ctx.db.insert("users", {
-      authId: args.authId,
-      email: args.email,
-      name: args.name,
-      profile_image: args.image,
-      role: "user",
-      isActive: true,
-      show_phone_number: false,
-      expected_salary_currency: "INR",
+    const authUser = await authComponent.getAnyUserById(ctx, args.authId);
+    if (!authUser) return null;
+    return await upsertAppUser(ctx, {
+      authId: authUser._id,
+      email: authUser.email,
+      name: authUser.name ?? undefined,
+      image: authUser.image ?? undefined,
+    });
+  },
+});
+
+/**
+ * Provisions the app user for the caller's Better Auth identity. Called by the
+ * client when a session exists but `users.me` has no app user yet, so an
+ * already signed in user recovers without having to sign out.
+ */
+export const ensureCurrentAppUser = mutation({
+  args: {},
+  returns: v.union(v.id("users"), v.null()),
+  handler: async (ctx) => {
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+    if (!authUser) return null;
+    return await upsertAppUser(ctx, {
+      authId: authUser._id,
+      email: authUser.email,
+      name: authUser.name ?? undefined,
+      image: authUser.image ?? undefined,
     });
   },
 });

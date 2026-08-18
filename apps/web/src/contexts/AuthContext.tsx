@@ -1,9 +1,11 @@
 "use client";
 
 import { User } from "@/types/user";
+import { api } from "@/lib/convexApi";
 import { authClient } from "@/lib/auth-client";
 import { useGetProfileQuery } from "@/features/api/authApi";
-import { createContext, ReactNode, useCallback, useContext, useMemo } from "react";
+import { useMutation } from "convex/react";
+import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 
 interface AuthContextType {
   user: User | null;
@@ -19,6 +21,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { data: profile, isFetching } = useGetProfileQuery(undefined, { skip: !session });
   const user = (profile as User | undefined) ?? null;
 
+  const ensureAppUser = useMutation(api.auth.ensureCurrentAppUser);
+  const [isProvisioning, setIsProvisioning] = useState(false);
+  const provisionAttempted = useRef(false);
+
+  // A signed in identity without an app user row (e.g. created before the
+  // provisioning trigger existed) would otherwise never load a profile.
+  useEffect(() => {
+    if (!session) {
+      provisionAttempted.current = false;
+      return;
+    }
+    if (profile !== null || provisionAttempted.current) return;
+    provisionAttempted.current = true;
+    setIsProvisioning(true);
+    void ensureAppUser({})
+      .catch(() => undefined)
+      .finally(() => setIsProvisioning(false));
+  }, [session, profile, ensureAppUser]);
+
   const logout = useCallback(() => {
     void authClient.signOut();
   }, []);
@@ -27,10 +48,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       user,
       isAuthenticated: Boolean(session && user),
-      isLoading: isPending || Boolean(session && isFetching),
+      isLoading: isPending || Boolean(session && (isFetching || isProvisioning)),
       logout,
     }),
-    [user, session, isPending, isFetching, logout],
+    [user, session, isPending, isFetching, isProvisioning, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
