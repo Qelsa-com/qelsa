@@ -16,7 +16,7 @@ export default function StartPage() {
       router.replace("/onboarding");
       return;
     }
-    router.replace(homeForAccount(user.account_type));
+    router.replace(homeForAccount(user));
   }, [isLoading, router, user]);
 
   if (isLoading || user) return null;

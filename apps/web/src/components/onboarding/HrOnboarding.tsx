@@ -44,6 +44,7 @@ type Step = "company" | "seat" | "about" | "ready";
 export function HrOnboarding({ onBack, onComplete }: { onBack: () => void; onComplete: () => void }) {
   const router = useRouter();
   const [step, setStep] = useState<Step>("company");
+  const [pageId, setPageId] = useState<string | null>(null);
   const [companyName, setCompanyName] = useState("");
   const [catalogCompanyId, setCatalogCompanyId] = useState<string | undefined>();
   const [hiringRole, setHiringRole] = useState<HiringRole | null>(null);
@@ -87,6 +88,7 @@ export function HrOnboarding({ onBack, onComplete }: { onBack: () => void; onCom
         size_id: sizeId,
       }).unwrap();
       onComplete();
+      setPageId(result.page_id);
       setCompanyName(result.company_name);
       setStep("ready");
     } catch (err) {
@@ -331,7 +333,11 @@ export function HrOnboarding({ onBack, onComplete }: { onBack: () => void; onCom
           <p className="mt-3 text-[15px] leading-relaxed text-muted-foreground">
             Your pipeline for <span className="font-medium text-white">{companyName}</span> is live. Shortlists start appearing as candidates match your open roles.
           </p>
-          <button type="button" onClick={() => router.push("/jobs/posted")} className={`mt-8 ${PRIMARY_BTN}`}>
+          <button
+            type="button"
+            onClick={() => router.push(pageId ? `/pages/${pageId}?tab=jobs` : "/pages")}
+            className={`mt-8 ${PRIMARY_BTN}`}
+          >
             See my dashboard
             <SparkleIcon />
           </button>

@@ -6,11 +6,11 @@ import {
   useCompleteCandidateOnboardingMutation,
   type JobSeekingStatus,
 } from "@/features/api/onboardingApi";
-import { clearResumeDraft, readResumeDraft, type ParsedProfile } from "@/lib/resumeDraft";
+import { clearResumeDraft, readResumeDraft, writeResumeDraft, type ParsedProfile } from "@/lib/resumeDraft";
 import { Target, Telescope, TrendingUp } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { ResumeOnboardingFlow } from "./ResumeOnboardingFlow";
 import { ArrowRightIcon, CheckIcon, OnboardingShell, StepProgress } from "./OnboardingShell";
@@ -42,19 +42,41 @@ const STATUS_OPTIONS: {
   },
 ];
 
+type Step = "resume" | "intent" | "ready";
+
 export function CandidateOnboarding({ onBack, onComplete }: { onBack: () => void; onComplete: () => void }) {
   const router = useRouter();
   const { user } = useAuth();
-  const [step, setStep] = useState<"intent" | "resume" | "ready">("intent");
+  const [step, setStep] = useState<Step | null>(null);
+  const [startedFromDraft, setStartedFromDraft] = useState(false);
   const [status, setStatus] = useState<JobSeekingStatus | null>(null);
   const [complete, { isLoading }] = useCompleteCandidateOnboardingMutation();
   const [applyProfile] = useApplyParsedProfileMutation();
 
-  const finish = async (parsed?: { profile: ParsedProfile; storageId?: string; filename?: string }) => {
+  useEffect(() => {
+    const reviewed = Boolean(readResumeDraft()?.reviewed);
+    setStartedFromDraft(reviewed);
+    setStep(reviewed ? "intent" : "resume");
+  }, []);
+
+  const saveResume = async (parsed: { profile: ParsedProfile; storageId?: string; filename?: string }) => {
+    await applyProfile({
+      profile: parsed.profile,
+      storage_id: parsed.storageId,
+      filename: parsed.filename,
+    }).unwrap();
+    writeResumeDraft({
+      profile: parsed.profile,
+      storageId: parsed.storageId,
+      filename: parsed.filename,
+      reviewed: true,
+    });
+    setStep("intent");
+  };
+
+  const finish = async () => {
     if (!status) return;
-    const draft = parsed
-      ? { profile: parsed.profile, storageId: parsed.storageId, filename: parsed.filename, reviewed: true }
-      : readResumeDraft();
+    const draft = readResumeDraft();
     if (draft?.reviewed) {
       await applyProfile({
         profile: draft.profile,
@@ -68,20 +90,6 @@ export function CandidateOnboarding({ onBack, onComplete }: { onBack: () => void
     setStep("ready");
   };
 
-  const handleContinue = async () => {
-    if (!status) return;
-    const draft = readResumeDraft();
-    if (draft?.reviewed) {
-      try {
-        await finish();
-      } catch (err) {
-        toast.error((err as Error)?.message || "Could not save your profile. Please try again.");
-      }
-      return;
-    }
-    setStep("resume");
-  };
-
   const cardMotion = {
     initial: { opacity: 0, y: 12 },
     animate: { opacity: 1, y: 0 },
@@ -89,20 +97,27 @@ export function CandidateOnboarding({ onBack, onComplete }: { onBack: () => void
     transition: { duration: 0.25 },
   };
 
+  if (!step) return null;
+
   if (step === "resume") {
     return (
       <ResumeOnboardingFlow
         lockedEmail={user?.email}
-        onBack={() => setStep("intent")}
+        initial={readResumeDraft()}
+        onBack={onBack}
         onFinished={async (result) => {
-          await finish(result);
+          try {
+            await saveResume(result);
+          } catch (err) {
+            toast.error((err as Error)?.message || "Could not save your profile. Please try again.");
+          }
         }}
       />
     );
   }
 
   return (
-    <OnboardingShell onBack={step === "intent" ? onBack : undefined}>
+    <OnboardingShell onBack={step === "intent" ? (startedFromDraft ? onBack : () => setStep("resume")) : undefined}>
       <AnimatePresence mode="wait">
         {step === "intent" && (
           <motion.div key="intent" {...cardMotion} className={ONBOARDING_CARD}>
@@ -140,7 +155,18 @@ export function CandidateOnboarding({ onBack, onComplete }: { onBack: () => void
               })}
             </div>
 
-            <button type="button" onClick={handleContinue} disabled={!status || isLoading} className={`mt-6 ${PRIMARY_BTN}`}>
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  await finish();
+                } catch (err) {
+                  toast.error((err as Error)?.message || "Could not save your profile. Please try again.");
+                }
+              }}
+              disabled={!status || isLoading}
+              className={`mt-6 ${PRIMARY_BTN}`}
+            >
               {isLoading ? "Saving…" : "Continue"}
               {!isLoading ? <ArrowRightIcon /> : null}
             </button>

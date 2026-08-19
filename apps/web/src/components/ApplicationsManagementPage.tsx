@@ -8,6 +8,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 import { CandidateNLPSearch } from "./CandidateNLPSearch";
+import { ApplicantDetailSkeleton, CandidateRowSkeleton } from "./job/jobSkeletons";
 import { Button } from "./ui/button";
 import { Checkbox } from "./ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "./ui/dropdown-menu";
@@ -427,9 +428,10 @@ export function ApplicationsManagementPage() {
             <p className="text-sm font-semibold text-white/80">Candidates</p>
 
             {isListLoading ? (
-              <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-white/12 bg-white/2 p-8 text-center">
-                <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/20 border-t-neon-cyan" />
-                <p className="text-sm text-white/60">Loading candidates…</p>
+              <div className="flex flex-col gap-2.5" role="status" aria-label="Loading candidates">
+                {Array.from({ length: 6 }, (_, i) => (
+                  <CandidateRowSkeleton key={i} />
+                ))}
               </div>
             ) : sortedApplications.length === 0 ? (
               <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-white/12 bg-white/2 p-8 text-center">
@@ -520,10 +522,7 @@ export function ApplicationsManagementPage() {
                 <p className="text-sm text-white/50">Something went wrong. Please try again.</p>
               </div>
             ) : !selectedApplication || isDetailLoading ? (
-              <div className="flex flex-col items-center justify-center gap-3 py-24 text-center">
-                <div className="h-10 w-10 animate-spin rounded-full border-2 border-white/20 border-t-neon-cyan" />
-                <p className="text-sm text-white/50">Loading applicant details…</p>
-              </div>
+              <ApplicantDetailSkeleton />
             ) : (
               <>
                 {/* Profile top */}

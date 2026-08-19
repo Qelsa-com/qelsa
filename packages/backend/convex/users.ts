@@ -5,6 +5,10 @@ import { authedMutation, optionalAuthQuery } from "./lib/customFunctions";
 import { query, type MutationCtx } from "./_generated/server";
 import { asUserJson, iso, withId } from "./lib/helpers";
 import { deleteAppUserData } from "./lib/deleteUserData";
+import { deleteR2Keys, signedFileUrl } from "./lib/r2";
+import { R2 } from "@convex-dev/r2";
+
+const r2 = new R2(components.r2);
 
 export const me = optionalAuthQuery({
   args: {},
@@ -27,7 +31,14 @@ export const me = optionalAuthQuery({
       ...asUserJson(ctx.user),
       city: city ? { ...withId(city), state: state ? withId(state) : null } : null,
       culture_preference: culture ? withId(culture) : null,
-      resumes: resumes.map((r) => ({ ...withId(r), createdAt: iso(r._creationTime), updatedAt: iso(r._creationTime) })),
+      resumes: await Promise.all(
+        resumes.map(async (r) => ({
+          ...withId(r),
+          file_url: (await signedFileUrl(r2, r.storage_id)) ?? r.file_url,
+          createdAt: iso(r._creationTime),
+          updatedAt: iso(r._creationTime),
+        })),
+      ),
     };
   },
 });
@@ -143,7 +154,8 @@ export const deleteAccount = authedMutation({
     await ctx.runMutation(components.agent.users.deleteAllForUserIdAsync, {
       userId: authId,
     });
-    await deleteAppUserData(ctx, ctx.user);
+    const r2Keys = await deleteAppUserData(ctx, ctx.user);
+    await deleteR2Keys(r2, ctx, r2Keys);
     await deleteBetterAuthUser(ctx, authId);
     return null;
   },

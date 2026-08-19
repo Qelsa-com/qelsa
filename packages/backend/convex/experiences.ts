@@ -1,15 +1,30 @@
 import { v } from "convex/values";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
+import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { authedMutation, authedQuery } from "./lib/customFunctions";
 import { iso, withId } from "./lib/helpers";
+import { impactMetricList, titledList, withLocalIds } from "./lib/profileFields";
 
-async function hydrate(ctx: { db: { get: Function; query: Function } }, row: { _id: string } & Record<string, unknown>) {
+async function replaceExperienceSkills(ctx: MutationCtx, experienceId: Id<"experiences">, skills: unknown) {
+  const existing = await ctx.db
+    .query("experience_skills")
+    .withIndex("by_experience", (q) => q.eq("experience_id", experienceId))
+    .collect();
+  for (const link of existing) await ctx.db.delete(link._id);
+  for (const skill of (skills as Array<{ id?: string } | string> | undefined) ?? []) {
+    const skillId = typeof skill === "string" ? skill : skill.id;
+    if (skillId) await ctx.db.insert("experience_skills", { experience_id: experienceId, skill_id: skillId as Id<"skills"> });
+  }
+}
+
+async function hydrate(ctx: QueryCtx, row: Doc<"experiences">) {
   const company = row.company_id ? await ctx.db.get(row.company_id) : null;
   const job_title = row.job_title_id ? await ctx.db.get(row.job_title_id) : null;
   const city = row.city_id ? await ctx.db.get(row.city_id) : null;
-  const responsibilities = await ctx.db.query("responsibilities").withIndex("by_experience", (q: { eq: Function }) => q.eq("experience_id", row._id)).collect();
-  const impact_metrics = await ctx.db.query("impact_metrics").withIndex("by_experience", (q: { eq: Function }) => q.eq("experience_id", row._id)).collect();
-  const links = await ctx.db.query("experience_skills").withIndex("by_experience", (q: { eq: Function }) => q.eq("experience_id", row._id)).collect();
+  const links = await ctx.db
+    .query("experience_skills")
+    .withIndex("by_experience", (q) => q.eq("experience_id", row._id))
+    .collect();
   const skills = [];
   for (const link of links) {
     const skill = await ctx.db.get(link.skill_id);
@@ -17,13 +32,13 @@ async function hydrate(ctx: { db: { get: Function; query: Function } }, row: { _
   }
   return {
     ...withId(row),
-    start_date: iso(row.start_date as number),
-    end_date: iso(row.end_date as number | undefined),
+    start_date: iso(row.start_date),
+    end_date: iso(row.end_date),
     company: company ? withId(company) : null,
     job_title: job_title ? withId(job_title) : null,
     city: city ? withId(city) : null,
-    responsibilities: responsibilities.map(withId),
-    impact_metrics: impact_metrics.map(withId),
+    responsibilities: withLocalIds(row.responsibilities),
+    impact_metrics: withLocalIds(row.impact_metrics),
     skills,
   };
 }
@@ -56,23 +71,10 @@ export const create = authedMutation({
       description: data.description as string | undefined,
       team_size: data.team_size as number | undefined,
       position: existing.length,
+      responsibilities: titledList(data.responsibilities),
+      impact_metrics: impactMetricList(data.impact_metrics),
     });
-    for (const r of (data.responsibilities as Array<{ title: string }> | undefined) ?? []) {
-      await ctx.db.insert("responsibilities", { user_id: ctx.user._id, experience_id: id, title: r.title });
-    }
-    for (const skill of (data.skills as Array<{ id?: string } | string> | undefined) ?? []) {
-      const skillId = typeof skill === "string" ? skill : skill.id;
-      if (skillId) await ctx.db.insert("experience_skills", { experience_id: id, skill_id: skillId as Id<"skills"> });
-    }
-    for (const m of (data.impact_metrics as Array<{ impact_type: string; impact_value: string; description?: string }> | undefined) ?? []) {
-      await ctx.db.insert("impact_metrics", {
-        user_id: ctx.user._id,
-        experience_id: id,
-        impact_type: m.impact_type,
-        impact_value: m.impact_value,
-        description: m.description,
-      });
-    }
+    await replaceExperienceSkills(ctx, id, data.skills);
     return hydrate(ctx, (await ctx.db.get(id))!);
   },
 });
@@ -93,7 +95,10 @@ export const update = authedMutation({
       is_current: data.is_current != null ? Boolean(data.is_current) : row.is_current,
       description: (data.description as string | undefined) ?? row.description,
       team_size: (data.team_size as number | undefined) ?? row.team_size,
+      responsibilities: data.responsibilities !== undefined ? titledList(data.responsibilities) : row.responsibilities,
+      impact_metrics: data.impact_metrics !== undefined ? impactMetricList(data.impact_metrics) : row.impact_metrics,
     });
+    if (data.skills !== undefined) await replaceExperienceSkills(ctx, args.id, data.skills);
     return hydrate(ctx, (await ctx.db.get(args.id))!);
   },
 });
@@ -104,6 +109,11 @@ export const remove = authedMutation({
   handler: async (ctx, args) => {
     const row = await ctx.db.get(args.id);
     if (!row || row.user_id !== ctx.user._id) throw new Error("Experience not found");
+    const links = await ctx.db
+      .query("experience_skills")
+      .withIndex("by_experience", (q) => q.eq("experience_id", args.id))
+      .collect();
+    for (const link of links) await ctx.db.delete(link._id);
     await ctx.db.delete(args.id);
     return null;
   },

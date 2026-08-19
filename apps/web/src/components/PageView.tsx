@@ -1,3 +1,4 @@
+import { CompanyPageSkeleton } from "./pageSkeletons";
 import { formatCity } from "@/constants/city";
 import { useGetJobsQuery } from "@/features/api/jobsApi";
 import { useGetPageByIdQuery } from "@/features/api/pagesApi";
@@ -33,7 +34,7 @@ export function PageView() {
 
   const { data: pageJobs, isLoading: jobsLoading, error: jobsError } = useGetJobsQuery({ page_id: id });
 
-  if (isLoading) return <div className="p-8 text-center text-muted-foreground">Loading page details...</div>;
+  if (isLoading) return <CompanyPageSkeleton />;
 
   if (error) return <div className="p-8 text-center text-destructive">Failed to load page details.</div>;
 

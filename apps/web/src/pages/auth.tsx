@@ -6,6 +6,7 @@ import { authClient } from "@/lib/auth-client";
 import type { User } from "@/types/user";
 import { AnimatePresence, motion } from "motion/react";
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -212,8 +213,14 @@ export default function AuthPage() {
               </button>
 
               <p className="mt-6 text-center text-xs leading-relaxed text-gray-500">
-                By continuing, you agree to Qelsa&apos;s <button type="button" className="text-gray-400 text-xs cursor-pointer underline underline-offset-2 hover:text-white">Terms of Service</button> and{" "}
-                <button type="button" className="text-gray-400 text-xs cursor-pointer underline underline-offset-2 hover:text-white">Privacy Policy</button>
+                By continuing, you agree to Qelsa&apos;s{" "}
+                <Link href="/terms" className="text-gray-400 text-xs underline underline-offset-2 hover:text-white">
+                  Terms of Service
+                </Link>{" "}
+                and{" "}
+                <Link href="/privacy" className="text-gray-400 text-xs underline underline-offset-2 hover:text-white">
+                  Privacy Policy
+                </Link>
               </p>
             </motion.div>
           )}

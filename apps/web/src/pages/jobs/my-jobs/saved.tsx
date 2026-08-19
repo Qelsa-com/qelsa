@@ -8,6 +8,7 @@
  */
 
 import { MyJobsHeader, TrackedJobCard } from "@/components/job/myJobsShared";
+import { TrackedJobsListSkeleton } from "@/components/job/jobSkeletons";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useLazyGetSavedJobsQuery, useToggleSaveJobMutation } from "@/features/api/jobsApi";
 import Layout from "@/layout";
@@ -57,7 +58,7 @@ const Saved = () => {
 
         <div className="flex flex-col gap-5 pt-6 pb-24">
           {isLoading ? (
-            <p className="text-sm text-white/45">Loading saved jobs...</p>
+            <TrackedJobsListSkeleton />
           ) : jobs.length === 0 ? (
             <p className="text-sm text-white/45">Nothing saved yet. Bookmark a role and it will show up here.</p>
           ) : (

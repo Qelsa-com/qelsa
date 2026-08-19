@@ -141,10 +141,9 @@ export const loadUserContext = internalQuery({
 
     const experiences = [];
     for (const row of experienceRows) {
-      const [company, jobTitle, respRows, skillLinks] = await Promise.all([
+      const [company, jobTitle, skillLinks] = await Promise.all([
         row.company_id ? ctx.db.get(row.company_id) : null,
         row.job_title_id ? ctx.db.get(row.job_title_id) : null,
-        ctx.db.query("responsibilities").withIndex("by_experience", (q) => q.eq("experience_id", row._id)).take(8),
         ctx.db.query("experience_skills").withIndex("by_experience", (q) => q.eq("experience_id", row._id)).take(12),
       ]);
       const expSkills = [];
@@ -157,24 +156,23 @@ export const loadUserContext = internalQuery({
         company: company?.name ?? "Company",
         is_current: row.is_current ?? false,
         description: clipPlainText(row.description, 400),
-        responsibilities: respRows.map((r) => r.title),
+        responsibilities: (row.responsibilities ?? []).slice(0, 8).map((item) => item.title),
         skills: expSkills,
       });
     }
 
     const educations = [];
     for (const row of educationRows) {
-      const [degree, college, field, projectRows] = await Promise.all([
+      const [degree, college, field] = await Promise.all([
         row.degree_id ? ctx.db.get(row.degree_id) : null,
         row.college_id ? ctx.db.get(row.college_id) : null,
         row.field_of_study_id ? ctx.db.get(row.field_of_study_id) : null,
-        ctx.db.query("projects").withIndex("by_education", (q) => q.eq("education_id", row._id)).take(6),
       ]);
       educations.push({
         degree: degree?.name,
         college: college?.name,
         field: field?.name,
-        projects: projectRows.map((p) => p.title),
+        projects: (row.projects ?? []).slice(0, 6).map((item) => item.title),
       });
     }
 

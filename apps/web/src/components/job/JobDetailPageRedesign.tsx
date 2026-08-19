@@ -16,24 +16,30 @@
 
 import { formatCity } from "@/constants/city";
 import { useAuth } from "@/contexts/AuthContext";
+import { experienceChip, matchScore, salaryText } from "@/components/job/jobBrowseShared";
+import { useGetEducationsQuery } from "@/features/api/educationsApi";
+import { useGetExperiencesQuery } from "@/features/api/experiencesApi";
 import { useGetJobByIdQuery, useGetSimilarJobsQuery, useRecordJobViewMutation, useToggleSaveJobMutation } from "@/features/api/jobsApi";
 import { useOpenQelsaMatch } from "@/features/job/useOpenQelsaMatch";
 import { useGetMyResumesQuery } from "@/features/api/resumeApi";
+import { experienceMonths } from "@/components/profile/profileFormat";
 import { Job } from "@/types/job";
 import DOMPurify from "dompurify";
 import {
   ArrowLeft,
   Bookmark,
   BookmarkCheck,
+  BookOpen,
   Briefcase,
   Building2,
+  CheckCircle2,
   FileText,
   HelpCircle,
+  Info,
   Link as LinkIcon,
   Linkedin,
   MessageCircle,
   Share2,
-  Sparkles,
   Twitter,
   Zap,
 } from "lucide-react";
@@ -43,6 +49,8 @@ import { QuickApplyModal } from "../QuickApplyModal";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
 import { CompetencyTable } from "./CompetencyMatch";
+import { JobAIAssistantDrawer } from "./JobAIAssistantDrawer";
+import { JobDetailSkeleton, SimilarJobCardSkeleton } from "./jobSkeletons";
 
 /* -------------------------------- helpers --------------------------------- */
 
@@ -51,17 +59,10 @@ const GRADIENT = "gradient-primary";
 const CHIP = "border border-glass-border bg-white/[0.04] rounded-full";
 
 // Feed jobs send experience as a short code; Qelsa-posted jobs send `experience` in years.
-const EXPERIENCE_LEVEL_LABELS: Record<string, string> = {
-  EN: "Entry level",
-  MI: "Mid level",
-  SE: "Senior level",
-  EX: "Executive",
-};
-
 function experienceLabel(job: Job): string | null {
-  if (job.experience_level) return EXPERIENCE_LEVEL_LABELS[job.experience_level] ?? job.experience_level;
-  if (job.experience != null) return job.experience === 0 ? "No experience required" : `${job.experience}+ years`;
-  return null;
+  const chip = experienceChip(job);
+  if (!chip) return null;
+  return chip.replace(" yrs", " Year");
 }
 
 /** `work_type` is null on feed jobs — the employment type lives in other_info.types there. */
@@ -78,33 +79,14 @@ function workplaceLabel(job: Job): string | null {
   return job.has_remote ? "Remote" : null;
 }
 
-function formatMoney(value: number, currency?: string | null): string {
-  const cur = currency || "USD";
-  // Group digits the way the currency is normally written (₹7,92,000 vs $120,000)
-  // rather than by the viewer's locale.
-  const locale = cur === "INR" ? "en-IN" : "en-US";
-  try {
-    return new Intl.NumberFormat(locale, { style: "currency", currency: cur, maximumFractionDigits: 0 }).format(value);
-  } catch {
-    return `${cur} ${value.toLocaleString(locale)}`;
-  }
-}
-
-function formatSalary(job: Job): string | null {
-  const { salary_min: min, salary_max: max, salary, salary_currency: cur } = job;
-  if (min != null && max != null) return min === max ? formatMoney(min, cur) : `${formatMoney(min, cur)} - ${formatMoney(max, cur)}`;
-  if (min != null) return `${formatMoney(min, cur)}+`;
-  if (max != null) return `Up to ${formatMoney(max, cur)}`;
-  if (salary != null) return formatMoney(salary, cur);
-  return null;
-}
-
 /**
  * The similar-jobs endpoint may send the match score under a few names
  * (`fitScore` is a UI-only field; the API commonly uses snake_case). Read them
  * all defensively and normalise to a rounded 0–100 number.
  */
 function similarMatch(job: Job): number | null {
+  const fromCompetency = matchScore(job);
+  if (fromCompetency != null) return fromCompetency;
   const bag = job as Record<string, unknown>;
   const raw = job.fitScore ?? bag.fit_score ?? bag.match_score ?? bag.matchScore ?? bag.similarity;
   const n = typeof raw === "string" ? Number(raw) : raw;
@@ -131,7 +113,7 @@ function formatPosted(job: Job): string | null {
 }
 
 function heroBadgesFor(job: Job): string[] {
-  return [experienceLabel(job), jobTypeLabel(job), formatSalary(job), workplaceLabel(job), formatPosted(job)].filter((b): b is string => Boolean(b));
+  return [experienceLabel(job), jobTypeLabel(job), salaryText(job), workplaceLabel(job), formatPosted(job)].filter((b): b is string => Boolean(b));
 }
 
 const interviewQuestions = [
@@ -140,8 +122,6 @@ const interviewQuestions = [
   "Describe your experience with state management libraries like Redux or Zustand.",
 ];
 
-/* --------------------------------- page ----------------------------------- */
-
 export function JobDetailPageRedesign() {
   const { user, isAuthenticated } = useAuth();
   const router = useRouter();
@@ -149,10 +129,13 @@ export function JobDetailPageRedesign() {
   const id = params?.id;
 
   const [showQuickApplyModal, setShowQuickApplyModal] = useState(false);
+  const [showAIAssistant, setShowAIAssistant] = useState(false);
 
   const { data: job, error, isLoading } = useGetJobByIdQuery(id!, { skip: !id });
   const { data: similarJobs, isLoading: isSimilarLoading } = useGetSimilarJobsQuery(id!, { skip: !id });
   const { data: myResumes } = useGetMyResumesQuery(undefined, { skip: !isAuthenticated });
+  const { data: experiences } = useGetExperiencesQuery(undefined, { skip: !isAuthenticated });
+  const { data: educations } = useGetEducationsQuery(undefined, { skip: !isAuthenticated });
   const [toggleSaveJob] = useToggleSaveJobMutation();
   const [recordJobView] = useRecordJobViewMutation();
   const { open: openMatch, pendingId } = useOpenQelsaMatch();
@@ -165,34 +148,58 @@ export function JobDetailPageRedesign() {
     recordJobView(id);
   }, [id, isAuthenticated, recordJobView]);
 
-  if (!id || isLoading) return <p className="p-6 text-white/70 lg:p-8">Loading job...</p>;
+  if (!id || isLoading) return <JobDetailSkeleton />;
   if (error) return <p className="p-6 text-white/70 lg:p-8">Error loading job.</p>;
   if (!job) return <p className="p-6 text-white/70 lg:p-8">No job found.</p>;
 
   const companyName = job.page?.name || job.company_name || "Company";
   const title = job.job_title?.name ?? job.title;
   const description = DOMPurify.sanitize(job.description || "");
-  const applied = job.applications?.some((a) => a.user_id === user?.id) ?? false;
+  const applied = job.has_applied ?? job.applications?.some((a) => a.user_id === user?.id) ?? false;
   const competency = job.competency;
 
   const dailySkills = (job.job_skills ?? []).map((s) => s.skill?.name ?? s.title).filter(Boolean);
   const skillsSubtitle = competency
-    ? `You match ${competency.matchedCount} of ${competency.totalCount} skills listed here. The ones you know are a strong starting point.`
+    ? `You match ${competency.matchedCount} of ${competency.totalCount} skills listed here.`
     : "The skills this role uses day to day.";
+
+  const userYears = (experiences ?? []).reduce((sum, exp) => sum + experienceMonths(exp), 0) / 12;
+  const experienceMatch =
+    job.experience != null
+      ? userYears >= job.experience
+        ? Math.min(100, 75 + Math.round((userYears - job.experience) * 4))
+        : Math.round((userYears / Math.max(job.experience, 0.5)) * 100)
+      : userYears > 0
+        ? 72
+        : null;
+  const educationMatch = (educations?.length ?? 0) > 0 ? 68 : null;
+
+  const companyMeta = [
+    job.page?.industry || job.page?.primaryIndustry,
+    job.page?.company_size?.label,
+    job.page?.founded_year ? `Founded ${job.page.founded_year}` : job.page?.foundedYear ? `Founded ${job.page.foundedYear}` : null,
+  ]
+    .filter(Boolean)
+    .join(" • ");
+
+  const gapSkillNames = (competency?.competencies ?? [])
+    .filter((item) => (item.status || "").toLowerCase() === "gap" || !item.matched)
+    .map((item) => item.skill_name)
+    .filter(Boolean);
 
   const metrics = [
     { label: "Readiness Score", value: competency ? `${competency.readiness}%` : "—" },
     { label: "Views", value: formatCount(job.view_count ?? 0) },
-    { label: "Applications", value: `${job.applications?.length ?? 0}` },
+    { label: "Applications", value: `${job.application_count ?? job.applications?.length ?? 0}` },
   ];
 
   const handleApply = () => {
-    if (job.resource === "qelsa") {
-      if (isAuthenticated) setShowQuickApplyModal(true);
-      else router.push(`/auth?actionType=profile&returnUrl=${encodeURIComponent(`/jobs/${id}`)}`);
-    } else if (job.application_url) {
-      window.open(job.application_url, "_blank");
+    if (job.application_url) {
+      window.open(job.application_url, "_blank", "noopener,noreferrer");
+      return;
     }
+    if (isAuthenticated) setShowQuickApplyModal(true);
+    else router.push(`/auth?actionType=profile&returnUrl=${encodeURIComponent(`/jobs/${id}`)}`);
   };
 
   const shareUrl = typeof window !== "undefined" ? window.location.href : "";
@@ -236,14 +243,16 @@ export function JobDetailPageRedesign() {
         {/* Breadcrumb */}
         <button onClick={() => router.push("/jobs/smart_matches")} className="hidden w-fit items-center gap-2 text-sm text-white/70 transition-colors hover:text-neon-cyan lg:flex">
           <ArrowLeft className="size-4" />
-          Back to Jobs
+          Back to jobs
         </button>
 
         {/* Share / bookmark pill. Desktop only — the mobile frame replaces it
             with the single share button in the header above. */}
         <div className="glass-strong hidden w-fit items-center gap-1.5 self-end rounded-full p-1.5 lg:absolute lg:right-20 lg:top-[46px] lg:flex lg:gap-2 lg:p-2">
           {isAuthenticated && (
-            <ShareButton onClick={() => toggleSaveJob(job.id)}>{job.is_bookmarked ? <BookmarkCheck className="size-[18px] text-neon-cyan" /> : <Bookmark className="size-[18px]" />}</ShareButton>
+            <ShareButton onClick={() => toggleSaveJob(job.id)} active={job.is_bookmarked}>
+              {job.is_bookmarked ? <BookmarkCheck className="size-[18px]" /> : <Bookmark className="size-[18px]" />}
+            </ShareButton>
           )}
           <ShareButton onClick={share.copy}><LinkIcon className="size-[18px]" /></ShareButton>
           <ShareButton onClick={share.linkedin}><Linkedin className="size-[18px]" /></ShareButton>
@@ -256,7 +265,7 @@ export function JobDetailPageRedesign() {
           {/* Company on one line, actions on the next — a phone can't fit both. */}
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between lg:gap-0">
             <div className="flex min-w-0 items-center gap-3">
-              <div className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-full border border-glass-border bg-white/[0.04] lg:size-16 lg:rounded-2xl">
+              <div className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-glass-border bg-white/[0.04] lg:size-16">
                 {job.company_logo ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={job.company_logo} alt={companyName} className="size-full object-cover" />
@@ -265,11 +274,16 @@ export function JobDetailPageRedesign() {
                 )}
               </div>
               <div className="flex min-w-0 flex-col gap-1">
-                <span className="cursor-pointer text-sm font-semibold text-white/70 hover:text-neon-cyan" onClick={() => job.page?.id && router.push(`/pages/${job.page.id}`)}>
-                  {companyName}
-                </span>
                 <div className="flex flex-wrap items-center gap-2">
-                  {job.page?.name && <span className="rounded-full border border-neon-green/20 bg-neon-green/10 px-2 py-1 text-xs font-semibold text-neon-green">Verified</span>}
+                  <span className="cursor-pointer text-sm font-bold text-white hover:text-neon-cyan" onClick={() => job.page?.id && router.push(`/pages/${job.page.id}`)}>
+                    {companyName}
+                  </span>
+                  {job.page?.name && (
+                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-neon-green">
+                      <CheckCircle2 className="size-3.5" />
+                      Verified
+                    </span>
+                  )}
                   {job.city && <span className="text-xs text-white/45">{formatCity(job.city)}</span>}
                 </div>
               </div>
@@ -287,22 +301,9 @@ export function JobDetailPageRedesign() {
                 <span className="flex-1 rounded-full border border-neon-green/30 bg-neon-green/10 px-4 py-3 text-center text-sm font-semibold text-neon-green lg:flex-none lg:px-6 lg:py-3.5 lg:text-base">Applied</span>
               ) : (
                 <Button onClick={handleApply} className={`h-auto flex-1 rounded-full px-4 py-3 text-sm font-semibold text-white lg:flex-none lg:px-6 lg:py-3.5 lg:text-base ${GRADIENT} hover:opacity-90`}>
-                  {job.resource === "qelsa" ? "Quick Apply" : "Apply now"}
+                  Apply now
                 </Button>
               )}
-              <Button
-                variant="outline"
-                onClick={() =>
-                  isAuthenticated
-                    ? openMatch(job.id)
-                    : router.push(`/auth?actionType=profile&returnUrl=${encodeURIComponent(`/jobs/${id}`)}`)
-                }
-                disabled={pendingId === String(job.id)}
-                className="h-auto flex-1 rounded-full border-neon-purple/40 bg-transparent px-4 py-3 text-sm text-neon-purple hover:bg-neon-purple/10 lg:flex-none lg:px-6 lg:py-3.5"
-              >
-                <Sparkles className="mr-2 size-4" />
-                {pendingId === String(job.id) ? "Matching…" : "Check My Match"}
-              </Button>
             </div>
           </div>
 
@@ -332,16 +333,38 @@ export function JobDetailPageRedesign() {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-6">
           {/* Left */}
           <div className="flex min-w-0 flex-1 flex-col gap-4 lg:gap-6">
+            {isAuthenticated && (
+              <Card className="flex-col items-start gap-3 rounded-[20px] border-neon-cyan/40 bg-white/[0.03] p-4 lg:flex-row lg:items-center lg:gap-4 lg:p-5">
+                <div className="flex size-10 shrink-0 items-center justify-center rounded-[20px] border border-glass-border bg-white/[0.04]">
+                  <FileText className="size-5 text-neon-cyan" />
+                </div>
+                <div className="flex w-full flex-1 flex-col gap-1 lg:w-auto">
+                  <span className="text-sm font-semibold text-white">Profile & Resume Match Intelligence</span>
+                  <span className="text-sm leading-5 text-white/70">See how your profile and resume align with this role, where the gaps are, and what to do next.</span>
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={() => openMatch(job.id)}
+                  disabled={pendingId === String(job.id)}
+                  className="h-auto w-full shrink-0 rounded-full border-neon-cyan/50 bg-transparent px-4 py-2.5 text-sm font-semibold text-neon-cyan hover:bg-neon-cyan/10 lg:w-auto"
+                >
+                  {pendingId === String(job.id) ? "Matching…" : "Check Match Details"}
+                </Button>
+              </Card>
+            )}
+
             {/* AI Summary */}
             <Card className="flex-col items-start gap-3 rounded-[20px] border-glass-border bg-white/[0.03] p-4 lg:flex-row lg:items-center lg:gap-4 lg:p-5">
               <div className="flex size-10 shrink-0 items-center justify-center rounded-[20px] border border-glass-border bg-white/[0.04]">
-                <Zap className="size-5 text-neon-cyan" />
+                <Zap className="size-5 text-neon-purple" />
               </div>
               <div className="flex w-full flex-1 flex-col gap-1 lg:w-auto">
-                <span className="text-xs font-semibold text-white">AI summary</span>
-                <span className="text-sm leading-5 text-white/70">Get a quick AI-powered summary of all job requirements, skills, and qualifications</span>
+                <span className="text-xs font-semibold text-white">AI Summary</span>
+                <span className="text-sm leading-5 text-white/70">Get a quick AI-powered summary of all job requirements, skills, and qualifications.</span>
               </div>
-              <Button className={`h-auto w-full shrink-0 rounded-full px-4 py-2.5 text-sm font-semibold text-white lg:w-auto ${GRADIENT} hover:opacity-90`}>Summarize Requirements</Button>
+              <Button onClick={() => setShowAIAssistant(true)} className={`h-auto w-full shrink-0 rounded-full px-4 py-2.5 text-sm font-semibold text-white lg:w-auto ${GRADIENT} hover:opacity-90`}>
+                Summarize Requirements
+              </Button>
             </Card>
 
             {/* Job Description */}
@@ -358,7 +381,7 @@ export function JobDetailPageRedesign() {
                 <p className="text-sm leading-[22px] text-white/70">{skillsSubtitle}</p>
                 <div className="flex flex-wrap gap-2">
                   {dailySkills.map((s, i) => (
-                    <span key={`${s}-${i}`} className={`${CHIP} px-2.5 py-1.5 text-xs text-white/70`}>
+                    <span key={`${s}-${i}`} className="rounded-full border border-neon-cyan/40 bg-transparent px-2.5 py-1.5 text-xs text-neon-cyan">
                       {s}
                     </span>
                   ))}
@@ -367,28 +390,10 @@ export function JobDetailPageRedesign() {
             )}
 
             {/* How you fit this role — reuses the data-wired competency panel */}
-            {competency && <CompetencyTable competency={competency} />}
-
-            <Card className="items-stretch gap-5 rounded-[20px] border border-neon-purple/25 bg-neon-purple/5 p-4 lg:p-6">
-              <div className="flex items-center gap-3">
-                <Sparkles className="size-5 shrink-0 text-neon-purple" />
-                <h3 className="text-lg font-semibold text-white lg:text-xl">Check My Match</h3>
-              </div>
-              <p className="text-sm leading-relaxed text-white/70">
-                See how ready you are for this role, where the gaps are, and what to do next. Same AI Match coach you can use on any external JD.
-              </p>
-              <Button
-                onClick={() => (isAuthenticated ? openMatch(job.id) : router.push(`/auth?actionType=profile&returnUrl=${encodeURIComponent(`/jobs/${id}`)}`))}
-                disabled={pendingId === String(job.id)}
-                className={`h-auto w-full rounded-full px-6 py-3.5 text-base font-semibold text-white sm:w-auto ${GRADIENT} hover:opacity-90`}
-              >
-                <Sparkles className="mr-2 size-4" />
-                {pendingId === String(job.id) ? "Matching…" : "Check My Match"}
-              </Button>
-            </Card>
+            {competency && <CompetencyTable competency={competency} experienceMatch={experienceMatch} educationMatch={educationMatch} />}
 
             {/* About the Company */}
-            <SectionCard icon={<Building2 className="size-5 text-neon-cyan" />} title="About the Company">
+            <SectionCard icon={<BookOpen className="size-5 text-neon-purple" />} title="About the Company">
               {/*
                 Two shapes, one DOM. On a phone this is a 2-column grid: the logo
                 takes the first cell and the name/Verified block sits beside it,
@@ -413,12 +418,16 @@ export function JobDetailPageRedesign() {
                 </div>
                 <div className="contents lg:flex lg:min-w-0 lg:flex-1 lg:flex-col lg:gap-2">
                   <div className="flex min-w-0 flex-col gap-1 lg:contents">
-                    <p className="text-lg font-bold text-white">{companyName}</p>
-                    {job.page?.name && (
-                      <div className="flex items-center gap-2">
-                        <span className="rounded-full border border-neon-green/20 bg-neon-green/10 px-2 py-1 text-xs font-semibold text-neon-green">Verified</span>
-                      </div>
-                    )}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-lg font-bold text-white">{companyName}</p>
+                      {job.page?.name && (
+                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-neon-green">
+                          <CheckCircle2 className="size-3.5" />
+                          Verified
+                        </span>
+                      )}
+                    </div>
+                    {companyMeta && <p className="text-xs text-white/45">{companyMeta}</p>}
                   </div>
                   <p className="col-span-2 text-sm leading-[22px] text-white/70">{job.page?.description || "Company description not available."}</p>
                   {job.page?.id && (
@@ -431,7 +440,7 @@ export function JobDetailPageRedesign() {
             </SectionCard>
 
             {/* Interview Questions (static placeholder, as before) */}
-            <SectionCard icon={<HelpCircle className="size-5 text-neon-cyan" />} title="AI-Generated Interview Questions">
+            <SectionCard icon={<HelpCircle className="size-5 text-neon-purple" />} title="AI-Generated Interview Questions">
               <div className="flex flex-col gap-3">
                 {interviewQuestions.map((q) => (
                   <div key={q} className="rounded-2xl border border-glass-border bg-white/[0.03] p-4 text-sm text-white">
@@ -441,20 +450,33 @@ export function JobDetailPageRedesign() {
               </div>
               <span className={`${CHIP} w-fit px-4 py-2.5 text-sm font-semibold text-neon-purple`}>View All Questions (5)</span>
             </SectionCard>
+
+            {gapSkillNames.length > 0 && (
+              <SectionCard icon={<Info className="size-5 text-neon-pink" />} title="Insider Intel: Hiring Insights">
+                <p className="text-sm leading-[22px] text-white/70">
+                  This hiring team is prioritizing {gapSkillNames.slice(0, 3).join(", ")}
+                  {gapSkillNames.length > 3 ? ", and related skills" : ""}. Showing clear evidence of those in your resume and interviews will help you stand out.
+                </p>
+              </SectionCard>
+            )}
           </div>
 
           {/* Right */}
           <div className="w-full lg:w-80 lg:shrink-0">
             <SectionCard title="Similar Jobs" titleSize="text-base lg:text-lg">
               {isSimilarLoading ? (
-                <p className="text-sm text-white/45">Loading similar jobs...</p>
+                <div className="flex flex-col gap-3">
+                  {Array.from({ length: 4 }, (_, i) => (
+                    <SimilarJobCardSkeleton key={i} />
+                  ))}
+                </div>
               ) : !similarJobs || similarJobs.length === 0 ? (
                 <p className="text-sm text-white/45">No similar jobs found.</p>
               ) : (
                 <div className="flex flex-col gap-3">
-                  {similarJobs.map((j) => {
+                  {similarJobs.slice(0, 4).map((j) => {
                     const sName = j.page?.name || j.company_name;
-                    const salary = formatSalary(j);
+                    const salary = salaryText(j);
                     const match = similarMatch(j);
                     return (
                       <div key={j.id} onClick={() => router.push(`/jobs/${j.id}`)} className="flex cursor-pointer items-center gap-3 rounded-2xl border border-glass-border bg-white/[0.03] p-4 transition-colors hover:border-neon-cyan/30">
@@ -500,21 +522,19 @@ export function JobDetailPageRedesign() {
               <span className="flex-1 rounded-full border border-neon-green/30 bg-neon-green/10 px-6 py-3.5 text-center text-base font-semibold text-neon-green">Applied</span>
             ) : (
               <Button onClick={handleApply} className={`h-auto flex-1 rounded-full px-6 py-3.5 text-base font-semibold text-white ${GRADIENT} hover:opacity-90`}>
-                {job.resource === "qelsa" ? "Quick Apply" : "Apply now"}
+                Apply now
               </Button>
             )}
           </div>
-          <Button
-            variant="outline"
-            onClick={() => (isAuthenticated ? openMatch(job.id) : router.push(`/auth?actionType=profile&returnUrl=${encodeURIComponent(`/jobs/${id}`)}`))}
-            disabled={pendingId === String(job.id)}
-            className="h-auto w-full rounded-full border-neon-purple/40 bg-transparent px-6 py-3.5 text-sm font-semibold text-neon-purple hover:bg-neon-purple/10"
-          >
-            <Sparkles className="mr-2 size-4" />
-            {pendingId === String(job.id) ? "Matching…" : "Check My Match"}
-          </Button>
         </div>
       </div>
+
+      <JobAIAssistantDrawer
+        isOpen={showAIAssistant}
+        onClose={() => setShowAIAssistant(false)}
+        selectedJob={{ ...job, skills: dailySkills }}
+        jobs={similarJobs ?? []}
+      />
 
       <QuickApplyModal
         isOpen={showQuickApplyModal}
@@ -533,9 +553,14 @@ export function JobDetailPageRedesign() {
 
 /* ------------------------------ sub-components ----------------------------- */
 
-function ShareButton({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) {
+function ShareButton({ children, onClick, active }: { children: React.ReactNode; onClick?: () => void; active?: boolean }) {
   return (
-    <button onClick={onClick} className="flex size-9 items-center justify-center rounded-[20px] border border-glass-border bg-white/[0.03] text-white/80 transition-colors hover:text-white lg:size-10">
+    <button
+      onClick={onClick}
+      className={`flex size-9 items-center justify-center rounded-[20px] transition-colors lg:size-10 ${
+        active ? "bg-neon-cyan text-white" : "border border-glass-border bg-white/[0.03] text-white/80 hover:text-white"
+      }`}
+    >
       {children}
     </button>
   );

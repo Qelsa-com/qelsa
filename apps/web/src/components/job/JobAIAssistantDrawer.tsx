@@ -120,7 +120,7 @@ export function JobAIAssistantDrawer({ isOpen, onClose, selectedJob, jobs }: Job
 • ${job.work_type} role in ${job.city ? formatCity(job.city) : "an unspecified location"}
 • ${job.experience} of experience required
 • Salary range: ${job.salary || "Competitive compensation"}
-• ${job.applications?.length ?? 0} applications so far
+• ${job.application_count ?? job.applications?.length ?? 0} applications so far
 
 **Must-Have Skills:**
 ${
@@ -252,7 +252,7 @@ ${recentJobs
 • Salary: ${j.salary || "Not disclosed"}
 • Key Stack: ${j.skills.slice(0, 3).join(", ")}
 • Fit Score: ${j.fitScore || 70}%
-• Applications: ${j.applications?.length ?? 0}`
+• Applications: ${j.application_count ?? j.applications?.length ?? 0}`
   )
   .join("\n\n")}
 

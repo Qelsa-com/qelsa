@@ -1,23 +1,23 @@
 import { v } from "convex/values";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
+import type { QueryCtx } from "./_generated/server";
 import { authedMutation, authedQuery } from "./lib/customFunctions";
 import { withId } from "./lib/helpers";
+import { titledList, withLocalIds } from "./lib/profileFields";
 
-async function hydrate(ctx: { db: { get: Function; query: Function } }, row: { _id: string } & Record<string, unknown>) {
+async function hydrate(ctx: QueryCtx, row: Doc<"educations">) {
   const degree = row.degree_id ? await ctx.db.get(row.degree_id) : null;
   const field = row.field_of_study_id ? await ctx.db.get(row.field_of_study_id) : null;
   const college = row.college_id ? await ctx.db.get(row.college_id) : null;
   const city = row.city_id ? await ctx.db.get(row.city_id) : null;
-  const projects = await ctx.db.query("projects").withIndex("by_education", (q: { eq: Function }) => q.eq("education_id", row._id)).collect();
-  const achievements = await ctx.db.query("achievements").withIndex("by_education", (q: { eq: Function }) => q.eq("education_id", row._id)).collect();
   return {
     ...withId(row),
     degree: degree ? withId(degree) : null,
     field_of_study: field ? withId(field) : null,
     college: college ? withId(college) : null,
     city: city ? withId(city) : null,
-    projects: projects.map(withId),
-    achievements: achievements.map(withId),
+    projects: withLocalIds(row.projects),
+    achievements: withLocalIds(row.achievements),
   };
 }
 
@@ -49,13 +49,9 @@ export const create = authedMutation({
       grade: data.grade as string | undefined,
       description: data.description as string | undefined,
       position: existing.length,
+      projects: titledList(data.projects),
+      achievements: titledList(data.achievements),
     });
-    for (const project of (data.projects as Array<{ title: string }> | undefined) ?? []) {
-      await ctx.db.insert("projects", { user_id: ctx.user._id, education_id: id, title: project.title });
-    }
-    for (const achievement of (data.achievements as Array<{ title: string }> | undefined) ?? []) {
-      await ctx.db.insert("achievements", { user_id: ctx.user._id, education_id: id, title: achievement.title });
-    }
     return hydrate(ctx, (await ctx.db.get(id))!);
   },
 });
@@ -76,6 +72,8 @@ export const update = authedMutation({
       end_year: data.end_year != null ? Number(data.end_year) : row.end_year,
       grade: (data.grade as string | undefined) ?? row.grade,
       description: (data.description as string | undefined) ?? row.description,
+      projects: data.projects !== undefined ? titledList(data.projects) : row.projects,
+      achievements: data.achievements !== undefined ? titledList(data.achievements) : row.achievements,
     });
     return hydrate(ctx, (await ctx.db.get(args.id))!);
   },

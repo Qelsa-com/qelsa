@@ -1,3 +1,4 @@
+import { PostedJobsSkeleton } from "@/components/job/jobSkeletons";
 import { formatCity } from "@/constants/city";
 import { useDeleteJobMutation, useEditJobMutation, useGetPostedJobsQuery } from "@/features/api/jobsApi";
 import Layout from "@/layout";
@@ -38,7 +39,7 @@ export default function Posted() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<JobStatus>("open");
-  const { data: postedJobs = [] } = useGetPostedJobsQuery();
+  const { data: postedJobs = [], isLoading } = useGetPostedJobsQuery();
   const [deleteJob] = useDeleteJobMutation();
   const [editJob] = useEditJobMutation();
 
@@ -52,7 +53,7 @@ export default function Posted() {
   const pausedJobs = postedJobs.filter((job) => job.status === "paused");
   const closedJobs = postedJobs.filter((job) => job.status === "closed");
 
-  const totalApplications = postedJobs.reduce((sum, job) => sum + (job.applications?.length ?? 0), 0);
+  const totalApplications = postedJobs.reduce((sum, job) => sum + (job.application_count ?? job.applications?.length ?? 0), 0);
 
   const statusCounts: Record<JobStatus, number> = {
     open: openJobs.length,
@@ -100,54 +101,58 @@ export default function Posted() {
             </Button>
           </div>
 
-          {/* Stats overview */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <div className="flex flex-col gap-1.5 rounded-2xl border border-white/12 bg-white/3 p-4">
-              <p className="text-xs text-white/45">Active jobs</p>
-              <p className="text-2xl font-bold text-white">{openJobs.length}</p>
+          {isLoading ? (
+            <PostedJobsSkeleton />
+          ) : (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="flex flex-col gap-1.5 rounded-2xl border border-white/12 bg-white/3 p-4">
+                <p className="text-xs text-white/45">Active jobs</p>
+                <p className="text-2xl font-bold text-white">{openJobs.length}</p>
+              </div>
+              <div className="flex flex-col gap-1.5 rounded-2xl border border-white/12 bg-white/3 p-4">
+                <p className="text-xs text-white/45">Paused</p>
+                <p className="text-2xl font-bold text-white">{pausedJobs.length}</p>
+              </div>
+              <div className="flex flex-col gap-1.5 rounded-2xl border border-white/12 bg-white/3 p-4">
+                <p className="text-xs text-white/45">Applications</p>
+                <p className="text-2xl font-bold text-white">{totalApplications}</p>
+              </div>
+              <div className="flex flex-col gap-1.5 rounded-2xl border border-white/12 bg-white/3 p-4">
+                <p className="text-xs text-white/45">Closed</p>
+                <p className="text-2xl font-bold text-white">{closedJobs.length}</p>
+              </div>
             </div>
-            <div className="flex flex-col gap-1.5 rounded-2xl border border-white/12 bg-white/3 p-4">
-              <p className="text-xs text-white/45">Paused</p>
-              <p className="text-2xl font-bold text-white">{pausedJobs.length}</p>
-            </div>
-            <div className="flex flex-col gap-1.5 rounded-2xl border border-white/12 bg-white/3 p-4">
-              <p className="text-xs text-white/45">Applications</p>
-              <p className="text-2xl font-bold text-white">{totalApplications}</p>
-            </div>
-            <div className="flex flex-col gap-1.5 rounded-2xl border border-white/12 bg-white/3 p-4">
-              <p className="text-xs text-white/45">Closed</p>
-              <p className="text-2xl font-bold text-white">{closedJobs.length}</p>
-            </div>
-          </div>
+          )}
         </div>
 
-        {/* Search and filters */}
-        <div className="flex flex-col lg:flex-row lg:items-center gap-6 px-6 lg:px-20 py-3">
-          <div className="relative w-full lg:w-[577px]">
-            <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-white/45" />
-            <Input
-              type="text"
-              placeholder="Search posted jobs..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-12 rounded-3xl border-white/12 bg-transparent pl-12 text-sm placeholder:text-white/45 focus-visible:border-neon-cyan"
-            />
-          </div>
+        {!isLoading && (
+          <>
+            <div className="flex flex-col lg:flex-row lg:items-center gap-6 px-6 lg:px-20 py-3">
+              <div className="relative w-full lg:w-[577px]">
+                <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-white/45" />
+                <Input
+                  type="text"
+                  placeholder="Search posted jobs..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="h-12 rounded-3xl border-white/12 bg-transparent pl-12 text-sm placeholder:text-white/45 focus-visible:border-neon-cyan"
+                />
+              </div>
 
-          <div className="flex items-center gap-3">
-            {(Object.keys(statusLabels) as JobStatus[]).map((status) => (
-              <button
-                key={status}
-                onClick={() => setStatusFilter(status)}
-                className={`rounded-full px-5 py-2.5 text-sm transition-colors ${
-                  statusFilter === status ? "bg-neon-cyan/15 font-semibold text-neon-cyan" : "border border-white/12 font-medium text-white/70 hover:bg-white/5"
-                }`}
-              >
-                {statusLabels[status]} ({statusCounts[status]})
-              </button>
-            ))}
-          </div>
-        </div>
+              <div className="flex items-center gap-3">
+                {(Object.keys(statusLabels) as JobStatus[]).map((status) => (
+                  <button
+                    key={status}
+                    onClick={() => setStatusFilter(status)}
+                    className={`rounded-full px-5 py-2.5 text-sm transition-colors ${
+                      statusFilter === status ? "bg-neon-cyan/15 font-semibold text-neon-cyan" : "border border-white/12 font-medium text-white/70 hover:bg-white/5"
+                    }`}
+                  >
+                    {statusLabels[status]} ({statusCounts[status]})
+                  </button>
+                ))}
+              </div>
+            </div>
 
         {/* Job listings */}
         <div className="flex flex-col gap-5 px-6 lg:px-20 pt-6 pb-20">
@@ -261,7 +266,7 @@ export default function Posted() {
                 <div className="flex flex-wrap items-center gap-6">
                   <div className="flex items-center gap-1.5">
                     <FileText className="w-4 h-4 text-white/60" />
-                    <span className="text-[13px] text-white/60">{job.applications?.length ?? 0} applications</span>
+                    <span className="text-[13px] text-white/60">{job.application_count ?? job.applications?.length ?? 0} applications</span>
                   </div>
                 </div>
 
@@ -296,6 +301,8 @@ export default function Posted() {
             </div>
           )}
         </div>
+          </>
+        )}
       </div>
     </Layout>
   );

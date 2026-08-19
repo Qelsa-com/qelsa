@@ -19,6 +19,8 @@ function jobListArgs(filters?: JobFilters | Record<string, string> | void) {
     sort_by: record.sort_by,
     city: record.city,
     page_id: record.page_id,
+    posted_within: record.posted_within,
+    now: record.now,
   };
 }
 

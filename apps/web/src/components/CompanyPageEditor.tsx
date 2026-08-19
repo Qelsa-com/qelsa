@@ -64,6 +64,7 @@ import { useLazyGetCompanySizesQuery } from '@/features/api/seedApi';
 import { Page } from '@/types/page';
 import { CulturePanel } from './CulturePanel';
 import { SearchSelect } from './ui/search-select';
+import { CompanyPageSkeleton } from './pageSkeletons';
 
 /*
   Local interfaces & mock data replaced by the shared `Page` type + pagesApi.
@@ -607,14 +608,7 @@ export function CompanyPageEditor() {
   ];
 
   if (isLoading || !page) {
-    return (
-      <div className="min-h-screen p-6">
-        <Card className="glass p-8 max-w-2xl mx-auto text-center">
-          <Loader2 className="h-8 w-8 text-muted-foreground mx-auto mb-4 animate-spin" />
-          <p className="text-muted-foreground">Loading page...</p>
-        </Card>
-      </div>
-    );
+    return <CompanyPageSkeleton />;
   }
 
   if (!permissions.edit && activeSection !== 'users') {

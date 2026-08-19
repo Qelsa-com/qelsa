@@ -63,6 +63,9 @@ export type Job = {
   // Seeker-side match data (optional-auth; null when logged out)
   competency?: Competency | null;
 
-  /** Distinct signed-in users who have opened this posting. Detail view only. */
+  /** Distinct signed-in users who have opened this posting. */
   view_count?: number;
+  /** Denormalized applicant count; prefer this over hydrating `applications`. */
+  application_count?: number;
+  has_applied?: boolean;
 };

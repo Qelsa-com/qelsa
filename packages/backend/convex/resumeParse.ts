@@ -4,11 +4,14 @@ import { Agent } from "@convex-dev/agent";
 import { v } from "convex/values";
 import mammoth from "mammoth";
 import { extractText } from "unpdf";
+import { R2 } from "@convex-dev/r2";
 import { components } from "./_generated/api";
 import { action } from "./_generated/server";
 import { AI_AGENT_MODEL, requireOpenRouter } from "./lib/ai";
 import { parsedProfileSchema, parsedProfileValidator, toParsedProfile } from "./lib/parsedProfile";
 import { clipPlainText } from "./lib/skillMatch";
+
+const r2 = new R2(components.r2);
 
 const MAX_BYTES = 10 * 1024 * 1024;
 const MIN_TEXT_CHARS = 40;
@@ -29,14 +32,16 @@ type UserPart =
 
 export const parseResume = action({
   args: {
-    storageId: v.id("_storage"),
+    storageId: v.string(),
     filename: v.string(),
     contentType: v.optional(v.string()),
   },
   returns: parsedProfileValidator,
   handler: async (ctx, args) => {
-    const blob = await ctx.storage.get(args.storageId);
-    if (!blob) throw new Error("Resume file not found. Please upload again.");
+    const url = await r2.getUrl(args.storageId);
+    const response = await fetch(url);
+    if (!response.ok) throw new Error("Resume file not found. Please upload again.");
+    const blob = await response.blob();
     if (blob.size > MAX_BYTES) throw new Error("File is larger than 10 MB.");
 
     const buffer = new Uint8Array(await blob.arrayBuffer());

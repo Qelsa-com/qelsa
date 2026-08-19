@@ -19,6 +19,7 @@
     "@ai-sdk/provider-utils": "^4.0.45",
     "@convex-dev/agent": "^0.6.4",
     "@convex-dev/better-auth": "catalog:",
+    "@convex-dev/r2": "^0.10.2",
     "@openrouter/ai-sdk-provider": "^2.10.0",
     "ai": "^6.0.255",
     "better-auth": "catalog:",

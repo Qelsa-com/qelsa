@@ -1,12 +1,12 @@
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
+import { bumpJobCount } from "./jobCounts";
 
-async function deleteStorage(ctx: MutationCtx, storageId: Id<"_storage"> | undefined) {
-  if (!storageId) return;
-  await ctx.storage.delete(storageId);
-}
-
-async function deleteApplication(ctx: MutationCtx, applicationId: Id<"job_applications">) {
+async function deleteApplication(
+  ctx: MutationCtx,
+  applicationId: Id<"job_applications">,
+  adjustJobCount = true,
+) {
   const answers = await ctx.db
     .query("job_application_answers")
     .withIndex("by_application", (q) => q.eq("job_application_id", applicationId))
@@ -19,7 +19,11 @@ async function deleteApplication(ctx: MutationCtx, applicationId: Id<"job_applic
     .collect();
   for (const row of logs) await ctx.db.delete(row._id);
 
+  const application = await ctx.db.get(applicationId);
   await ctx.db.delete(applicationId);
+  if (adjustJobCount && application) {
+    await bumpJobCount(ctx, application.job_id, "application_count", -1);
+  }
 }
 
 async function deleteQuestionSet(ctx: MutationCtx, setId: Id<"question_sets">) {
@@ -43,7 +47,7 @@ async function deleteJob(ctx: MutationCtx, jobId: Id<"jobs">) {
     .query("job_applications")
     .withIndex("by_job", (q) => q.eq("job_id", jobId))
     .collect();
-  for (const application of applications) await deleteApplication(ctx, application._id);
+  for (const application of applications) await deleteApplication(ctx, application._id, false);
 
   const skills = await ctx.db
     .query("job_skills")
@@ -72,50 +76,32 @@ async function deleteJob(ctx: MutationCtx, jobId: Id<"jobs">) {
   await ctx.db.delete(jobId);
 }
 
+export async function deleteJobCascade(ctx: MutationCtx, jobId: Id<"jobs">) {
+  await deleteJob(ctx, jobId);
+}
+
 async function deleteExperience(ctx: MutationCtx, experienceId: Id<"experiences">) {
   const skills = await ctx.db
     .query("experience_skills")
     .withIndex("by_experience", (q) => q.eq("experience_id", experienceId))
     .collect();
   for (const row of skills) await ctx.db.delete(row._id);
-
-  const responsibilities = await ctx.db
-    .query("responsibilities")
-    .withIndex("by_experience", (q) => q.eq("experience_id", experienceId))
-    .collect();
-  for (const row of responsibilities) await ctx.db.delete(row._id);
-
-  const metrics = await ctx.db
-    .query("impact_metrics")
-    .withIndex("by_experience", (q) => q.eq("experience_id", experienceId))
-    .collect();
-  for (const row of metrics) await ctx.db.delete(row._id);
-
   await ctx.db.delete(experienceId);
 }
 
 async function deleteEducation(ctx: MutationCtx, educationId: Id<"educations">) {
-  const projects = await ctx.db
-    .query("projects")
-    .withIndex("by_education", (q) => q.eq("education_id", educationId))
-    .collect();
-  for (const row of projects) await ctx.db.delete(row._id);
-
-  const achievements = await ctx.db
-    .query("achievements")
-    .withIndex("by_education", (q) => q.eq("education_id", educationId))
-    .collect();
-  for (const row of achievements) await ctx.db.delete(row._id);
-
   await ctx.db.delete(educationId);
 }
 
 /**
  * Removes every app row owned by this user, including posted jobs and other
  * people's applications to those jobs. Catalog tables stay.
+ * Returns R2 object keys so callers can delete objects without importing
+ * the R2 component here (that import cycles with auth.ts).
  */
 export async function deleteAppUserData(ctx: MutationCtx, user: Doc<"users">) {
   const userId = user._id;
+  const r2Keys: string[] = [];
 
   const culture = await ctx.db
     .query("culture_preferences")
@@ -128,7 +114,7 @@ export async function deleteAppUserData(ctx: MutationCtx, user: Doc<"users">) {
     .withIndex("by_user", (q) => q.eq("user_id", userId))
     .collect();
   for (const resume of resumes) {
-    await deleteStorage(ctx, resume.storage_id);
+    if (resume.storage_id) r2Keys.push(resume.storage_id);
     await ctx.db.delete(resume._id);
   }
 
@@ -213,6 +199,7 @@ export async function deleteAppUserData(ctx: MutationCtx, user: Doc<"users">) {
     .collect();
   for (const row of submittedCompanies) await ctx.db.delete(row._id);
 
-  await deleteStorage(ctx, user.profile_image_storage_id);
+  if (user.profile_image_storage_id) r2Keys.push(user.profile_image_storage_id);
   await ctx.db.delete(userId);
+  return r2Keys;
 }

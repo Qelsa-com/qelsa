@@ -8,6 +8,7 @@
  */
 
 import { MyJobsHeader, TrackedJobCard } from "@/components/job/myJobsShared";
+import { TrackedJobsListSkeleton } from "@/components/job/jobSkeletons";
 import { useLazyGetInProgressJobsQuery } from "@/features/api/jobsApi";
 import Layout from "@/layout";
 import { Job } from "@/types/job";
@@ -51,7 +52,7 @@ const InProgress = () => {
 
         <div className="flex flex-col gap-5 pt-6 pb-24">
           {isLoading ? (
-            <p className="text-sm text-white/45">Loading applications...</p>
+            <TrackedJobsListSkeleton />
           ) : jobs.length === 0 ? (
             <p className="text-sm text-white/45">Nothing in progress. Applications you start will show up here.</p>
           ) : (

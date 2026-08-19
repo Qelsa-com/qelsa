@@ -76,9 +76,7 @@ export function JobDetailPage() {
 
   useEffect(() => {
     if (job) {
-      console.log(job.applications);
-
-      const hasApplied = job.applications?.some((application) => application.user_id === user?.id);
+      const hasApplied = job.has_applied ?? job.applications?.some((application) => application.user_id === user?.id);
       setIsApplied(hasApplied || false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -180,9 +178,7 @@ export function JobDetailPage() {
     },
   ];
 
-  const applied = job.applications?.some((application) => {
-    return application.user_id === user?.id;
-  });
+  const applied = job.has_applied ?? job.applications?.some((application) => application.user_id === user?.id) ?? false;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-background">
@@ -336,12 +332,10 @@ export function JobDetailPage() {
               <div className="text-2xl font-bold text-neon-cyan">{job.views}</div>
               <div className="text-sm text-muted-foreground">Views</div>
             </div> */}
-            {job.applications && (
-              <div className="text-center">
-                <div className="text-2xl font-bold text-neon-purple">{job.applications.length}</div>
+            <div className="text-center">
+                <div className="text-2xl font-bold text-neon-purple">{job.application_count ?? job.applications?.length ?? 0}</div>
                 <div className="text-sm text-muted-foreground">Applicants</div>
               </div>
-            )}
             {/* {job.fitScore && (
               <div className="text-center">
                 <div className="text-2xl font-bold text-neon-green">{job.fitScore}%</div>

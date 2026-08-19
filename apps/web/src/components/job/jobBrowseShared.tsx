@@ -19,7 +19,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useLazySearchCitiesQuery } from "@/features/api/seedApi";
 import { City } from "@/types/city";
 import { Job } from "@/types/job";
-import { Building2, Check, ChevronDown, MapPin, Search, Sparkles, X } from "lucide-react";
+import { Building2, Check, ChevronDown, MapPin, Search, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
@@ -35,7 +35,16 @@ export interface SearchFilters {
   /** on-site | remote | hybrid — multi-select, matching the Job model's enum. */
   workplace_types: string[];
   sort_by: "relevance" | "date" | "salary";
+  /** Recency window. Empty string = any time (pill stays labeled "Date posted"). */
+  date_posted: "" | "24h" | "week" | "month";
 }
+
+export const DATE_POSTED_OPTIONS: { label: string; value: SearchFilters["date_posted"] }[] = [
+  { label: "Any time", value: "" },
+  { label: "Past 24 hours", value: "24h" },
+  { label: "Past week", value: "week" },
+  { label: "Past month", value: "month" },
+];
 
 export const WORKPLACE_TYPE_OPTIONS = [
   { label: "On-site", value: "on-site" },
@@ -52,11 +61,23 @@ export const WORK_TYPE_OPTIONS = [
 
 /* -------------------------------- helpers --------------------------------- */
 
-const EXPERIENCE_LEVEL_LABELS: Record<string, string> = { EN: "Entry", MI: "Mid", SE: "Senior", EX: "Executive" };
+const EXPERIENCE_LEVEL_RANGES: Record<string, string> = {
+  EN: "0-2 yrs",
+  MI: "2-5 yrs",
+  SE: "5-8 yrs",
+  EX: "10+ yrs",
+};
 
 export function experienceChip(job: Job): string | null {
-  if (job.experience_level) return EXPERIENCE_LEVEL_LABELS[job.experience_level] ?? job.experience_level;
-  if (job.experience != null) return job.experience === 0 ? "Entry" : `${job.experience}+ yrs`;
+  if (job.experience != null) {
+    const years = job.experience;
+    if (years <= 1) return "0-1 yrs";
+    if (years <= 4) return "2-4 yrs";
+    if (years <= 8) return "5-8 yrs";
+    if (years <= 12) return "8-12 yrs";
+    return `${years}+ yrs`;
+  }
+  if (job.experience_level) return EXPERIENCE_LEVEL_RANGES[job.experience_level] ?? job.experience_level;
   return null;
 }
 
@@ -116,85 +137,87 @@ export function matchScore(job: Job): number | null {
 }
 
 function ringColor(score: number): string {
-  if (score >= 80) return "#10b981"; // green
-  if (score >= 60) return "#0ea5e9"; // cyan
-  return "#f59e0b"; // amber
+  if (score >= 85) return "#10b981";
+  if (score >= 83) return "#0ea5e9";
+  return "#f59e0b";
+}
+
+const LOGO_TINTS = ["#0ea5e9", "#7c3aed", "#10b981", "#ec4899", "#f59e0b"];
+
+function logoTint(key: string): string {
+  let hash = 0;
+  for (let i = 0; i < key.length; i++) hash = (hash * 31 + key.charCodeAt(i)) | 0;
+  return LOGO_TINTS[Math.abs(hash) % LOGO_TINTS.length] ?? "#0ea5e9";
+}
+
+/** Args for `api.jobs.list`. `now` is required when a recency window is set — queries cannot call Date.now(). */
+export function toDiscoverArgs(filters: SearchFilters, search: string) {
+  return {
+    cities: filters.cities,
+    job_types: filters.job_types,
+    workplace_types: filters.workplace_types,
+    salary_min: filters.salary_min,
+    salary_max: filters.salary_max,
+    search: search.trim() || undefined,
+    sort_by: filters.sort_by,
+    posted_within: filters.date_posted || undefined,
+    now: filters.date_posted ? Date.now() : undefined,
+  };
 }
 
 /* ------------------------------ job card ---------------------------------- */
 
-export function JobCard({
-  job,
-  onClick,
-  onMatch,
-  matching,
-}: {
-  job: Job;
-  onClick: () => void;
-  onMatch?: () => void;
-  matching?: boolean;
-}) {
+export function JobCard({ job, onClick }: { job: Job; onClick: () => void }) {
   const title = job.job_title?.name ?? job.title;
   const company = job.page?.name || job.company_name;
   const score = matchScore(job);
   const chips = [experienceChip(job), workTypeChip(job), workplaceChip(job)].filter(Boolean) as string[];
   const salary = salaryText(job);
   const posted = postedAgo(job);
+  const tint = logoTint(String(job.id ?? title ?? "job"));
 
   return (
-    <div className="flex flex-col gap-4 rounded-2xl border border-glass-border bg-white/[0.04] p-4 text-left transition-all hover:-translate-y-0.5 hover:border-neon-cyan/30 hover:bg-white/[0.06] sm:h-80 sm:justify-between sm:gap-0 sm:rounded-[20px] sm:p-5">
-      <button type="button" onClick={onClick} className="flex min-h-0 flex-col gap-4 text-left sm:flex-1">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex size-9 items-center justify-center overflow-hidden rounded-lg border border-glass-border bg-white/[0.04]">
-            {job.company_logo ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={job.company_logo} alt={company ?? "Company"} className="size-full object-cover" />
-            ) : (
-              <Building2 className="size-4 text-white/70" />
-            )}
-          </div>
-          {score != null && <MatchRing value={score} />}
-        </div>
-
-        {/* Body */}
-        <div className="flex flex-col gap-1.5">
-          <p className="line-clamp-2 text-[15px] font-bold text-white">{title}</p>
-          {company && <p className="line-clamp-1 text-[13px] text-white/70">{company}</p>}
-          {job.city && <p className="line-clamp-1 text-xs text-white/45">{formatCity(job.city)}</p>}
-        </div>
-
-        {chips.length > 0 && (
-          <>
-            <div className="h-px w-full bg-white/[0.08]" />
-            <div className="flex flex-wrap gap-1.5">
-              {chips.map((c) => (
-                <span key={c} className="rounded-md border border-glass-border bg-white/[0.1] px-2 py-[3px] text-[11px] font-medium text-white/70">
-                  {c}
-                </span>
-              ))}
-            </div>
-          </>
-        )}
-      </button>
-
-      {/* Footer */}
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-[13px] font-semibold text-white/70">{salary ?? "—"}</span>
-        {posted && <span className="text-[11px] text-white/35 sm:text-xs">{posted}</span>}
-      </div>
-      {onMatch && (
-        <button
-          type="button"
-          onClick={onMatch}
-          disabled={matching}
-          className="flex items-center justify-center gap-1.5 rounded-full border border-neon-purple/30 py-2 text-[12px] font-semibold text-neon-purple hover:bg-neon-purple/10 disabled:opacity-40"
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex flex-col gap-4 rounded-2xl border border-glass-border bg-white/[0.04] p-4 text-left transition-all hover:-translate-y-0.5 hover:border-neon-cyan/30 hover:bg-white/[0.06] sm:rounded-[20px] sm:p-5"
+    >
+      <div className="flex items-center justify-between">
+        <div
+          className="flex size-9 items-center justify-center overflow-hidden rounded-lg"
+          style={job.company_logo ? undefined : { backgroundColor: `${tint}22`, border: `1px solid ${tint}55` }}
         >
-          <Sparkles className="size-3.5" />
-          {matching ? "Matching…" : "Check My Match"}
-        </button>
+          {job.company_logo ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={job.company_logo} alt={company ?? "Company"} className="size-full object-cover" />
+          ) : (
+            <Building2 className="size-4" style={{ color: tint }} />
+          )}
+        </div>
+        {score != null && <MatchRing value={score} />}
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <p className="line-clamp-2 text-[15px] font-bold text-white">{title}</p>
+        {company && <p className="line-clamp-1 text-[13px] text-white/55">{company}</p>}
+        {job.city && <p className="line-clamp-1 text-xs text-white/40">{formatCity(job.city)}</p>}
+      </div>
+
+      {chips.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {chips.map((chip) => (
+            <span key={chip} className="rounded-md bg-white/[0.08] px-2 py-[3px] text-[11px] font-medium text-white/60">
+              {chip}
+            </span>
+          ))}
+        </div>
       )}
-    </div>
+
+      <div className="mt-auto flex items-center justify-between gap-2">
+        <span className="text-[13px] font-bold text-white">{salary ?? "—"}</span>
+        {posted && <span className="text-[11px] text-white/40 sm:text-xs">{posted}</span>}
+      </div>
+    </button>
   );
 }
 
@@ -388,8 +411,8 @@ interface JobsBrowseHeaderProps {
   onApplyFilters: (partial: Partial<SearchFilters>) => void;
   cityFilter: City | null;
   setCityFilter: (city: City | null) => void;
-  /** Optional profile-completion banner (shown to authenticated users). */
-  profileBanner?: { text: string; percent: number };
+  /** Smart Matches only — omit on All Jobs. */
+  profileBanner?: { percent: number; extraRoles: number };
 }
 
 export function JobsBrowseHeader({
@@ -447,11 +470,20 @@ export function JobsBrowseHeader({
       onRemove: () => onApplyFilters({ job_types: filters.job_types.filter((x) => x !== v) }),
     })),
     ...(cityFilter ? [{ key: `city-${cityFilter.id}`, label: cityFilter.name, onRemove: () => handleCitySelect(null) }] : []),
+    ...(filters.date_posted
+      ? [
+          {
+            key: `date-${filters.date_posted}`,
+            label: DATE_POSTED_OPTIONS.find((o) => o.value === filters.date_posted)?.label ?? filters.date_posted,
+            onRemove: () => onApplyFilters({ date_posted: "" }),
+          },
+        ]
+      : []),
   ];
 
   const clearAll = () => {
     setCityFilter(null);
-    onApplyFilters({ workplace_types: [], job_types: [], cities: [] });
+    onApplyFilters({ workplace_types: [], job_types: [], cities: [], date_posted: "" });
   };
 
   return (
@@ -459,8 +491,8 @@ export function JobsBrowseHeader({
       {/* Title row */}
       <div className="flex flex-wrap items-start justify-between gap-5 sm:gap-4">
         <div className="flex flex-col gap-2 sm:gap-3">
-          <h1 className="text-[30px] font-extrabold text-white sm:text-4xl md:text-5xl">Job opportunities</h1>
-          <p className="text-sm text-white/70 sm:text-lg">Find your next career move with AI-powered matching</p>
+          <h1 className="text-[30px] font-extrabold text-white sm:text-4xl md:text-5xl">Job opportunities.</h1>
+          <p className="text-sm text-white/70 sm:text-lg">Find your next career move with AI-powered matching.</p>
         </div>
         {/* Posting and tracking all need an account — hidden while signed out. */}
         {isAuthenticated && (
@@ -472,12 +504,6 @@ export function JobsBrowseHeader({
               Post job
             </button>
             <button
-              onClick={() => router.push("/jobs/match")}
-              className="rounded-full border border-neon-purple/40 px-4 py-2.5 text-[13px] font-bold text-neon-purple transition-colors hover:bg-neon-purple/10 sm:px-6 sm:py-3 sm:text-sm"
-            >
-              Check Match for Any Job
-            </button>
-            <button
               onClick={() => router.push("/jobs/my-jobs/applied")}
               className="rounded-full border border-white/20 px-4 py-2.5 text-[13px] font-bold text-white transition-colors hover:bg-white/5 sm:px-6 sm:py-3 sm:text-sm"
             >
@@ -487,7 +513,6 @@ export function JobsBrowseHeader({
               onClick={() => router.push("/jobs/posted")}
               className="rounded-full border border-white/20 px-4 py-2.5 text-[13px] font-bold text-white transition-colors hover:bg-white/5 sm:px-6 sm:py-3 sm:text-sm"
             >
-              {/* The mobile frame trims this to fit alongside the other two pills. */}
               <span className="sm:hidden">Manage</span>
               <span className="hidden sm:inline">Manage job post</span>
             </button>
@@ -517,13 +542,9 @@ export function JobsBrowseHeader({
       <div className="flex flex-wrap items-center gap-2 sm:gap-3">
         <PillDropdown
           label="Date posted"
-          value={filters.sort_by}
-          options={[
-            { label: "Most relevant", value: "relevance" },
-            { label: "Newest first", value: "date" },
-            { label: "Highest salary", value: "salary" },
-          ]}
-          onSelect={(v) => onApplyFilters({ sort_by: v as SearchFilters["sort_by"] })}
+          value={filters.date_posted}
+          options={DATE_POSTED_OPTIONS}
+          onSelect={(v) => onApplyFilters({ date_posted: v as SearchFilters["date_posted"] })}
         />
         <MultiSelectPill
           label="Workplace type"
@@ -558,7 +579,16 @@ export function JobsBrowseHeader({
       {isAuthenticated && profileBanner && (
         <div className="flex flex-col gap-3 rounded-2xl border border-glass-border bg-white/[0.04] p-4 sm:flex-row sm:items-center sm:gap-5 sm:rounded-[20px] sm:p-6">
           <div className="flex flex-1 flex-col gap-3">
-            <p className="text-[13px] font-semibold text-white sm:text-[15px]">{profileBanner.text}</p>
+            <p className="text-[13px] font-semibold text-white sm:text-[15px]">
+              Completing your profile could unlock{" "}
+              {profileBanner.extraRoles > 0 ? (
+                <>
+                  <span className="font-extrabold text-white">{profileBanner.extraRoles} more</span> strongly-matched roles.
+                </>
+              ) : (
+                "more strongly-matched roles."
+              )}
+            </p>
             <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
               <div className="h-full rounded-full bg-neon-cyan" style={{ width: `${profileBanner.percent}%` }} />
             </div>

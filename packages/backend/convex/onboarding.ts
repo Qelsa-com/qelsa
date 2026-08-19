@@ -2,8 +2,13 @@ import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 import { query } from "./_generated/server";
+import { R2 } from "@convex-dev/r2";
+import { components } from "./_generated/api";
 import { authedMutation } from "./lib/customFunctions";
 import { parsedProfileValidator } from "./lib/parsedProfile";
+import { signedFileUrl } from "./lib/r2";
+
+const r2 = new R2(components.r2);
 
 const jobSeekingStatus = v.union(
   v.literal("actively_hunting"),
@@ -162,7 +167,7 @@ export const setAccountTypeAndResetOnboarding = authedMutation({
 export const applyParsedProfile = authedMutation({
   args: {
     profile: parsedProfileValidator,
-    storage_id: v.optional(v.id("_storage")),
+    storage_id: v.optional(v.string()),
     filename: v.optional(v.string()),
   },
   returns: v.object({ ok: v.literal(true) }),
@@ -198,6 +203,11 @@ export const applyParsedProfile = authedMutation({
         if (start_date == null) continue;
         const company_id = await findOrCreateCompany(ctx, ctx.user._id, row.company);
         const job_title_id = await findOrCreateNamed(ctx, "job_titles", row.title);
+        const bullets = (row.responsibilities?.length ? row.responsibilities : row.description ? [row.description] : [])
+          .map((item) => item.trim())
+          .filter(Boolean)
+          .slice(0, 12)
+          .map((title) => ({ title: title.slice(0, 280) }));
         const experienceId = await ctx.db.insert("experiences", {
           user_id: ctx.user._id,
           company_id: company_id ?? undefined,
@@ -207,18 +217,8 @@ export const applyParsedProfile = authedMutation({
           is_current: row.is_current,
           description: row.description,
           position: index,
+          responsibilities: bullets,
         });
-        const bullets = (row.responsibilities?.length ? row.responsibilities : row.description ? [row.description] : [])
-          .map((item) => item.trim())
-          .filter(Boolean)
-          .slice(0, 12);
-        for (const title of bullets) {
-          await ctx.db.insert("responsibilities", {
-            user_id: ctx.user._id,
-            experience_id: experienceId,
-            title: title.slice(0, 280),
-          });
-        }
         for (const tool of uniqueNames(row.tools ?? [])) {
           const skill_id = await findOrCreateNamed(ctx, "skills", tool);
           if (!skill_id) continue;
@@ -283,12 +283,11 @@ export const applyParsedProfile = authedMutation({
         .withIndex("by_user", (q) => q.eq("user_id", ctx.user._id))
         .take(1);
       if (existingResume.length === 0) {
-        const file_url = await ctx.storage.getUrl(args.storage_id);
         await ctx.db.insert("resumes", {
           user_id: ctx.user._id,
           title: args.filename || "Resume",
           storage_id: args.storage_id,
-          file_url: file_url ?? undefined,
+          file_url: await signedFileUrl(r2, args.storage_id),
         });
       }
     }

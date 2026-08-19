@@ -1,6 +1,7 @@
 "use client";
 
 import { MatchExperience } from "@/components/job/MatchExperience";
+import { MatchSessionSkeleton } from "@/components/job/jobSkeletons";
 import { useGetMatchSessionQuery } from "@/features/api/jobsApi";
 import { useRouter } from "next/router";
 import Layout from "../../../layout";
@@ -13,7 +14,7 @@ export default function MatchSessionPage() {
   return (
     <Layout activeSection="jobs">
       {isLoading || !sessionId ? (
-        <p className="p-8 text-white/70">Loading your match…</p>
+        <MatchSessionSkeleton />
       ) : !session ? (
         <p className="p-8 text-white/70">This match session was not found.</p>
       ) : (

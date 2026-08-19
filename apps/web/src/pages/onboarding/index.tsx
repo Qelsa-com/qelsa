@@ -30,7 +30,7 @@ export default function OnboardingPage() {
     if (isLoading || !user) return;
     if (!user.account_type && !pickingRole) setPickingRole(true);
     if (!justFinished && user.account_type && !needsOnboarding(user) && !pickingRole) {
-      router.replace(homeForAccount(user.account_type));
+      router.replace(homeForAccount(user));
     }
   }, [isLoading, user, pickingRole, justFinished, router]);
 
@@ -48,7 +48,7 @@ export default function OnboardingPage() {
 
   if (pickingRole || !accountType) {
     return (
-      <OnboardingShell>
+      <OnboardingShell onBack={!user.account_type ? () => router.push("/auth") : undefined}>
         <RoleStep value={accountType} onChange={setAccountType} onContinue={handleRoleContinue} isSaving={isSavingRole} />
       </OnboardingShell>
     );

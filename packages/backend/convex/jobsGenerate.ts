@@ -216,11 +216,7 @@ export const loadDraftContext = internalQuery({
       }
     }
 
-    const [department, seniority, companySize] = await Promise.all([
-      jobTitle.function_id ? ctx.db.get(jobTitle.function_id) : null,
-      jobTitle.seniority_id ? ctx.db.get(jobTitle.seniority_id) : null,
-      page?.size_id ? ctx.db.get(page.size_id) : null,
-    ]);
+    const companySize = page?.size_id ? await ctx.db.get(page.size_id) : null;
 
     const existingSkills: string[] = [];
     for (const skillId of args.existingSkillIds ?? []) {
@@ -277,8 +273,6 @@ export const loadDraftContext = internalQuery({
       company: page?.name ?? args.companyName?.trim() ?? "",
       industry: page?.industry,
       company_size: companySize?.label,
-      department: department?.name,
-      seniority: seniority?.name,
       notes: args.notes?.trim() || undefined,
       existing_skills: existingSkills,
       allowed_skills: [...allowedById.entries()].map(([id, name]) => ({ id, name })),

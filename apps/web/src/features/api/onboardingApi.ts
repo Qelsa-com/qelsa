@@ -3,6 +3,7 @@
 import { api } from "@/lib/convexApi";
 import { useConvexMutationHook, useConvexQueryHook, useLazyConvexQueryHook, withUnwrap } from "@/lib/convexHooks";
 import type { ParsedProfile } from "@/lib/resumeDraft";
+import { uploadFileToR2 } from "@/lib/r2Upload";
 import { useAction, useMutation } from "convex/react";
 import { useState } from "react";
 import type { AccountType } from "./authApi";
@@ -61,20 +62,14 @@ export function useApplyParsedProfileMutation() {
 
 export function useParseResume() {
   const generateUploadUrl = useMutation(api.files.generateResumeUploadUrl);
+  const syncMetadata = useMutation(api.files.syncResumeMetadata);
   const parseResume = useAction(api.resumeParse.parseResume);
   const [isLoading, setIsLoading] = useState(false);
 
   const trigger = async (file: File) => {
     setIsLoading(true);
     try {
-      const postUrl = await generateUploadUrl();
-      const uploaded = await fetch(postUrl, {
-        method: "POST",
-        headers: { "Content-Type": file.type || "application/octet-stream" },
-        body: file,
-      });
-      if (!uploaded.ok) throw new Error("Could not upload that file.");
-      const { storageId } = (await uploaded.json()) as { storageId: string };
+      const storageId = await uploadFileToR2(generateUploadUrl, syncMetadata, file);
       const profile = (await parseResume({
         storageId,
         filename: file.name,

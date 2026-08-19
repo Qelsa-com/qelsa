@@ -7,6 +7,9 @@ export function needsOnboarding(user: User | null | undefined) {
   return true;
 }
 
-export function homeForAccount(accountType: User["account_type"]) {
-  return accountType === "recruiter" ? "/jobs/posted" : "/jobs/smart_matches";
+export function homeForAccount(user: User | null | undefined) {
+  if (user?.account_type === "recruiter") {
+    return user.active_page_id ? `/pages/${user.active_page_id}` : "/jobs/posted";
+  }
+  return "/jobs/smart_matches";
 }
