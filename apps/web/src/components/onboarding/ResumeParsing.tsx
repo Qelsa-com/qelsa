@@ -35,7 +35,6 @@ export function ResumeParsing() {
       <div className="mt-6 h-1.5 w-64 overflow-hidden rounded-full bg-white/10">
         <div className="h-full rounded-full gradient-primary transition-[width] duration-300" style={{ width: `${progress}%` }} />
       </div>
-      <p className="mt-4 text-sm text-muted-foreground">Takes under 10 seconds</p>
     </div>
   );
 }

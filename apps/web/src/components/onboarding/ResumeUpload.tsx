@@ -77,43 +77,46 @@ export function ResumeUpload({
           setDragOver(false);
           takeFile(event.dataTransfer.files?.[0]);
         }}
-        className={`mt-10 flex w-full max-w-xl flex-col items-center rounded-3xl border border-dashed px-8 py-14 text-center transition-colors ${
+        className={`mt-10 grid w-full max-w-xl rounded-3xl border border-dashed px-8 py-14 text-center transition-colors ${
           dragOver || file ? "border-neon-cyan/70 bg-neon-cyan/5" : "border-white/15 bg-white/[0.02]"
         }`}
       >
-        {file ? (
-          <>
-            <FileText className="h-10 w-10 text-neon-cyan" />
-            <p className="mt-4 text-lg font-medium text-white">{file.name}</p>
-            <p className="mt-1 text-sm text-muted-foreground">{(file.size / (1024 * 1024)).toFixed(2)} MB</p>
-            <button
-              type="button"
-              onClick={() => onFile(null)}
-              className="mt-4 flex cursor-pointer items-center gap-1 text-sm text-muted-foreground hover:text-white"
-            >
-              <X className="h-3.5 w-3.5" /> Remove
-            </button>
-          </>
-        ) : (
-          <>
-            <div className="flex h-16 w-16 items-center justify-center rounded-full border border-white/10 bg-white/[0.04]">
-              <Upload className="h-7 w-7 text-white" />
-            </div>
-            <p className="mt-5 text-lg text-white">Drag and drop your resume here</p>
-            <p className="mt-3 text-sm text-muted-foreground">or</p>
-            <button
-              type="button"
-              onClick={() => inputRef.current?.click()}
-              className="mt-4 cursor-pointer rounded-full border border-white/15 bg-white/[0.04] px-6 py-2.5 text-sm text-white hover:bg-white/[0.08]"
-            >
-              Browse files
-            </button>
-            <p className="mt-4 text-sm text-muted-foreground">PDF, DOCX, PNG, or JPG · Max 10 MB</p>
-          </>
-        )}
+        <div
+          className={`col-start-1 row-start-1 flex flex-col items-center ${file ? "invisible pointer-events-none" : ""}`}
+          aria-hidden={Boolean(file)}
+        >
+          <div className="flex h-16 w-16 items-center justify-center rounded-full border border-white/10 bg-white/[0.04]">
+            <Upload className="h-7 w-7 text-white" />
+          </div>
+          <p className="mt-5 text-lg text-white">Drag and drop your resume here</p>
+          <p className="mt-3 text-sm text-muted-foreground">or</p>
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            className="mt-4 cursor-pointer rounded-full border border-white/15 bg-white/[0.04] px-6 py-2.5 text-sm text-white hover:bg-white/[0.08]"
+          >
+            Browse files
+          </button>
+          <p className="mt-4 text-sm text-muted-foreground">PDF, DOCX, PNG, or JPG · Max 10 MB</p>
+        </div>
+        <div
+          className={`col-start-1 row-start-1 flex flex-col items-center justify-center ${file ? "" : "invisible pointer-events-none"}`}
+          aria-hidden={!file}
+        >
+          <FileText className="h-10 w-10 text-neon-cyan" />
+          <p className="mt-4 max-w-full truncate px-2 text-lg font-medium text-white">{file?.name}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{file ? `${(file.size / (1024 * 1024)).toFixed(2)} MB` : ""}</p>
+          <button
+            type="button"
+            onClick={() => onFile(null)}
+            className="mt-4 flex cursor-pointer items-center gap-1 text-sm text-muted-foreground hover:text-white"
+          >
+            <X className="h-3.5 w-3.5" /> Remove
+          </button>
+        </div>
       </div>
 
-      {error ? <p className="mt-4 text-sm text-neon-pink">{error}</p> : null}
+      <p className="mt-4 min-h-5 text-center text-sm text-neon-pink">{error ?? ""}</p>
 
       <button
         type="button"

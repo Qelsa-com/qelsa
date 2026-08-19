@@ -1,16 +1,18 @@
-import { R2 } from "@convex-dev/r2";
 import { createClient } from "@convex-dev/better-auth";
 import { convex } from "@convex-dev/better-auth/plugins";
+import { R2 } from "@convex-dev/r2";
 import { betterAuth } from "better-auth/minimal";
 import { emailOTP } from "better-auth/plugins";
+import { v } from "convex/values";
 import { components, internal } from "./_generated/api";
 import type { DataModel, Id } from "./_generated/dataModel";
-import { query, mutation, internalMutation, type ActionCtx, type MutationCtx } from "./_generated/server";
-import { v } from "convex/values";
+import { internalMutation, mutation, query, type ActionCtx, type MutationCtx } from "./_generated/server";
 import authConfig from "./auth.config";
 import { deleteAppUserData } from "./lib/deleteUserData";
 
 const siteUrl = process.env.SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+
+const trustedOrigins = process.env.TRUSTED_ORIGINS?.split(",") ?? [];
 
 type AppUserFields = { authId: string; email: string; name?: string; image?: string };
 
@@ -99,7 +101,7 @@ export const { onCreate, onUpdate, onDelete } = authComponent.triggersApi();
 export const createAuth = (ctx: Parameters<typeof authComponent.adapter>[0]) =>
   betterAuth({
     baseURL: siteUrl,
-    trustedOrigins: [siteUrl, "http://localhost:3000", "http://localhost:3001"],
+    trustedOrigins: [siteUrl, "http://localhost:3000", "http://localhost:3001", ...trustedOrigins],
     database: authComponent.adapter(ctx),
     emailAndPassword: {
       enabled: true,
