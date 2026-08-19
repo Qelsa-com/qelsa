@@ -27,6 +27,7 @@ import type * as lib_customFunctions from "../lib/customFunctions.js";
 import type * as lib_helpers from "../lib/helpers.js";
 import type * as lib_skillMatch from "../lib/skillMatch.js";
 import type * as pages from "../pages.js";
+import type * as resumeParse from "../resumeParse.js";
 import type * as resumes from "../resumes.js";
 import type * as seed from "../seed.js";
 import type * as seedCatalogData from "../seedCatalogData.js";
@@ -59,6 +60,7 @@ declare const fullApi: ApiFromModules<{
   "lib/helpers": typeof lib_helpers;
   "lib/skillMatch": typeof lib_skillMatch;
   pages: typeof pages;
+  resumeParse: typeof resumeParse;
   resumes: typeof resumes;
   seed: typeof seed;
   seedCatalogData: typeof seedCatalogData;

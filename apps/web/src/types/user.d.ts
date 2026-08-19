@@ -59,6 +59,7 @@ export type User = {
   role: "user" | "admin" | "owner" | "editor" | "moderator" | "viewer";
   website?: string;
   profile_type?: "student" | "professional" | "career-switcher";
+  job_search_status?: "actively_job_hunting" | "exploring_options" | "building_skills";
   find_job?: boolean;
   explore_career?: boolean;
   upskill_and_learn?: boolean;

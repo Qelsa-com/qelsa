@@ -7,7 +7,7 @@ import type { User } from "@/types/user";
 import { AnimatePresence, motion } from "motion/react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "../components/ui/input-otp";
 
@@ -54,6 +54,10 @@ export default function AuthPage() {
   const [accountType, setAccountType] = useState<AccountType | null>(null);
   const [pendingAuth, setPendingAuth] = useState<PendingAuth | null>(null);
   const [resendIn, setResendIn] = useState(0);
+  // True once we've routed a brand-new user into the role step. It stops the
+  // profile effect below from auto-redirecting to "/" the instant account_type
+  // is saved — the candidate journey navigates explicitly instead.
+  const onboardingRef = useRef(false);
 
   const [googleLogin, { isLoading: isGoogleLoading }] = useGoogleLoginMutation();
   const [requestOtp, { isLoading: isSendingOtp }] = useRequestOtpMutation();
@@ -90,10 +94,14 @@ export default function AuthPage() {
   useEffect(() => {
     if (!session || !profile) return;
     if (!profile.account_type) {
+      onboardingRef.current = true; // brand-new user — journey drives navigation
       setPendingAuth({ user: profile as User });
       setStep("role");
       return;
     }
+    // Don't auto-redirect a user we just onboarded — handleContinueWithRole
+    // sends seekers into /onboarding/resume and recruiters home explicitly.
+    if (onboardingRef.current) return;
     finishAuth(false);
   }, [session, profile, finishAuth]);
 
@@ -150,7 +158,13 @@ export default function AuthPage() {
     if (!accountType || !pendingAuth) return;
     try {
       await saveAccountType({ account_type: accountType }).unwrap();
-      finishAuth(true);
+      // Seekers continue the candidate journey (resume -> where-are-you-now);
+      // recruiters go straight to the app.
+      if (accountType === "seeker") {
+        router.push("/onboarding/resume");
+      } else {
+        finishAuth(true);
+      }
     } catch (err) {
       toast.error(errorMessage(err, "Could not save your choice. Please try again."));
     }

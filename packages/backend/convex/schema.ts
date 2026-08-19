@@ -69,6 +69,10 @@ export default defineSchema({
     pronoun: v.optional(v.string()),
     professional_summary: v.optional(v.string()),
     work_preference: v.optional(v.string()),
+    // "Where are you right now?" onboarding step (seeker journey).
+    job_search_status: v.optional(
+      v.union(v.literal("actively_job_hunting"), v.literal("exploring_options"), v.literal("building_skills")),
+    ),
     want_to_relocate: v.optional(v.boolean()),
     preffer_full_time: v.optional(v.boolean()),
     preffer_contract: v.optional(v.boolean()),
