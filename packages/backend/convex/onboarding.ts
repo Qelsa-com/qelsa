@@ -176,10 +176,6 @@ export const applyParsedProfile = authedMutation({
     if (profile.name?.trim()) {
       await ctx.db.patch(ctx.user._id, { name: profile.name.trim() });
     }
-    await ensureUsername(ctx, {
-      ...ctx.user,
-      name: profile.name?.trim() || ctx.user.name,
-    });
 
     const cityId = profile.location ? await findCityId(ctx, profile.location) : undefined;
     await ctx.db.patch(ctx.user._id, {

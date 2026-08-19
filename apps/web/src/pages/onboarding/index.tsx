@@ -7,7 +7,7 @@ import { OnboardingShell } from "@/components/onboarding/OnboardingShell";
 import { useAuth } from "@/contexts/AuthContext";
 import type { AccountType } from "@/features/api/authApi";
 import { useSetAccountTypeAndResetOnboardingMutation } from "@/features/api/onboardingApi";
-import { homeForAccount, needsOnboarding } from "@/lib/onboarding";
+import { homeForAccount } from "@/lib/onboarding";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -29,7 +29,7 @@ export default function OnboardingPage() {
   useEffect(() => {
     if (isLoading || !user) return;
     if (!user.account_type && !pickingRole) setPickingRole(true);
-    if (!justFinished && user.account_type && !needsOnboarding(user) && !pickingRole) {
+    if (!justFinished && user.account_type && user.onboarding_completed && !pickingRole) {
       router.replace(homeForAccount(user));
     }
   }, [isLoading, user, pickingRole, justFinished, router]);
