@@ -2,17 +2,13 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useLazyGetJobsQuery } from "@/features/api/jobsApi";
 import { Briefcase, Filter, Plus, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
 import { CompareJobsTray } from "../CompareJobsTray";
 import { NLPJobSearch } from "../NLPJobSearch";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
-import { JobAIAssistantDrawer } from "./JobAIAssistantDrawer";
 
 const Layout = ({ active_job_page, children, jobs, filters, setFilters, query, setQuery, onSearch, comparedJobs, onToggleCompare, onCompare, onClearCompare, onRemoveFromCompare, showComparison }) => {
   const router = useRouter();
-  const [showAIAssistant, setShowAIAssistant] = useState(false);
-  const [aiAssistantJob, setAiAssistantJob] = useState(null);
   const { user, isAuthenticated } = useAuth();
 
   const [triggerGetJobs, { data: jobsList, error, isLoading }] = useLazyGetJobsQuery();
@@ -102,9 +98,6 @@ const Layout = ({ active_job_page, children, jobs, filters, setFilters, query, s
 
       {/* Compare Jobs Tray */}
       {comparedJobs && <CompareJobsTray jobs={comparedJobs} onRemoveJob={onRemoveFromCompare} onCompare={onCompare} onClear={onClearCompare} />}
-
-      {/* AI Assistant Drawer */}
-      <JobAIAssistantDrawer isOpen={showAIAssistant} onClose={() => setShowAIAssistant(false)} selectedJob={aiAssistantJob} jobs={jobs} />
 
     </div>
   );

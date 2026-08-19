@@ -91,6 +91,9 @@ export function useCreateJobMutation() {
 export function useGenerateJobDraftAction() {
   return useAction(api.jobsGenerate.generateDraft);
 }
+export function useSummarizeJobAction() {
+  return useAction(api.jobsGenerate.summarizeJob);
+}
 export function useStartQelsaMatchAction() {
   return useAction(api.jobMatchGenerate.startForJob);
 }
@@ -105,6 +108,13 @@ export function useGetMatchSessionQuery(sessionId?: string, options?: { skip?: b
     api.jobMatch.getSession,
     sessionId ? { sessionId } : undefined,
     { skip: options?.skip || !sessionId },
+  );
+}
+export function useGetMatchByJobQuery(jobId?: string, options?: { skip?: boolean }) {
+  return useConvexQueryHook(
+    api.jobMatch.getByJob,
+    jobId ? { jobId } : undefined,
+    { skip: options?.skip || !jobId },
   );
 }
 export function useToggleSaveJobMutation() {

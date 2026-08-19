@@ -181,6 +181,13 @@ export default defineSchema({
     owner_id: v.optional(v.id("users")),
     view_count: v.optional(v.number()),
     application_count: v.optional(v.number()),
+    ai_summary: v.optional(
+      v.object({
+        role_overview: v.string(),
+        key_requirements: v.array(v.string()),
+        why_this_role: v.string(),
+      }),
+    ),
   })
     .index("by_status", ["status"])
     .index("by_owner", ["owner_id"])
@@ -286,6 +293,7 @@ export default defineSchema({
     file_url: v.optional(v.string()),
     storage_id: v.optional(v.string()),
     title: v.string(),
+    extracted_text: v.optional(v.string()),
   }).index("by_user", ["user_id"]),
 
   educations: defineTable({
@@ -502,6 +510,7 @@ export default defineSchema({
     ),
     responsibilities: v.array(v.string()),
     requirements: v.array(v.string()),
+    context_fingerprint: v.optional(v.string()),
     analysis: v.object({
       overall: v.number(),
       headline: v.string(),

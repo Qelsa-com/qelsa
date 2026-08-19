@@ -1,11 +1,11 @@
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
-import { internalMutation, type QueryCtx } from "./_generated/server";
+import { internalMutation, internalQuery, type QueryCtx } from "./_generated/server";
 import { authedMutation, authedQuery, optionalAuthQuery } from "./lib/customFunctions";
 import { iso, withId } from "./lib/helpers";
 import { bumpJobCount } from "./lib/jobCounts";
 import { deleteJobCascade } from "./lib/deleteUserData";
-import { buildCompetencyFramework } from "./lib/skillMatch";
+import { buildCompetencyFramework, clipPlainText } from "./lib/skillMatch";
 
 type SkillCache = Map<Id<"skills">, Doc<"skills"> | null>;
 
@@ -545,5 +545,57 @@ export const storeScrapedJobs = internalMutation({
       }
     }
     return null;
+  },
+});
+
+export const aiSummaryValidator = v.object({
+  role_overview: v.string(),
+  key_requirements: v.array(v.string()),
+  why_this_role: v.string(),
+});
+
+export const loadSummarySource = internalQuery({
+  args: { jobId: v.id("jobs") },
+  returns: v.object({
+    title: v.string(),
+    company: v.optional(v.string()),
+    description: v.string(),
+    skills: v.array(v.string()),
+    ai_summary: v.optional(aiSummaryValidator),
+  }),
+  handler: async (ctx, args) => {
+    const job = await ctx.db.get(args.jobId);
+    if (!job) throw new Error("Job not found");
+    const [page, jobTitle, skillRows] = await Promise.all([
+      job.page_id ? ctx.db.get(job.page_id) : null,
+      job.job_title_id ? ctx.db.get(job.job_title_id) : null,
+      ctx.db.query("job_skills").withIndex("by_job", (q) => q.eq("job_id", job._id)).take(20),
+    ]);
+    const skills: string[] = [];
+    for (const row of skillRows) {
+      const skill = await ctx.db.get(row.skill_id);
+      if (skill?.name) skills.push(skill.name);
+    }
+    return {
+      title: jobTitle?.name ?? job.title ?? "Untitled role",
+      company: page?.name ?? job.company_name,
+      description: clipPlainText(job.description, 6000),
+      skills,
+      ai_summary: job.ai_summary,
+    };
+  },
+});
+
+export const saveAiSummary = internalMutation({
+  args: {
+    jobId: v.id("jobs"),
+    summary: aiSummaryValidator,
+  },
+  returns: aiSummaryValidator,
+  handler: async (ctx, args) => {
+    const job = await ctx.db.get(args.jobId);
+    if (!job) throw new Error("Job not found");
+    await ctx.db.patch(args.jobId, { ai_summary: args.summary });
+    return args.summary;
   },
 });

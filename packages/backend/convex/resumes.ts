@@ -1,8 +1,10 @@
 import { R2 } from "@convex-dev/r2";
 import { v } from "convex/values";
 import { components } from "./_generated/api";
+import { internalMutation } from "./_generated/server";
 import { authedMutation, authedQuery } from "./lib/customFunctions";
 import { iso, withId } from "./lib/helpers";
+import { clipPlainText } from "./lib/skillMatch";
 import { deleteR2Keys, signedFileUrl } from "./lib/r2";
 
 const r2 = new R2(components.r2);
@@ -54,6 +56,20 @@ export const remove = authedMutation({
     if (!resume || resume.user_id !== ctx.user._id) throw new Error("Resume not found");
     await deleteR2Keys(r2, ctx, [resume.storage_id]);
     await ctx.db.delete(args.id);
+    return null;
+  },
+});
+
+export const setExtractedText = internalMutation({
+  args: {
+    resumeId: v.id("resumes"),
+    text: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const resume = await ctx.db.get(args.resumeId);
+    if (!resume) return null;
+    await ctx.db.patch(args.resumeId, { extracted_text: clipPlainText(args.text, 14000) });
     return null;
   },
 });

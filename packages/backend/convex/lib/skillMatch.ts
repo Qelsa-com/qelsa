@@ -24,6 +24,20 @@ export function clipPlainText(text: string | undefined, max: number) {
   return plain.length > max ? `${plain.slice(0, max)}…` : plain;
 }
 
+/** Pull requirement-like bullets from a JD (HTML or plain text). */
+export function extractJdListItems(text: string | undefined, max = 10): string[] {
+  if (!text) return [];
+  const fromHtml = [...text.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi)]
+    .map((match) => clipPlainText(match[1], 220))
+    .filter((item) => item.length > 8);
+  if (fromHtml.length > 0) return fromHtml.slice(0, max);
+  return clipPlainText(text, 5000)
+    .split(/\n+/)
+    .map((line) => line.replace(/^[-*•\d.)\s]+/, "").trim())
+    .filter((line) => line.length > 16 && line.length < 240)
+    .slice(0, max);
+}
+
 export function normalizeSkillName(name: string) {
   return name.toLowerCase().replace(/[^a-z0-9+#]+/g, " ").trim();
 }

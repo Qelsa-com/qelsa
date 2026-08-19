@@ -19,8 +19,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { experienceChip, matchScore, salaryText } from "@/components/job/jobBrowseShared";
 import { useGetEducationsQuery } from "@/features/api/educationsApi";
 import { useGetExperiencesQuery } from "@/features/api/experiencesApi";
-import { useGetJobByIdQuery, useGetSimilarJobsQuery, useRecordJobViewMutation, useToggleSaveJobMutation } from "@/features/api/jobsApi";
-import { useOpenQelsaMatch } from "@/features/job/useOpenQelsaMatch";
+import { useGetJobByIdQuery, useGetMatchByJobQuery, useGetSimilarJobsQuery, useRecordJobViewMutation, useToggleSaveJobMutation } from "@/features/api/jobsApi";
 import { useGetMyResumesQuery } from "@/features/api/resumeApi";
 import { experienceMonths } from "@/components/profile/profileFormat";
 import { Job } from "@/types/job";
@@ -41,7 +40,6 @@ import {
   MessageCircle,
   Share2,
   Twitter,
-  Zap,
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -49,7 +47,8 @@ import { QuickApplyModal } from "../QuickApplyModal";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
 import { CompetencyTable } from "./CompetencyMatch";
-import { JobAIAssistantDrawer } from "./JobAIAssistantDrawer";
+import { JobAiSummary } from "./JobAiSummary";
+import { MatchChatDrawer } from "./MatchChatDrawer";
 import { JobDetailSkeleton, SimilarJobCardSkeleton } from "./jobSkeletons";
 
 /* -------------------------------- helpers --------------------------------- */
@@ -129,16 +128,16 @@ export function JobDetailPageRedesign() {
   const id = params?.id;
 
   const [showQuickApplyModal, setShowQuickApplyModal] = useState(false);
-  const [showAIAssistant, setShowAIAssistant] = useState(false);
+  const [matchOpen, setMatchOpen] = useState(false);
 
   const { data: job, error, isLoading } = useGetJobByIdQuery(id!, { skip: !id });
   const { data: similarJobs, isLoading: isSimilarLoading } = useGetSimilarJobsQuery(id!, { skip: !id });
   const { data: myResumes } = useGetMyResumesQuery(undefined, { skip: !isAuthenticated });
   const { data: experiences } = useGetExperiencesQuery(undefined, { skip: !isAuthenticated });
   const { data: educations } = useGetEducationsQuery(undefined, { skip: !isAuthenticated });
+  const { data: matchSession } = useGetMatchByJobQuery(id, { skip: !isAuthenticated || !id });
   const [toggleSaveJob] = useToggleSaveJobMutation();
   const [recordJobView] = useRecordJobViewMutation();
-  const { open: openMatch, pendingId } = useOpenQelsaMatch();
 
   // Count this visit once the viewer is known. Views are unique per (job, user)
   // server-side, so a reload or a revisit refreshes the timestamp rather than
@@ -187,8 +186,9 @@ export function JobDetailPageRedesign() {
     .map((item) => item.skill_name)
     .filter(Boolean);
 
+  const overallMatch = matchSession?.analysis?.overall;
   const metrics = [
-    { label: "Readiness Score", value: competency ? `${competency.readiness}%` : "—" },
+    { label: "Readiness Score", value: overallMatch != null ? `${overallMatch}%` : competency ? `${competency.readiness}%` : "—" },
     { label: "Views", value: formatCount(job.view_count ?? 0) },
     { label: "Applications", value: `${job.application_count ?? job.applications?.length ?? 0}` },
   ];
@@ -239,25 +239,25 @@ export function JobDetailPageRedesign() {
       {/* Content. Tighter padding on a phone; the lg values are the desktop
           layout unchanged. Clearance for the fixed mobile tab bar comes from
           Layout, so there's no extra bottom padding to add here. */}
-      <div className="relative mx-auto flex max-w-[1280px] flex-col gap-4 px-4 pb-8 pt-4 sm:px-6 lg:gap-6 lg:px-20 lg:pb-12 lg:pt-8">
-        {/* Breadcrumb */}
-        <button onClick={() => router.push("/jobs/smart_matches")} className="hidden w-fit items-center gap-2 text-sm text-white/70 transition-colors hover:text-neon-cyan lg:flex">
-          <ArrowLeft className="size-4" />
-          Back to jobs
-        </button>
-
-        {/* Share / bookmark pill. Desktop only — the mobile frame replaces it
-            with the single share button in the header above. */}
-        <div className="glass-strong hidden w-fit items-center gap-1.5 self-end rounded-full p-1.5 lg:absolute lg:right-20 lg:top-[46px] lg:flex lg:gap-2 lg:p-2">
-          {isAuthenticated && (
-            <ShareButton onClick={() => toggleSaveJob(job.id)} active={job.is_bookmarked}>
-              {job.is_bookmarked ? <BookmarkCheck className="size-[18px]" /> : <Bookmark className="size-[18px]" />}
-            </ShareButton>
-          )}
-          <ShareButton onClick={share.copy}><LinkIcon className="size-[18px]" /></ShareButton>
-          <ShareButton onClick={share.linkedin}><Linkedin className="size-[18px]" /></ShareButton>
-          <ShareButton onClick={share.twitter}><Twitter className="size-[18px]" /></ShareButton>
-          <ShareButton onClick={share.whatsapp}><MessageCircle className="size-[18px]" /></ShareButton>
+      <div className="mx-auto flex max-w-[1280px] flex-col gap-4 px-4 pb-8 pt-4 sm:px-6 lg:gap-6 lg:px-20 lg:pb-12 lg:pt-8">
+        {/* Breadcrumb + share sit on one row above the card. Desktop only —
+            the mobile frame uses the header bar above instead. */}
+        <div className="hidden w-full items-center justify-between lg:flex">
+          <button onClick={() => router.push("/jobs/smart_matches")} className="flex w-fit items-center gap-2 text-sm text-white/70 transition-colors hover:text-neon-cyan">
+            <ArrowLeft className="size-4" />
+            Back to jobs
+          </button>
+          <div className="glass-strong flex w-fit items-center gap-2 rounded-full p-2">
+            {isAuthenticated && (
+              <ShareButton onClick={() => toggleSaveJob(job.id)} active={job.is_bookmarked}>
+                {job.is_bookmarked ? <BookmarkCheck className="size-[18px]" /> : <Bookmark className="size-[18px]" />}
+              </ShareButton>
+            )}
+            <ShareButton onClick={share.copy}><LinkIcon className="size-[18px]" /></ShareButton>
+            <ShareButton onClick={share.linkedin}><Linkedin className="size-[18px]" /></ShareButton>
+            <ShareButton onClick={share.twitter}><Twitter className="size-[18px]" /></ShareButton>
+            <ShareButton onClick={share.whatsapp}><MessageCircle className="size-[18px]" /></ShareButton>
+          </div>
         </div>
 
         {/* Job Hero */}
@@ -333,8 +333,7 @@ export function JobDetailPageRedesign() {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-6">
           {/* Left */}
           <div className="flex min-w-0 flex-1 flex-col gap-4 lg:gap-6">
-            {isAuthenticated && (
-              <Card className="flex-col items-start gap-3 rounded-[20px] border-neon-cyan/40 bg-white/[0.03] p-4 lg:flex-row lg:items-center lg:gap-4 lg:p-5">
+            <Card className="flex-col items-start gap-3 rounded-[20px] border-neon-cyan/40 bg-white/[0.03] p-4 lg:flex-row lg:items-center lg:gap-4 lg:p-5">
                 <div className="flex size-10 shrink-0 items-center justify-center rounded-[20px] border border-glass-border bg-white/[0.04]">
                   <FileText className="size-5 text-neon-cyan" />
                 </div>
@@ -344,28 +343,14 @@ export function JobDetailPageRedesign() {
                 </div>
                 <Button
                   variant="outline"
-                  onClick={() => openMatch(job.id)}
-                  disabled={pendingId === String(job.id)}
+                  onClick={() => setMatchOpen(true)}
                   className="h-auto w-full shrink-0 rounded-full border-neon-cyan/50 bg-transparent px-4 py-2.5 text-sm font-semibold text-neon-cyan hover:bg-neon-cyan/10 lg:w-auto"
                 >
-                  {pendingId === String(job.id) ? "Matching…" : "Check Match Details"}
+                  Check Match Details
                 </Button>
               </Card>
-            )}
 
-            {/* AI Summary */}
-            <Card className="flex-col items-start gap-3 rounded-[20px] border-glass-border bg-white/[0.03] p-4 lg:flex-row lg:items-center lg:gap-4 lg:p-5">
-              <div className="flex size-10 shrink-0 items-center justify-center rounded-[20px] border border-glass-border bg-white/[0.04]">
-                <Zap className="size-5 text-neon-purple" />
-              </div>
-              <div className="flex w-full flex-1 flex-col gap-1 lg:w-auto">
-                <span className="text-xs font-semibold text-white">AI Summary</span>
-                <span className="text-sm leading-5 text-white/70">Get a quick AI-powered summary of all job requirements, skills, and qualifications.</span>
-              </div>
-              <Button onClick={() => setShowAIAssistant(true)} className={`h-auto w-full shrink-0 rounded-full px-4 py-2.5 text-sm font-semibold text-white lg:w-auto ${GRADIENT} hover:opacity-90`}>
-                Summarize Requirements
-              </Button>
-            </Card>
+            <JobAiSummary jobId={String(job.id)} summary={job.ai_summary} />
 
             {/* Job Description */}
             {description && (
@@ -390,7 +375,14 @@ export function JobDetailPageRedesign() {
             )}
 
             {/* How you fit this role — reuses the data-wired competency panel */}
-            {competency && <CompetencyTable competency={competency} experienceMatch={experienceMatch} educationMatch={educationMatch} />}
+            {competency && (
+              <CompetencyTable
+                competency={competency}
+                overallMatch={overallMatch}
+                experienceMatch={matchSession?.analysis?.experience_match ?? experienceMatch}
+                educationMatch={matchSession?.analysis?.education_match ?? educationMatch}
+              />
+            )}
 
             {/* About the Company */}
             <SectionCard icon={<BookOpen className="size-5 text-neon-purple" />} title="About the Company">
@@ -529,11 +521,12 @@ export function JobDetailPageRedesign() {
         </div>
       </div>
 
-      <JobAIAssistantDrawer
-        isOpen={showAIAssistant}
-        onClose={() => setShowAIAssistant(false)}
-        selectedJob={{ ...job, skills: dailySkills }}
-        jobs={similarJobs ?? []}
+      <MatchChatDrawer
+        isOpen={matchOpen}
+        onClose={() => setMatchOpen(false)}
+        jobId={String(job.id)}
+        jobTitle={title}
+        company={companyName}
       />
 
       <QuickApplyModal

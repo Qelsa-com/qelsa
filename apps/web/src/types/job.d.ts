@@ -48,6 +48,11 @@ export type Job = {
   requiredSkills?: string[];
   preferredSkills?: string[];
   aiSummary?: string | null;
+  ai_summary?: {
+    role_overview: string;
+    key_requirements: string[];
+    why_this_role: string;
+  } | null;
   skillsGap?: string[];
 
   createdAt?: Date;

@@ -6,7 +6,7 @@ import mammoth from "mammoth";
 import { extractText } from "unpdf";
 import { R2 } from "@convex-dev/r2";
 import { components } from "./_generated/api";
-import { action } from "./_generated/server";
+import { action, internalAction } from "./_generated/server";
 import { AI_AGENT_MODEL, requireOpenRouter } from "./lib/ai";
 import { parsedProfileSchema, parsedProfileValidator, toParsedProfile } from "./lib/parsedProfile";
 import { clipPlainText } from "./lib/skillMatch";
@@ -29,6 +29,32 @@ type UserPart =
   | { type: "text"; text: string }
   | { type: "file"; data: Uint8Array; mediaType: string; filename: string }
   | { type: "image"; image: Uint8Array; mediaType: string };
+
+export const extractStoredDocument = internalAction({
+  args: {
+    storageId: v.string(),
+    filename: v.optional(v.string()),
+  },
+  returns: v.string(),
+  handler: async (_ctx, args) => {
+    const url = await r2.getUrl(args.storageId);
+    const response = await fetch(url);
+    if (!response.ok) return "";
+    const blob = await response.blob();
+    if (blob.size > MAX_BYTES) return "";
+    const buffer = new Uint8Array(await blob.arrayBuffer());
+    const name = (args.filename || "").toLowerCase();
+    const type = blob.type.toLowerCase();
+    if (name.endsWith(".txt") || name.endsWith(".md") || type.startsWith("text/")) {
+      return clipPlainText(await blob.text(), 14000);
+    }
+    try {
+      return await extractResumeText(buffer, classifyResume(name || "resume.pdf", type));
+    } catch {
+      return clipPlainText(await blob.text(), 14000);
+    }
+  },
+});
 
 export const parseResume = action({
   args: {
