@@ -13,9 +13,12 @@ export type JobApplicationStatus = "applied" | "viewed" | "sorted" | "rejected" 
  * endpoint — see {@link JobApplication}.
  */
 export type JobApplicationListItem = {
-  id: number;
+  id: string | number;
   applicant_name: string;
-  skills: { id: number; name: string; proficiency?: string }[];
+  headline?: string;
+  location?: string;
+  years_experience?: number | null;
+  skills: { id: string | number; name: string; proficiency?: string }[];
   readiness: number;
   applied_at: string;
   status: JobApplicationStatus;

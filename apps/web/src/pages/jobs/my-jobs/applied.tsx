@@ -9,6 +9,7 @@
  */
 
 import { timeAgo } from "@/components/job/jobBrowseShared";
+import { TrackedJobsListSkeleton } from "@/components/job/jobSkeletons";
 import { CardAction, JobCardHeading, JobCardShell, MyJobsHeader, SkillChips, TermChips } from "@/components/job/myJobsShared";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useLazyGetAppliedJobsQuery } from "@/features/api/jobsApi";
@@ -81,7 +82,7 @@ const Applied = () => {
 
         <div className="flex flex-col gap-5 pt-6 pb-24">
           {isLoading ? (
-            <p className="text-sm text-white/45">Loading applications...</p>
+            <TrackedJobsListSkeleton variant="applied" />
           ) : applications.length === 0 ? (
             <p className="text-sm text-white/45">No applications yet. Roles you apply to will show up here.</p>
           ) : (
@@ -156,12 +157,10 @@ function AppliedCard({ application, onOpen }: { application: JobApplication; onO
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex flex-wrap items-center gap-3">
           <TermChips job={job} />
-          {job.applications && (
-            <span className="flex items-center gap-1.5 text-[13px] text-white/60">
+          <span className="flex items-center gap-1.5 text-[13px] text-white/60">
               <FileText className="size-4" />
-              {job.applications.length} applications
+              {job.application_count ?? job.applications?.length ?? 0} applications
             </span>
-          )}
         </div>
 
         <div className="flex items-center gap-4">

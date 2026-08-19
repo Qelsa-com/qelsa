@@ -2,8 +2,7 @@
 
 import { PublicNavbar } from "@/components/PublicNavbar";
 import { useAuth } from "@/contexts/AuthContext";
-import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { JobFilterSidebar } from "../components/job/JobFilterSidebar";
 import { MainNavigation } from "../components/MainNavigation";
 import { ProfileDrawer } from "../components/ProfileDrawer";
@@ -12,14 +11,7 @@ const Layout = ({ activeSection, children }) => {
   const [showQelsaNavigation, setShowQelsaNavigation] = useState(false);
   const [showJobFilterSidebar, setShowJobFilterSidebar] = useState(false);
   const [showProfileDrawer, setShowProfileDrawer] = useState(false);
-  const { user, isAuthenticated, logout } = useAuth();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (user && (!user.username || user.username.trim() === "" || (!user.find_job && !user.explore_career && !user.upskill_and_learn && !user.prepare_interview))) {
-      router.push("/");
-    }
-  }, [router, user]);
+  const { user, isAuthenticated } = useAuth();
 
   const handleProfileClick = useCallback(() => {
     setShowProfileDrawer(true);

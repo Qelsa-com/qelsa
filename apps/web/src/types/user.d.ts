@@ -31,6 +31,10 @@ export type User = {
   email: string;
   /** Default experience the user lands in. Null until they pick one at signup. */
   account_type?: "seeker" | "recruiter" | null;
+  job_seeking_status?: "actively_hunting" | "exploring" | "building_skills" | null;
+  hiring_role?: "founder_cxo" | "hr_ta" | "hiring_manager" | "recruitment_agency" | null;
+  active_page_id?: string | null;
+  onboarding_completed?: boolean;
   profile_image?: string;
   pronoun?: string;
   linkedin_url?: string;

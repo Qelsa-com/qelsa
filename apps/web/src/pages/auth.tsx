@@ -6,6 +6,7 @@ import { authClient } from "@/lib/auth-client";
 import type { User } from "@/types/user";
 import { AnimatePresence, motion } from "motion/react";
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -78,11 +79,11 @@ export default function AuthPage() {
    *
    * This is the only place credentials get persisted. Doing it earlier would
    * let RouteGuard redirect away from /auth before the role step can render.
-   * New users go to "/" so the existing OnboardingFlow picks them up.
+   * New users go to /onboarding for the role-specific setup.
    */
   const finishAuth = useCallback(
     (isNewUser: boolean) => {
-      router.push(isNewUser ? "/" : returnUrl || "/");
+      router.push(isNewUser ? "/onboarding" : returnUrl || "/");
     },
     [router, returnUrl]
   );
@@ -173,7 +174,7 @@ export default function AuthPage() {
       {step !== "role" && (
         <button
           type="button"
-          onClick={() => router.push("/jobs")}
+          onClick={() => router.push(typeof window !== "undefined" && sessionStorage.getItem("qelsa.resumeDraft") ? "/start" : "/jobs")}
           className={`absolute left-4 top-4 z-10 flex items-center gap-2 sm:left-8 sm:top-8 ${QUIET_LINK}`}
         >
           <ArrowLeft /> Back
@@ -212,8 +213,14 @@ export default function AuthPage() {
               </button>
 
               <p className="mt-6 text-center text-xs leading-relaxed text-gray-500">
-                By continuing, you agree to Qelsa&apos;s <button type="button" className="text-gray-400 text-xs cursor-pointer underline underline-offset-2 hover:text-white">Terms of Service</button> and{" "}
-                <button type="button" className="text-gray-400 text-xs cursor-pointer underline underline-offset-2 hover:text-white">Privacy Policy</button>
+                By continuing, you agree to Qelsa&apos;s{" "}
+                <Link href="/terms" className="text-gray-400 text-xs underline underline-offset-2 hover:text-white">
+                  Terms of Service
+                </Link>{" "}
+                and{" "}
+                <Link href="/privacy" className="text-gray-400 text-xs underline underline-offset-2 hover:text-white">
+                  Privacy Policy
+                </Link>
               </p>
             </motion.div>
           )}

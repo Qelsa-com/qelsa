@@ -11,6 +11,9 @@ export type JobFilters = {
   page_id?: string;
   /** on-site | remote | hybrid, multi-select. */
   workplace_types?: string[];
+  posted_within?: "24h" | "week" | "month";
+  /** Client clock; required with `posted_within` so the query stays deterministic. */
+  now?: number;
 };
 
 export const buildJobQueryParams = (filters?: JobFilters | void) => {

@@ -71,7 +71,7 @@ function FitRing({ value }: { value: number }) {
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className="text-2xl font-bold text-white">{pct}%</span>
-        <span className="text-xs text-muted-foreground">Your fit</span>
+        <span className="text-xs text-white/45">Match</span>
       </div>
     </div>
   );
@@ -129,17 +129,27 @@ function GroupHeader({ dotClass, label }: { dotClass: string; label: string }) {
 }
 
 /** Full seeker-side "How you fit this role" panel for the job detail page. Renders nothing when competency is absent. */
-export function CompetencyTable({ competency }: { competency?: Competency | null }) {
+export function CompetencyTable({
+  competency,
+  overallMatch,
+  experienceMatch,
+  educationMatch,
+}: {
+  competency?: Competency | null;
+  overallMatch?: number | null;
+  experienceMatch?: number | null;
+  educationMatch?: number | null;
+}) {
   if (!competency) return null;
   const { readiness, matchedCount, totalCount, competencies = [] } = competency;
 
-  // Group by resume presence + gap/strong
   const notListed = competencies.filter((c) => !hasCandidate(c));
   const withCandidate = competencies.filter(hasCandidate);
   const gaps = withCandidate.filter((c) => statusOf(c) === "gap");
   const strong = withCandidate.filter((c) => statusOf(c) !== "gap");
 
   const skillsMatch = totalCount > 0 ? Math.round((matchedCount / totalCount) * 100) : 0;
+  const fit = overallMatch ?? readiness;
 
   return (
     <div className="glass border border-glass-border rounded-2xl p-4 lg:p-6 space-y-6">
@@ -148,11 +158,12 @@ export function CompetencyTable({ competency }: { competency?: Competency | null
         <h3 className="text-lg lg:text-xl font-bold text-white">How you fit this role</h3>
       </div>
 
-      {/* Summary: ring + bars */}
       <div className="flex flex-col sm:flex-row items-center gap-6">
-        <FitRing value={readiness} />
+        <FitRing value={fit} />
         <div className="flex-1 w-full space-y-4">
           <MatchBar label="Skills Match" value={skillsMatch} />
+          {experienceMatch != null && <MatchBar label="Experience Match" value={experienceMatch} />}
+          {educationMatch != null && <MatchBar label="Education Match" value={educationMatch} />}
         </div>
       </div>
 
@@ -170,7 +181,7 @@ export function CompetencyTable({ competency }: { competency?: Competency | null
 
       {strong.length > 0 && (
         <div className="space-y-2 pt-2 border-t border-glass-border">
-          <GroupHeader dotClass="bg-neon-cyan" label="Where you're already strong" />
+          <GroupHeader dotClass="bg-neon-green" label="Where you're already strong" />
           <div>
             {strong.map((c) => (
               <CompetencyRow key={c.skill_id} item={c} />

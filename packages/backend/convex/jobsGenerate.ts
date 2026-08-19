@@ -4,7 +4,8 @@ import { Agent } from "@convex-dev/agent";
 import { components, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { action, internalQuery } from "./_generated/server";
-import { AI_AGENT_MODEL, openRouter } from "./lib/ai";
+import { AI_AGENT_MODEL, openRouter, requireOpenRouter } from "./lib/ai";
+import { clipPlainText } from "./lib/skillMatch";
 
 const EXPERIENCE_BUCKETS = [0, 1, 2, 3, 5, 7, 10, 12, 15] as const;
 
@@ -216,11 +217,7 @@ export const loadDraftContext = internalQuery({
       }
     }
 
-    const [department, seniority, companySize] = await Promise.all([
-      jobTitle.function_id ? ctx.db.get(jobTitle.function_id) : null,
-      jobTitle.seniority_id ? ctx.db.get(jobTitle.seniority_id) : null,
-      page?.size_id ? ctx.db.get(page.size_id) : null,
-    ]);
+    const companySize = page?.size_id ? await ctx.db.get(page.size_id) : null;
 
     const existingSkills: string[] = [];
     for (const skillId of args.existingSkillIds ?? []) {
@@ -277,8 +274,6 @@ export const loadDraftContext = internalQuery({
       company: page?.name ?? args.companyName?.trim() ?? "",
       industry: page?.industry,
       company_size: companySize?.label,
-      department: department?.name,
-      seniority: seniority?.name,
       notes: args.notes?.trim() || undefined,
       existing_skills: existingSkills,
       allowed_skills: [...allowedById.entries()].map(([id, name]) => ({ id, name })),
@@ -455,5 +450,64 @@ export const generateDraft = action({
       skills,
       warnings,
     };
+  },
+});
+
+const jobSummarySchema = z.object({
+  role_overview: z.string(),
+  key_requirements: z.array(z.string()).max(8),
+  why_this_role: z.string(),
+});
+
+export const summarizeJob = action({
+  args: { jobId: v.id("jobs") },
+  returns: v.object({
+    role_overview: v.string(),
+    key_requirements: v.array(v.string()),
+    why_this_role: v.string(),
+  }),
+  handler: async (ctx, args) => {
+    const openRouterClient = requireOpenRouter();
+    const source = await ctx.runQuery(internal.jobs.loadSummarySource, { jobId: args.jobId });
+    if (source.ai_summary) return source.ai_summary;
+    if (source.description.length < 40) {
+      throw new Error("This job does not have enough description to summarize.");
+    }
+
+    const agent = new Agent(components.agent, {
+      name: "Job Summary",
+      languageModel: openRouterClient.chat(AI_AGENT_MODEL),
+      instructions:
+        "Summarize a job posting for a candidate skimming the page. Be accurate, concise, and do not invent requirements that are not in the posting.",
+      maxSteps: 1,
+    });
+
+    const result: { object: z.infer<typeof jobSummarySchema> } = await agent.generateObject(
+      ctx,
+      { userId: "job-summary" },
+      {
+        schema: jobSummarySchema,
+        prompt: `Write a short on-page summary of this job.
+
+JOB
+${JSON.stringify({
+  title: source.title,
+  company: source.company,
+  skills: source.skills,
+  description: source.description,
+})}
+
+role_overview: 2–3 sentences on what the role does day to day.
+key_requirements: 4–6 concrete must-haves from the posting.
+why_this_role: 1–2 sentences on why a strong candidate would want this job.`,
+      },
+    );
+
+    const summary = {
+      role_overview: result.object.role_overview.trim(),
+      key_requirements: result.object.key_requirements.map((item) => item.trim()).filter(Boolean).slice(0, 8),
+      why_this_role: result.object.why_this_role.trim(),
+    };
+    return await ctx.runMutation(internal.jobs.saveAiSummary, { jobId: args.jobId, summary });
   },
 });

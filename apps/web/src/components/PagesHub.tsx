@@ -1,3 +1,4 @@
+import { PagesHubGridSkeleton } from "./pageSkeletons";
 import { useGetDiscoverPagesQuery, useGetMyPagesQuery } from "@/features/api/pagesApi";
 import { Page } from "@/types/page";
 import { Building2, Edit, Eye, Plus, Search, User, Users } from "lucide-react";
@@ -203,7 +204,9 @@ export function PagesHub({}: PagesHubProps) {
           </TabsList>
 
           <TabsContent value="my-pages" className="space-y-4">
-            {mypages.length === 0 ? (
+            {isLoading ? (
+              <PagesHubGridSkeleton />
+            ) : mypages.length === 0 ? (
               <Card className="p-12 glass border-glass-border text-center">
                 <Building2 className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
                 <h3 className="text-xl font-semibold mb-2">No pages yet</h3>
@@ -223,11 +226,15 @@ export function PagesHub({}: PagesHubProps) {
           </TabsContent>
 
           <TabsContent value="discover" className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {discoverPages?.map((page) => (
-                <PageCard key={page.id} page={page} role="user" />
-              ))}
-            </div>
+            {discoverLoading ? (
+              <PagesHubGridSkeleton />
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {discoverPages?.map((page) => (
+                  <PageCard key={page.id} page={page} role="user" />
+                ))}
+              </div>
+            )}
           </TabsContent>
         </Tabs>
       </div>

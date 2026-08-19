@@ -368,8 +368,10 @@ export const seedJobs = mutation({
         salary_currency: "INR",
         has_remote: job.has_remote,
         status: "open",
-        resource: "seed",
+        resource: "qelsa",
         published_date: Date.now() - index * day,
+        view_count: 0,
+        application_count: 0,
         other_info: { cities: city ? [{ name: city.name }] : [{ name: job.city }] },
       });
 

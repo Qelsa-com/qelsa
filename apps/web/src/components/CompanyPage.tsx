@@ -1,3 +1,4 @@
+import { CompanyPageSkeleton } from "./pageSkeletons";
 import { formatCity } from "@/constants/city";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGetJobsQuery } from "@/features/api/jobsApi";
@@ -5,7 +6,7 @@ import { Job } from "@/types/job";
 import { useGetPageByIdQuery } from "@/features/api/pagesApi";
 import { ArrowLeft, Briefcase, Building2, Calendar, Check, CheckCircle, ChevronRight, Copy, Edit3, ExternalLink, MapPin, Share2, Star, Users } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
@@ -24,6 +25,11 @@ export function CompanyPage() {
   const [showShareModal, setShowShareModal] = useState(false);
   const [copied, setCopied] = useState(false);
   const { user } = useAuth();
+
+  useEffect(() => {
+    const tab = new URLSearchParams(window.location.search).get("tab");
+    if (tab === "jobs" || tab === "overview" || tab === "updates") setActiveTab(tab);
+  }, []);
 
   const handleFollowCompany = () => {
     setIsFollowing(!isFollowing);
@@ -52,11 +58,14 @@ export function CompanyPage() {
 
   const { data: pageJobs } = useGetJobsQuery({ page_id: id }, { skip: !id });
 
-  if (isLoading) return <div className="p-8 text-center text-muted-foreground">Loading page details...</div>;
+  if (isLoading) return <CompanyPageSkeleton />;
 
   if (error) return <div className="p-8 text-center text-destructive">Failed to load page details.</div>;
 
   if (!pageData) return <div className="p-8 text-center text-muted-foreground">Page not found.</div>;
+
+  const jobs: Job[] = (pageJobs?.length ? pageJobs : pageData.jobs) ?? [];
+  const isOwner = Boolean(pageData.can_manage || pageData.owner?.id == user?.id);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-background">
@@ -194,7 +203,7 @@ export function CompanyPage() {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="glass border-glass-border">
             <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="jobs">Jobs ({pageData.jobs.length || 0})</TabsTrigger>
+            <TabsTrigger value="jobs">Jobs ({jobs.length})</TabsTrigger>
             <TabsTrigger value="updates">Updates</TabsTrigger>
           </TabsList>
 
@@ -292,7 +301,7 @@ export function CompanyPage() {
                 <Card className="glass border-glass-border p-6 bg-gradient-to-br from-neon-cyan/10 to-neon-purple/10">
                   <div className="text-center">
                     <Briefcase className="w-8 h-8 mx-auto mb-3 text-neon-cyan" />
-                    <h3 className="font-semibold mb-2">{pageJobs?.length || 0} Open Positions</h3>
+                    <h3 className="font-semibold mb-2">{jobs.length} Open Positions</h3>
                     <p className="text-sm text-muted-foreground mb-4">Explore opportunities to join our team</p>
                     <Button onClick={() => setActiveTab("jobs")} className="w-full bg-neon-cyan hover:bg-neon-cyan/90 text-black">
                       View Jobs
@@ -307,50 +316,66 @@ export function CompanyPage() {
           {/* Jobs Tab */}
           <TabsContent value="jobs" className="space-y-4">
             <Card className="glass border-glass-border p-6">
-              <h2 className="text-xl font-semibold mb-6">Open Positions at {pageData.name}</h2>
-              <div className="space-y-4">
-                {pageJobs?.map((job: Job) => (
-                  <Card key={job.id} className="glass-strong border-glass-border hover:border-neon-cyan/30 transition-all cursor-pointer p-5" onClick={() => router.push(`/jobs/${job.id}`)}>
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1">
-                        <h3 className="font-semibold mb-2 hover:text-neon-cyan transition-colors">{job.title}</h3>
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
-                          <div className="flex items-center gap-1">
-                            <MapPin className="w-4 h-4" />
-                            <span>{job.city && formatCity(job.city)}</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Briefcase className="w-4 h-4" />
-                            <span>{job.work_type}</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Calendar className="w-4 h-4" />
-                            <span>Posted {new Date(job.createdAt).toLocaleDateString()}</span>
+              {jobs.length === 0 ? (
+                <div className="flex flex-col items-center py-16 text-center">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-full border border-white/10 bg-white/5">
+                    <Briefcase className="h-7 w-7 text-muted-foreground" />
+                  </div>
+                  <h3 className="mt-6 text-2xl font-bold">No open roles yet</h3>
+                  <p className="mt-3 max-w-md text-muted-foreground">
+                    When you&apos;re ready to grow your team, this is where your jobs will live. Post your first role and start connecting with the right people.
+                  </p>
+                  {isOwner ? (
+                    <Button
+                      onClick={() => router.push("/jobs/create-job")}
+                      className="mt-8 h-auto rounded-full gradient-primary border-0 px-8 py-3 text-white hover:opacity-90"
+                    >
+                      Post a job →
+                    </Button>
+                  ) : null}
+                </div>
+              ) : (
+                <>
+                  <h2 className="text-xl font-semibold mb-6">Open Positions at {pageData.name}</h2>
+                  <div className="space-y-4">
+                    {jobs.map((job: Job) => (
+                      <Card key={job.id} className="glass-strong border-glass-border hover:border-neon-cyan/30 transition-all cursor-pointer p-5" onClick={() => router.push(`/jobs/${job.id}`)}>
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1">
+                            <h3 className="font-semibold mb-2 hover:text-neon-cyan transition-colors">{job.title}</h3>
+                            <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
+                              <div className="flex items-center gap-1">
+                                <MapPin className="w-4 h-4" />
+                                <span>{job.city && formatCity(job.city)}</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <Briefcase className="w-4 h-4" />
+                                <span>{job.work_type}</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <Calendar className="w-4 h-4" />
+                                <span>Posted {new Date(job.createdAt).toLocaleDateString()}</span>
+                              </div>
+                            </div>
+                            <div className="flex flex-wrap gap-1.5">
+                              {job.job_skills?.slice(0, 4).map((skill, index) => (
+                                <Badge key={index} variant="secondary" className="text-xs bg-white/5">
+                                  {skill.skill.name}
+                                </Badge>
+                              ))}
+                              {job.job_skills?.length > 4 && (
+                                <Badge variant="secondary" className="text-xs bg-white/5">
+                                  +{job.job_skills.length - 4}
+                                </Badge>
+                              )}
+                            </div>
                           </div>
                         </div>
-                        <div className="flex flex-wrap gap-1.5">
-                          {job.job_skills?.slice(0, 4).map((skill, index) => (
-                            <Badge key={index} variant="secondary" className="text-xs bg-white/5">
-                              {skill.skill.name}
-                            </Badge>
-                          ))}
-                          {job.job_skills?.length > 4 && (
-                            <Badge variant="secondary" className="text-xs bg-white/5">
-                              +{job.job_skills.length - 4}
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                      {/* {job.fitScore && (
-                        <div className="flex items-center gap-1.5 text-sm bg-neon-green/10 border border-neon-green/30 rounded-lg px-3 py-2">
-                          <Target className="w-4 h-4 text-neon-green" />
-                          <span className="text-neon-green font-medium">{job.fitScore}% fit</span>
-                        </div>
-                      )} */}
-                    </div>
-                  </Card>
-                ))}
-              </div>
+                      </Card>
+                    ))}
+                  </div>
+                </>
+              )}
             </Card>
           </TabsContent>
 

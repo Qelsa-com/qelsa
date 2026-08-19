@@ -19,6 +19,8 @@ function jobListArgs(filters?: JobFilters | Record<string, string> | void) {
     sort_by: record.sort_by,
     city: record.city,
     page_id: record.page_id,
+    posted_within: record.posted_within,
+    now: record.now,
   };
 }
 
@@ -89,6 +91,9 @@ export function useCreateJobMutation() {
 export function useGenerateJobDraftAction() {
   return useAction(api.jobsGenerate.generateDraft);
 }
+export function useSummarizeJobAction() {
+  return useAction(api.jobsGenerate.summarizeJob);
+}
 export function useStartQelsaMatchAction() {
   return useAction(api.jobMatchGenerate.startForJob);
 }
@@ -103,6 +108,13 @@ export function useGetMatchSessionQuery(sessionId?: string, options?: { skip?: b
     api.jobMatch.getSession,
     sessionId ? { sessionId } : undefined,
     { skip: options?.skip || !sessionId },
+  );
+}
+export function useGetMatchByJobQuery(jobId?: string, options?: { skip?: boolean }) {
+  return useConvexQueryHook(
+    api.jobMatch.getByJob,
+    jobId ? { jobId } : undefined,
+    { skip: options?.skip || !jobId },
   );
 }
 export function useToggleSaveJobMutation() {

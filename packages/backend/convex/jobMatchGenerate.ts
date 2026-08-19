@@ -6,7 +6,7 @@ import type { Id } from "./_generated/dataModel";
 import { action, type ActionCtx } from "./_generated/server";
 import { AI_AGENT_MODEL, requireOpenRouter } from "./lib/ai";
 import { sessionPublicValidator } from "./jobMatch";
-import { buildCompetencyFramework, clipPlainText, normalizeSkillName } from "./lib/skillMatch";
+import { buildCompetencyFramework, clipPlainText, extractJdListItems, normalizeSkillName } from "./lib/skillMatch";
 
 const extractedJobSchema = z.object({
   title: z.string(),
@@ -44,6 +44,20 @@ type SkillRef = {
   type?: "core" | "preferred" | "nice_to_have";
 };
 
+type JobSnapshot = {
+  title: string;
+  company?: string;
+  location?: string;
+  description: string;
+  work_type?: string;
+  workplace_type?: "on-site" | "hybrid" | "remote";
+  experience?: number;
+  source_url?: string;
+  skills: SkillRef[];
+  responsibilities: string[];
+  requirements: string[];
+};
+
 type Analysis = {
   overall: number;
   headline: string;
@@ -78,8 +92,16 @@ type SessionPublic = {
   analysis: Analysis;
 };
 
+type ResumeRef = {
+  id?: Id<"resumes">;
+  title: string;
+  storage_id?: string;
+  text?: string;
+};
+
 type UserContext = {
   userId: Id<"users">;
+  fingerprint?: string;
   profile: Record<string, unknown>;
   skills: Array<{
     skill_id: Id<"skills">;
@@ -89,8 +111,9 @@ type UserContext = {
   }>;
   experiences: unknown[];
   educations: unknown[];
+  projects?: string[];
   certifications: string[];
-  resumes: string[];
+  resumes: ResumeRef[];
 };
 
 function matchCoach(jobTitle: string, company?: string, context?: string) {
@@ -101,7 +124,7 @@ function matchCoach(jobTitle: string, company?: string, context?: string) {
     instructions: `You are Qelsa's Match Coach for one job: ${jobTitle}${company ? ` at ${company}` : ""}.
 You help the candidate understand how ready they are and what to do next.
 Rules:
-- Use only the provided job snapshot and the candidate's Qelsa profile, skills, experience, education, projects, and resume titles.
+- Use only the provided job snapshot and the candidate's Qelsa profile, skills, experience, education, projects, certifications, and resume text.
 - Never invent jobs, degrees, or skills the candidate did not list.
 - Catalog skill matches already computed are facts. Do not contradict them.
 - Be specific and practical. Qelsa tells people whether they are ready and how to become ready — not just a score.
@@ -137,26 +160,84 @@ function overallFromParts(
   return clampScore(0.3 * experience + 0.2 * education + 0.25 * domain + 0.25 * responsibilities);
 }
 
-function openingMessage(jobTitle: string, company: string | undefined, analysis: Analysis) {
-  const companyBit = company ? ` at ${company}` : "";
-  const actions = analysis.actions.map((item) => `- ${item}`).join("\n");
-  const strong = analysis.strong.length ? analysis.strong.map((item) => `- ${item}`).join("\n") : "- No clear strengths listed yet.";
-  const missing = analysis.missing.length ? analysis.missing.map((item) => `- ${item}`).join("\n") : "";
-  return `You're a **${analysis.overall}% match** for ${jobTitle}${companyBit}.
-
-${analysis.headline}
+function analysisBody(analysis: Analysis) {
+  const list = (items: string[], empty: string) =>
+    items.length ? items.map((item) => `- ${item}`).join("\n") : empty;
+  return `${analysis.headline}
 
 ### Why this score
 **Strong**
-${strong}
-${missing ? `\n**Missing**\n${missing}` : ""}
+${list(analysis.strong, "- No clear strengths listed yet.")}
+${analysis.partial.length ? `\n**Partial**\n${list(analysis.partial, "")}` : ""}
+${analysis.missing.length ? `\n**Missing**\n${list(analysis.missing, "")}` : ""}
 
 ### What to do next
-${actions || "- Add more skills and experience on your Qelsa profile, then re-run this match."}
+${list(analysis.actions, "- Add more skills and experience on your Qelsa profile, then re-run this match.")}
 
 ${analysis.can_apply}
 
 Ask me why this score, what's missing, whether you should apply, how to get to 90%, or to rewrite your resume for this job.`;
+}
+
+function openingMessage(jobTitle: string, company: string | undefined, analysis: Analysis) {
+  const companyBit = company ? ` at ${company}` : "";
+  return `You're a **${analysis.overall}% match** for ${jobTitle}${companyBit}.
+
+${analysisBody(analysis)}`;
+}
+
+function updatedMatchMessage(
+  jobTitle: string,
+  company: string | undefined,
+  analysis: Analysis,
+  previousOverall?: number,
+) {
+  const companyBit = company ? ` at ${company}` : "";
+  const changed = previousOverall != null && previousOverall !== analysis.overall;
+  const scoreLine = changed
+    ? `You're now a **${analysis.overall}% match** for ${jobTitle}${companyBit} — ${analysis.overall > previousOverall ? "up" : "down"} from **${previousOverall}%**.`
+    : `You're still a **${analysis.overall}% match** for ${jobTitle}${companyBit}.`;
+  return `I re-checked this role because your Qelsa profile changed.
+
+${scoreLine}
+
+${analysisBody(analysis)}`;
+}
+
+function candidatePayload(user: UserContext) {
+  return {
+    profile: user.profile,
+    skills: user.skills,
+    experiences: user.experiences,
+    educations: user.educations,
+    projects: user.projects ?? [],
+    certifications: user.certifications,
+    resumes: user.resumes.map((resume) => ({
+      title: resume.title,
+      text: clipPlainText(resume.text, 4000),
+    })),
+  };
+}
+
+async function enrichUserContext(ctx: ActionCtx, user: UserContext): Promise<UserContext> {
+  const resumes: ResumeRef[] = [];
+  for (const resume of user.resumes) {
+    let text = resume.text?.trim() ?? "";
+    if (!text && resume.storage_id) {
+      text = await ctx.runAction(internal.resumeParse.extractStoredDocument, {
+        storageId: resume.storage_id,
+        filename: resume.title,
+      });
+      if (text && resume.id) {
+        await ctx.runMutation(internal.resumes.setExtractedText, {
+          resumeId: resume.id,
+          text,
+        });
+      }
+    }
+    resumes.push({ ...resume, text: clipPlainText(text, 4000) });
+  }
+  return { ...user, resumes };
 }
 
 async function mapSkillsToCatalog(
@@ -233,14 +314,7 @@ ${JSON.stringify({
 })}
 
 CANDIDATE
-${JSON.stringify({
-  profile: user.profile,
-  skills: user.skills,
-  experiences: user.experiences,
-  educations: user.educations,
-  certifications: user.certifications,
-  resumes: user.resumes,
-})}
+${JSON.stringify(candidatePayload(user))}
 
 CATALOG SKILL MATCH FACTS (do not contradict):
 ${JSON.stringify(skillFacts)}
@@ -288,20 +362,10 @@ async function persistSession(
     authId: string;
     source: "qelsa" | "external";
     jobId?: Id<"jobs">;
-    job: {
-      title: string;
-      company?: string;
-      location?: string;
-      description: string;
-      work_type?: string;
-      workplace_type?: "on-site" | "hybrid" | "remote";
-      experience?: number;
-      source_url?: string;
-      skills: SkillRef[];
-      responsibilities: string[];
-      requirements: string[];
-    };
+    job: JobSnapshot;
     analysis: Analysis;
+    fingerprint?: string;
+    existingSessionId?: Id<"job_match_sessions">;
   },
 ): Promise<Id<"job_match_sessions">> {
   const threadId = await createThread(ctx, components.agent, {
@@ -318,11 +382,30 @@ async function persistSession(
       content: openingMessage(args.job.title, args.job.company, args.analysis),
     },
   });
+  const payload = {
+    thread_id: threadId,
+    ...sessionFields(args),
+  };
+  if (args.existingSessionId) {
+    return await ctx.runMutation(internal.jobMatch.replaceSession, {
+      sessionId: args.existingSessionId,
+      ...payload,
+    });
+  }
   return await ctx.runMutation(internal.jobMatch.insertSession, {
     user_id: args.userId,
     source: args.source,
     job_id: args.jobId,
-    thread_id: threadId,
+    ...payload,
+  });
+}
+
+function sessionFields(args: {
+  job: JobSnapshot;
+  analysis: Analysis;
+  fingerprint?: string;
+}) {
+  return {
     title: args.job.title,
     company: args.job.company,
     location: args.job.location,
@@ -335,7 +418,36 @@ async function persistSession(
     responsibilities: args.job.responsibilities,
     requirements: args.job.requirements,
     analysis: args.analysis,
+    context_fingerprint: args.fingerprint,
+  };
+}
+
+async function appendUpdatedAnalysis(
+  ctx: ActionCtx,
+  args: {
+    authId: string;
+    sessionId: Id<"job_match_sessions">;
+    threadId: string;
+    job: JobSnapshot;
+    analysis: Analysis;
+    fingerprint?: string;
+    previousOverall?: number;
+  },
+) {
+  await saveMessage(ctx, components.agent, {
+    threadId: args.threadId,
+    userId: args.authId,
+    agentName: "Match Coach",
+    message: {
+      role: "assistant",
+      content: updatedMatchMessage(args.job.title, args.job.company, args.analysis, args.previousOverall),
+    },
   });
+  await ctx.runMutation(internal.jobMatch.replaceSession, {
+    sessionId: args.sessionId,
+    ...sessionFields(args),
+  });
+  return args.sessionId;
 }
 
 async function fetchJdFromUrl(url: string) {
@@ -374,19 +486,23 @@ export const startForJob = action({
       authId: identity.subject,
     });
 
-    if (!args.refresh) {
-      const existingId: Id<"job_match_sessions"> | null = await ctx.runQuery(
-        internal.jobMatch.findExistingForJob,
-        { userId: user.userId, jobId: args.jobId },
-      );
-      if (existingId) {
-        return await ctx.runQuery(internal.jobMatch.getSessionInternal, {
-          sessionId: existingId,
-          authId: identity.subject,
-        });
-      }
+    const existing: {
+      id: Id<"job_match_sessions">;
+      thread_id: string;
+      context_fingerprint?: string;
+      overall?: number;
+    } | null = await ctx.runQuery(internal.jobMatch.findExistingForJob, {
+      userId: user.userId,
+      jobId: args.jobId,
+    });
+    if (!args.refresh && existing && existing.context_fingerprint === user.fingerprint) {
+      return await ctx.runQuery(internal.jobMatch.getSessionInternal, {
+        sessionId: existing.id,
+        authId: identity.subject,
+      });
     }
 
+    const enriched = await enrichUserContext(ctx, user);
     const snapshot = await ctx.runQuery(internal.jobMatch.loadJobSnapshot, {
       jobId: args.jobId,
       userId: user.userId,
@@ -401,26 +517,38 @@ export const startForJob = action({
       workplace_type: snapshot.workplace_type as "on-site" | "hybrid" | "remote" | undefined,
       experience: snapshot.experience as number | undefined,
       skills: snapshot.skills as SkillRef[],
-      responsibilities: [] as string[],
-      requirements: [] as string[],
+      responsibilities: (snapshot.responsibilities as string[] | undefined) ?? extractJdListItems(snapshot.description as string, 10),
+      requirements: (snapshot.requirements as string[] | undefined) ?? [],
     };
 
     const analysis = await analyzeMatch(
       ctx,
       identity.subject,
       job,
-      user,
+      enriched,
       snapshot.competency as ReturnType<typeof buildCompetencyFramework> | null,
     );
 
-    const sessionId = await persistSession(ctx, {
-      userId: user.userId,
-      authId: identity.subject,
-      source: "qelsa",
-      jobId: args.jobId,
-      job,
-      analysis,
-    });
+    const sessionId = !args.refresh && existing
+      ? await appendUpdatedAnalysis(ctx, {
+          authId: identity.subject,
+          sessionId: existing.id,
+          threadId: existing.thread_id,
+          job,
+          analysis,
+          fingerprint: user.fingerprint,
+          previousOverall: existing.overall,
+        })
+      : await persistSession(ctx, {
+          userId: user.userId,
+          authId: identity.subject,
+          source: "qelsa",
+          jobId: args.jobId,
+          job,
+          analysis,
+          fingerprint: user.fingerprint,
+          existingSessionId: existing?.id,
+        });
 
     return await ctx.runQuery(internal.jobMatch.getSessionInternal, {
       sessionId,
@@ -433,6 +561,8 @@ export const startForExternal = action({
   args: {
     jdText: v.optional(v.string()),
     jdUrl: v.optional(v.string()),
+    jdStorageId: v.optional(v.string()),
+    jdFilename: v.optional(v.string()),
   },
   returns: sessionPublicValidator,
   handler: async (ctx, args): Promise<SessionPublic> => {
@@ -441,17 +571,27 @@ export const startForExternal = action({
     if (!identity) throw new Error("Not authenticated");
 
     let sourceText = clipPlainText(args.jdText, 14000);
+    if (args.jdStorageId) {
+      const fromFile = await ctx.runAction(internal.resumeParse.extractStoredDocument, {
+        storageId: args.jdStorageId,
+        filename: args.jdFilename,
+      });
+      sourceText = sourceText ? `${sourceText}\n\n${fromFile}` : fromFile;
+    }
     if (args.jdUrl?.trim()) {
       const fetched = await fetchJdFromUrl(args.jdUrl.trim());
       sourceText = sourceText ? `${sourceText}\n\n${fetched}` : fetched;
     }
     if (sourceText.length < 80) {
-      throw new Error("Paste a job description or a job URL first.");
+      throw new Error("Paste a job description, upload a JD file, or add a job URL first.");
     }
 
-    const user: UserContext = await ctx.runQuery(internal.jobMatch.loadUserContext, {
-      authId: identity.subject,
-    });
+    const user: UserContext = await enrichUserContext(
+      ctx,
+      await ctx.runQuery(internal.jobMatch.loadUserContext, {
+        authId: identity.subject,
+      }),
+    );
 
     const extractor = new Agent(components.agent, {
       name: "Job Normalizer",
@@ -471,7 +611,11 @@ export const startForExternal = action({
     );
 
     const jobDoc = extracted.object;
-    const skills = await mapSkillsToCatalog(ctx, jobDoc.skills);
+    const catalogSkills = (jobDoc.skills ?? [])
+      .filter((skill): skill is { name: string; type: "core" | "preferred" | "nice_to_have" } =>
+        Boolean(skill?.name && skill?.type),
+      );
+    const skills = await mapSkillsToCatalog(ctx, catalogSkills);
     const competency = skills.some((s) => s.skill_id)
       ? buildCompetencyFramework(
           skills
@@ -507,6 +651,7 @@ export const startForExternal = action({
       source: "external",
       job,
       analysis,
+      fingerprint: user.fingerprint,
     });
 
     return await ctx.runQuery(internal.jobMatch.getSessionInternal, {
@@ -530,7 +675,7 @@ export const sendMessage = action({
     if (!prompt) throw new Error("Type a question first.");
     if (prompt.length > 4000) throw new Error("Keep questions under 4000 characters.");
 
-    const [session, user]: [SessionPublic, UserContext] = await Promise.all([
+    const [session, loaded]: [SessionPublic, UserContext] = await Promise.all([
       ctx.runQuery(internal.jobMatch.getSessionInternal, {
         sessionId: args.sessionId,
         authId: identity.subject,
@@ -539,6 +684,7 @@ export const sendMessage = action({
         authId: identity.subject,
       }),
     ]);
+    const user = await enrichUserContext(ctx, loaded);
 
     const agent = matchCoach(
       session.title,
@@ -556,14 +702,7 @@ ${JSON.stringify({
 })}
 
 CANDIDATE
-${JSON.stringify({
-  profile: user.profile,
-  skills: user.skills,
-  experiences: user.experiences,
-  educations: user.educations,
-  certifications: user.certifications,
-  resumes: user.resumes,
-})}`,
+${JSON.stringify(candidatePayload(user))}`,
     );
     const result = await agent.generateText(
       ctx,

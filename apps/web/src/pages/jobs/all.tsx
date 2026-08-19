@@ -1,6 +1,6 @@
 import { City } from "@/types/city";
-import { JobCard, JobsBrowseHeader, SearchFilters } from "@/components/job/jobBrowseShared";
-import { useOpenQelsaMatch } from "@/features/job/useOpenQelsaMatch";
+import { JobCard, JobsBrowseHeader, SearchFilters, toDiscoverArgs } from "@/components/job/jobBrowseShared";
+import { AllJobsGridSkeleton } from "@/components/job/jobSkeletons";
 import { useLazyGetDiscoverJobsQuery } from "@/features/api/jobsApi";
 import { Job } from "@/types/job";
 import { Search } from "lucide-react";
@@ -14,7 +14,6 @@ const PAGE_SIZE = 12;
 
 const All = () => {
   const router = useRouter();
-  const { open: openMatch, pendingId } = useOpenQelsaMatch();
 
   const [jobs, setJobs] = useState<Job[]>([]);
   const [query, setQuery] = useState("");
@@ -28,6 +27,7 @@ const All = () => {
     departments: [],
     workplace_types: [],
     sort_by: "relevance",
+    date_posted: "",
   });
 
   const [triggerGetJobs, { isLoading }] = useLazyGetDiscoverJobsQuery();
@@ -35,7 +35,7 @@ const All = () => {
   const runSearch = async (nextFilters: SearchFilters, nextQuery: string) => {
     setPage(1);
     try {
-      const result = await triggerGetJobs({ ...nextFilters, search: nextQuery }, false).unwrap();
+      const result = await triggerGetJobs(toDiscoverArgs(nextFilters, nextQuery), false).unwrap();
       setJobs((result as Job[]) ?? []);
     } catch {
       setJobs([]);
@@ -72,27 +72,24 @@ const All = () => {
           onApplyFilters={applyFilters}
           cityFilter={cityFilter}
           setCityFilter={setCityFilter}
-          profileBanner={{ text: "Completing your profile could unlock more strongly-matched roles", percent: 70 }}
         />
 
         {/* ----------------------------- All jobs ------------------------------ */}
         <div className="mt-6 flex flex-col gap-4 pb-16 sm:mt-10 sm:gap-6 sm:pb-24">
-          <p className="text-[13px] text-white/45 sm:text-sm">
-            {isLoading ? "Loading jobs..." : total === 0 ? "No jobs found" : `Showing ${rangeStart}-${rangeEnd} of ${total} jobs`}
-          </p>
+          {isLoading ? (
+            <AllJobsGridSkeleton />
+          ) : (
+            <>
+              <p className="text-[13px] text-white/45 sm:text-sm">{total === 0 ? "No jobs found" : `Showing ${rangeStart}-${rangeEnd} of ${total} jobs`}</p>
 
-          {total > 0 && (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
-              {pageJobs.map((job) => (
-                <JobCard
-                  key={job.id}
-                  job={job}
-                  onClick={() => router.push(`/jobs/${job.id}`)}
-                  onMatch={() => openMatch(job.id)}
-                  matching={pendingId === String(job.id)}
-                />
-              ))}
-            </div>
+              {total > 0 && (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">
+                  {pageJobs.map((job) => (
+                    <JobCard key={job.id} job={job} onClick={() => router.push(`/jobs/${job.id}`)} />
+                  ))}
+                </div>
+              )}
+            </>
           )}
 
           {total === 0 && !isLoading && (
@@ -132,7 +129,7 @@ function Pagination({ page, totalPages, onChange }: { page: number; totalPages: 
       <button
         onClick={() => onChange(Math.max(1, page - 1))}
         disabled={page === 1}
-        className="rounded-full border border-glass-border px-3 py-1.5 text-xs font-medium text-white/70 transition-colors hover:bg-white/5 disabled:opacity-40 sm:px-4 sm:py-2 sm:text-[13px]"
+        className="px-3 py-1.5 text-xs font-medium text-white/50 transition-colors hover:text-white disabled:opacity-40 sm:px-4 sm:py-2 sm:text-[13px]"
       >
         Previous
       </button>
@@ -146,7 +143,7 @@ function Pagination({ page, totalPages, onChange }: { page: number; totalPages: 
             key={p}
             onClick={() => onChange(p)}
             className={`flex size-8 items-center justify-center rounded-full text-xs font-semibold transition-colors sm:size-9 sm:text-[13px] ${
-              p === page ? "bg-neon-cyan text-[#06060f]" : "text-white/70 hover:bg-white/5"
+              p === page ? "bg-neon-cyan text-white" : "text-white hover:bg-white/5"
             }`}
           >
             {p}
@@ -156,9 +153,9 @@ function Pagination({ page, totalPages, onChange }: { page: number; totalPages: 
       <button
         onClick={() => onChange(Math.min(totalPages, page + 1))}
         disabled={page === totalPages}
-        className="rounded-full border border-glass-border px-3 py-1.5 text-xs font-medium text-white/70 transition-colors hover:bg-white/5 disabled:opacity-40 sm:px-4 sm:py-2 sm:text-[13px]"
+        className="px-3 py-1.5 text-xs font-medium text-white/50 transition-colors hover:text-white disabled:opacity-40 sm:px-4 sm:py-2 sm:text-[13px]"
       >
-        Next
+        Next &gt;
       </button>
     </div>
   );

@@ -14,6 +14,7 @@ import { ProfileHero } from "./ProfileHero";
 import { SkillsCard } from "./SkillsCard";
 import { WorkExperienceCard } from "./WorkExperienceCard";
 import { profileCompletion } from "./profileFormat";
+import { ProfilePageSkeleton } from "../pageSkeletons";
 
 interface ProfilePageProps {
   /**
@@ -87,11 +88,7 @@ export function ProfilePage({ isOwner = false, username }: ProfilePageProps) {
   }
 
   if (isLoading || !user) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center bg-[#06060f]">
-        <p className="text-sm text-white/45">Loading profile…</p>
-      </div>
-    );
+    return <ProfilePageSkeleton />;
   }
 
   return (

@@ -1,8 +1,15 @@
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
+import { R2 } from "@convex-dev/r2";
+import { components } from "./_generated/api";
 import { authedMutation, authedQuery } from "./lib/customFunctions";
 import { iso, withId } from "./lib/helpers";
+import { bumpJobCount } from "./lib/jobCounts";
+import { yearsFromExperiences } from "./lib/applicantSearch";
 import { buildCompetencyFramework } from "./lib/skillMatch";
+import { signedFileUrl } from "./lib/r2";
+
+const r2 = new R2(components.r2);
 
 export const listForJob = authedQuery({
   args: { jobId: v.id("jobs"), status: v.optional(v.string()) },
@@ -10,21 +17,52 @@ export const listForJob = authedQuery({
   handler: async (ctx, args) => {
     const job = await ctx.db.get(args.jobId);
     if (!job || job.owner_id !== ctx.user._id) throw new Error("Unauthorized");
-    let apps = await ctx.db.query("job_applications").withIndex("by_job", (q) => q.eq("job_id", args.jobId)).collect();
-    if (args.status) apps = apps.filter((a) => a.status === args.status);
-    const jobSkillRows = await ctx.db.query("job_skills").withIndex("by_job", (q) => q.eq("job_id", args.jobId)).collect();
+    const apps = await ctx.db
+      .query("job_applications")
+      .withIndex("by_job", (q) => q.eq("job_id", args.jobId))
+      .order("desc")
+      .take(80);
+    const filtered = args.status ? apps.filter((app) => app.status === args.status) : apps;
+
+    const skillRows = await ctx.db.query("job_skills").withIndex("by_job", (q) => q.eq("job_id", args.jobId)).take(40);
+    const jobSkills = [];
+    for (const row of skillRows) {
+      const skill = await ctx.db.get(row.skill_id);
+      if (!skill) continue;
+      jobSkills.push({
+        skill_id: row.skill_id,
+        type: row.type,
+        proficiency: row.proficiency,
+        weight: row.weight,
+        skill: { name: skill.name },
+      });
+    }
+
     const out = [];
-    for (const app of apps) {
+    for (const app of filtered) {
       const user = await ctx.db.get(app.user_id);
-      const userSkills = await ctx.db.query("user_skills").withIndex("by_user", (q) => q.eq("user_id", app.user_id)).collect();
+      if (!user) continue;
+      const [city, userSkills, experienceRows] = await Promise.all([
+        user.city_id ? ctx.db.get(user.city_id) : null,
+        ctx.db.query("user_skills").withIndex("by_user", (q) => q.eq("user_id", user._id)).take(24),
+        ctx.db.query("experiences").withIndex("by_user", (q) => q.eq("user_id", user._id)).take(8),
+      ]);
+      const skills = [];
+      for (const row of userSkills) {
+        const skill = await ctx.db.get(row.skill_id);
+        if (skill) skills.push({ id: row.skill_id, name: skill.name, proficiency: row.proficiency });
+      }
       const competency = buildCompetencyFramework(
-        jobSkillRows.map((js) => ({ skill_id: js.skill_id, type: js.type, proficiency: js.proficiency, weight: js.weight })),
-        userSkills.map((s) => ({ skill_id: s.skill_id, proficiency: s.proficiency })),
+        jobSkills,
+        userSkills.map((row) => ({ skill_id: row.skill_id, proficiency: row.proficiency })),
       );
       out.push({
         id: app._id,
-        applicant_name: user?.name ?? user?.email ?? "Unknown",
-        skills: userSkills.map((s) => s.skill_id),
+        applicant_name: user.name ?? user.email,
+        headline: user.headline,
+        location: city?.name,
+        years_experience: yearsFromExperiences(experienceRows, app.applied_at),
+        skills,
         readiness: competency.readiness,
         applied_at: iso(app.applied_at),
         status: app.status,
@@ -52,8 +90,14 @@ export const getDetail = authedQuery({
       ...withId(app),
       applied_at: iso(app.applied_at),
       user: user ? withId(user) : null,
-      resume: resume ? withId(resume) : null,
+      resume: resume
+        ? {
+            ...withId(resume),
+            file_url: (await signedFileUrl(r2, resume.storage_id)) ?? resume.file_url,
+          }
+        : null,
       answers: answers.map(withId),
+      job_application_answers: answers.map(withId),
     };
   },
 });
@@ -80,6 +124,7 @@ export const apply = authedMutation({
       status: "applied",
       applied_at: Date.now(),
     });
+    await bumpJobCount(ctx, args.jobId, "application_count", 1);
     const answers = (args.answers ?? {}) as Record<string, string>;
     for (const [questionId, answer] of Object.entries(answers)) {
       const question = await ctx.db.get(questionId as Id<"questions">);

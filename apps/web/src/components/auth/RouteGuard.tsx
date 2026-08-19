@@ -2,10 +2,12 @@
 
 import { authClient } from "@/lib/auth-client";
 import { useAuth } from "@/contexts/AuthContext";
+import { needsOnboarding } from "@/lib/onboarding";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 
-const PUBLIC_ROUTES = ["/login", "/register", "/auth", "/jobs/all", "/jobs", "/qelsa-ai", "/network", "/courses", "/blogs"];
+const PUBLIC_ROUTES = ["/", "/start", "/login", "/register", "/auth", "/jobs/all", "/jobs", "/qelsa-ai", "/network", "/courses", "/blogs"];
+const ONBOARDING_EXEMPT = new Set(["/onboarding", "/auth", "/privacy", "/terms", "/cookies"]);
 const JOB_STATIC = new Set(["all", "posted", "smart_matches", "create-job", "match"]);
 const PUBLIC_JOB = /^\/jobs\/([^/]+)$/;
 const PUBLIC_PROFILE = /^\/profile\/([^/]+)$/;
@@ -44,6 +46,11 @@ export default function RouteGuard({ children }) {
 
     if (user?.account_type && ["/login", "/register"].includes(path)) {
       router.replace("/jobs/all");
+      return;
+    }
+
+    if (session && needsOnboarding(user) && !ONBOARDING_EXEMPT.has(path)) {
+      router.replace("/onboarding");
     }
   }, [session, user, isClient, isPending, isLoading, router.isReady, router.asPath, logout, router]);
 

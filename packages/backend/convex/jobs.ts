@@ -1,45 +1,79 @@
 import { v } from "convex/values";
-import { internalMutation } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
+import { internalMutation, internalQuery, type QueryCtx } from "./_generated/server";
 import { authedMutation, authedQuery, optionalAuthQuery } from "./lib/customFunctions";
 import { iso, withId } from "./lib/helpers";
-import { buildCompetencyFramework } from "./lib/skillMatch";
+import { bumpJobCount } from "./lib/jobCounts";
+import { deleteJobCascade } from "./lib/deleteUserData";
+import { buildCompetencyFramework, clipPlainText } from "./lib/skillMatch";
 
-async function jobSkillsFor(ctx: { db: { query: Function; get: Function } }, jobId: Id<"jobs">) {
-  const rows = await ctx.db.query("job_skills").withIndex("by_job", (q: { eq: Function }) => q.eq("job_id", jobId)).collect();
-  const out = [];
-  for (const row of rows) {
-    const skill = await ctx.db.get(row.skill_id);
-    out.push({ ...withId(row), skill: skill ? withId(skill) : null });
-  }
-  return out;
+type SkillCache = Map<Id<"skills">, Doc<"skills"> | null>;
+
+type ListHydration = {
+  userSkills: Array<Pick<Doc<"user_skills">, "skill_id" | "proficiency">>;
+  savedJobIds: Set<string>;
+  skillCache: SkillCache;
+};
+
+async function jobSkillsFor(ctx: QueryCtx, jobId: Id<"jobs">, cache?: SkillCache) {
+  const rows = await ctx.db.query("job_skills").withIndex("by_job", (q) => q.eq("job_id", jobId)).collect();
+  const skillCache = cache ?? new Map();
+  const missing = rows.filter((row) => !skillCache.has(row.skill_id));
+  await Promise.all(
+    missing.map(async (row) => {
+      skillCache.set(row.skill_id, await ctx.db.get(row.skill_id));
+    }),
+  );
+  return rows.map((row) => {
+    const skill = skillCache.get(row.skill_id) ?? null;
+    return { ...withId(row), skill: skill ? withId(skill) : null };
+  });
+}
+
+async function listHydration(ctx: QueryCtx, user: Doc<"users"> | null): Promise<ListHydration> {
+  if (!user) return { userSkills: [], savedJobIds: new Set(), skillCache: new Map() };
+  const [skillRows, saved] = await Promise.all([
+    ctx.db.query("user_skills").withIndex("by_user", (q) => q.eq("user_id", user._id)).collect(),
+    ctx.db.query("saved_jobs").withIndex("by_user", (q) => q.eq("user_id", user._id)).collect(),
+  ]);
+  return {
+    userSkills: skillRows.map((row) => ({ skill_id: row.skill_id, proficiency: row.proficiency })),
+    savedJobIds: new Set(saved.map((row) => row.job_id)),
+    skillCache: new Map(),
+  };
 }
 
 async function enrichJob(
-  ctx: { db: { query: Function; get: Function } },
+  ctx: QueryCtx,
   job: Doc<"jobs">,
   user: Doc<"users"> | null,
+  list?: ListHydration,
 ) {
   const [page, city, job_title, job_skills] = await Promise.all([
     job.page_id ? ctx.db.get(job.page_id) : null,
     job.city_id ? ctx.db.get(job.city_id) : null,
     job.job_title_id ? ctx.db.get(job.job_title_id) : null,
-    jobSkillsFor(ctx, job._id),
+    jobSkillsFor(ctx, job._id, list?.skillCache),
   ]);
   const state = city ? await ctx.db.get(city.state_id) : null;
 
   let is_bookmarked = false;
   let competency = null;
+  let has_applied = false;
   if (user) {
-    const saved = await ctx.db
-      .query("saved_jobs")
-      .withIndex("by_job_and_user", (q: { eq: Function }) => q.eq("job_id", job._id).eq("user_id", user._id))
-      .unique();
-    is_bookmarked = Boolean(saved);
-    const userSkills = await ctx.db
-      .query("user_skills")
-      .withIndex("by_user", (q: { eq: Function }) => q.eq("user_id", user._id))
-      .collect();
+    is_bookmarked = list
+      ? list.savedJobIds.has(job._id)
+      : Boolean(
+          await ctx.db
+            .query("saved_jobs")
+            .withIndex("by_job_and_user", (q) => q.eq("job_id", job._id).eq("user_id", user._id))
+            .unique(),
+        );
+    const userSkills = list
+      ? list.userSkills
+      : (await ctx.db.query("user_skills").withIndex("by_user", (q) => q.eq("user_id", user._id)).collect()).map(
+          (row) => ({ skill_id: row.skill_id, proficiency: row.proficiency }),
+        );
     competency = buildCompetencyFramework(
       job_skills.map((js) => ({
         skill_id: js.skill_id,
@@ -48,14 +82,18 @@ async function enrichJob(
         weight: js.weight,
         skill: js.skill,
       })),
-      userSkills.map((s: Doc<"user_skills">) => ({ skill_id: s.skill_id, proficiency: s.proficiency })),
+      userSkills,
     );
+    if (!list) {
+      const mine = await ctx.db
+        .query("job_applications")
+        .withIndex("by_job_and_user", (q) => q.eq("job_id", job._id).eq("user_id", user._id))
+        .collect();
+      has_applied = mine.some((row) => row.status !== "rejected" && row.status !== "cancelled");
+    }
   }
 
-  const applications = await ctx.db
-    .query("job_applications")
-    .withIndex("by_job", (q: { eq: Function }) => q.eq("job_id", job._id))
-    .collect();
+  const application_count = job.application_count ?? 0;
 
   return {
     ...withId(job),
@@ -68,9 +106,15 @@ async function enrichJob(
     job_skills,
     is_bookmarked,
     competency,
+    title: job.title ?? job_title?.name,
+    company_name: job.company_name ?? page?.name,
+    company_logo: job.company_logo ?? page?.logo,
     company_is_agency: job.company_is_agency ?? false,
     has_remote: job.has_remote ?? false,
-    applications: applications.map((app) => ({ ...withId(app), applied_at: iso(app.applied_at) })),
+    application_count,
+    view_count: job.view_count ?? 0,
+    has_applied,
+    applications: has_applied && user ? [{ user_id: user._id }] : [],
   };
 }
 
@@ -109,7 +153,23 @@ function matchesFilters(job: Doc<"jobs">, cityName: string | null, args: Record<
     const hay = `${job.title ?? ""} ${job.company_name ?? ""} ${job.external_id ?? ""}`.toLowerCase();
     if (!hay.includes(search)) return false;
   }
+  const posted_within = args.posted_within as string | undefined;
+  const now = args.now as number | undefined;
+  if (posted_within && typeof now === "number") {
+    const postedAt = job.published_date ?? job._creationTime;
+    const maxAge =
+      posted_within === "24h" ? 86_400_000 : posted_within === "week" ? 7 * 86_400_000 : 30 * 86_400_000;
+    if (now - postedAt > maxAge) return false;
+  }
   return true;
+}
+
+async function openJobs(ctx: QueryCtx, limit: number) {
+  return await ctx.db
+    .query("jobs")
+    .withIndex("by_status_and_published", (q) => q.eq("status", "open"))
+    .order("desc")
+    .take(limit);
 }
 
 export const list = optionalAuthQuery({
@@ -124,21 +184,23 @@ export const list = optionalAuthQuery({
     sort_by: v.optional(v.string()),
     city: v.optional(v.string()),
     page_id: v.optional(v.string()),
+    posted_within: v.optional(v.union(v.literal("24h"), v.literal("week"), v.literal("month"))),
+    now: v.optional(v.number()),
   },
   returns: v.any(),
   handler: async (ctx, args) => {
-    const open = await ctx.db
-      .query("jobs")
-      .withIndex("by_status", (q) => q.eq("status", "open"))
-      .order("desc")
-      .take(100);
+    const open = await openJobs(ctx, 100);
+    const hydration = await listHydration(ctx, ctx.user);
     const results = [];
     for (const job of open) {
       const city = job.city_id ? await ctx.db.get(job.city_id) : null;
       if (!matchesFilters(job, city?.name ?? null, { ...args, cities: args.cities ?? (args.city ? [args.city] : []) })) {
         continue;
       }
-      results.push(await enrichJob(ctx, job, ctx.user));
+      results.push(await enrichJob(ctx, job, ctx.user, hydration));
+    }
+    if (args.sort_by === "salary") {
+      results.sort((a, b) => ((b.salary_max ?? b.salary ?? 0) as number) - ((a.salary_max ?? a.salary ?? 0) as number));
     }
     return results;
   },
@@ -169,8 +231,13 @@ export const getById = optionalAuthQuery({
       }
       questionSets.push({ ...withId(set), questions: withOptions });
     }
-    const views = await ctx.db.query("job_views").withIndex("by_job", (q) => q.eq("job_id", job._id)).collect();
-    return { ...base, questionSets, view_count: views.length };
+    const sizeId = (base.page as { size_id?: Id<"company_sizes"> } | null)?.size_id;
+    const size = sizeId ? await ctx.db.get(sizeId) : null;
+    return {
+      ...base,
+      questionSets,
+      page: base.page ? { ...base.page, company_size: size ? withId(size) : null } : null,
+    };
   },
 });
 
@@ -180,11 +247,12 @@ export const listSimilar = optionalAuthQuery({
   handler: async (ctx, args) => {
     const job = await ctx.db.get(args.id);
     if (!job) return [];
-    const open = await ctx.db.query("jobs").withIndex("by_status", (q) => q.eq("status", "open")).take(20);
+    const open = await openJobs(ctx, 20);
+    const hydration = await listHydration(ctx, ctx.user);
     const out = [];
     for (const other of open) {
       if (other._id === job._id) continue;
-      out.push(await enrichJob(ctx, other, ctx.user));
+      out.push(await enrichJob(ctx, other, ctx.user, hydration));
     }
     return out;
   },
@@ -200,8 +268,9 @@ export const listPosted = authedQuery({
       const q = args.search.toLowerCase();
       jobs = jobs.filter((j) => `${j.title ?? ""} ${j.company_name ?? ""}`.toLowerCase().includes(q));
     }
+    const hydration = await listHydration(ctx, ctx.user);
     const out = [];
-    for (const job of jobs) out.push(await enrichJob(ctx, job, ctx.user));
+    for (const job of jobs) out.push(await enrichJob(ctx, job, ctx.user, hydration));
     return out;
   },
 });
@@ -211,12 +280,13 @@ export const listSaved = authedQuery({
   returns: v.any(),
   handler: async (ctx, args) => {
     const saved = await ctx.db.query("saved_jobs").withIndex("by_user", (q) => q.eq("user_id", ctx.user._id)).collect();
+    const hydration = await listHydration(ctx, ctx.user);
     const out = [];
     for (const row of saved) {
       const job = await ctx.db.get(row.job_id);
       if (!job) continue;
       if (args.search && !`${job.title ?? ""}`.toLowerCase().includes(args.search.toLowerCase())) continue;
-      out.push(await enrichJob(ctx, job, ctx.user));
+      out.push(await enrichJob(ctx, job, ctx.user, hydration));
     }
     return out;
   },
@@ -228,6 +298,7 @@ export const listApplied = authedQuery({
   handler: async (ctx, args) => {
     let apps = await ctx.db.query("job_applications").withIndex("by_user", (q) => q.eq("user_id", ctx.user._id)).collect();
     if (args.status) apps = apps.filter((a) => a.status === args.status);
+    const hydration = await listHydration(ctx, ctx.user);
     const out = [];
     for (const app of apps) {
       const job = await ctx.db.get(app.job_id);
@@ -243,7 +314,7 @@ export const listApplied = authedQuery({
       out.push({
         ...withId(app),
         applied_at: iso(app.applied_at),
-        job: job ? await enrichJob(ctx, job, ctx.user) : null,
+        job: job ? await enrichJob(ctx, job, ctx.user, hydration) : null,
         jobApplicationLogs: logs.map(withId),
       });
     }
@@ -255,7 +326,7 @@ export const listJobCities = optionalAuthQuery({
   args: {},
   returns: v.array(v.string()),
   handler: async (ctx) => {
-    const jobs = await ctx.db.query("jobs").withIndex("by_status", (q) => q.eq("status", "open")).take(200);
+    const jobs = await openJobs(ctx, 200);
     const names = new Set<string>();
     for (const job of jobs) {
       if (job.city_id) {
@@ -271,7 +342,7 @@ export const listJobTypes = optionalAuthQuery({
   args: {},
   returns: v.array(v.string()),
   handler: async (ctx) => {
-    const jobs = await ctx.db.query("jobs").withIndex("by_status", (q) => q.eq("status", "open")).take(200);
+    const jobs = await openJobs(ctx, 200);
     const names = new Set<string>();
     for (const job of jobs) {
       if (job.work_type) names.add(job.work_type);
@@ -306,9 +377,10 @@ export const recordView = authedMutation({
       .unique();
     if (!existing) {
       await ctx.db.insert("job_views", { job_id: args.jobId, user_id: ctx.user._id, viewed_at: Date.now() });
+      await bumpJobCount(ctx, args.jobId, "view_count", 1);
     }
-    const views = await ctx.db.query("job_views").withIndex("by_job", (q) => q.eq("job_id", args.jobId)).collect();
-    return { view_count: views.length };
+    const job = await ctx.db.get(args.jobId);
+    return { view_count: job?.view_count ?? 0 };
   },
 });
 
@@ -318,7 +390,7 @@ export const remove = authedMutation({
   handler: async (ctx, args) => {
     const job = await ctx.db.get(args.jobId);
     if (!job || job.owner_id !== ctx.user._id) throw new Error("Job not found");
-    await ctx.db.delete(args.jobId);
+    await deleteJobCascade(ctx, args.jobId);
     return null;
   },
 });
@@ -350,12 +422,18 @@ export const createWithQuestions = authedMutation({
       skills?: Array<{ id: string; type?: string; proficiency?: string; weight?: number }>;
     };
     const jobIn = payload.job ?? {};
+    const pageId = (jobIn.page_id as Id<"pages"> | undefined) ?? undefined;
+    const jobTitleId = (jobIn.job_title as { id?: Id<"job_titles"> } | undefined)?.id;
+    const [page, jobTitle] = await Promise.all([
+      pageId ? ctx.db.get(pageId) : null,
+      jobTitleId ? ctx.db.get(jobTitleId) : null,
+    ]);
     const jobId = await ctx.db.insert("jobs", {
-      title: (jobIn.title as string | undefined) ?? undefined,
+      title: (jobIn.title as string | undefined) ?? jobTitle?.name,
       description: jobIn.description as string | undefined,
-      page_id: (jobIn.page_id as Id<"pages"> | undefined) ?? undefined,
+      page_id: pageId,
       city_id: (jobIn.city_id as Id<"cities"> | undefined) ?? ((jobIn.city as { id?: Id<"cities"> } | undefined)?.id),
-      job_title_id: (jobIn.job_title as { id?: Id<"job_titles"> } | undefined)?.id,
+      job_title_id: jobTitleId,
       workplace_type: jobIn.workplace_type as "on-site" | "hybrid" | "remote" | undefined,
       work_type: jobIn.work_type as string | undefined,
       salary: jobIn.salary as number | undefined,
@@ -363,10 +441,14 @@ export const createWithQuestions = authedMutation({
       salary_max: jobIn.salary_max as number | undefined,
       salary_currency: (jobIn.salary_currency as string | undefined) ?? "INR",
       experience: jobIn.experience as number | undefined,
+      company_name: (jobIn.company_name as string | undefined) ?? page?.name,
+      company_logo: (jobIn.company_logo as string | undefined) ?? page?.logo,
       status: "open",
-      resource: "manual",
+      resource: "qelsa",
       owner_id: ctx.user._id,
       published_date: Date.now(),
+      view_count: 0,
+      application_count: 0,
     });
 
     for (const skill of payload.skills ?? []) {
@@ -429,12 +511,14 @@ export const storeScrapedJobs = internalMutation({
         .query("jobs")
         .withIndex("by_external_id", (q) => q.eq("external_id", external_id))
         .unique();
+      const types = (job.types as Array<{ name?: string }> | undefined) ?? [];
+      const work_type = (job.work_type as string | undefined) ?? types.find((t) => t.name)?.name;
       const payload = {
         external_id,
         description: job.description as string | undefined,
         application_url: job.application_url as string | undefined,
         experience_level: job.experience_level as string | undefined,
-        has_remote: Boolean(job.has_remote),
+        has_remote: Boolean(job.has_remote) || (work_type ?? "").toLowerCase().includes("remote"),
         language: job.language as string | undefined,
         published_date: job.published ? new Date(job.published as string).getTime() : Date.now(),
         salary_currency: job.salary_currency as string | undefined,
@@ -444,6 +528,7 @@ export const storeScrapedJobs = internalMutation({
         title: job.title as string | undefined,
         company_name: (job.company as { name?: string } | undefined)?.name,
         company_logo: (job.company as { logo?: string } | undefined)?.logo,
+        work_type,
         resource: "https://jobdataapi.com/",
         other_info: {
           cities: job.cities,
@@ -455,8 +540,62 @@ export const storeScrapedJobs = internalMutation({
         status: "open" as const,
       };
       if (existing) await ctx.db.patch(existing._id, payload);
-      else await ctx.db.insert("jobs", payload);
+      else {
+        await ctx.db.insert("jobs", { ...payload, view_count: 0, application_count: 0 });
+      }
     }
     return null;
+  },
+});
+
+export const aiSummaryValidator = v.object({
+  role_overview: v.string(),
+  key_requirements: v.array(v.string()),
+  why_this_role: v.string(),
+});
+
+export const loadSummarySource = internalQuery({
+  args: { jobId: v.id("jobs") },
+  returns: v.object({
+    title: v.string(),
+    company: v.optional(v.string()),
+    description: v.string(),
+    skills: v.array(v.string()),
+    ai_summary: v.optional(aiSummaryValidator),
+  }),
+  handler: async (ctx, args) => {
+    const job = await ctx.db.get(args.jobId);
+    if (!job) throw new Error("Job not found");
+    const [page, jobTitle, skillRows] = await Promise.all([
+      job.page_id ? ctx.db.get(job.page_id) : null,
+      job.job_title_id ? ctx.db.get(job.job_title_id) : null,
+      ctx.db.query("job_skills").withIndex("by_job", (q) => q.eq("job_id", job._id)).take(20),
+    ]);
+    const skills: string[] = [];
+    for (const row of skillRows) {
+      const skill = await ctx.db.get(row.skill_id);
+      if (skill?.name) skills.push(skill.name);
+    }
+    return {
+      title: jobTitle?.name ?? job.title ?? "Untitled role",
+      company: page?.name ?? job.company_name,
+      description: clipPlainText(job.description, 6000),
+      skills,
+      ai_summary: job.ai_summary,
+    };
+  },
+});
+
+export const saveAiSummary = internalMutation({
+  args: {
+    jobId: v.id("jobs"),
+    summary: aiSummaryValidator,
+  },
+  returns: aiSummaryValidator,
+  handler: async (ctx, args) => {
+    const job = await ctx.db.get(args.jobId);
+    if (!job) throw new Error("Job not found");
+    await ctx.db.patch(args.jobId, { ai_summary: args.summary });
+    return args.summary;
   },
 });

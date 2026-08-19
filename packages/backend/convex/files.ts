@@ -1,18 +1,33 @@
+import { R2 } from "@convex-dev/r2";
 import { v } from "convex/values";
-import { authedMutation } from "./lib/customFunctions";
+import { components } from "./_generated/api";
+import type { DataModel } from "./_generated/dataModel";
+import { query } from "./_generated/server";
+import { SIGNED_URL_TTL } from "./lib/r2";
 
-export const generateUploadUrl = authedMutation({
-  args: {},
-  returns: v.string(),
-  handler: async (ctx) => {
-    return await ctx.storage.generateUploadUrl();
-  },
+const r2 = new R2(components.r2);
+
+async function requireIdentity(ctx: { auth: { getUserIdentity: () => Promise<unknown> } }) {
+  const identity = await ctx.auth.getUserIdentity();
+  if (!identity) throw new Error("Not authenticated");
+}
+
+export const { generateUploadUrl, syncMetadata } = r2.clientApi<DataModel>({
+  checkUpload: requireIdentity,
 });
 
-export const getUrl = authedMutation({
-  args: { storageId: v.id("_storage") },
-  returns: v.union(v.string(), v.null()),
+export const {
+  generateUploadUrl: generateResumeUploadUrl,
+  syncMetadata: syncResumeMetadata,
+} = r2.clientApi<DataModel>({
+  checkUpload: async () => {},
+});
+
+export const getUrl = query({
+  args: { key: v.string() },
+  returns: v.string(),
   handler: async (ctx, args) => {
-    return await ctx.storage.getUrl(args.storageId);
+    await requireIdentity(ctx);
+    return await r2.getUrl(args.key, { expiresIn: SIGNED_URL_TTL });
   },
 });

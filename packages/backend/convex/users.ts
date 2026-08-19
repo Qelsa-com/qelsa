@@ -1,8 +1,14 @@
 import { v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
+import { components } from "./_generated/api";
 import { authedMutation, optionalAuthQuery } from "./lib/customFunctions";
-import { query } from "./_generated/server";
+import { query, type MutationCtx } from "./_generated/server";
 import { asUserJson, iso, withId } from "./lib/helpers";
+import { deleteAppUserData } from "./lib/deleteUserData";
+import { deleteR2Keys, signedFileUrl } from "./lib/r2";
+import { R2 } from "@convex-dev/r2";
+
+const r2 = new R2(components.r2);
 
 export const me = optionalAuthQuery({
   args: {},
@@ -25,7 +31,14 @@ export const me = optionalAuthQuery({
       ...asUserJson(ctx.user),
       city: city ? { ...withId(city), state: state ? withId(state) : null } : null,
       culture_preference: culture ? withId(culture) : null,
-      resumes: resumes.map((r) => ({ ...withId(r), createdAt: iso(r._creationTime), updatedAt: iso(r._creationTime) })),
+      resumes: await Promise.all(
+        resumes.map(async (r) => ({
+          ...withId(r),
+          file_url: (await signedFileUrl(r2, r.storage_id)) ?? r.file_url,
+          createdAt: iso(r._creationTime),
+          updatedAt: iso(r._creationTime),
+        })),
+      ),
     };
   },
 });
@@ -132,3 +145,53 @@ export const setAccountType = authedMutation({
     return { message: "Account type updated", user: asUserJson(user) };
   },
 });
+
+export const deleteAccount = authedMutation({
+  args: {},
+  returns: v.null(),
+  handler: async (ctx) => {
+    const authId = ctx.user.authId;
+    await ctx.runMutation(components.agent.users.deleteAllForUserIdAsync, {
+      userId: authId,
+    });
+    const r2Keys = await deleteAppUserData(ctx, ctx.user);
+    await deleteR2Keys(r2, ctx, r2Keys);
+    await deleteBetterAuthUser(ctx, authId);
+    return null;
+  },
+});
+
+const BA_USER_OWNED_MODELS = [
+  "session",
+  "account",
+  "twoFactor",
+  "oauthApplication",
+  "oauthAccessToken",
+  "oauthConsent",
+] as const;
+
+async function deleteBetterAuthUser(ctx: MutationCtx, authId: string) {
+  for (const model of BA_USER_OWNED_MODELS) {
+    let cursor: string | null = null;
+    for (;;) {
+      const result: { isDone: boolean; continueCursor: string } = await ctx.runMutation(
+        components.betterAuth.adapter.deleteMany,
+        {
+          input: {
+            model,
+            where: [{ field: "userId", value: authId }],
+          },
+          paginationOpts: { numItems: 100, cursor },
+        },
+      );
+      if (result.isDone) break;
+      cursor = result.continueCursor;
+    }
+  }
+  await ctx.runMutation(components.betterAuth.adapter.deleteOne, {
+    input: {
+      model: "user",
+      where: [{ field: "_id", value: authId }],
+    },
+  });
+}

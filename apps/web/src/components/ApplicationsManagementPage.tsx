@@ -1,6 +1,6 @@
 import { formatCity } from "@/constants/city";
 import { jobSkillTypeLabel, proficiencyLabel } from "@/constants/skills";
-import { useEditBulkStatusMutation, useGetJobApplicationDetailQuery, useGetJobApplicationsQuery } from "@/features/api/jobApplicationsApi";
+import { useEditBulkStatusMutation, useGetJobApplicationDetailQuery, useGetJobApplicationsQuery, useSearchJobApplicantsNatural, useSearchJobApplicantsQuery } from "@/features/api/jobApplicationsApi";
 import { useGetJobByIdQuery } from "@/features/api/jobsApi";
 import { AlertTriangle, Archive, ArrowLeft, ArrowRight, ChevronDown, ChevronLeft, ChevronRight, Download, Lock, Mail, MessageCircle, Phone, Send, Share2, Star, Users, XCircle } from "lucide-react";
 import { JobApplicationAnswer } from "@/types/jobApplicationAnswers";
@@ -8,6 +8,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 import { CandidateNLPSearch } from "./CandidateNLPSearch";
+import { ApplicantDetailSkeleton, CandidateRowSkeleton } from "./job/jobSkeletons";
 import { Button } from "./ui/button";
 import { Checkbox } from "./ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "./ui/dropdown-menu";
@@ -82,25 +83,84 @@ const yearsOfExperience = (experiences?: { start_date: Date; end_date?: Date; is
   return years > 0 ? years : null;
 };
 
+const looksLikeNl = (query: string) => {
+  const trimmed = query.trim();
+  if (trimmed.length >= 48) return true;
+  if (trimmed.split(/\s+/).filter(Boolean).length >= 5) return true;
+  return /\b(find|show me|looking for|candidates who|applicants who|strongest|best fit|match(?:es)? this role|don't necessarily|doesn'?t necessarily|built|scalable)\b/i.test(
+    trimmed,
+  );
+};
+
 export function ApplicationsManagementPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
   const id = params?.id;
 
-  const [selectedApplicationId, setSelectedApplicationId] = useState<number | null>(null);
-  const [selectedApplications, setSelectedApplications] = useState<number[]>([]);
+  const [selectedApplicationId, setSelectedApplicationId] = useState<string | number | null>(null);
+  const [selectedApplications, setSelectedApplications] = useState<Array<string | number>>([]);
   const [statusFilter, setStatusFilter] = useState("all");
   const [readinessFilter, setReadinessFilter] = useState("all");
+  const [experienceFilter, setExperienceFilter] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [submittedQuery, setSubmittedQuery] = useState("");
+  const [nlResult, setNlResult] = useState<{
+    mode: "keyword" | "natural";
+    chips: Array<{ id: string; label: string; category: "skill" | "experience" | "location" | "education" | "status" | "readiness" | "other" }>;
+    hits: Array<{ application_id: string; score: number; explanation: string; reasons: string[]; gaps: string[] }>;
+  } | null>(null);
   const [showMessageComposer, setShowMessageComposer] = useState(false);
   const [showNoteComposer, setShowNoteComposer] = useState(false);
   const [messageTemplate, setMessageTemplate] = useState("");
   const [messageText, setMessageText] = useState("");
-  const [nlpFilters, setNlpFilters] = useState<any[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
 
   const { data: currentJobPosting } = useGetJobByIdQuery(id);
-  const { data: applicants } = useGetJobApplicationsQuery({ jobId: id });
+  const { data: applicants, isLoading: isListLoading } = useGetJobApplicationsQuery({ jobId: id });
   const [editBulkStatus] = useEditBulkStatusMutation();
+  const [searchNatural, { isLoading: isNlLoading }] = useSearchJobApplicantsNatural();
+
+  const minYears = experienceFilter === "all" ? undefined : Number(experienceFilter);
+  const minReadiness = readinessFilter === "all" ? undefined : Number(readinessFilter);
+  const statusArg = statusFilter === "all" ? undefined : statusFilter;
+
+  const { data: keywordSearch, isLoading: isKeywordLoading } = useSearchJobApplicantsQuery(
+    id && submittedQuery.trim()
+      ? { jobId: id, query: submittedQuery, status: statusArg, min_years: minYears, min_readiness: minReadiness }
+      : undefined,
+  );
+
+  const runNaturalSearch = useCallback(
+    async (query: string) => {
+      if (!id || !query.trim() || !looksLikeNl(query)) {
+        setNlResult(null);
+        return;
+      }
+      try {
+        const result = await searchNatural({
+          jobId: id,
+          query,
+          status: statusArg,
+          min_years: minYears,
+          min_readiness: minReadiness,
+        }).unwrap();
+        setNlResult(result);
+      } catch {
+        setNlResult(null);
+      }
+    },
+    [id, minReadiness, minYears, searchNatural, statusArg],
+  );
+
+  const handleSearchSubmit = useCallback(
+    (query: string) => {
+      const trimmed = query.trim();
+      setSubmittedQuery(trimmed);
+      setNlResult(null);
+      if (!trimmed) return;
+      void runNaturalSearch(trimmed);
+    },
+    [runNaturalSearch],
+  );
 
   const {
     data: selectedApplication,
@@ -111,44 +171,51 @@ export function ApplicationsManagementPage() {
   // 403 (not the job owner) / 404 (missing or wrong job) come back on the detail call.
   const detailErrorStatus = detailError && "status" in detailError ? detailError.status : undefined;
 
+  const searchHits = (nlResult?.hits ?? keywordSearch?.hits) as
+    | Array<{ application_id: string; score: number; explanation: string; reasons: string[]; gaps: string[] }>
+    | undefined;
+  const searchChips = (nlResult?.chips ?? keywordSearch?.chips ?? []) as Array<{
+    id: string;
+    label: string;
+    category: "skill" | "experience" | "location" | "education" | "status" | "readiness" | "other";
+  }>;
+  const hitById = useMemo(() => new Map((searchHits ?? []).map((hit) => [String(hit.application_id), hit])), [searchHits]);
+
   const filteredApplications = useMemo(() => {
     let filtered = applicants ?? [];
 
     if (statusFilter !== "all") {
       filtered = filtered.filter((application) => application.status === statusFilter);
     }
-
     if (readinessFilter !== "all") {
-      const threshold = Number(readinessFilter);
-      filtered = filtered.filter((application) => (application.readiness ?? 0) >= threshold);
+      filtered = filtered.filter((application) => (application.readiness ?? 0) >= Number(readinessFilter));
+    }
+    if (experienceFilter !== "all") {
+      filtered = filtered.filter((application) => (application.years_experience ?? 0) >= Number(experienceFilter));
     }
 
-    if (nlpFilters.length > 0) {
-      filtered = filtered.filter((application) =>
-        nlpFilters.every((filter) => {
-          const lowerLabel = filter.label.toLowerCase();
-          const haystack = `${application.applicant_name ?? ""} ${(application.skills ?? []).map((s) => s.name ?? "").join(" ")}`.toLowerCase();
-          return haystack.includes(lowerLabel);
-        })
-      );
+    if (submittedQuery.trim()) {
+      if (!searchHits) return filtered;
+      const byId = new Map(filtered.map((application) => [String(application.id), application]));
+      return searchHits
+        .map((hit) => byId.get(String(hit.application_id)))
+        .filter((application): application is NonNullable<typeof application> => Boolean(application));
     }
 
     return filtered;
-  }, [applicants, statusFilter, readinessFilter, nlpFilters]);
+  }, [applicants, experienceFilter, readinessFilter, searchHits, statusFilter, submittedQuery]);
 
-  const sortedApplications = useMemo(() => [...filteredApplications].sort((a, b) => new Date(b.applied_at).getTime() - new Date(a.applied_at).getTime()), [filteredApplications]);
+  const sortedApplications = useMemo(
+    () => (submittedQuery.trim() ? filteredApplications : [...filteredApplications].sort((a, b) => new Date(b.applied_at).getTime() - new Date(a.applied_at).getTime())),
+    [filteredApplications, submittedQuery],
+  );
 
   const shortlistedCount = useMemo(() => (applicants ?? []).filter((a) => a.status === "sorted").length, [applicants]);
 
-  const handleNLPSearch = useCallback((query: string, filters: any[]) => {
-    setIsSearching(true);
-    setNlpFilters(filters);
-    setTimeout(() => setIsSearching(false), 300);
-  }, []);
-
-  const handleClearNLPSearch = useCallback(() => {
-    setNlpFilters([]);
-    setIsSearching(false);
+  const handleClearSearch = useCallback(() => {
+    setSearchQuery("");
+    setSubmittedQuery("");
+    setNlResult(null);
   }, []);
 
   const handleBulkAction = useCallback(
@@ -163,7 +230,7 @@ export function ApplicationsManagementPage() {
     [selectedApplications, editBulkStatus]
   );
 
-  const handleApplicationStatus = async (action: string, applicationId: number) => {
+  const handleApplicationStatus = async (action: string, applicationId: string | number) => {
     try {
       await editBulkStatus({ applicationIds: [applicationId], new_status: action }).unwrap();
     } catch (error) {
@@ -205,7 +272,9 @@ export function ApplicationsManagementPage() {
   };
 
   const jobTitle = currentJobPosting?.job_title?.name ?? currentJobPosting?.title;
-  const candidateYears = yearsOfExperience(selectedApplication?.user?.experiences);
+  const selectedListRow = (applicants ?? []).find((application) => String(application.id) === String(selectedApplicationId));
+  const candidateYears = yearsOfExperience(selectedApplication?.user?.experiences) ?? selectedListRow?.years_experience ?? null;
+  const selectedHit = selectedApplicationId != null ? hitById.get(String(selectedApplicationId)) : undefined;
 
   return (
     <div className="min-h-screen">
@@ -263,7 +332,16 @@ export function ApplicationsManagementPage() {
 
         {/* Filter bar */}
         <div className="flex flex-col gap-4">
-          <CandidateNLPSearch onSearch={handleNLPSearch} onClear={handleClearNLPSearch} isLoading={isSearching} className="rounded-[28px] bg-white/4" placeholder="Search applicants..." />
+          <CandidateNLPSearch
+            query={searchQuery}
+            onQueryChange={setSearchQuery}
+            onSubmit={handleSearchSubmit}
+            onClear={handleClearSearch}
+            chips={searchChips}
+            isLoading={isNlLoading || Boolean(submittedQuery.trim() && isKeywordLoading)}
+            className="rounded-[28px] bg-white/4"
+            placeholder="Search applicants..."
+          />
 
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex flex-wrap items-center gap-3">
@@ -281,10 +359,18 @@ export function ApplicationsManagementPage() {
                 </SelectContent>
               </Select>
 
-              <button disabled className="flex cursor-not-allowed items-center gap-1.5 rounded-full border border-white/12 pl-5 pr-4 py-3 text-[13px] font-medium text-white/30" title="No experience field on the API yet">
-                Experience
-                <ChevronDown className="w-4 h-4" />
-              </button>
+              <Select value={experienceFilter} onValueChange={setExperienceFilter}>
+                <SelectTrigger className="h-auto w-auto gap-1.5 rounded-full border-white/12 bg-transparent pl-5 pr-4 py-3 text-[13px] font-medium text-white/70">
+                  <SelectValue placeholder="Experience" />
+                </SelectTrigger>
+                <SelectContent className="glass-strong border-glass-border">
+                  <SelectItem value="all">Any experience</SelectItem>
+                  <SelectItem value="1">1+ years</SelectItem>
+                  <SelectItem value="3">3+ years</SelectItem>
+                  <SelectItem value="5">5+ years</SelectItem>
+                  <SelectItem value="8">8+ years</SelectItem>
+                </SelectContent>
+              </Select>
 
               <Select value={readinessFilter} onValueChange={setReadinessFilter}>
                 <SelectTrigger className="h-auto w-auto gap-1.5 rounded-full border-white/12 bg-transparent pl-5 pr-4 py-3 text-[13px] font-medium text-white/70">
@@ -341,10 +427,16 @@ export function ApplicationsManagementPage() {
           <div className="flex w-full lg:w-[380px] shrink-0 flex-col gap-3 rounded-[20px] border border-white/12 bg-white/4 p-4 lg:max-h-[843px] lg:overflow-y-auto">
             <p className="text-sm font-semibold text-white/80">Candidates</p>
 
-            {sortedApplications.length === 0 ? (
+            {isListLoading ? (
+              <div className="flex flex-col gap-2.5" role="status" aria-label="Loading candidates">
+                {Array.from({ length: 6 }, (_, i) => (
+                  <CandidateRowSkeleton key={i} />
+                ))}
+              </div>
+            ) : sortedApplications.length === 0 ? (
               <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-white/12 bg-white/2 p-8 text-center">
                 <Users className="w-10 h-10 text-white/30" />
-                <p className="text-sm text-white/60">No candidates match your filters</p>
+                <p className="text-sm text-white/60">{submittedQuery.trim() ? "No candidates match your search" : "No candidates match your filters"}</p>
               </div>
             ) : (
               <div className="flex flex-col gap-2.5 rounded-2xl border border-white/12 bg-white/2 p-2">
@@ -382,8 +474,16 @@ export function ApplicationsManagementPage() {
                             </span>
                           )}
                         </div>
-                        {application.skills?.length > 0 && <p className="truncate text-[13px] text-white/60">{application.skills.map((s) => s.name).join(", ")}</p>}
-                        <p className="text-xs text-white/35">Applied {appliedAgo(application.applied_at)}</p>
+                        {application.headline ? (
+                          <p className="truncate text-[13px] text-white/60">{application.headline}</p>
+                        ) : application.skills?.length > 0 ? (
+                          <p className="truncate text-[13px] text-white/60">{application.skills.map((s) => s.name).join(", ")}</p>
+                        ) : null}
+                        <p className="text-xs text-white/35">
+                          Applied {appliedAgo(application.applied_at)}
+                          {application.years_experience != null ? ` · ${application.years_experience} yrs` : ""}
+                          {application.location ? ` · ${application.location}` : ""}
+                        </p>
                         <div>
                           <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${meta.className}`}>{meta.label}</span>
                         </div>
@@ -422,10 +522,7 @@ export function ApplicationsManagementPage() {
                 <p className="text-sm text-white/50">Something went wrong. Please try again.</p>
               </div>
             ) : !selectedApplication || isDetailLoading ? (
-              <div className="flex flex-col items-center justify-center gap-3 py-24 text-center">
-                <div className="h-10 w-10 animate-spin rounded-full border-2 border-white/20 border-t-neon-cyan" />
-                <p className="text-sm text-white/50">Loading applicant details…</p>
-              </div>
+              <ApplicantDetailSkeleton />
             ) : (
               <>
                 {/* Profile top */}
@@ -449,6 +546,13 @@ export function ApplicationsManagementPage() {
                     <ArrowRight className="w-3 h-3" />
                   </button>
                 </div>
+
+                {selectedHit?.explanation ? (
+                  <div className="rounded-xl border border-neon-cyan/25 bg-neon-cyan/5 p-4">
+                    <p className="text-[13px] font-semibold text-white/80">Why this match</p>
+                    <p className="mt-2 whitespace-pre-line text-[13px] leading-relaxed text-white/65">{selectedHit.explanation}</p>
+                  </div>
+                ) : null}
 
                 {/* Summary */}
                 {selectedApplication.user?.professional_summary && (

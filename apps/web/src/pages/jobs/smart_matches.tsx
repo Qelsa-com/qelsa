@@ -1,7 +1,13 @@
 import { City } from "@/types/city";
-import { JobCard, JobsBrowseHeader, matchScore, SearchFilters } from "@/components/job/jobBrowseShared";
-import { useOpenQelsaMatch } from "@/features/job/useOpenQelsaMatch";
+import { JobCard, JobsBrowseHeader, matchScore, SearchFilters, toDiscoverArgs } from "@/components/job/jobBrowseShared";
+import { SmartMatchesSkeleton } from "@/components/job/jobSkeletons";
+import { useGetCertificationsQuery } from "@/features/api/certificationsApi";
+import { useGetEducationsQuery } from "@/features/api/educationsApi";
+import { useGetExperiencesQuery } from "@/features/api/experiencesApi";
 import { useLazyGetDiscoverJobsQuery } from "@/features/api/jobsApi";
+import { useGetUserSkillsQuery } from "@/features/api/userSkillsApi";
+import { useAuth } from "@/contexts/AuthContext";
+import { profileCompletion } from "@/components/profile/profileFormat";
 import { Job } from "@/types/job";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -35,13 +41,13 @@ function postedTime(job: Job): number {
 function applyExploreTab(jobs: Job[], tab: ExploreTab): Job[] {
   switch (tab) {
     case "moving_fast":
-      return [...jobs].sort((a, b) => (a.applications?.length ?? 0) - (b.applications?.length ?? 0));
+      return [...jobs].sort((a, b) => (a.application_count ?? a.applications?.length ?? 0) - (b.application_count ?? b.applications?.length ?? 0));
     case "just_posted":
       return [...jobs].sort((a, b) => postedTime(b) - postedTime(a));
     case "easy_apply":
-      return jobs.filter((j) => j.isQuickApplyAvailable || j.resource === "qelsa");
+      return jobs.filter((j) => j.isQuickApplyAvailable || !j.application_url);
     case "apps_lt_10":
-      return jobs.filter((j) => (j.applications?.length ?? 0) < 10);
+      return jobs.filter((j) => (j.application_count ?? j.applications?.length ?? 0) < 10);
     case "following":
       // No "followed companies" signal on discover jobs yet — show all for now.
       return jobs;
@@ -56,6 +62,7 @@ function applyExploreTab(jobs: Job[], tab: ExploreTab): Job[] {
 
 const SmartMatches = () => {
   const router = useRouter();
+  const { user, isAuthenticated } = useAuth();
 
   const [jobs, setJobs] = useState<Job[]>([]);
   const [query, setQuery] = useState("");
@@ -69,13 +76,18 @@ const SmartMatches = () => {
     departments: [],
     workplace_types: [],
     sort_by: "relevance",
+    date_posted: "",
   });
 
   const [triggerGetJobs, { isLoading }] = useLazyGetDiscoverJobsQuery();
+  const { data: experiences } = useGetExperiencesQuery(undefined, { skip: !isAuthenticated });
+  const { data: educations } = useGetEducationsQuery(undefined, { skip: !isAuthenticated });
+  const { data: certifications } = useGetCertificationsQuery(undefined, { skip: !isAuthenticated });
+  const { data: skills } = useGetUserSkillsQuery(undefined, { skip: !isAuthenticated });
 
   const runSearch = async (nextFilters: SearchFilters, nextQuery: string) => {
     try {
-      const result = await triggerGetJobs({ ...nextFilters, search: nextQuery }, false).unwrap();
+      const result = await triggerGetJobs(toDiscoverArgs(nextFilters, nextQuery), false).unwrap();
       setJobs((result as Job[]) ?? []);
     } catch {
       setJobs([]);
@@ -109,8 +121,15 @@ const SmartMatches = () => {
 
   const exploreJobs = useMemo(() => applyExploreTab(explore, exploreTab), [explore, exploreTab]);
 
+  const completionPercent = profileCompletion(user, {
+    experiences: experiences?.length ?? 0,
+    educations: educations?.length ?? 0,
+    certifications: certifications?.length ?? 0,
+    skills: skills?.length ?? 0,
+  });
+  const extraRoles = almost.length > 0 ? almost.length : jobs.filter((job) => matchScore(job) == null).length;
+
   const openJob = (id: string | number) => router.push(`/jobs/${id}`);
-  const { open: openMatch, pendingId } = useOpenQelsaMatch();
   const missingTiers = ready.length === 0 && almost.length === 0;
 
   return (
@@ -125,26 +144,26 @@ const SmartMatches = () => {
           onApplyFilters={applyFilters}
           cityFilter={cityFilter}
           setCityFilter={setCityFilter}
-          profileBanner={{ text: "Completing your profile could unlock more strongly-matched roles", percent: 70 }}
+          profileBanner={{ percent: completionPercent, extraRoles }}
         />
 
         {/* ---------------------------- Job sections --------------------------- */}
         <div className="mt-6 flex flex-col gap-12 pb-16 sm:mt-12 sm:gap-16 sm:pb-24">
           {isLoading ? (
-            <p className="text-[13px] text-white/45 sm:text-sm">Loading matches...</p>
+            <SmartMatchesSkeleton />
           ) : jobs.length === 0 ? (
             <p className="text-[13px] text-white/45 sm:text-sm">No matches found. Try adjusting your search or filters.</p>
           ) : (
             <>
               {ready.length > 0 && (
-                <MatchSection dotColor="#00d4ff" title="Ready Now" subtitle="These roles match your experience. It's go time for these roles.">
-                  <JobGrid jobs={ready} onOpen={openJob} onMatch={openMatch} pendingId={pendingId} />
+                <MatchSection dotColor="#10b981" title="Ready Now" subtitle="These roles match your experience. It's go time for these roles.">
+                  <JobGrid jobs={ready} onOpen={openJob} />
                 </MatchSection>
               )}
 
               {almost.length > 0 && (
-                <MatchSection dotColor="#f59e0b" title="Almost There" subtitle="Close to 80% match — stand out! Fill gaps to boost these roles.">
-                  <JobGrid jobs={almost} onOpen={openJob} onMatch={openMatch} pendingId={pendingId} />
+                <MatchSection dotColor="#f59e0b" title="Almost There" subtitle="Close to 80% match - stand out! Fill gaps to boost these roles.">
+                  <JobGrid jobs={almost} onOpen={openJob} />
                 </MatchSection>
               )}
 
@@ -176,7 +195,7 @@ const SmartMatches = () => {
                   </div>
 
                   {exploreJobs.length > 0 ? (
-                    <JobGrid jobs={exploreJobs} onOpen={openJob} onMatch={openMatch} pendingId={pendingId} />
+                    <JobGrid jobs={exploreJobs} onOpen={openJob} />
                   ) : (
                     <p className="text-[13px] text-white/45 sm:text-sm">No roles in this view right now.</p>
                   )}
@@ -207,27 +226,11 @@ function MatchSection({ dotColor, title, subtitle, children }: { dotColor: strin
   );
 }
 
-function JobGrid({
-  jobs,
-  onOpen,
-  onMatch,
-  pendingId,
-}: {
-  jobs: Job[];
-  onOpen: (id: string | number) => void;
-  onMatch: (id: string | number) => void;
-  pendingId: string | null;
-}) {
+function JobGrid({ jobs, onOpen }: { jobs: Job[]; onOpen: (id: string | number) => void }) {
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
       {jobs.map((job) => (
-        <JobCard
-          key={job.id}
-          job={job}
-          onClick={() => onOpen(job.id)}
-          onMatch={() => onMatch(job.id)}
-          matching={pendingId === String(job.id)}
-        />
+        <JobCard key={job.id} job={job} onClick={() => onOpen(job.id)} />
       ))}
     </div>
   );

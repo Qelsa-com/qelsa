@@ -48,6 +48,11 @@ export type Job = {
   requiredSkills?: string[];
   preferredSkills?: string[];
   aiSummary?: string | null;
+  ai_summary?: {
+    role_overview: string;
+    key_requirements: string[];
+    why_this_role: string;
+  } | null;
   skillsGap?: string[];
 
   createdAt?: Date;
@@ -63,6 +68,9 @@ export type Job = {
   // Seeker-side match data (optional-auth; null when logged out)
   competency?: Competency | null;
 
-  /** Distinct signed-in users who have opened this posting. Detail view only. */
+  /** Distinct signed-in users who have opened this posting. */
   view_count?: number;
+  /** Denormalized applicant count; prefer this over hydrating `applications`. */
+  application_count?: number;
+  has_applied?: boolean;
 };

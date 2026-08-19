@@ -21,12 +21,6 @@ const workplaceType = v.union(
   v.literal("remote"),
 );
 
-const demoTable = v.union(
-  v.literal("on-site"),
-  v.literal("hybrid"),
-  v.literal("remote"),
-);
-
 const applicationStatus = v.union(
   v.literal("applied"),
   v.literal("viewed"),
@@ -43,14 +37,15 @@ const skillType = v.union(
   v.literal("nice_to_have"),
 );
 
+const titledItem = v.object({ title: v.string() });
+
+const impactMetricItem = v.object({
+  impact_type: v.string(),
+  impact_value: v.string(),
+  description: v.optional(v.string()),
+});
+
 export default defineSchema({
-  demos: defineTable({
-    name: v.string(),
-    description: v.optional(v.string()),
-    image: v.optional(v.string()),
-    image_storage_id: v.optional(v.id("_storage")),
-    url: v.string(),
-  }),
   users: defineTable({
     authId: v.string(),
     name: v.optional(v.string()),
@@ -61,7 +56,7 @@ export default defineSchema({
     city_id: v.optional(v.id("cities")),
     phone: v.optional(v.string()),
     profile_image: v.optional(v.string()),
-    profile_image_storage_id: v.optional(v.id("_storage")),
+    profile_image_storage_id: v.optional(v.string()),
     about: v.optional(v.string()),
     headline: v.optional(v.string()),
     nationality: v.optional(v.string()),
@@ -88,6 +83,19 @@ export default defineSchema({
     profile_view_analytics: v.optional(v.boolean()),
     role: v.union(v.literal("user"), v.literal("admin")),
     account_type: v.optional(v.union(v.literal("seeker"), v.literal("recruiter"))),
+    job_seeking_status: v.optional(
+      v.union(v.literal("actively_hunting"), v.literal("exploring"), v.literal("building_skills")),
+    ),
+    hiring_role: v.optional(
+      v.union(
+        v.literal("founder_cxo"),
+        v.literal("hr_ta"),
+        v.literal("hiring_manager"),
+        v.literal("recruitment_agency"),
+      ),
+    ),
+    active_page_id: v.optional(v.id("pages")),
+    onboarding_completed: v.optional(v.boolean()),
     isActive: v.boolean(),
     profile_type: v.optional(
       v.union(v.literal("student"), v.literal("professional"), v.literal("career-switcher")),
@@ -171,6 +179,15 @@ export default defineSchema({
     job_title_id: v.optional(v.id("job_titles")),
     page_id: v.optional(v.id("pages")),
     owner_id: v.optional(v.id("users")),
+    view_count: v.optional(v.number()),
+    application_count: v.optional(v.number()),
+    ai_summary: v.optional(
+      v.object({
+        role_overview: v.string(),
+        key_requirements: v.array(v.string()),
+        why_this_role: v.string(),
+      }),
+    ),
   })
     .index("by_status", ["status"])
     .index("by_owner", ["owner_id"])
@@ -229,6 +246,7 @@ export default defineSchema({
     viewed_at: v.number(),
   })
     .index("by_job", ["job_id"])
+    .index("by_user", ["user_id"])
     .index("by_job_and_user", ["job_id", "user_id"]),
 
   saved_jobs: defineTable({
@@ -236,6 +254,7 @@ export default defineSchema({
     user_id: v.id("users"),
   })
     .index("by_user", ["user_id"])
+    .index("by_job", ["job_id"])
     .index("by_job_and_user", ["job_id", "user_id"]),
 
   question_sets: defineTable({
@@ -272,8 +291,9 @@ export default defineSchema({
   resumes: defineTable({
     user_id: v.id("users"),
     file_url: v.optional(v.string()),
-    storage_id: v.optional(v.id("_storage")),
+    storage_id: v.optional(v.string()),
     title: v.string(),
+    extracted_text: v.optional(v.string()),
   }).index("by_user", ["user_id"]),
 
   educations: defineTable({
@@ -287,19 +307,9 @@ export default defineSchema({
     end_year: v.optional(v.number()),
     grade: v.optional(v.string()),
     description: v.optional(v.string()),
+    projects: v.optional(v.array(titledItem)),
+    achievements: v.optional(v.array(titledItem)),
   }).index("by_user", ["user_id"]),
-
-  projects: defineTable({
-    user_id: v.id("users"),
-    education_id: v.id("educations"),
-    title: v.string(),
-  }).index("by_education", ["education_id"]),
-
-  achievements: defineTable({
-    user_id: v.id("users"),
-    education_id: v.id("educations"),
-    title: v.string(),
-  }).index("by_education", ["education_id"]),
 
   experiences: defineTable({
     user_id: v.id("users"),
@@ -312,6 +322,8 @@ export default defineSchema({
     is_current: v.optional(v.boolean()),
     description: v.optional(v.string()),
     team_size: v.optional(v.number()),
+    responsibilities: v.optional(v.array(titledItem)),
+    impact_metrics: v.optional(v.array(impactMetricItem)),
   }).index("by_user", ["user_id"]),
 
   experience_skills: defineTable({
@@ -320,20 +332,6 @@ export default defineSchema({
   })
     .index("by_experience", ["experience_id"])
     .index("by_experience_and_skill", ["experience_id", "skill_id"]),
-
-  responsibilities: defineTable({
-    user_id: v.id("users"),
-    experience_id: v.id("experiences"),
-    title: v.string(),
-  }).index("by_experience", ["experience_id"]),
-
-  impact_metrics: defineTable({
-    user_id: v.id("users"),
-    experience_id: v.id("experiences"),
-    impact_type: v.string(),
-    impact_value: v.string(),
-    description: v.optional(v.string()),
-  }).index("by_experience", ["experience_id"]),
 
   user_skills: defineTable({
     user_id: v.id("users"),
@@ -385,26 +383,6 @@ export default defineSchema({
     .index("by_category", ["category"])
     .searchIndex("search_name", { searchField: "name" }),
 
-  industry_sectors: defineTable({
-    name: v.string(),
-    sort_order: v.number(),
-  }).index("by_name", ["name"]),
-
-  industries: defineTable({
-    name: v.string(),
-    sector_id: v.optional(v.id("industry_sectors")),
-    description: v.optional(v.string()),
-    is_popular: v.optional(v.boolean()),
-    sort_order: v.optional(v.number()),
-  })
-    .index("by_sector", ["sector_id"])
-    .searchIndex("search_name", { searchField: "name" }),
-
-  company_types: defineTable({
-    name: v.string(),
-    sort_order: v.number(),
-  }).index("by_name", ["name"]),
-
   company_sizes: defineTable({
     label: v.string(),
     min_employees: v.optional(v.number()),
@@ -414,8 +392,6 @@ export default defineSchema({
 
   companies: defineTable({
     name: v.string(),
-    industry_id: v.optional(v.id("industries")),
-    type_id: v.optional(v.id("company_types")),
     size_id: v.optional(v.id("company_sizes")),
     hq_city: v.optional(v.string()),
     hq_country: v.optional(v.string()),
@@ -441,27 +417,18 @@ export default defineSchema({
       v.literal("rejected"),
       v.literal("duplicate"),
     ),
-  }).index("by_name", ["name"]),
+  })
+    .index("by_name", ["name"])
+    .index("by_submitted_by", ["submitted_by"]),
 
   skill_categories: defineTable({
     name: v.string(),
     sort_order: v.number(),
   }).index("by_name", ["name"]),
 
-  skill_domains: defineTable({
-    name: v.string(),
-  }).index("by_name", ["name"]),
-
-  proficiency_levels: defineTable({
-    name: v.string(),
-    description: v.optional(v.string()),
-    sort_order: v.number(),
-  }).index("by_name", ["name"]),
-
   skills: defineTable({
     name: v.string(),
     category_id: v.optional(v.id("skill_categories")),
-    domain_id: v.optional(v.id("skill_domains")),
     is_quick_add: v.optional(v.boolean()),
     sort_order: v.optional(v.number()),
   })
@@ -469,30 +436,13 @@ export default defineSchema({
     .index("by_category", ["category_id"])
     .searchIndex("search_name", { searchField: "name" }),
 
-  job_functions: defineTable({
-    name: v.string(),
-    sort_order: v.number(),
-  }).index("by_name", ["name"]),
-
-  seniority_levels: defineTable({
-    name: v.string(),
-    sort_order: v.number(),
-  }).index("by_name", ["name"]),
-
   job_titles: defineTable({
     name: v.string(),
-    function_id: v.optional(v.id("job_functions")),
-    seniority_id: v.optional(v.id("seniority_levels")),
     is_popular: v.optional(v.boolean()),
     sort_order: v.optional(v.number()),
   })
     .index("by_name", ["name"])
     .searchIndex("search_name", { searchField: "name" }),
-
-  certification_types: defineTable({
-    name: v.string(),
-    sort_order: v.number(),
-  }).index("by_name", ["name"]),
 
   issuing_bodies: defineTable({
     name: v.string(),
@@ -505,9 +455,7 @@ export default defineSchema({
   certifications: defineTable({
     name: v.string(),
     abbreviation: v.optional(v.string()),
-    type_id: v.optional(v.id("certification_types")),
     issuing_body_id: v.optional(v.id("issuing_bodies")),
-    domain_id: v.optional(v.id("skill_domains")),
     is_popular: v.optional(v.boolean()),
     is_globally_recognized: v.optional(v.boolean()),
     description: v.optional(v.string()),
@@ -562,6 +510,7 @@ export default defineSchema({
     ),
     responsibilities: v.array(v.string()),
     requirements: v.array(v.string()),
+    context_fingerprint: v.optional(v.string()),
     analysis: v.object({
       overall: v.number(),
       headline: v.string(),

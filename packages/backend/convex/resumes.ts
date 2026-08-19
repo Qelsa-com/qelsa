@@ -1,6 +1,13 @@
+import { R2 } from "@convex-dev/r2";
 import { v } from "convex/values";
+import { components } from "./_generated/api";
+import { internalMutation } from "./_generated/server";
 import { authedMutation, authedQuery } from "./lib/customFunctions";
 import { iso, withId } from "./lib/helpers";
+import { clipPlainText } from "./lib/skillMatch";
+import { deleteR2Keys, signedFileUrl } from "./lib/r2";
+
+const r2 = new R2(components.r2);
 
 export const listMine = authedQuery({
   args: {},
@@ -11,27 +18,30 @@ export const listMine = authedQuery({
       .withIndex("by_user", (q) => q.eq("user_id", ctx.user._id))
       .order("desc")
       .collect();
-    return resumes.map((r) => ({
-      ...withId(r),
-      createdAt: iso(r._creationTime),
-      updatedAt: iso(r._creationTime),
-    }));
+    return await Promise.all(
+      resumes.map(async (r) => ({
+        ...withId(r),
+        file_url: (await signedFileUrl(r2, r.storage_id)) ?? r.file_url,
+        createdAt: iso(r._creationTime),
+        updatedAt: iso(r._creationTime),
+      })),
+    );
   },
 });
 
 export const create = authedMutation({
   args: {
     title: v.string(),
-    storageId: v.id("_storage"),
+    storageId: v.string(),
   },
   returns: v.any(),
   handler: async (ctx, args) => {
-    const file_url = await ctx.storage.getUrl(args.storageId);
+    const file_url = await signedFileUrl(r2, args.storageId);
     const id = await ctx.db.insert("resumes", {
       user_id: ctx.user._id,
       title: args.title,
       storage_id: args.storageId,
-      file_url: file_url ?? undefined,
+      file_url,
     });
     const resume = await ctx.db.get(id);
     return { resume: withId(resume!) };
@@ -44,8 +54,22 @@ export const remove = authedMutation({
   handler: async (ctx, args) => {
     const resume = await ctx.db.get(args.id);
     if (!resume || resume.user_id !== ctx.user._id) throw new Error("Resume not found");
-    if (resume.storage_id) await ctx.storage.delete(resume.storage_id);
+    await deleteR2Keys(r2, ctx, [resume.storage_id]);
     await ctx.db.delete(args.id);
+    return null;
+  },
+});
+
+export const setExtractedText = internalMutation({
+  args: {
+    resumeId: v.id("resumes"),
+    text: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const resume = await ctx.db.get(args.resumeId);
+    if (!resume) return null;
+    await ctx.db.patch(args.resumeId, { extracted_text: clipPlainText(args.text, 14000) });
     return null;
   },
 });

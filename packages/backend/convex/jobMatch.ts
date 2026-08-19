@@ -5,7 +5,7 @@ import { components } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { internalMutation, internalQuery } from "./_generated/server";
 import { authedQuery } from "./lib/customFunctions";
-import { clipPlainText, buildCompetencyFramework } from "./lib/skillMatch";
+import { clipPlainText, buildCompetencyFramework, extractJdListItems } from "./lib/skillMatch";
 
 export const skillRefValidator = v.object({
   name: v.string(),
@@ -141,10 +141,9 @@ export const loadUserContext = internalQuery({
 
     const experiences = [];
     for (const row of experienceRows) {
-      const [company, jobTitle, respRows, skillLinks] = await Promise.all([
+      const [company, jobTitle, skillLinks] = await Promise.all([
         row.company_id ? ctx.db.get(row.company_id) : null,
         row.job_title_id ? ctx.db.get(row.job_title_id) : null,
-        ctx.db.query("responsibilities").withIndex("by_experience", (q) => q.eq("experience_id", row._id)).take(8),
         ctx.db.query("experience_skills").withIndex("by_experience", (q) => q.eq("experience_id", row._id)).take(12),
       ]);
       const expSkills = [];
@@ -157,31 +156,48 @@ export const loadUserContext = internalQuery({
         company: company?.name ?? "Company",
         is_current: row.is_current ?? false,
         description: clipPlainText(row.description, 400),
-        responsibilities: respRows.map((r) => r.title),
+        responsibilities: (row.responsibilities ?? []).slice(0, 8).map((item) => item.title),
         skills: expSkills,
       });
     }
 
     const educations = [];
+    const projects: string[] = [];
     for (const row of educationRows) {
-      const [degree, college, field, projectRows] = await Promise.all([
+      const [degree, college, field] = await Promise.all([
         row.degree_id ? ctx.db.get(row.degree_id) : null,
         row.college_id ? ctx.db.get(row.college_id) : null,
         row.field_of_study_id ? ctx.db.get(row.field_of_study_id) : null,
-        ctx.db.query("projects").withIndex("by_education", (q) => q.eq("education_id", row._id)).take(6),
       ]);
+      const educationProjects = (row.projects ?? []).slice(0, 6).map((item) => item.title).filter(Boolean);
+      projects.push(...educationProjects);
       educations.push({
         degree: degree?.name,
         college: college?.name,
         field: field?.name,
-        projects: projectRows.map((p) => p.title),
+        projects: educationProjects,
       });
     }
 
     const certifications = certRows.map((c) => c.name ?? c.issuingOrganization ?? "Certification");
+    const resumes = resumeRows.map((r) => ({
+      id: r._id,
+      title: r.title,
+      storage_id: r.storage_id,
+      text: r.extracted_text ? clipPlainText(r.extracted_text, 4000) : "",
+    }));
+
+    const fingerprint = [
+      skills.map((s) => `${s.skill_id}:${s.proficiency ?? ""}`).sort().join(","),
+      experiences.map((e) => `${e.title}:${e.company}`).join(","),
+      educations.map((e) => `${e.degree ?? ""}:${e.college ?? ""}`).join(","),
+      resumes.map((r) => r.storage_id ?? r.title).join(","),
+      String((user.professional_summary ?? user.about ?? "").length),
+    ].join("|");
 
     return {
       userId: user._id,
+      fingerprint,
       profile: {
         name: user.name,
         headline: user.headline,
@@ -193,8 +209,9 @@ export const loadUserContext = internalQuery({
       skills,
       experiences,
       educations,
+      projects: projects.slice(0, 12),
       certifications,
-      resumes: resumeRows.map((r) => r.title),
+      resumes,
     };
   },
 });
@@ -248,6 +265,8 @@ export const loadJobSnapshot = internalQuery({
       workplace_type: job.workplace_type,
       experience: job.experience,
       skills: skills.map((s) => ({ name: s.name, skill_id: s.skill_id, type: s.type })),
+      requirements: skills.map((s) => `${s.name}${s.type ? ` (${s.type})` : ""}`),
+      responsibilities: extractJdListItems(job.description, 10),
       competency,
     };
   },
@@ -264,14 +283,28 @@ export const loadSkillCatalog = internalQuery({
 
 export const findExistingForJob = internalQuery({
   args: { userId: v.id("users"), jobId: v.id("jobs") },
-  returns: v.union(v.id("job_match_sessions"), v.null()),
+  returns: v.union(
+    v.object({
+      id: v.id("job_match_sessions"),
+      thread_id: v.string(),
+      context_fingerprint: v.optional(v.string()),
+      overall: v.optional(v.number()),
+    }),
+    v.null(),
+  ),
   handler: async (ctx, args) => {
     const row = await ctx.db
       .query("job_match_sessions")
       .withIndex("by_user_and_job", (q) => q.eq("user_id", args.userId).eq("job_id", args.jobId))
       .order("desc")
       .first();
-    return row?._id ?? null;
+    if (!row) return null;
+    return {
+      id: row._id,
+      thread_id: row.thread_id,
+      context_fingerprint: row.context_fingerprint,
+      overall: row.analysis?.overall,
+    };
   },
 });
 
@@ -308,6 +341,7 @@ export const insertSession = internalMutation({
     responsibilities: v.array(v.string()),
     requirements: v.array(v.string()),
     analysis: analysisValidator,
+    context_fingerprint: v.optional(v.string()),
   },
   returns: v.id("job_match_sessions"),
   handler: async (ctx, args) => {
@@ -328,6 +362,48 @@ export const insertSession = internalMutation({
       ...(args.workplace_type !== undefined ? { workplace_type: args.workplace_type } : {}),
       ...(args.experience !== undefined ? { experience: args.experience } : {}),
       ...(args.source_url !== undefined ? { source_url: args.source_url } : {}),
+      ...(args.context_fingerprint !== undefined ? { context_fingerprint: args.context_fingerprint } : {}),
     });
+  },
+});
+
+export const replaceSession = internalMutation({
+  args: {
+    sessionId: v.id("job_match_sessions"),
+    thread_id: v.optional(v.string()),
+    title: v.string(),
+    company: v.optional(v.string()),
+    location: v.optional(v.string()),
+    description: v.string(),
+    work_type: v.optional(v.string()),
+    workplace_type: v.optional(v.union(v.literal("on-site"), v.literal("hybrid"), v.literal("remote"))),
+    experience: v.optional(v.number()),
+    source_url: v.optional(v.string()),
+    skills: v.array(skillRefValidator),
+    responsibilities: v.array(v.string()),
+    requirements: v.array(v.string()),
+    analysis: analysisValidator,
+    context_fingerprint: v.optional(v.string()),
+  },
+  returns: v.id("job_match_sessions"),
+  handler: async (ctx, args) => {
+    const { sessionId, ...rest } = args;
+    await ctx.db.patch(sessionId, {
+      title: rest.title,
+      description: rest.description,
+      skills: rest.skills,
+      responsibilities: rest.responsibilities,
+      requirements: rest.requirements,
+      analysis: rest.analysis,
+      ...(rest.thread_id !== undefined ? { thread_id: rest.thread_id } : {}),
+      ...(rest.company !== undefined ? { company: rest.company } : {}),
+      ...(rest.location !== undefined ? { location: rest.location } : {}),
+      ...(rest.work_type !== undefined ? { work_type: rest.work_type } : {}),
+      ...(rest.workplace_type !== undefined ? { workplace_type: rest.workplace_type } : {}),
+      ...(rest.experience !== undefined ? { experience: rest.experience } : {}),
+      ...(rest.source_url !== undefined ? { source_url: rest.source_url } : {}),
+      ...(rest.context_fingerprint !== undefined ? { context_fingerprint: rest.context_fingerprint } : {}),
+    });
+    return sessionId;
   },
 });
