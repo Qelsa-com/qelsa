@@ -351,11 +351,11 @@ export function SkillsEditorPage() {
                 {/* Skill search */}
                 <div>
                   <Label className="text-white mb-2 block">Skill Name</Label>
-                  <Autocomplete
+                  <Autocomplete<Skill>
                     value={newSkill}
                     onChange={setNewSkill}
                     onSearch={triggerSearchSkills}
-                    options={skillSearchResults}
+                    options={skillSearchResults as Skill[]}
                     placeholder="Search for a skill..."
                     icon={<Search className="h-4 w-4" />}
                     minChars={1}
@@ -366,7 +366,7 @@ export function SkillsEditorPage() {
                 {/* Category search */}
                 <div>
                   <Label className="text-white mb-2 block">Category</Label>
-                  <Autocomplete
+                  <Autocomplete<SkillCategory>
                     value={newCategory}
                     onChange={setNewCategory}
                     onSearch={setCategorySearch}

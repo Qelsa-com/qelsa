@@ -88,6 +88,19 @@ export default defineSchema({
     profile_view_analytics: v.optional(v.boolean()),
     role: v.union(v.literal("user"), v.literal("admin")),
     account_type: v.optional(v.union(v.literal("seeker"), v.literal("recruiter"))),
+    job_seeking_status: v.optional(
+      v.union(v.literal("actively_hunting"), v.literal("exploring"), v.literal("building_skills")),
+    ),
+    hiring_role: v.optional(
+      v.union(
+        v.literal("founder_cxo"),
+        v.literal("hr_ta"),
+        v.literal("hiring_manager"),
+        v.literal("recruitment_agency"),
+      ),
+    ),
+    active_page_id: v.optional(v.id("pages")),
+    onboarding_completed: v.optional(v.boolean()),
     isActive: v.boolean(),
     profile_type: v.optional(
       v.union(v.literal("student"), v.literal("professional"), v.literal("career-switcher")),

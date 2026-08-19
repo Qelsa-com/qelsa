@@ -1,7 +1,9 @@
 "use client";
 
 import { api } from "@/lib/convexApi";
-import { useConvexMutationHook, useConvexQueryHook } from "@/lib/convexHooks";
+import { useConvexMutationHook, useConvexQueryHook, withUnwrap } from "@/lib/convexHooks";
+import { useAction } from "convex/react";
+import { useState } from "react";
 
 export function useGetJobApplicationsQuery(
   args: { jobId: string; filters?: Record<string, string> } | undefined,
@@ -12,6 +14,42 @@ export function useGetJobApplicationsQuery(
     args ? { jobId: args.jobId, status: args.filters?.status } : undefined,
     { skip: options?.skip || !args?.jobId },
   );
+}
+
+export function useSearchJobApplicantsQuery(
+  args: { jobId: string; query: string; status?: string; min_years?: number; min_readiness?: number } | undefined,
+  options?: { skip?: boolean },
+) {
+  const skip = options?.skip || !args?.jobId || !args.query.trim();
+  return useConvexQueryHook(
+    api.applicantSearch.search,
+    skip
+      ? undefined
+      : {
+          jobId: args!.jobId,
+          query: args!.query,
+          status: args!.status,
+          min_years: args!.min_years,
+          min_readiness: args!.min_readiness,
+        },
+    { skip },
+  );
+}
+
+export function useSearchJobApplicantsNatural() {
+  const searchNatural = useAction(api.applicantSearchGenerate.searchNatural);
+  const [isLoading, setIsLoading] = useState(false);
+  const trigger = (input: { jobId: string; query: string; status?: string; min_years?: number; min_readiness?: number }) => {
+    setIsLoading(true);
+    return withUnwrap(
+      searchNatural(input)
+        .catch((err) => {
+          throw err;
+        })
+        .finally(() => setIsLoading(false)),
+    );
+  };
+  return [trigger, { isLoading }] as const;
 }
 
 export function useGetJobApplicationDetailQuery(

@@ -471,7 +471,11 @@ export const startForExternal = action({
     );
 
     const jobDoc = extracted.object;
-    const skills = await mapSkillsToCatalog(ctx, jobDoc.skills);
+    const catalogSkills = (jobDoc.skills ?? [])
+      .filter((skill): skill is { name: string; type: "core" | "preferred" | "nice_to_have" } =>
+        Boolean(skill?.name && skill?.type),
+      );
+    const skills = await mapSkillsToCatalog(ctx, catalogSkills);
     const competency = skills.some((s) => s.skill_id)
       ? buildCompetencyFramework(
           skills

@@ -78,11 +78,11 @@ export default function AuthPage() {
    *
    * This is the only place credentials get persisted. Doing it earlier would
    * let RouteGuard redirect away from /auth before the role step can render.
-   * New users go to "/" so the existing OnboardingFlow picks them up.
+   * New users go to /onboarding for the role-specific setup.
    */
   const finishAuth = useCallback(
     (isNewUser: boolean) => {
-      router.push(isNewUser ? "/" : returnUrl || "/");
+      router.push(isNewUser ? "/onboarding" : returnUrl || "/");
     },
     [router, returnUrl]
   );
@@ -173,7 +173,7 @@ export default function AuthPage() {
       {step !== "role" && (
         <button
           type="button"
-          onClick={() => router.push("/jobs")}
+          onClick={() => router.push(typeof window !== "undefined" && sessionStorage.getItem("qelsa.resumeDraft") ? "/start" : "/jobs")}
           className={`absolute left-4 top-4 z-10 flex items-center gap-2 sm:left-8 sm:top-8 ${QUIET_LINK}`}
         >
           <ArrowLeft /> Back

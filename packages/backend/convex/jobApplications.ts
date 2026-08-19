@@ -1,8 +1,8 @@
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
+import { loadApplicantSearchDocs } from "./applicantSearch";
 import { authedMutation, authedQuery } from "./lib/customFunctions";
 import { iso, withId } from "./lib/helpers";
-import { buildCompetencyFramework } from "./lib/skillMatch";
 
 export const listForJob = authedQuery({
   args: { jobId: v.id("jobs"), status: v.optional(v.string()) },
@@ -10,27 +10,20 @@ export const listForJob = authedQuery({
   handler: async (ctx, args) => {
     const job = await ctx.db.get(args.jobId);
     if (!job || job.owner_id !== ctx.user._id) throw new Error("Unauthorized");
-    let apps = await ctx.db.query("job_applications").withIndex("by_job", (q) => q.eq("job_id", args.jobId)).collect();
-    if (args.status) apps = apps.filter((a) => a.status === args.status);
-    const jobSkillRows = await ctx.db.query("job_skills").withIndex("by_job", (q) => q.eq("job_id", args.jobId)).collect();
-    const out = [];
-    for (const app of apps) {
-      const user = await ctx.db.get(app.user_id);
-      const userSkills = await ctx.db.query("user_skills").withIndex("by_user", (q) => q.eq("user_id", app.user_id)).collect();
-      const competency = buildCompetencyFramework(
-        jobSkillRows.map((js) => ({ skill_id: js.skill_id, type: js.type, proficiency: js.proficiency, weight: js.weight })),
-        userSkills.map((s) => ({ skill_id: s.skill_id, proficiency: s.proficiency })),
-      );
-      out.push({
-        id: app._id,
-        applicant_name: user?.name ?? user?.email ?? "Unknown",
-        skills: userSkills.map((s) => s.skill_id),
-        readiness: competency.readiness,
-        applied_at: iso(app.applied_at),
-        status: app.status,
-      });
-    }
-    return out;
+    const docs = await loadApplicantSearchDocs(ctx, args.jobId, { includeText: false });
+    return docs
+      .filter((doc) => !args.status || doc.status === args.status)
+      .map((doc) => ({
+        id: doc.application_id,
+        applicant_name: doc.name,
+        headline: doc.headline,
+        location: doc.location,
+        years_experience: doc.years_experience,
+        skills: doc.skills,
+        readiness: doc.readiness,
+        applied_at: iso(doc.applied_at),
+        status: doc.status,
+      }));
   },
 });
 
@@ -54,6 +47,7 @@ export const getDetail = authedQuery({
       user: user ? withId(user) : null,
       resume: resume ? withId(resume) : null,
       answers: answers.map(withId),
+      job_application_answers: answers.map(withId),
     };
   },
 });

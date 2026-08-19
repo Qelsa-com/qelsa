@@ -1,14 +1,13 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { OnboardingFlow } from "../components/OnboardingFlow";
-
+import { GuestResumeLanding } from "@/components/onboarding/GuestResumeLanding";
 import { ProfilePage } from "@/components/profile/ProfilePage";
 import { useAuth } from "@/contexts/AuthContext";
+import { useEffect, useRef } from "react";
 import Layout from "../layout";
 
 export default function App() {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
   const scrollTimer = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
@@ -20,16 +19,8 @@ export default function App() {
     };
   }, []);
 
-  if (!user) return null;
-
-  // const isFirstTimeUser =
-  //   !user.username ||
-  //   user.username.trim() === "" ||
-  //   (!user.find_job && !user.explore_career && !user.upskill_and_learn && !user.prepare_interview);
-
-  // if (isFirstTimeUser) {
-  //   return <OnboardingFlow />;
-  // }
+  if (isLoading) return null;
+  if (!user) return <GuestResumeLanding />;
 
   return (
     <Layout activeSection={"profile"}>

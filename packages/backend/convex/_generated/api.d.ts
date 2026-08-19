@@ -8,6 +8,8 @@
  * @module
  */
 
+import type * as applicantSearch from "../applicantSearch.js";
+import type * as applicantSearchGenerate from "../applicantSearchGenerate.js";
 import type * as auth from "../auth.js";
 import type * as certifications from "../certifications.js";
 import type * as crons from "../crons.js";
@@ -22,11 +24,15 @@ import type * as jobs from "../jobs.js";
 import type * as jobsGenerate from "../jobsGenerate.js";
 import type * as jobsScraper from "../jobsScraper.js";
 import type * as lib_ai from "../lib/ai.js";
+import type * as lib_applicantSearch from "../lib/applicantSearch.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_customFunctions from "../lib/customFunctions.js";
 import type * as lib_helpers from "../lib/helpers.js";
+import type * as lib_parsedProfile from "../lib/parsedProfile.js";
 import type * as lib_skillMatch from "../lib/skillMatch.js";
+import type * as onboarding from "../onboarding.js";
 import type * as pages from "../pages.js";
+import type * as resumeParse from "../resumeParse.js";
 import type * as resumes from "../resumes.js";
 import type * as seed from "../seed.js";
 import type * as seedCatalogData from "../seedCatalogData.js";
@@ -40,6 +46,8 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  applicantSearch: typeof applicantSearch;
+  applicantSearchGenerate: typeof applicantSearchGenerate;
   auth: typeof auth;
   certifications: typeof certifications;
   crons: typeof crons;
@@ -54,11 +62,15 @@ declare const fullApi: ApiFromModules<{
   jobsGenerate: typeof jobsGenerate;
   jobsScraper: typeof jobsScraper;
   "lib/ai": typeof lib_ai;
+  "lib/applicantSearch": typeof lib_applicantSearch;
   "lib/auth": typeof lib_auth;
   "lib/customFunctions": typeof lib_customFunctions;
   "lib/helpers": typeof lib_helpers;
+  "lib/parsedProfile": typeof lib_parsedProfile;
   "lib/skillMatch": typeof lib_skillMatch;
+  onboarding: typeof onboarding;
   pages: typeof pages;
+  resumeParse: typeof resumeParse;
   resumes: typeof resumes;
   seed: typeof seed;
   seedCatalogData: typeof seedCatalogData;
