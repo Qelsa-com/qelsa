@@ -1,6 +1,7 @@
 import { formatCity } from "@/constants/city";
 import { useAuth } from "@/contexts/AuthContext";
 import { Award, Bell, Briefcase, Calendar, Github, Globe, GraduationCap, Linkedin, LogOut, Mail, MapPin, Settings, Shield, Twitter, User, X } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { Button } from "./ui/button";
 import { Separator } from "./ui/separator";
 import { Switch } from "./ui/switch";
@@ -10,11 +11,22 @@ interface ProfileDrawerProps {
   onClose: () => void;
 }
 
+const DRAWER_PATHS: Record<string, string> = {
+  profile: "/profile",
+  jobs: "/jobs/smart_matches",
+  connections: "/network",
+  courses: "/courses",
+  settings: "/settings",
+};
+
 export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
   const { user, isAuthenticated, logout } = useAuth();
+  const router = useRouter();
 
   const handleNavigation = (section: string) => {
     onClose();
+    const path = DRAWER_PATHS[section];
+    if (path) router.push(path);
   };
 
   if (!isOpen) return null;

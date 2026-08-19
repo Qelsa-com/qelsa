@@ -11,6 +11,21 @@ import { parsedProfileSchema, parsedProfileValidator, toParsedProfile } from "./
 import { clipPlainText } from "./lib/skillMatch";
 
 const MAX_BYTES = 10 * 1024 * 1024;
+const MIN_TEXT_CHARS = 40;
+const MAX_DOCX_IMAGES = 8;
+
+const INSTRUCTIONS = `Extract a candidate profile from the resume.
+- Use only information present in the resume. Never invent employers, dates, degrees, or skills.
+- Copy dates as written, including ordinals (e.g. "16th February 2022", "Jan 2022", "Present").
+- responsibilities: short bullet phrases listed for that role.
+- tools: technologies or tools used in that role.
+- Use null or empty arrays when a field is absent.`;
+
+type ResumeKind = "pdf" | "docx" | "image";
+type UserPart =
+  | { type: "text"; text: string }
+  | { type: "file"; data: Uint8Array; mediaType: string; filename: string }
+  | { type: "image"; image: Uint8Array; mediaType: string };
 
 export const parseResume = action({
   args: {
@@ -27,43 +42,161 @@ export const parseResume = action({
     const buffer = new Uint8Array(await blob.arrayBuffer());
     const name = args.filename.toLowerCase();
     const type = (args.contentType || blob.type || "").toLowerCase();
-    const text = await extractResumeText(buffer, name, type);
-    const source = clipPlainText(text, 14000);
-    if (source.length < 40) {
-      throw new Error("We couldn't read enough text from that file. Try a text-based PDF or DOCX.");
-    }
+    const kind = classifyResume(name, type);
+    const source = await extractResumeText(buffer, kind);
 
     const openRouter = requireOpenRouter();
-    const agent = new Agent(components.agent, {
-      name: "Resume Reader",
-      languageModel: openRouter.chat(AI_AGENT_MODEL),
-      instructions:
-        "Extract a candidate profile from resume text. Do not invent employers, degrees, dates, or skills that are not clearly present. Use null for unknown fields. Keep descriptions concise.",
-      maxSteps: 1,
-    });
-
     const identity = await ctx.auth.getUserIdentity();
-    const result: { object: typeof parsedProfileSchema._type } = await agent.generateObject(
-      ctx,
-      { userId: identity?.subject ?? "resume-parse" },
-      {
-        schema: parsedProfileSchema,
-        prompt: `Extract the candidate profile into the schema.\n\n${source}`,
-      },
-    );
+    const userId = identity?.subject ?? "resume-parse";
 
-    return toParsedProfile(result.object);
+    if (source.length >= MIN_TEXT_CHARS) {
+      return await readProfile(ctx, openRouter, userId, false, {
+        prompt: `Extract the candidate profile into the schema.\n\n${source}`,
+      });
+    }
+
+    const parts = await multimodalParts(buffer, kind, name, type, source);
+    if (parts.length <= 1) {
+      throw new Error(
+        kind === "docx"
+          ? "We couldn't read that Word file. Export it as a PDF or image and try again."
+          : "We couldn't read that resume. Try a PDF, DOCX, PNG, or JPG.",
+      );
+    }
+
+    return await readProfile(ctx, openRouter, userId, kind === "pdf", {
+      messages: [{ role: "user", content: parts }],
+    });
   },
 });
 
-async function extractResumeText(buffer: Uint8Array, filename: string, contentType: string) {
+async function readProfile(
+  ctx: Parameters<Agent["generateObject"]>[0],
+  openRouter: ReturnType<typeof requireOpenRouter>,
+  userId: string,
+  pdfOcr: boolean,
+  input: { prompt: string } | { messages: Array<{ role: "user"; content: UserPart[] }> },
+) {
+  const agent = new Agent(components.agent, {
+    name: "Resume Reader",
+    languageModel: openRouter.chat(
+      AI_AGENT_MODEL,
+      pdfOcr
+        ? { plugins: [{ id: "file-parser", pdf: { engine: "mistral-ocr" } }] }
+        : undefined,
+    ),
+    instructions: INSTRUCTIONS,
+    maxSteps: 1,
+  });
+
+  const result: { object: typeof parsedProfileSchema._type } = await withRetry(() =>
+    agent.generateObject(ctx, { userId }, { schema: parsedProfileSchema, ...input }),
+  );
+  return toParsedProfile(result.object);
+}
+
+function classifyResume(filename: string, contentType: string): ResumeKind {
+  if (filename.endsWith(".pdf") || contentType.includes("pdf")) return "pdf";
   if (filename.endsWith(".docx") || contentType.includes("wordprocessingml") || contentType.includes("officedocument")) {
-    const result = await mammoth.extractRawText({ buffer: Buffer.from(buffer) });
-    return result.value;
+    return "docx";
   }
-  if (filename.endsWith(".pdf") || contentType.includes("pdf")) {
+  if (imageMediaType(filename, contentType)) return "image";
+  throw new Error("Use a PDF, DOCX, PNG, or JPG.");
+}
+
+function imageMediaType(filename: string, contentType: string) {
+  if (contentType.startsWith("image/")) {
+    if (contentType.includes("png")) return "image/png";
+    if (contentType.includes("webp")) return "image/webp";
+    if (contentType.includes("gif")) return "image/gif";
+    if (contentType.includes("jpeg") || contentType.includes("jpg")) return "image/jpeg";
+  }
+  if (filename.endsWith(".png")) return "image/png";
+  if (filename.endsWith(".webp")) return "image/webp";
+  if (filename.endsWith(".gif")) return "image/gif";
+  if (filename.endsWith(".jpg") || filename.endsWith(".jpeg")) return "image/jpeg";
+  return null;
+}
+
+async function extractResumeText(buffer: Uint8Array, kind: ResumeKind) {
+  if (kind === "image") return "";
+  try {
+    if (kind === "docx") {
+      const result = await mammoth.extractRawText({ buffer: Buffer.from(buffer) });
+      return clipPlainText(result.value, 14000);
+    }
     const extracted = await extractText(buffer, { mergePages: true });
-    return extracted.text;
+    return clipPlainText(extracted.text, 14000);
+  } catch {
+    return "";
   }
-  throw new Error("Use a PDF or DOCX file.");
+}
+
+async function multimodalParts(
+  buffer: Uint8Array,
+  kind: ResumeKind,
+  filename: string,
+  contentType: string,
+  source: string,
+): Promise<UserPart[]> {
+  const parts: UserPart[] = [
+    {
+      type: "text",
+      text: source
+        ? `Extract the candidate profile into the schema. Readable text was sparse; use the attached resume.\n\n${source}`
+        : "Extract the candidate profile into the schema from the attached resume.",
+    },
+  ];
+
+  if (kind === "pdf") {
+    parts.push({ type: "file", data: buffer, mediaType: "application/pdf", filename: filename || "resume.pdf" });
+    return parts;
+  }
+
+  if (kind === "image") {
+    const mediaType = imageMediaType(filename, contentType) ?? "image/jpeg";
+    parts.push({ type: "image", image: buffer, mediaType });
+    return parts;
+  }
+
+  for (const image of await extractDocxImages(buffer)) {
+    parts.push({ type: "image", image: image.data, mediaType: image.mediaType });
+  }
+  return parts;
+}
+
+async function extractDocxImages(buffer: Uint8Array) {
+  const images: Array<{ data: Uint8Array; mediaType: string }> = [];
+  await mammoth.convertToHtml(
+    { buffer: Buffer.from(buffer) },
+    {
+      convertImage: mammoth.images.imgElement(async (image) => {
+        if (images.length >= MAX_DOCX_IMAGES) return { src: "" };
+        const mediaType = image.contentType?.toLowerCase() ?? "";
+        if (!mediaType.startsWith("image/") || mediaType.includes("wmf") || mediaType.includes("emf")) {
+          return { src: "" };
+        }
+        const data = new Uint8Array(await image.readAsArrayBuffer());
+        if (data.byteLength > 0) images.push({ data, mediaType });
+        return { src: "" };
+      }),
+    },
+  );
+  return images;
+}
+
+async function withRetry<T>(fn: () => Promise<T>, attempts = 3): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+      const message = error instanceof Error ? error.message : String(error);
+      const retriable = /503|429|UNAVAILABLE|RESOURCE_EXHAUSTED|overloaded|high demand|rate limit/i.test(message);
+      if (!retriable || attempt === attempts) throw error;
+      await new Promise((resolve) => setTimeout(resolve, attempt * 1500));
+    }
+  }
+  throw lastError;
 }

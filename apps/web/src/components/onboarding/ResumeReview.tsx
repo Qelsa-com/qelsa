@@ -86,7 +86,7 @@ export function ResumeReview({
               type="button"
               onClick={() =>
                 patch({
-                  experiences: [...profile.experiences, { company: "", title: "", is_current: false }],
+                  experiences: [...profile.experiences, { company: "", title: "", is_current: false, responsibilities: [], tools: [] }],
                 })
               }
               className="flex cursor-pointer items-center gap-1 text-sm text-neon-purple hover:text-white"
@@ -263,6 +263,17 @@ function ExperienceEditor({
   onChange: (row: ParsedExperience) => void;
   onRemove: () => void;
 }) {
+  const [toolDraft, setToolDraft] = useState("");
+  const addTool = () => {
+    const name = toolDraft.trim();
+    if (!name) return;
+    const tools = row.tools ?? [];
+    if (!tools.some((tool) => tool.toLowerCase() === name.toLowerCase())) {
+      onChange({ ...row, tools: [...tools, name] });
+    }
+    setToolDraft("");
+  };
+
   return (
     <div className="relative border-l border-white/10 pl-4">
       <button type="button" onClick={onRemove} className="absolute right-0 top-0 cursor-pointer text-muted-foreground hover:text-white">
@@ -292,6 +303,43 @@ function ExperienceEditor({
         onChange={(event) => onChange({ ...row, description: event.target.value })}
         className="mt-3 w-full resize-none bg-transparent text-sm leading-relaxed text-muted-foreground outline-none placeholder:text-white/25"
       />
+      <textarea
+        value={(row.responsibilities ?? []).join("\n")}
+        placeholder="Highlights — one per line"
+        rows={3}
+        onChange={(event) =>
+          onChange({
+            ...row,
+            responsibilities: event.target.value.split("\n"),
+          })
+        }
+        className="mt-2 w-full resize-none bg-transparent text-sm leading-relaxed text-muted-foreground outline-none placeholder:text-white/25"
+      />
+      <div className="mt-3 flex flex-wrap gap-2">
+        {(row.tools ?? []).map((tool) => (
+          <button
+            key={tool}
+            type="button"
+            onClick={() => onChange({ ...row, tools: (row.tools ?? []).filter((item) => item !== tool) })}
+            className="flex cursor-pointer items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-xs text-white hover:border-neon-pink/50"
+          >
+            {tool}
+            <X className="h-3 w-3 text-muted-foreground" />
+          </button>
+        ))}
+        <input
+          value={toolDraft}
+          onChange={(event) => setToolDraft(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              addTool();
+            }
+          }}
+          placeholder="+ Tool"
+          className="w-24 rounded-full border border-dashed border-white/15 bg-transparent px-2.5 py-1 text-xs text-white outline-none placeholder:text-muted-foreground"
+        />
+      </div>
     </div>
   );
 }

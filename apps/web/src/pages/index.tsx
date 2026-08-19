@@ -1,26 +1,21 @@
 "use client";
 
-import { GuestResumeLanding } from "@/components/onboarding/GuestResumeLanding";
 import { ProfilePage } from "@/components/profile/ProfilePage";
 import { useAuth } from "@/contexts/AuthContext";
-import { useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 import Layout from "../layout";
 
 export default function App() {
   const { user, isLoading } = useAuth();
-  const scrollTimer = useRef<NodeJS.Timeout | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
-    return () => {
-      if (scrollTimer.current) {
-        clearTimeout(scrollTimer.current);
-        scrollTimer.current = null;
-      }
-    };
-  }, []);
+    if (isLoading || user) return;
+    router.replace("/jobs");
+  }, [isLoading, router, user]);
 
-  if (isLoading) return null;
-  if (!user) return <GuestResumeLanding />;
+  if (isLoading || !user) return null;
 
   return (
     <Layout activeSection={"profile"}>

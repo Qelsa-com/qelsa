@@ -27,6 +27,7 @@ import type * as lib_ai from "../lib/ai.js";
 import type * as lib_applicantSearch from "../lib/applicantSearch.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_customFunctions from "../lib/customFunctions.js";
+import type * as lib_deleteUserData from "../lib/deleteUserData.js";
 import type * as lib_helpers from "../lib/helpers.js";
 import type * as lib_parsedProfile from "../lib/parsedProfile.js";
 import type * as lib_skillMatch from "../lib/skillMatch.js";
@@ -65,6 +66,7 @@ declare const fullApi: ApiFromModules<{
   "lib/applicantSearch": typeof lib_applicantSearch;
   "lib/auth": typeof lib_auth;
   "lib/customFunctions": typeof lib_customFunctions;
+  "lib/deleteUserData": typeof lib_deleteUserData;
   "lib/helpers": typeof lib_helpers;
   "lib/parsedProfile": typeof lib_parsedProfile;
   "lib/skillMatch": typeof lib_skillMatch;

@@ -5,6 +5,8 @@ export type ParsedExperience = {
   end?: string;
   is_current: boolean;
   description?: string;
+  responsibilities?: string[];
+  tools?: string[];
 };
 
 export type ParsedEducation = {

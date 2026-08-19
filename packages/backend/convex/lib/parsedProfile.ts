@@ -8,6 +8,8 @@ export const parsedExperienceValidator = v.object({
   end: v.optional(v.string()),
   is_current: v.boolean(),
   description: v.optional(v.string()),
+  responsibilities: v.optional(v.array(v.string())),
+  tools: v.optional(v.array(v.string())),
 });
 
 export const parsedEducationValidator = v.object({
@@ -38,6 +40,8 @@ export const parsedExperienceSchema = z.object({
   end: z.string().nullable(),
   is_current: z.boolean(),
   description: z.string().nullable(),
+  responsibilities: z.array(z.string()).max(12),
+  tools: z.array(z.string()).max(12),
 });
 
 export const parsedEducationSchema = z.object({
@@ -68,6 +72,8 @@ export type ParsedExperience = {
   end?: string;
   is_current: boolean;
   description?: string;
+  responsibilities?: string[];
+  tools?: string[];
 };
 
 export type ParsedEducation = {
@@ -96,6 +102,20 @@ function optionalString(value: string | null | undefined) {
   return trimmed ? trimmed : undefined;
 }
 
+function compactStrings(values: Array<string | null | undefined> | undefined) {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const value of values ?? []) {
+    const trimmed = value?.trim();
+    if (!trimmed) continue;
+    const key = trimmed.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(trimmed);
+  }
+  return out;
+}
+
 export function toParsedProfile(raw: z.infer<typeof parsedProfileSchema>): ParsedProfile {
   return {
     name: optionalString(raw.name),
@@ -112,6 +132,8 @@ export function toParsedProfile(raw: z.infer<typeof parsedProfileSchema>): Parse
       end: optionalString(row.end),
       is_current: row.is_current,
       description: optionalString(row.description),
+      responsibilities: compactStrings(row.responsibilities),
+      tools: compactStrings(row.tools),
     })),
     educations: raw.educations.map((row) => ({
       school: row.school.trim(),

@@ -44,7 +44,7 @@ export function ResumeOnboardingFlow({
       setStep("review");
     } catch (err) {
       setStep("upload");
-      toast.error((err as Error)?.message || "Could not read that resume. Try another PDF or DOCX.");
+      toast.error((err as Error)?.message || "Could not read that resume. Try another PDF, DOCX, or image.");
     }
   };
 

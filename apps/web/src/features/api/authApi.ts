@@ -116,6 +116,10 @@ export function useSetAccountTypeMutation() {
   );
 }
 
+export function useDeleteAccountMutation() {
+  return useConvexMutationHook(api.users.deleteAccount, () => ({}));
+}
+
 export function useGoogleLoginMutation() {
   const [isLoading, setIsLoading] = useState(false);
   const trigger = () => {

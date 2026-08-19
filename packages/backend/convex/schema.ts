@@ -242,6 +242,7 @@ export default defineSchema({
     viewed_at: v.number(),
   })
     .index("by_job", ["job_id"])
+    .index("by_user", ["user_id"])
     .index("by_job_and_user", ["job_id", "user_id"]),
 
   saved_jobs: defineTable({
@@ -249,6 +250,7 @@ export default defineSchema({
     user_id: v.id("users"),
   })
     .index("by_user", ["user_id"])
+    .index("by_job", ["job_id"])
     .index("by_job_and_user", ["job_id", "user_id"]),
 
   question_sets: defineTable({
@@ -454,7 +456,9 @@ export default defineSchema({
       v.literal("rejected"),
       v.literal("duplicate"),
     ),
-  }).index("by_name", ["name"]),
+  })
+    .index("by_name", ["name"])
+    .index("by_submitted_by", ["submitted_by"]),
 
   skill_categories: defineTable({
     name: v.string(),

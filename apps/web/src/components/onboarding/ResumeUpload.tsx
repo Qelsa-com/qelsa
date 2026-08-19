@@ -6,7 +6,8 @@ import { ArrowRightIcon } from "./OnboardingShell";
 import { PRIMARY_BTN } from "./styles";
 
 const MAX_BYTES = 10 * 1024 * 1024;
-const ACCEPT = ".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+const ACCEPT =
+  ".pdf,.docx,.png,.jpg,.jpeg,.webp,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/png,image/jpeg,image/webp";
 
 export function ResumeUpload({
   file,
@@ -26,9 +27,15 @@ export function ResumeUpload({
   const takeFile = (next: File | undefined) => {
     if (!next) return;
     const name = next.name.toLowerCase();
-    const allowed = name.endsWith(".pdf") || name.endsWith(".docx");
+    const allowed =
+      name.endsWith(".pdf") ||
+      name.endsWith(".docx") ||
+      name.endsWith(".png") ||
+      name.endsWith(".jpg") ||
+      name.endsWith(".jpeg") ||
+      name.endsWith(".webp");
     if (!allowed) {
-      setError("Use a PDF or DOCX file.");
+      setError("Use a PDF, DOCX, PNG, or JPG.");
       return;
     }
     if (next.size > MAX_BYTES) {
@@ -101,7 +108,7 @@ export function ResumeUpload({
             >
               Browse files
             </button>
-            <p className="mt-4 text-sm text-muted-foreground">PDF or DOCX · Max 10 MB</p>
+            <p className="mt-4 text-sm text-muted-foreground">PDF, DOCX, PNG, or JPG · Max 10 MB</p>
           </>
         )}
       </div>

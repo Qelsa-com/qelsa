@@ -7,6 +7,7 @@ import type { DataModel, Id } from "./_generated/dataModel";
 import { query, mutation, internalMutation, type ActionCtx, type MutationCtx } from "./_generated/server";
 import { v } from "convex/values";
 import authConfig from "./auth.config";
+import { deleteAppUserData } from "./lib/deleteUserData";
 
 const siteUrl = process.env.SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
@@ -77,7 +78,10 @@ export const authComponent = createClient<DataModel>(components.betterAuth, {
           .query("users")
           .withIndex("by_authId", (q) => q.eq("authId", doc._id))
           .unique();
-        if (user) await ctx.db.delete(user._id);
+        if (user) await deleteAppUserData(ctx, user);
+        await ctx.runMutation(components.agent.users.deleteAllForUserIdAsync, {
+          userId: doc._id,
+        });
       },
     },
   },
@@ -93,6 +97,11 @@ export const createAuth = (ctx: Parameters<typeof authComponent.adapter>[0]) =>
     emailAndPassword: {
       enabled: true,
       requireEmailVerification: false,
+    },
+    user: {
+      deleteUser: {
+        enabled: true,
+      },
     },
     socialProviders: {
       google: {
