@@ -1,5 +1,6 @@
 import { useCreateJobApplicationMutation } from "@/features/api/jobApplicationsApi";
 import { useCreateResumeMutation } from "@/features/api/resumeApi";
+import { toastUnknownError } from "@/lib/errors";
 import { Job } from "@/types/job";
 import { ScreeningQuestion } from "@/types/question";
 import { Resume } from "@/types/resume";
@@ -125,8 +126,8 @@ export function QuickApplyModal({ isOpen, onClose, job, companyName, screeningQu
       }).unwrap();
       onSubmit?.();
       setStep("success");
-    } catch (error: any) {
-      toast.error(error?.data?.message || "Failed to submit application");
+    } catch (error: unknown) {
+      toastUnknownError(error, "Could not submit your application. Please try again.");
     }
   };
 
@@ -155,8 +156,8 @@ export function QuickApplyModal({ isOpen, onClose, job, companyName, screeningQu
       const newId = created?.data?.id;
       if (newId != null) setSelectedResumeId(newId);
       toast.success("Resume uploaded successfully");
-    } catch (error: any) {
-      toast.error(error?.data?.message || "Failed to save resume entry");
+    } catch (error: unknown) {
+      toastUnknownError(error, "Could not upload your resume. Please try again.");
     } finally {
       setIsUploadingResume(false);
       if (fileInputRef.current) fileInputRef.current.value = "";

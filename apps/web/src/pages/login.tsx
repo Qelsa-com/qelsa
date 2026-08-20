@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useLoginMutation } from "../features/api/authApi";
+import { toastUnknownError } from "@/lib/errors";
 
 export default function Login() {
   const searchParams = useSearchParams();
@@ -19,7 +20,7 @@ export default function Login() {
       await login(form).unwrap();
       router.push("/"); // ✅ Next.js navigation
     } catch (err) {
-      alert(err?.data?.message || "Login failed");
+      toastUnknownError(err, "Login failed. Check your details and try again.");
     }
   };
 

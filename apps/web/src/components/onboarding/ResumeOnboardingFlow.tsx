@@ -1,9 +1,9 @@
 "use client";
 
 import { useParseResume } from "@/features/api/onboardingApi";
+import { toastUnknownError } from "@/lib/errors";
 import { emptyParsedProfile, type ParsedProfile, type ResumeDraft } from "@/lib/resumeDraft";
 import { useState } from "react";
-import { toast } from "sonner";
 import { ResumeParsing } from "./ResumeParsing";
 import { ResumeReview } from "./ResumeReview";
 import { ResumeUpload } from "./ResumeUpload";
@@ -44,7 +44,7 @@ export function ResumeOnboardingFlow({
       setStep("review");
     } catch (err) {
       setStep("upload");
-      toast.error((err as Error)?.message || "Could not read that resume. Try another PDF, DOCX, or image.");
+      toastUnknownError(err, "Could not read that resume. Try another PDF, DOCX, or image.");
     }
   };
 
@@ -53,7 +53,7 @@ export function ResumeOnboardingFlow({
     try {
       await onFinished({ profile, storageId, filename });
     } catch (err) {
-      toast.error((err as Error)?.message || "Could not save your profile.");
+      toastUnknownError(err, "Could not save your profile. Please try again.");
     } finally {
       setSaving(false);
     }

@@ -3,6 +3,7 @@
 import type { AccountType } from "@/features/api/authApi";
 import { useGetProfileQuery, useGoogleLoginMutation, useRequestOtpMutation, useResendOtpMutation, useSetAccountTypeMutation, useVerifyOtpMutation } from "@/features/api/authApi";
 import { authClient } from "@/lib/auth-client";
+import { toastUnknownError } from "@/lib/errors";
 import type { User } from "@/types/user";
 import { AnimatePresence, motion } from "motion/react";
 import Image from "next/image";
@@ -43,8 +44,6 @@ const SECONDARY_BTN =
   "flex h-14 w-full cursor-pointer items-center justify-center gap-3 rounded-full border border-white/12 bg-white/[0.02] text-[15px] font-medium text-white transition-colors hover:bg-white/[0.06]";
 
 const QUIET_LINK = "cursor-pointer text-sm text-muted-foreground transition-colors hover:text-white";
-
-const errorMessage = (err: unknown, fallback: string) => (err as { data?: { message?: string } })?.data?.message || fallback;
 
 export default function AuthPage() {
   const router = useRouter();
@@ -112,7 +111,7 @@ export default function AuthPage() {
       setStep("otp");
       setResendIn(res.cooldownSeconds ?? 30);
     } catch (err) {
-      toast.error(errorMessage(err, "Could not send the code. Please try again."));
+      toastUnknownError(err, "Could not send the code. Please try again.");
     }
   };
 
@@ -124,7 +123,7 @@ export default function AuthPage() {
       setResendIn(res.cooldownSeconds ?? 30);
       toast.success("A new code is on its way.");
     } catch (err) {
-      toast.error(errorMessage(err, "Could not resend the code."));
+      toastUnknownError(err, "Could not resend the code. Please try again.");
     }
   };
 
@@ -135,7 +134,7 @@ export default function AuthPage() {
       // Session + profile effect routes to role or home.
     } catch (err) {
       setCode("");
-      toast.error(errorMessage(err, "That code didn't work. Please try again."));
+      toastUnknownError(err, "That code didn't work. Please try again.");
     }
   };
 
@@ -143,7 +142,7 @@ export default function AuthPage() {
     try {
       await googleLogin().unwrap();
     } catch (err) {
-      toast.error(errorMessage(err, "Google sign-in failed"));
+      toastUnknownError(err, "Google sign-in failed. Please try again.");
     }
   };
 
@@ -153,7 +152,7 @@ export default function AuthPage() {
       await saveAccountType({ account_type: accountType }).unwrap();
       finishAuth(true);
     } catch (err) {
-      toast.error(errorMessage(err, "Could not save your choice. Please try again."));
+      toastUnknownError(err, "Could not save your choice. Please try again.");
     }
   };
 

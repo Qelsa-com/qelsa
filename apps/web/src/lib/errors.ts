@@ -21,9 +21,8 @@ export function toastUnknownError(err: unknown, fallback: string) {
     toast.error("Connection lost. Check your network and try again.");
     return;
   }
-  if (!raw || raw.startsWith("[CONVEX") || raw.length > 180) {
-    toast.error(fallback);
-    return;
-  }
-  toast.error(raw);
+
+  // Server errors can contain function names, stack traces, request IDs, and
+  // implementation details. UI callers supply a short operation-specific copy.
+  toast.error(fallback);
 }

@@ -23,6 +23,7 @@ import { useCreateJobMutation, useGenerateJobDraftAction } from "@/features/api/
 import { useLazySearchJobTitlesQuery } from "@/features/api/jobTitlesApi";
 import { useLazyGetMyPagesQuery } from "@/features/api/pagesApi";
 import { useLazyGetSkillsQuery, useLazySearchCitiesQuery } from "@/features/api/seedApi";
+import { toastUnknownError } from "@/lib/errors";
 import { City } from "@/types/city";
 import type { Id } from "@qelsa/backend";
 import {
@@ -360,7 +361,7 @@ export function JobPostingPage() {
       }
     } catch (err) {
       console.error("Job generation failed:", err);
-      toast.error(err instanceof Error ? err.message : "Could not generate a job description.");
+      toastUnknownError(err, "Could not generate a job description. Please try again.");
     } finally {
       setGenerating(false);
     }

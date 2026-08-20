@@ -1,5 +1,6 @@
 import { useGetSkillCategoriesQuery, useLazyGetSkillsQuery } from "@/features/api/seedApi";
 import { useBulkModifyUserSkillsMutation, useGetUserSkillsQuery, useUpdateUserSkillMutation } from "@/features/api/userSkillsApi";
+import { toastUnknownError } from "@/lib/errors";
 import { Skill, SkillCategory, UserSkill } from "@/types/userSkill";
 import { AlertCircle, ArrowLeft, Award, Briefcase, Check, Code, Lightbulb, Plus, Search, Sparkles, Star, Target, Trash2, Upload, Users, X } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -199,8 +200,8 @@ export function SkillsEditorPage() {
         toast.success("Skills entry saved");
         window.location.href = "/profile/skills";
       })
-      .catch((error) => {
-        toast.error(error?.data?.message || "Failed to save skills entry");
+      .catch((error: unknown) => {
+        toastUnknownError(error, "Could not save your skills. Please try again.");
       });
     toast.success("Skills updated successfully!");
   };

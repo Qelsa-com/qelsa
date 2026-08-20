@@ -1,7 +1,7 @@
 "use client";
 
 import { useConvex, useMutation, useQuery } from "convex/react";
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
 export function withUnwrap<T>(promise: Promise<T>) {
   const p = promise as Promise<T> & { unwrap: () => Promise<T> };
@@ -52,16 +52,24 @@ export function useConvexMutationHook<Args = any, Result = any>(mutationRef: any
   const mutate = useMutation(mutationRef);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<unknown>(undefined);
-  const trigger = (input: Args) => {
-    setIsLoading(true);
-    setError(undefined);
-    const promise = Promise.resolve(mutate((mapArgs ? mapArgs(input) : input) as never))
-      .catch((err) => {
-        setError(err);
-        throw err;
-      })
-      .finally(() => setIsLoading(false)) as Promise<Result>;
-    return withUnwrap(promise);
-  };
+  const mapArgsRef = useRef(mapArgs);
+  mapArgsRef.current = mapArgs;
+
+  const trigger = useCallback(
+    (input: Args) => {
+      setIsLoading(true);
+      setError(undefined);
+      const mapped = mapArgsRef.current ? mapArgsRef.current(input) : input;
+      const promise = Promise.resolve(mutate(mapped as never))
+        .catch((err) => {
+          setError(err);
+          throw err;
+        })
+        .finally(() => setIsLoading(false)) as Promise<Result>;
+      return withUnwrap(promise);
+    },
+    [mutate],
+  );
+
   return [trigger, { isLoading, error, data: undefined as Result | undefined, isSuccess: !isLoading && !error, isError: Boolean(error) }] as const;
 }

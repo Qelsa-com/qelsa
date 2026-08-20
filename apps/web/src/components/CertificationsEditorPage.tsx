@@ -5,6 +5,7 @@ import {
   useUpdateCertificationMutation,
 } from "@/features/api/certificationsApi";
 import { useLazyGetCertificationCatalogQuery, useLazyGetIssuingBodiesQuery, useLazyGetSkillsQuery } from "@/features/api/seedApi";
+import { toastUnknownError } from "@/lib/errors";
 import { Certification, CertificationCatalog, CertificationPayload, IssuingBody } from "@/types/certification";
 import { Skill } from "@/types/userSkill";
 import { ArrowLeft, Award, Building2, Calendar, Check, Edit3, ExternalLink, Plus, Search, Trash2 } from "lucide-react";
@@ -105,7 +106,7 @@ export function CertificationsEditorPage() {
     deleteCertification(id)
       .unwrap()
       .then(() => toast.success("Certification deleted"))
-      .catch((error) => toast.error(error?.data?.message || "Failed to delete certification"));
+      .catch((error: unknown) => toastUnknownError(error, "Could not delete the certification. Please try again."));
   };
 
   const handleCancel = () => {
@@ -156,7 +157,7 @@ export function CertificationsEditorPage() {
         toast.success(editingId === "new" ? "Certification added" : "Certification updated");
         handleCancel();
       })
-      .catch((error) => toast.error(error?.data?.message || "Failed to save certification"));
+      .catch((error: unknown) => toastUnknownError(error, "Could not save the certification. Please try again."));
   };
 
   return (

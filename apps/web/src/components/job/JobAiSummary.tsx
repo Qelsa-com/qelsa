@@ -3,10 +3,10 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useSummarizeJobAction } from "@/features/api/jobsApi";
+import { toastUnknownError } from "@/lib/errors";
 import type { Id } from "@qelsa/backend";
 import { ChevronDown, ChevronUp, Zap } from "lucide-react";
 import { useState } from "react";
-import { toast } from "sonner";
 
 export type JobAiSummaryData = {
   role_overview: string;
@@ -41,7 +41,7 @@ export function JobAiSummary({
       setExpanded(true);
     } catch (err) {
       console.error("Job summary failed:", err);
-      toast.error(err instanceof Error ? err.message : "Could not summarize this job.");
+      toastUnknownError(err, "Could not summarize this job. Please try again.");
     } finally {
       setLoading(false);
     }

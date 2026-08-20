@@ -1,11 +1,11 @@
 "use client";
 
 import { useCompleteHrOnboardingMutation, useGetCompanySizesQuery, useSearchOnboardingCompaniesQuery, type HiringRole } from "@/features/api/onboardingApi";
+import { toastUnknownError } from "@/lib/errors";
 import { ChevronDown, Search } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
-import { toast } from "sonner";
 import { ArrowRightIcon, CheckIcon, OnboardingShell, StepProgress } from "./OnboardingShell";
 import { ONBOARDING_CARD, PRIMARY_BTN } from "./styles";
 
@@ -92,7 +92,7 @@ export function HrOnboarding({ onBack, onComplete }: { onBack: () => void; onCom
       setCompanyName(result.company_name);
       setStep("ready");
     } catch (err) {
-      toast.error((err as Error)?.message || "Could not finish setup. Please try again.");
+      toastUnknownError(err, "Could not finish setup. Please try again.");
     }
   };
 

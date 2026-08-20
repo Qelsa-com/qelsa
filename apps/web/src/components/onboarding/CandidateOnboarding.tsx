@@ -6,12 +6,12 @@ import {
   useCompleteCandidateOnboardingMutation,
   type JobSeekingStatus,
 } from "@/features/api/onboardingApi";
+import { toastUnknownError } from "@/lib/errors";
 import { clearResumeDraft, readResumeDraft, writeResumeDraft, type ParsedProfile } from "@/lib/resumeDraft";
 import { Target, Telescope, TrendingUp } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { toast } from "sonner";
 import { ResumeOnboardingFlow } from "./ResumeOnboardingFlow";
 import { ArrowRightIcon, CheckIcon, OnboardingShell, StepProgress } from "./OnboardingShell";
 import { ONBOARDING_CARD, PRIMARY_BTN } from "./styles";
@@ -109,7 +109,7 @@ export function CandidateOnboarding({ onBack, onComplete }: { onBack: () => void
           try {
             await saveResume(result);
           } catch (err) {
-            toast.error((err as Error)?.message || "Could not save your profile. Please try again.");
+            toastUnknownError(err, "Could not save your profile. Please try again.");
           }
         }}
       />
@@ -161,7 +161,7 @@ export function CandidateOnboarding({ onBack, onComplete }: { onBack: () => void
                 try {
                   await finish();
                 } catch (err) {
-                  toast.error((err as Error)?.message || "Could not save your profile. Please try again.");
+                  toastUnknownError(err, "Could not save your profile. Please try again.");
                 }
               }}
               disabled={!status || isLoading}
