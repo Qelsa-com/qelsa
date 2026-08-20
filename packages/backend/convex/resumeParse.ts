@@ -8,7 +8,7 @@ import { R2 } from "@convex-dev/r2";
 import { components } from "./_generated/api";
 import { action, internalAction } from "./_generated/server";
 import { AI_AGENT_MODEL, requireOpenRouter } from "./lib/ai";
-import { parsedProfileSchema, parsedProfileValidator, toParsedProfile } from "./lib/parsedProfile";
+import { parsedProfileSchema, parsedProfileValidator, parseJsonObject, repairProfileJson, toParsedProfile } from "./lib/parsedProfile";
 import { clipPlainText } from "./lib/skillMatch";
 
 const r2 = new R2(components.r2);
@@ -20,9 +20,12 @@ const MAX_DOCX_IMAGES = 8;
 const INSTRUCTIONS = `Extract a candidate profile from the resume.
 - Use only information present in the resume. Never invent employers, dates, degrees, or skills.
 - Copy dates as written, including ordinals (e.g. "16th February 2022", "Jan 2022", "Present").
-- responsibilities: short bullet phrases listed for that role.
-- tools: technologies or tools used in that role.
-- Use null or empty arrays when a field is absent.`;
+- responsibilities: short bullet phrases listed for that role. Use [] if none.
+- tools: technologies or tools used in that role. Use [] if none.
+- experiences, educations, and skills must be arrays. Use [] when absent, never omit them.
+- is_current must be true or false, never omit it.
+- start_year and end_year must be numbers like 2019, or null — never strings.
+- Use null for missing strings. Never omit required keys.`;
 
 type ResumeKind = "pdf" | "docx" | "image";
 type UserPart =
@@ -120,10 +123,51 @@ async function readProfile(
     maxSteps: 1,
   });
 
-  const result: { object: typeof parsedProfileSchema._type } = await withRetry(() =>
-    agent.generateObject(ctx, { userId }, { schema: parsedProfileSchema, ...input }),
-  );
+  const result = await withRetry(async () => {
+    try {
+      return await agent.generateObject(
+        ctx,
+        { userId },
+        {
+          schema: parsedProfileSchema,
+          experimental_repairText: async ({ text }) => repairProfileJson(text) ?? text,
+          ...input,
+        },
+      );
+    } catch (error) {
+      const repaired = repairParsedProfile(error);
+      if (repaired) return { object: repaired };
+      throw error;
+    }
+  });
   return toParsedProfile(result.object);
+}
+
+function unwrapErrorValue(error: unknown): unknown {
+  const seen = new Set<unknown>();
+  let current: unknown = error;
+  for (let i = 0; i < 6 && current && typeof current === "object"; i += 1) {
+    if (seen.has(current)) break;
+    seen.add(current);
+    const record = current as Record<string, unknown>;
+    if (typeof record.text === "string") {
+      const parsed = parseJsonObject(record.text);
+      if (parsed) return parsed;
+    }
+    if (record.value && typeof record.value === "object") return record.value;
+    current = record.cause;
+  }
+  return null;
+}
+
+function repairParsedProfile(error: unknown) {
+  const parsed = unwrapErrorValue(error);
+  if (!parsed) return null;
+  const profile = toParsedProfile(parsed);
+  if (!profile.name && profile.experiences.length === 0 && profile.educations.length === 0 && profile.skills.length === 0) {
+    return null;
+  }
+  return profile;
 }
 
 function classifyResume(filename: string, contentType: string): ResumeKind {
@@ -224,8 +268,15 @@ async function withRetry<T>(fn: () => Promise<T>, attempts = 3): Promise<T> {
     } catch (error) {
       lastError = error;
       const message = error instanceof Error ? error.message : String(error);
-      const retriable = /503|429|UNAVAILABLE|RESOURCE_EXHAUSTED|overloaded|high demand|rate limit/i.test(message);
-      if (!retriable || attempt === attempts) throw error;
+      const retriable = /503|429|UNAVAILABLE|RESOURCE_EXHAUSTED|overloaded|high demand|rate limit|did not match schema|No object generated/i.test(
+        message,
+      );
+      if (!retriable || attempt === attempts) {
+        if (/did not match schema|No object generated/i.test(message)) {
+          throw new Error("We couldn't read that resume. Try a clearer PDF or DOCX.");
+        }
+        throw error;
+      }
       await new Promise((resolve) => setTimeout(resolve, attempt * 1500));
     }
   }
