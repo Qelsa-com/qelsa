@@ -1,19 +1,15 @@
 "use client";
 
 import { useAuth } from "@/contexts/AuthContext";
-import {
-  useApplyParsedProfileMutation,
-  useCompleteCandidateOnboardingMutation,
-  type JobSeekingStatus,
-} from "@/features/api/onboardingApi";
+import { useApplyParsedProfileMutation, useCompleteCandidateOnboardingMutation, type JobSeekingStatus } from "@/features/api/onboardingApi";
 import { toastUnknownError } from "@/lib/errors";
 import { clearResumeDraft, readResumeDraft, writeResumeDraft, type ParsedProfile } from "@/lib/resumeDraft";
 import { Target, Telescope, TrendingUp } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { ArrowRightIcon, CheckIcon, OnboardingShell } from "./OnboardingShell";
 import { ResumeOnboardingFlow } from "./ResumeOnboardingFlow";
-import { ArrowRightIcon, CheckIcon, OnboardingShell, StepProgress } from "./OnboardingShell";
 import { ONBOARDING_CARD, PRIMARY_BTN } from "./styles";
 
 const STATUS_OPTIONS: {
@@ -121,7 +117,7 @@ export function CandidateOnboarding({ onBack, onComplete }: { onBack: () => void
       <AnimatePresence mode="wait">
         {step === "intent" && (
           <motion.div key="intent" {...cardMotion} className={ONBOARDING_CARD}>
-            <StepProgress current={1} total={2} />
+            {/* <StepProgress current={1} total={2} /> */}
             <h2 className="mt-6 text-3xl font-bold text-white">Where are you right now?</h2>
             <p className="mt-2 text-[15px] text-muted-foreground">Honest answer helps us show the right roles and signal.</p>
 
@@ -143,13 +139,7 @@ export function CandidateOnboarding({ onBack, onComplete }: { onBack: () => void
                       <span className="block font-medium text-white">{option.title}</span>
                       <span className="mt-1 block text-sm leading-relaxed text-muted-foreground">{option.description}</span>
                     </span>
-                    <span
-                      className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border ${
-                        selected ? "border-neon-purple bg-neon-purple" : "border-white/25"
-                      }`}
-                    >
-                      {selected ? <CheckIcon /> : null}
-                    </span>
+                    <span className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border ${selected ? "border-neon-purple bg-neon-purple" : "border-white/25"}`}>{selected ? <CheckIcon /> : null}</span>
                   </button>
                 );
               })}
@@ -189,9 +179,7 @@ function ReadyCard({ onContinue }: { onContinue: () => void }) {
         <CheckIcon />
       </div>
       <h2 className="mt-6 text-3xl font-bold text-white">You&apos;re ready to look.</h2>
-      <p className="mt-3 text-[15px] leading-relaxed text-muted-foreground">
-        We&apos;ll match roles to your skills and keep your readiness signal current.
-      </p>
+      <p className="mt-3 text-[15px] leading-relaxed text-muted-foreground">We&apos;ll match roles to your skills and keep your readiness signal current.</p>
       <button type="button" onClick={onContinue} className={`mt-8 ${PRIMARY_BTN}`}>
         See matching roles
         <SparkleIcon />

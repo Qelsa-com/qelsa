@@ -23,6 +23,7 @@ import { useGetJobByIdQuery, useGetMatchByJobQuery, useGetSimilarJobsQuery, useI
 import { useGetMyResumesQuery } from "@/features/api/resumeApi";
 import { experienceMonths } from "@/components/profile/profileFormat";
 import { toastUnknownError } from "@/lib/errors";
+import { jobDescriptionToHtml } from "@/lib/jobDescription";
 import { Job } from "@/types/job";
 import DOMPurify from "dompurify";
 import {
@@ -184,7 +185,7 @@ export function JobDetailPageRedesign() {
 
   const companyName = job.page?.name || job.company_name || "Company";
   const title = job.job_title?.name ?? job.title;
-  const description = DOMPurify.sanitize(job.description || "");
+  const description = DOMPurify.sanitize(jobDescriptionToHtml(job.description || ""));
   const applied = job.has_applied ?? job.applications?.some((a) => a.user_id === user?.id) ?? false;
   const competency = job.competency;
 
@@ -386,8 +387,10 @@ export function JobDetailPageRedesign() {
             {/* Job Description */}
             {description && (
               <SectionCard icon={<FileText className="size-5 text-neon-cyan" />} title="Job Description">
-                {/* Employer-authored HTML — long unbroken strings must not push the page sideways. */}
-                <div className="break-words text-sm leading-[22px] text-white/70 max-lg:overflow-x-auto" dangerouslySetInnerHTML={{ __html: description }} />
+                <div
+                  className="break-words text-sm leading-[22px] text-white/70 max-lg:overflow-x-auto [&_p]:mb-3 [&_p:last-child]:mb-0 [&_ul]:mb-3 [&_ul]:list-disc [&_ul]:space-y-1.5 [&_ul]:pl-5 [&_li]:leading-[22px] [&_strong]:font-semibold [&_strong]:text-white"
+                  dangerouslySetInnerHTML={{ __html: description }}
+                />
               </SectionCard>
             )}
 

@@ -112,6 +112,15 @@ function coerceYear(value: unknown): number | undefined {
   return undefined;
 }
 
+function experienceHighlights(description: string | undefined, responsibilities: string[]) {
+  if (responsibilities.length) return responsibilities;
+  if (!description) return [];
+  return description
+    .split(/\n+/)
+    .map((line) => line.replace(/^[-•*]\s+/, "").trim())
+    .filter(Boolean);
+}
+
 function isCurrentRole(value: unknown, end: string | undefined) {
   if (value === true || value === "true") return true;
   if (typeof value === "string" && /present|current|now/i.test(value)) return true;
@@ -142,8 +151,7 @@ export function toParsedProfile(raw: unknown): ParsedProfile {
     if (!company && !title) continue;
     const start = optionalString(item.start);
     const end = optionalString(item.end);
-    const description = optionalString(item.description);
-    const responsibilities = compactStrings(item.responsibilities);
+    const responsibilities = experienceHighlights(optionalString(item.description), compactStrings(item.responsibilities));
     const tools = compactStrings(item.tools);
     experiences.push({
       company: company || title,
@@ -151,7 +159,6 @@ export function toParsedProfile(raw: unknown): ParsedProfile {
       is_current: isCurrentRole(item.is_current, end),
       ...(start ? { start } : {}),
       ...(end ? { end } : {}),
-      ...(description ? { description } : {}),
       ...(responsibilities.length ? { responsibilities } : {}),
       ...(tools.length ? { tools } : {}),
     });
@@ -221,7 +228,7 @@ function toLlmProfile(raw: unknown) {
       start: item.start ?? null,
       end: item.end ?? null,
       is_current: item.is_current,
-      description: item.description ?? null,
+      description: null,
       responsibilities: item.responsibilities ?? [],
       tools: item.tools ?? [],
     })),
