@@ -302,20 +302,28 @@ export function JobPostingPage() {
 
   function buildQuestionsPayload() {
     return questions.map((q) => {
-      const base: Record<string, unknown> = { title: q.title, type: q.type, category: q.category, is_knockout: q.is_knockout, weight: 0 };
+      const base: Record<string, unknown> = {
+        title: q.title,
+        type: q.type,
+        category: q.category,
+        is_knockout: q.is_knockout,
+        weight: 0,
+      };
       if (q.type === "multiple_choice") {
-        base.options = (q.options ?? []).map((o, i) => ({ title: o.title, value: slug(o.title) || `option_${i + 1}`, order: i, is_correct: o.is_correct }));
-        base.expected_answer = null;
-        base.knockout_condition = q.is_knockout ? "equals" : null;
-        base.knockout_value = null;
-      } else if (q.type === "yes_no") {
-        base.expected_answer = q.expected_answer ?? null;
-        base.knockout_condition = q.is_knockout ? "equals" : null;
-        base.knockout_value = q.is_knockout ? q.expected_answer ?? null : null;
-      } else {
-        base.expected_answer = null;
-        base.knockout_condition = null;
-        base.knockout_value = null;
+        base.options = (q.options ?? []).map((o, i) => ({
+          title: o.title,
+          value: slug(o.title) || `option_${i + 1}`,
+          order: i,
+          is_correct: o.is_correct,
+        }));
+      } else if (q.type === "yes_no" && q.expected_answer) {
+        base.expected_answer = q.expected_answer;
+      }
+      if (q.is_knockout) {
+        base.knockout_condition = "equals";
+        if (q.type === "yes_no" && q.expected_answer) {
+          base.knockout_value = q.expected_answer;
+        }
       }
       return base;
     });

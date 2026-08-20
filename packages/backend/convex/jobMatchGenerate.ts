@@ -6,37 +6,136 @@ import type { Id } from "./_generated/dataModel";
 import { action, type ActionCtx } from "./_generated/server";
 import { AI_AGENT_MODEL, requireOpenRouter } from "./lib/ai";
 import { sessionPublicValidator } from "./jobMatch";
+import { parseJsonObject } from "./lib/parsedProfile";
 import { buildCompetencyFramework, clipPlainText, extractJdListItems, normalizeSkillName } from "./lib/skillMatch";
 
-const extractedJobSchema = z.object({
-  title: z.string(),
-  company: z.string().nullable(),
-  location: z.string().nullable(),
-  work_type: z.enum(["full-time", "part-time", "contract", "internship"]).nullable(),
-  workplace_type: z.enum(["on-site", "hybrid", "remote"]).nullable(),
-  experience_years: z.number().min(0).max(20).nullable(),
-  description: z.string(),
-  skills: z.array(z.object({
-    name: z.string(),
-    type: z.enum(["core", "preferred", "nice_to_have"]),
-  })).max(16),
-  responsibilities: z.array(z.string()).max(10),
-  requirements: z.array(z.string()).max(10),
-});
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
 
-const analysisSchema = z.object({
-  headline: z.string(),
-  strong: z.array(z.string()).max(8),
-  partial: z.array(z.string()).max(8),
-  missing: z.array(z.string()).max(8),
-  experience_match: z.number().min(0).max(100),
-  education_match: z.number().min(0).max(100),
-  domain_match: z.number().min(0).max(100),
-  responsibilities_match: z.number().min(0).max(100),
-  resume_evidence: z.array(z.string()).max(6),
-  actions: z.array(z.string()).max(6),
-  can_apply: z.string(),
-});
+function asText(value: unknown, fallback = ""): string {
+  return typeof value === "string" && value.trim() ? value.trim() : fallback;
+}
+
+function asNullableText(value: unknown): string | null {
+  const text = asText(value);
+  return text || null;
+}
+
+function asStringList(value: unknown, max: number): string[] {
+  const raw = Array.isArray(value) ? value : typeof value === "string" && value.trim() ? [value] : [];
+  const out: string[] = [];
+  for (const item of raw) {
+    const text = typeof item === "string" ? item.trim() : "";
+    if (!text) continue;
+    out.push(text);
+    if (out.length >= max) break;
+  }
+  return out;
+}
+
+function asScore(value: unknown): number {
+  const n = typeof value === "number" ? value : typeof value === "string" ? Number(value.replace(/%/g, "").trim()) : NaN;
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.min(100, Math.round(n > 0 && n <= 1 ? n * 100 : n)));
+}
+
+function asYears(value: unknown): number | null {
+  const n = typeof value === "number" ? value : typeof value === "string" ? Number(value.replace(/[^\d.]/g, "")) : NaN;
+  if (!Number.isFinite(n)) return null;
+  return Math.max(0, Math.min(20, Math.round(n)));
+}
+
+function asEnum<T extends string>(value: unknown, allowed: readonly T[]): T | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toLowerCase().replace(/[_\s]+/g, "-");
+  return allowed.find((item) => item === normalized) ?? null;
+}
+
+const WORK_TYPES = ["full-time", "part-time", "contract", "internship"] as const;
+const WORKPLACES = ["on-site", "hybrid", "remote"] as const;
+const SKILL_TYPES = ["core", "preferred", "nice_to_have"] as const;
+
+function toExtractedJob(raw: unknown) {
+  const obj = asRecord(raw);
+  const skills = (Array.isArray(obj.skills) ? obj.skills : [])
+    .map((row) => {
+      const item = asRecord(row);
+      const name = asText(item.name);
+      const type = asEnum(item.type, SKILL_TYPES);
+      if (!name || !type) return null;
+      return { name, type };
+    })
+    .filter((row): row is { name: string; type: (typeof SKILL_TYPES)[number] } => row !== null)
+    .slice(0, 16);
+  return {
+    title: asText(obj.title, "Untitled role"),
+    company: asNullableText(obj.company),
+    location: asNullableText(obj.location),
+    work_type: asEnum(obj.work_type, WORK_TYPES),
+    workplace_type: asEnum(obj.workplace_type, WORKPLACES),
+    experience_years: asYears(obj.experience_years),
+    description: asText(obj.description),
+    skills,
+    responsibilities: asStringList(obj.responsibilities, 10),
+    requirements: asStringList(obj.requirements, 10),
+  };
+}
+
+function toAnalysisShape(raw: unknown) {
+  const obj = asRecord(raw);
+  return {
+    headline: asText(obj.headline, "Match analysis is ready."),
+    strong: asStringList(obj.strong, 8),
+    partial: asStringList(obj.partial, 8),
+    missing: asStringList(obj.missing, 8),
+    experience_match: asScore(obj.experience_match),
+    education_match: asScore(obj.education_match),
+    domain_match: asScore(obj.domain_match),
+    responsibilities_match: asScore(obj.responsibilities_match),
+    resume_evidence: asStringList(obj.resume_evidence, 6),
+    actions: asStringList(obj.actions, 6),
+    can_apply: asText(obj.can_apply, "Review the gaps below before you apply."),
+  };
+}
+
+const extractedJobSchema = z.preprocess(
+  toExtractedJob,
+  z.object({
+    title: z.string(),
+    company: z.string().nullable(),
+    location: z.string().nullable(),
+    work_type: z.enum(WORK_TYPES).nullable(),
+    workplace_type: z.enum(WORKPLACES).nullable(),
+    experience_years: z.number().nullable(),
+    description: z.string(),
+    skills: z.array(z.object({
+      name: z.string(),
+      type: z.enum(SKILL_TYPES),
+    })),
+    responsibilities: z.array(z.string()),
+    requirements: z.array(z.string()),
+  }),
+);
+
+const analysisSchema = z.preprocess(
+  toAnalysisShape,
+  z.object({
+    headline: z.string(),
+    strong: z.array(z.string()),
+    partial: z.array(z.string()),
+    missing: z.array(z.string()),
+    experience_match: z.number(),
+    education_match: z.number(),
+    domain_match: z.number(),
+    responsibilities_match: z.number(),
+    resume_evidence: z.array(z.string()),
+    actions: z.array(z.string()),
+    can_apply: z.string(),
+  }),
+);
 
 type SkillRef = {
   name: string;
@@ -265,6 +364,50 @@ async function mapSkillsToCatalog(
   return out;
 }
 
+function unwrapGeneratedObject(error: unknown): unknown {
+  const seen = new Set<unknown>();
+  let current: unknown = error;
+  for (let i = 0; i < 6 && current && typeof current === "object"; i += 1) {
+    if (seen.has(current)) break;
+    seen.add(current);
+    const record = current as Record<string, unknown>;
+    if (typeof record.text === "string") {
+      const parsed = parseJsonObject(record.text);
+      if (parsed) return parsed;
+    }
+    if (record.value && typeof record.value === "object") return record.value;
+    current = record.cause;
+  }
+  return null;
+}
+
+async function generateObjectRepaired<T>(
+  generate: (args: {
+    schema: z.ZodTypeAny;
+    prompt: string;
+    experimental_repairText: (opts: { text: string }) => Promise<string>;
+  }) => Promise<{ object: unknown }>,
+  schema: z.ZodTypeAny,
+  coerce: (raw: unknown) => T,
+  input: { prompt: string },
+): Promise<T> {
+  try {
+    const result = await generate({
+      schema,
+      prompt: input.prompt,
+      experimental_repairText: async ({ text }) => {
+        const parsed = parseJsonObject(text);
+        return parsed ? JSON.stringify(coerce(parsed)) : text;
+      },
+    });
+    return coerce(result.object);
+  } catch (error) {
+    const parsed = unwrapGeneratedObject(error);
+    if (parsed) return coerce(parsed);
+    throw error;
+  }
+}
+
 async function analyzeMatch(
   ctx: Parameters<Agent["generateObject"]>[0],
   userId: string,
@@ -292,11 +435,11 @@ async function analyzeMatch(
       }
     : null;
 
-  const result: { object: z.infer<typeof analysisSchema> } = await agent.generateObject(
-    ctx,
-    { userId },
+  const generated = await generateObjectRepaired(
+    (args) => agent.generateObject(ctx, { userId }, args),
+    analysisSchema,
+    toAnalysisShape,
     {
-      schema: analysisSchema,
       prompt: `Compare this candidate to this job. Return only schema fields.
 
 JOB
@@ -323,7 +466,6 @@ Write headline as one sentence on readiness. can_apply should say whether applyi
     },
   );
 
-  const generated = result.object;
   const overall = overallFromParts(
     skillFacts?.readiness ?? null,
     generated.experience_match,
@@ -601,16 +743,14 @@ export const startForExternal = action({
       maxSteps: 1,
     });
 
-    const extracted: { object: z.infer<typeof extractedJobSchema> } = await extractor.generateObject(
-      ctx,
-      { userId: identity.subject },
+    const jobDoc = await generateObjectRepaired(
+      (args) => extractor.generateObject(ctx, { userId: identity.subject }, args),
+      extractedJobSchema,
+      toExtractedJob,
       {
-        schema: extractedJobSchema,
         prompt: `Normalize this job posting into the schema. If a field is unknown, use null or [].\n\n${sourceText}`,
       },
     );
-
-    const jobDoc = extracted.object;
     const catalogSkills = (jobDoc.skills ?? [])
       .filter((skill): skill is { name: string; type: "core" | "preferred" | "nice_to_have" } =>
         Boolean(skill?.name && skill?.type),
