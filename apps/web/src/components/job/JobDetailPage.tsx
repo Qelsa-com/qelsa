@@ -3,6 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { jobSkillTypeLabel, proficiencyLabel } from "@/constants/skills";
 import { CompetencySummary, CompetencyTable } from "./CompetencyMatch";
 import { useGetJobByIdQuery, useGetSimilarJobsQuery, useToggleSaveJobMutation } from "@/features/api/jobsApi";
+import { jobDescriptionToHtml } from "@/lib/jobDescription";
 import { useGetMyResumesQuery } from "@/features/api/resumeApi";
 import DOMPurify from "dompurify";
 import {
@@ -72,7 +73,7 @@ export function JobDetailPage() {
     skip: !id,
   });
 
-  const jobDescription = DOMPurify.sanitize(job?.description || "");
+  const jobDescription = DOMPurify.sanitize(jobDescriptionToHtml(job?.description || ""));
 
   useEffect(() => {
     if (job) {
@@ -535,7 +536,7 @@ export function JobDetailPage() {
           <div className="space-y-6">
             <div>
               <h4 className="font-medium text-neon-cyan mb-3">About the Role</h4>
-              <div className="text-sm text-muted-foreground leading-relaxed mb-4">
+              <div className="text-sm text-muted-foreground leading-relaxed mb-4 [&_p]:mb-3 [&_ul]:mb-3 [&_ul]:list-disc [&_ul]:pl-5 [&_strong]:text-white">
                 <div dangerouslySetInnerHTML={{ __html: jobDescription }} />
               </div>
 

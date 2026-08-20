@@ -21,6 +21,7 @@ const INSTRUCTIONS = `Extract a candidate profile from the resume.
 - Use only information present in the resume. Never invent employers, dates, degrees, or skills.
 - Copy dates as written, including ordinals (e.g. "16th February 2022", "Jan 2022", "Present").
 - responsibilities: short bullet phrases listed for that role. Use [] if none.
+- Put role highlights only in responsibilities. Leave description null — do not duplicate bullets into description.
 - tools: technologies or tools used in that role. Use [] if none.
 - experiences, educations, and skills must be arrays. Use [] when absent, never omit them.
 - is_current must be true or false, never omit it.

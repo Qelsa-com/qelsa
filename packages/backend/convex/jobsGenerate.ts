@@ -330,7 +330,7 @@ Rules:
 - Include 4–12 skills. Mark 3–6 as core, the rest preferred or nice_to_have.
 - experience_years is the minimum years required, as a number.
 - salary_min and salary_max are annual INR integers (e.g. 1200000). Use null if you are not confident.
-- description is plain text (no HTML) with short sections: About the role, Responsibilities, Requirements, Nice to have.
+- description is plain text (no HTML). Put each section on its own line (About the role, Responsibilities, Requirements, Nice to have). Start every bullet on a new line with "- ".
 - Workplace type should fit the location (do not default everything to remote).
 - Do not mention that you are an AI.`;
 }

@@ -254,6 +254,12 @@ function Field({
   );
 }
 
+function experienceBody(row: ParsedExperience) {
+  const bullets = (row.responsibilities ?? []).filter((item) => item.trim());
+  if (bullets.length) return (row.responsibilities ?? []).join("\n");
+  return row.description ?? "";
+}
+
 function ExperienceEditor({
   row,
   onChange,
@@ -297,23 +303,17 @@ function ExperienceEditor({
         />
       </div>
       <textarea
-        value={row.description ?? ""}
-        placeholder="What you worked on..."
-        rows={3}
-        onChange={(event) => onChange({ ...row, description: event.target.value })}
-        className="mt-3 w-full resize-none bg-transparent text-sm leading-relaxed text-muted-foreground outline-none placeholder:text-white/25"
-      />
-      <textarea
-        value={(row.responsibilities ?? []).join("\n")}
-        placeholder="Highlights — one per line"
-        rows={3}
+        value={experienceBody(row)}
+        placeholder="What you worked on — one highlight per line"
+        rows={Math.max(3, experienceBody(row).split("\n").length)}
         onChange={(event) =>
           onChange({
             ...row,
+            description: undefined,
             responsibilities: event.target.value.split("\n"),
           })
         }
-        className="mt-2 w-full resize-none bg-transparent text-sm leading-relaxed text-muted-foreground outline-none placeholder:text-white/25"
+        className="mt-3 w-full resize-none bg-transparent text-sm leading-relaxed text-white outline-none placeholder:text-white/25"
       />
       <div className="mt-3 flex flex-wrap gap-2">
         {(row.tools ?? []).map((tool) => (
