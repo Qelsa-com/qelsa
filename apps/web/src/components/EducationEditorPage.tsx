@@ -1,6 +1,7 @@
 import { useCreateEducationMutation, useDeleteEducationMutation, useGetEducationsQuery, useUpdateEducationMutation, useUpdateEducationsPositionMutation } from "@/features/api/educationsApi";
 import { useGetDegreeNamesQuery, useGetFieldsOfStudyQuery, useLazyGetCollegesQuery, useLazySearchCitiesQuery } from "@/features/api/seedApi";
 import { formatCity } from "@/constants/city";
+import { toastUnknownError } from "@/lib/errors";
 import { College, Education } from "@/types/education";
 import { ArrowLeft, Award, Calendar, Check, Edit3, FileText, FolderOpen, GraduationCap, GripVertical, MapPin, Plus, Search, Sparkles, Trash2, Trophy, Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -107,8 +108,8 @@ export function EducationEditorPage() {
           toast.success("Education entry saved");
           window.location.href = "/profile/educations";
         })
-        .catch((error) => {
-          toast.error(error?.data?.message || "Failed to save education entry");
+        .catch((error: unknown) => {
+          toastUnknownError(error, "Could not save your education. Please try again.");
         });
     } else {
       updateEducation({
@@ -120,8 +121,8 @@ export function EducationEditorPage() {
           toast.success("Education entry updated");
           setEditingId(null);
         })
-        .catch((error) => {
-          toast.error(error?.data?.message || "Failed to update education entry");
+        .catch((error: unknown) => {
+          toastUnknownError(error, "Could not update your education. Please try again.");
         });
     }
   };

@@ -249,6 +249,12 @@ export default defineSchema({
     .index("by_user", ["user_id"])
     .index("by_job_and_user", ["job_id", "user_id"]),
 
+  job_stats: defineTable({
+    job_id: v.id("jobs"),
+    view_count: v.number(),
+    application_count: v.number(),
+  }).index("by_job", ["job_id"]),
+
   saved_jobs: defineTable({
     job_id: v.id("jobs"),
     user_id: v.id("users"),

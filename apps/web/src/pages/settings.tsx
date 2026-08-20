@@ -2,10 +2,10 @@
 
 import { useDeleteAccountMutation } from "@/features/api/authApi";
 import { authClient } from "@/lib/auth-client";
+import { toastUnknownError } from "@/lib/errors";
 import { clearResumeDraft } from "@/lib/resumeDraft";
 import { AlertTriangle, Settings as SettingsIcon } from "lucide-react";
 import { useState } from "react";
-import { toast } from "sonner";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -35,8 +35,7 @@ const Settings = () => {
       await authClient.signOut().catch(() => undefined);
       window.location.replace("/jobs");
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Could not delete your account. Please try again.";
-      toast.error(message);
+      toastUnknownError(err, "Could not delete your account. Please try again.");
     }
   };
 

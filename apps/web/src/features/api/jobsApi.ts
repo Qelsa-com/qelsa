@@ -76,6 +76,9 @@ export function useLazyGetSavedJobsQuery() {
 export function useGetJobByIdQuery(id?: string, options?: { skip?: boolean }) {
   return useConvexQueryHook(api.jobs.getById, id ? { id } : undefined, { skip: options?.skip || !id });
 }
+export function useIsJobSavedQuery(jobId?: string, options?: { skip?: boolean }) {
+  return useConvexQueryHook(api.jobs.isSaved, jobId ? { jobId } : undefined, { skip: options?.skip || !jobId });
+}
 export function useGetSimilarJobsQuery(id?: string, options?: { skip?: boolean }) {
   return useConvexQueryHook(api.jobs.listSimilar, id ? { id } : undefined, { skip: options?.skip || !id });
 }

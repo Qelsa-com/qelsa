@@ -1,9 +1,9 @@
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
-import { internalMutation, internalQuery, type QueryCtx } from "./_generated/server";
+import { internalMutation, internalQuery, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { authedMutation, authedQuery, optionalAuthQuery } from "./lib/customFunctions";
 import { iso, withId } from "./lib/helpers";
-import { bumpJobCount } from "./lib/jobCounts";
+import { bumpJobCount, ensureJobStats, getJobCounts } from "./lib/jobCounts";
 import { deleteJobCascade } from "./lib/deleteUserData";
 import { buildCompetencyFramework, clipPlainText } from "./lib/skillMatch";
 
@@ -30,11 +30,13 @@ async function jobSkillsFor(ctx: QueryCtx, jobId: Id<"jobs">, cache?: SkillCache
   });
 }
 
-async function listHydration(ctx: QueryCtx, user: Doc<"users"> | null): Promise<ListHydration> {
+async function listHydration(ctx: QueryCtx, user: Doc<"users"> | null, loadSaved = true): Promise<ListHydration> {
   if (!user) return { userSkills: [], savedJobIds: new Set(), skillCache: new Map() };
   const [skillRows, saved] = await Promise.all([
     ctx.db.query("user_skills").withIndex("by_user", (q) => q.eq("user_id", user._id)).collect(),
-    ctx.db.query("saved_jobs").withIndex("by_user", (q) => q.eq("user_id", user._id)).collect(),
+    loadSaved
+      ? ctx.db.query("saved_jobs").withIndex("by_user", (q) => q.eq("user_id", user._id)).collect()
+      : Promise.resolve([]),
   ]);
   return {
     userSkills: skillRows.map((row) => ({ skill_id: row.skill_id, proficiency: row.proficiency })),
@@ -48,6 +50,7 @@ async function enrichJob(
   job: Doc<"jobs">,
   user: Doc<"users"> | null,
   list?: ListHydration,
+  includeSaved = true,
 ) {
   const [page, city, job_title, job_skills] = await Promise.all([
     job.page_id ? ctx.db.get(job.page_id) : null,
@@ -61,14 +64,16 @@ async function enrichJob(
   let competency = null;
   let has_applied = false;
   if (user) {
-    is_bookmarked = list
-      ? list.savedJobIds.has(job._id)
-      : Boolean(
-          await ctx.db
-            .query("saved_jobs")
-            .withIndex("by_job_and_user", (q) => q.eq("job_id", job._id).eq("user_id", user._id))
-            .unique(),
-        );
+    is_bookmarked = includeSaved
+      ? list
+        ? list.savedJobIds.has(job._id)
+        : Boolean(
+            await ctx.db
+              .query("saved_jobs")
+              .withIndex("by_job_and_user", (q) => q.eq("job_id", job._id).eq("user_id", user._id))
+              .unique(),
+          )
+      : false;
     const userSkills = list
       ? list.userSkills
       : (await ctx.db.query("user_skills").withIndex("by_user", (q) => q.eq("user_id", user._id)).collect()).map(
@@ -93,7 +98,8 @@ async function enrichJob(
     }
   }
 
-  const application_count = job.application_count ?? 0;
+  const counts = await getJobCounts(ctx, job);
+  const application_count = counts.application_count;
 
   return {
     ...withId(job),
@@ -112,7 +118,7 @@ async function enrichJob(
     company_is_agency: job.company_is_agency ?? false,
     has_remote: job.has_remote ?? false,
     application_count,
-    view_count: job.view_count ?? 0,
+    view_count: counts.view_count,
     has_applied,
     applications: has_applied && user ? [{ user_id: user._id }] : [],
   };
@@ -212,7 +218,7 @@ export const getById = optionalAuthQuery({
   handler: async (ctx, args) => {
     const job = await ctx.db.get(args.id);
     if (!job) return null;
-    const base = await enrichJob(ctx, job, ctx.user);
+    const base = await enrichJob(ctx, job, ctx.user, undefined, false);
     const sets = await ctx.db.query("question_sets").withIndex("by_job", (q) => q.eq("jobId", job._id)).collect();
     const questionSets = [];
     const isOwner = ctx.user && job.owner_id === ctx.user._id;
@@ -248,7 +254,7 @@ export const listSimilar = optionalAuthQuery({
     const job = await ctx.db.get(args.id);
     if (!job) return [];
     const open = await openJobs(ctx, 20);
-    const hydration = await listHydration(ctx, ctx.user);
+    const hydration = await listHydration(ctx, ctx.user, false);
     const out = [];
     for (const other of open) {
       if (other._id === job._id) continue;
@@ -353,17 +359,36 @@ export const listJobTypes = optionalAuthQuery({
   },
 });
 
+async function savedJobsFor(ctx: QueryCtx | MutationCtx, jobId: Id<"jobs">, userId: Id<"users">) {
+  return await ctx.db
+    .query("saved_jobs")
+    .withIndex("by_job_and_user", (q) => q.eq("job_id", jobId).eq("user_id", userId))
+    .collect();
+}
+
+export const isSaved = optionalAuthQuery({
+  args: { jobId: v.id("jobs") },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    if (!ctx.user) return false;
+    const existing = await savedJobsFor(ctx, args.jobId, ctx.user._id);
+    return existing.length > 0;
+  },
+});
+
 export const toggleSave = authedMutation({
   args: { jobId: v.id("jobs") },
-  returns: v.null(),
+  returns: v.boolean(),
   handler: async (ctx, args) => {
-    const existing = await ctx.db
-      .query("saved_jobs")
-      .withIndex("by_job_and_user", (q) => q.eq("job_id", args.jobId).eq("user_id", ctx.user._id))
-      .unique();
-    if (existing) await ctx.db.delete(existing._id);
-    else await ctx.db.insert("saved_jobs", { job_id: args.jobId, user_id: ctx.user._id });
-    return null;
+    const existing = await savedJobsFor(ctx, args.jobId, ctx.user._id);
+    if (existing.length > 0) {
+      for (const row of existing) {
+        await ctx.db.delete(row._id);
+      }
+      return false;
+    }
+    await ctx.db.insert("saved_jobs", { job_id: args.jobId, user_id: ctx.user._id });
+    return true;
   },
 });
 
@@ -371,16 +396,22 @@ export const recordView = authedMutation({
   args: { jobId: v.id("jobs") },
   returns: v.object({ view_count: v.number() }),
   handler: async (ctx, args) => {
+    const job = await ctx.db.get("jobs", args.jobId);
+    if (!job) throw new Error("Job not found");
+
     const existing = await ctx.db
       .query("job_views")
       .withIndex("by_job_and_user", (q) => q.eq("job_id", args.jobId).eq("user_id", ctx.user._id))
       .unique();
-    if (!existing) {
-      await ctx.db.insert("job_views", { job_id: args.jobId, user_id: ctx.user._id, viewed_at: Date.now() });
+    const viewedAt = Date.now();
+    if (existing) {
+      await ctx.db.patch("job_views", existing._id, { viewed_at: viewedAt });
+    } else {
+      await ctx.db.insert("job_views", { job_id: args.jobId, user_id: ctx.user._id, viewed_at: viewedAt });
       await bumpJobCount(ctx, args.jobId, "view_count", 1);
     }
-    const job = await ctx.db.get(args.jobId);
-    return { view_count: job?.view_count ?? 0 };
+    const counts = await getJobCounts(ctx, job);
+    return { view_count: counts.view_count };
   },
 });
 
@@ -450,6 +481,7 @@ export const createWithQuestions = authedMutation({
       view_count: 0,
       application_count: 0,
     });
+    await ensureJobStats(ctx, jobId);
 
     for (const skill of payload.skills ?? []) {
       await ctx.db.insert("job_skills", {
@@ -541,7 +573,8 @@ export const storeScrapedJobs = internalMutation({
       };
       if (existing) await ctx.db.patch(existing._id, payload);
       else {
-        await ctx.db.insert("jobs", { ...payload, view_count: 0, application_count: 0 });
+        const jobId = await ctx.db.insert("jobs", { ...payload, view_count: 0, application_count: 0 });
+        await ensureJobStats(ctx, jobId);
       }
     }
     return null;

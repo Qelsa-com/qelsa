@@ -4,6 +4,7 @@ import { useLazySearchJobTitlesQuery } from "@/features/api/jobTitlesApi";
 import { useLazySearchCitiesQuery } from "@/features/api/seedApi";
 import { useGetUserSkillsQuery } from "@/features/api/userSkillsApi";
 import { formatCity } from "@/constants/city";
+import { toastUnknownError } from "@/lib/errors";
 import { Experience } from "@/types/experience";
 import { ImpactMetric } from "@/types/impactMetric";
 import { Skill } from "@/types/userSkill";
@@ -111,8 +112,8 @@ export function WorkExperienceEditorPage() {
           toast.success("Education entry saved");
           window.location.href = "/profile/work-experience";
         })
-        .catch((error) => {
-          toast.error(error?.data?.message || "Failed to save education entry");
+        .catch((error: unknown) => {
+          toastUnknownError(error, "Could not save your experience. Please try again.");
         });
     } else {
       updateExperience({
@@ -124,8 +125,8 @@ export function WorkExperienceEditorPage() {
           toast.success("Experience entry updated");
           setEditingId(null);
         })
-        .catch((error) => {
-          toast.error(error?.data?.message || "Failed to update experience entry");
+        .catch((error: unknown) => {
+          toastUnknownError(error, "Could not update your experience. Please try again.");
         });
     }
   };

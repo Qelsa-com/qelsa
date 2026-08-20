@@ -19,9 +19,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { experienceChip, matchScore, salaryText } from "@/components/job/jobBrowseShared";
 import { useGetEducationsQuery } from "@/features/api/educationsApi";
 import { useGetExperiencesQuery } from "@/features/api/experiencesApi";
-import { useGetJobByIdQuery, useGetMatchByJobQuery, useGetSimilarJobsQuery, useRecordJobViewMutation, useToggleSaveJobMutation } from "@/features/api/jobsApi";
+import { useGetJobByIdQuery, useGetMatchByJobQuery, useGetSimilarJobsQuery, useIsJobSavedQuery, useRecordJobViewMutation, useToggleSaveJobMutation } from "@/features/api/jobsApi";
 import { useGetMyResumesQuery } from "@/features/api/resumeApi";
 import { experienceMonths } from "@/components/profile/profileFormat";
+import { toastUnknownError } from "@/lib/errors";
 import { Job } from "@/types/job";
 import DOMPurify from "dompurify";
 import {
@@ -42,7 +43,7 @@ import {
   Twitter,
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { QuickApplyModal } from "../QuickApplyModal";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
@@ -137,15 +138,45 @@ export function JobDetailPageRedesign() {
   const { data: educations } = useGetEducationsQuery(undefined, { skip: !isAuthenticated });
   const { data: matchSession } = useGetMatchByJobQuery(id, { skip: !isAuthenticated || !id });
   const [toggleSaveJob] = useToggleSaveJobMutation();
+  const { data: savedFromServer } = useIsJobSavedQuery(id, { skip: !isAuthenticated || !id });
+  const [optimisticSaved, setOptimisticSaved] = useState<boolean | null>(null);
+  const saved = optimisticSaved ?? savedFromServer ?? false;
+
+  // Only drop optimistic state once the server agrees — reconnects briefly
+  // return undefined and were resetting the button back to "Save job".
+  useEffect(() => {
+    if (optimisticSaved !== null && savedFromServer === optimisticSaved) {
+      setOptimisticSaved(null);
+    }
+  }, [savedFromServer, optimisticSaved]);
+
+  const handleSave = () => {
+    if (!id) return;
+    const next = !saved;
+    setOptimisticSaved(next);
+    void toggleSaveJob(id)
+      .then((nowSaved) => {
+        if (typeof nowSaved === "boolean") setOptimisticSaved(nowSaved);
+      })
+      .catch((err) => {
+        setOptimisticSaved(null);
+        toastUnknownError(err, "Could not save this job. Try again.");
+      });
+  };
   const [recordJobView] = useRecordJobViewMutation();
+  const recordedViewFor = useRef<string | null>(null);
 
   // Count this visit once the viewer is known. Views are unique per (job, user)
   // server-side, so a reload or a revisit refreshes the timestamp rather than
   // inflating the total; signed-out visits are not counted at all.
   useEffect(() => {
-    if (!id || !isAuthenticated) return;
-    recordJobView(id);
-  }, [id, isAuthenticated, recordJobView]);
+    if (!id || !job || !isAuthenticated) return;
+    if (recordedViewFor.current === id) return;
+    recordedViewFor.current = id;
+    void recordJobView(id).catch(() => {
+      if (recordedViewFor.current === id) recordedViewFor.current = null;
+    });
+  }, [id, isAuthenticated, job, recordJobView]);
 
   if (!id || isLoading) return <JobDetailSkeleton />;
   if (error) return <p className="p-6 text-white/70 lg:p-8">Error loading job.</p>;
@@ -249,8 +280,8 @@ export function JobDetailPageRedesign() {
           </button>
           <div className="glass-strong flex w-fit items-center gap-2 rounded-full p-2">
             {isAuthenticated && (
-              <ShareButton onClick={() => toggleSaveJob(job.id)} active={job.is_bookmarked}>
-                {job.is_bookmarked ? <BookmarkCheck className="size-[18px]" /> : <Bookmark className="size-[18px]" />}
+              <ShareButton onClick={handleSave} active={saved}>
+                {saved ? <BookmarkCheck className="size-[18px]" /> : <Bookmark className="size-[18px]" />}
               </ShareButton>
             )}
             <ShareButton onClick={share.copy}><LinkIcon className="size-[18px]" /></ShareButton>
@@ -293,8 +324,8 @@ export function JobDetailPageRedesign() {
             <div className="hidden w-full items-center gap-3 lg:flex lg:w-auto">
               {/* Saving a job needs an account — hidden while signed out. */}
               {isAuthenticated && (
-                <Button variant="outline" onClick={() => toggleSaveJob(job.id)} className="h-auto flex-1 rounded-full border-[1.5px] border-white/20 bg-transparent px-4 py-3 text-sm text-white hover:bg-white/5 lg:flex-none lg:px-6 lg:py-3.5">
-                  {job.is_bookmarked ? "Saved" : "Save job"}
+                <Button type="button" variant="outline" onClick={handleSave} className="h-auto flex-1 rounded-full border-[1.5px] border-white/20 bg-transparent px-4 py-3 text-sm text-white hover:bg-white/5 lg:flex-none lg:px-6 lg:py-3.5">
+                  {saved ? "Saved" : "Save job"}
                 </Button>
               )}
               {applied ? (
@@ -503,11 +534,12 @@ export function JobDetailPageRedesign() {
           <div className="flex items-center gap-3">
             {isAuthenticated && (
               <Button
+                type="button"
                 variant="outline"
-                onClick={() => toggleSaveJob(job.id)}
+                onClick={handleSave}
                 className="h-auto flex-1 rounded-full border-[1.5px] border-white/20 bg-transparent px-6 py-3.5 text-sm text-white hover:bg-white/5"
               >
-                {job.is_bookmarked ? "Saved" : "Save job"}
+                {saved ? "Saved" : "Save job"}
               </Button>
             )}
             {applied ? (

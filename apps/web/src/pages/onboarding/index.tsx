@@ -7,10 +7,10 @@ import { OnboardingShell } from "@/components/onboarding/OnboardingShell";
 import { useAuth } from "@/contexts/AuthContext";
 import type { AccountType } from "@/features/api/authApi";
 import { useSetAccountTypeAndResetOnboardingMutation } from "@/features/api/onboardingApi";
+import { toastUnknownError } from "@/lib/errors";
 import { homeForAccount } from "@/lib/onboarding";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { toast } from "sonner";
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -42,7 +42,7 @@ export default function OnboardingPage() {
       await saveRole({ account_type: accountType }).unwrap();
       setPickingRole(false);
     } catch (err) {
-      toast.error((err as Error)?.message || "Could not save your choice. Please try again.");
+      toastUnknownError(err, "Could not save your choice. Please try again.");
     }
   };
 

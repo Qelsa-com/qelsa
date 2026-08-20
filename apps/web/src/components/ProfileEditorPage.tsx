@@ -1,6 +1,7 @@
 import { formatCity } from "@/constants/city";
 import { useGetProfileQuery, useUpdateProfileMutation } from "@/features/api/authApi";
 import { useLazySearchCitiesQuery } from "@/features/api/seedApi";
+import { toastUnknownError } from "@/lib/errors";
 import { CulturePreference, User as UserProfile } from "@/types/user";
 import {
   AlertTriangle,
@@ -395,10 +396,8 @@ export function ProfileEditorPage() {
       await updateProfile(payload).unwrap();
       setLastSaved(new Date());
       toast.success("Profile published successfully!");
-    } catch (error: any) {
-      toast.error("Failed to save profile", {
-        description: error?.data?.message || "An error occurred while saving your profile. Please try again.",
-      });
+    } catch (error: unknown) {
+      toastUnknownError(error, "Could not save your profile. Please try again.");
       return;
     }
 

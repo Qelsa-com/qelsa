@@ -61,6 +61,7 @@ import { toast } from 'sonner';
 import { useRouter, useParams } from 'next/navigation';
 import { useGetPageByIdQuery, useUpdatePageMutation } from '@/features/api/pagesApi';
 import { useLazyGetCompanySizesQuery } from '@/features/api/seedApi';
+import { toastUnknownError } from '@/lib/errors';
 import { Page } from '@/types/page';
 import { CulturePanel } from './CulturePanel';
 import { SearchSelect } from './ui/search-select';
@@ -419,8 +420,8 @@ export function CompanyPageEditor() {
       setIsDraft(false);
       setLastSaved(new Date());
       toast.success('Draft saved!');
-    } catch (error: any) {
-      toast.error(error?.data?.message || 'Failed to save draft');
+    } catch (error: unknown) {
+      toastUnknownError(error, 'Could not save the draft. Please try again.');
     }
   };
 
@@ -440,8 +441,8 @@ export function CompanyPageEditor() {
       toast.success('Page published successfully!', {
         description: 'Your changes are now live',
       });
-    } catch (error: any) {
-      toast.error(error?.data?.message || 'Failed to publish page');
+    } catch (error: unknown) {
+      toastUnknownError(error, 'Could not publish the page. Please try again.');
     }
   };
 

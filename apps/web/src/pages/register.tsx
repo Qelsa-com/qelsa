@@ -2,6 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import React, { useState } from "react";
+import { toast } from "sonner";
+import { toastUnknownError } from "@/lib/errors";
 import { useRegisterMutation } from "../features/api/authApi";
 
 export default function Register() {
@@ -13,10 +15,10 @@ export default function Register() {
     e.preventDefault();
     try {
       await register(form).unwrap();
-      alert("Registered successfully!");
+      toast.success("Registered successfully!");
       router.push("/login"); // ✅ Next.js navigation
-    } catch (err: any) {
-      alert(err?.data?.message || "Registration failed");
+    } catch (err: unknown) {
+      toastUnknownError(err, "Registration failed. Please try again.");
     }
   };
 
