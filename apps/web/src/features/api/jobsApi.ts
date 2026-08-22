@@ -147,5 +147,5 @@ export function useEditJobMutation() {
 }
 
 export function useWipeAllJobsMutation() {
-  return useConvexMutationHook(api.jobs.wipeAll, () => ({}));
+  return useConvexMutationHook<void, { started: boolean }>(api.jobs.wipeAll, () => ({}));
 }
