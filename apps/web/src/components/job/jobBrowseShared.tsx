@@ -14,9 +14,15 @@
  */
 
 import { Autocomplete } from "@/components/ui/autocomplete";
+import { ProfileCompletionBar } from "@/components/profile/ProfileCompletionBar";
+import { profileCompletion } from "@/components/profile/profileFormat";
 import { formatCity } from "@/constants/city";
 import { useAuth } from "@/contexts/AuthContext";
+import { useGetCertificationsQuery } from "@/features/api/certificationsApi";
+import { useGetEducationsQuery } from "@/features/api/educationsApi";
+import { useGetExperiencesQuery } from "@/features/api/experiencesApi";
 import { useLazySearchCitiesQuery } from "@/features/api/seedApi";
+import { useGetUserSkillsQuery } from "@/features/api/userSkillsApi";
 import { City } from "@/types/city";
 import { Job } from "@/types/job";
 import { Building2, Check, ChevronDown, MapPin, Search, X } from "lucide-react";
@@ -283,8 +289,8 @@ export function JobCard({ job, onClick }: { job: Job; onClick: () => void }) {
       )}
 
       <div className="mt-auto flex items-center justify-between gap-2">
-        <span className="text-[13px] font-bold text-white">{salary ?? "—"}</span>
-        {posted && <span className="text-[11px] text-white/40 sm:text-xs">{posted}</span>}
+        {salary && <span className="text-[13px] font-bold text-white">{salary}</span>}
+        {posted && <span className="ml-auto text-[11px] text-white/40 sm:text-xs">{posted}</span>}
       </div>
     </button>
   );
@@ -480,8 +486,7 @@ interface JobsBrowseHeaderProps {
   onApplyFilters: (partial: Partial<SearchFilters>) => void;
   cityFilter: City | null;
   setCityFilter: (city: City | null) => void;
-  /** Smart Matches only — omit on All Jobs. */
-  profileBanner?: { percent: number; extraRoles: number };
+  resultsCount?: { loaded: number; total?: number };
 }
 
 export function JobsBrowseHeader({
@@ -493,10 +498,22 @@ export function JobsBrowseHeader({
   onApplyFilters,
   cityFilter,
   setCityFilter,
-  profileBanner,
+  resultsCount,
 }: JobsBrowseHeaderProps) {
   const router = useRouter();
-  const { isAuthenticated } = useAuth();
+  const { user, isAuthenticated } = useAuth();
+  const skipCompletion = !isAuthenticated;
+  const { data: experiences } = useGetExperiencesQuery(undefined, { skip: skipCompletion });
+  const { data: educations } = useGetEducationsQuery(undefined, { skip: skipCompletion });
+  const { data: certifications } = useGetCertificationsQuery(undefined, { skip: skipCompletion });
+  const { data: skills } = useGetUserSkillsQuery(undefined, { skip: skipCompletion });
+  const completion = profileCompletion(user, {
+    experiences: experiences?.length ?? 0,
+    educations: educations?.length ?? 0,
+    certifications: certifications?.length ?? 0,
+    skills: skills?.length ?? 0,
+  });
+  const showCompletion = isAuthenticated && experiences !== undefined && educations !== undefined && certifications !== undefined && skills !== undefined && completion < 100;
   const [searchCities, { data: cityResults = [] }] = useLazySearchCitiesQuery();
   const isMobile = useIsMobile();
 
@@ -639,37 +656,19 @@ export function JobsBrowseHeader({
           )}
           inputClassName="h-auto rounded-full border-glass-border py-2 text-xs font-medium text-white placeholder:text-white/45 sm:py-3 sm:text-[13px]"
         />
+        {resultsCount && resultsCount.loaded > 0 && (
+          <p className="w-full text-right text-xs text-white/40 sm:ml-auto sm:w-auto sm:text-[13px]">
+            {typeof resultsCount.total === "number"
+              ? `Showing ${resultsCount.loaded} of ${resultsCount.total}`
+              : `Showing ${resultsCount.loaded}`}
+          </p>
+        )}
       </div>
 
       {/* Applied filter chips */}
       <AppliedFilters chips={appliedChips} onClear={clearAll} />
 
-      {/* Profile completion banner */}
-      {isAuthenticated && profileBanner && (
-        <div className="flex flex-col gap-3 rounded-2xl border border-glass-border bg-white/[0.04] p-4 sm:flex-row sm:items-center sm:gap-5 sm:rounded-[20px] sm:p-6">
-          <div className="flex flex-1 flex-col gap-3">
-            <p className="text-[13px] font-semibold text-white sm:text-[15px]">
-              Completing your profile could unlock{" "}
-              {profileBanner.extraRoles > 0 ? (
-                <>
-                  <span className="font-extrabold text-white">{profileBanner.extraRoles} more</span> strongly-matched roles.
-                </>
-              ) : (
-                "more strongly-matched roles."
-              )}
-            </p>
-            <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
-              <div className="h-full rounded-full bg-neon-cyan" style={{ width: `${profileBanner.percent}%` }} />
-            </div>
-          </div>
-          <button
-            onClick={() => router.push("/profile/edit")}
-            className="shrink-0 self-start text-[13px] font-bold text-neon-cyan transition-opacity hover:opacity-80 sm:self-auto sm:text-sm"
-          >
-            Complete Profile
-          </button>
-        </div>
-      )}
+      {showCompletion && <ProfileCompletionBar percent={completion} onComplete={() => router.push("/profile/edit")} />}
     </div>
   );
 }

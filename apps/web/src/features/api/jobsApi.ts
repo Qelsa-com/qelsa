@@ -60,6 +60,10 @@ export function usePaginatedJobsQuery(filters?: JobFilters | Record<string, stri
   const args = jobListArgs(filters);
   return usePaginatedQuery(api.jobs.listPaginated, args as never, { initialNumItems: pageSize });
 }
+
+export function useCountJobsQuery(filters?: JobFilters | Record<string, string> | void, options?: { skip?: boolean }) {
+  return useConvexQueryHook(api.jobs.countFiltered, jobListArgs(filters), options);
+}
 export function useGetAppliedJobsQuery(filters?: Record<string, string> | void, options?: { skip?: boolean }) {
   return useConvexQueryHook(api.jobs.listApplied, { search: filters && "search" in filters ? filters.search : undefined, status: filters && "status" in filters ? filters.status : undefined }, options);
 }
@@ -140,4 +144,8 @@ export function useEditJobMutation() {
     jobId: String(jobId),
     data: body,
   }));
+}
+
+export function useWipeAllJobsMutation() {
+  return useConvexMutationHook(api.jobs.wipeAll, () => ({}));
 }

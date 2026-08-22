@@ -1,14 +1,6 @@
 "use client";
 
-import {
-  useConnectAtsApiKeyMutation,
-  useConnectAtsOAuthMutation,
-  useDisconnectAtsMutation,
-  useReconnectAtsMutation,
-  useRemoveAtsMutation,
-  useRequestAtsAccessMutation,
-  useUpdateAtsSyncSettingsMutation,
-} from "@/features/api/atsIntegrationsApi";
+import { useConnectAtsApiKeyMutation, useConnectAtsBoardMutation, useConnectAtsOAuthMutation, useDisconnectAtsMutation, useReconnectAtsMutation, useRemoveAtsMutation, useRequestAtsAccessMutation, useUpdateAtsSyncSettingsMutation } from "@/features/api/atsIntegrationsApi";
 import { toastUnknownError } from "@/lib/errors";
 import { AlertTriangle, CheckCircle2, Info } from "lucide-react";
 import { useState } from "react";
@@ -74,7 +66,53 @@ function StatusPill({ tone, children }: { tone: "green" | "red" | "amber" | "gra
 }
 
 /* ------------------------------------------------------------------ */
-/* API-key connect (Greenhouse, Ashby)                                 */
+/* Public board (Lever, Ashby)                                         */
+/* ------------------------------------------------------------------ */
+
+export function BoardConnectDialog({ provider, open, onOpenChange, onSuccess }: DialogProps & { onSuccess: () => void }) {
+  const [connect, { isLoading }] = useConnectAtsBoardMutation();
+  const [subdomain, setSubdomain] = useState("");
+
+  const handleConnect = async () => {
+    try {
+      await connect({ provider: provider.id, subdomain: subdomain.trim() }).unwrap();
+      onSuccess();
+    } catch (err) {
+      toastUnknownError(err, `Could not connect ${provider.name}. Check the board slug and try again.`);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className={contentClass}>
+        <DialogHeader className={headerClass}>
+          <DialogTitle>Connect {provider.name}</DialogTitle>
+          <DialogDescription className="sr-only">Enter your {provider.name} job board slug</DialogDescription>
+        </DialogHeader>
+        <div className={`${bodyClass} space-y-4`}>
+          <div className="space-y-2">
+            <Label htmlFor={`${provider.id}-board`}>
+              {provider.boardLabel ?? "Board slug"} <span className="text-rose-400">*</span>
+            </Label>
+            <Input id={`${provider.id}-board`} value={subdomain} onChange={(e) => setSubdomain(e.target.value)} placeholder={provider.boardPlaceholder} autoComplete="off" disabled={isLoading} />
+          </div>
+          {provider.credentialsHelp && <p className="text-xs text-neon-cyan">{provider.credentialsHelp}</p>}
+        </div>
+        <DialogFooter className={footerClass}>
+          <Button variant="outline" className={outlineButton} onClick={() => onOpenChange(false)} disabled={isLoading}>
+            Cancel
+          </Button>
+          <Button className={gradientButton} disabled={!subdomain.trim() || isLoading} onClick={() => void handleConnect()}>
+            {isLoading ? "Connecting…" : "Connect Integration"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* API key (Greenhouse, BambooHR)                                      */
 /* ------------------------------------------------------------------ */
 
 export function ApiKeyConnectDialog({ provider, open, onOpenChange, onSuccess }: DialogProps & { onSuccess: () => void }) {
@@ -84,9 +122,7 @@ export function ApiKeyConnectDialog({ provider, open, onOpenChange, onSuccess }:
 
   const handleConnect = async () => {
     try {
-      await connect({ provider: provider.id, apiKey: apiKey.trim(), subdomain: subdomain.trim() || undefined }).unwrap();
-      setApiKey("");
-      setSubdomain("");
+      await connect({ provider: provider.id, apiKey: apiKey.trim(), subdomain: subdomain.trim() }).unwrap();
       onSuccess();
     } catch (err) {
       toastUnknownError(err, `Could not connect ${provider.name}. Check your credentials and try again.`);
@@ -106,8 +142,8 @@ export function ApiKeyConnectDialog({ provider, open, onOpenChange, onSuccess }:
             <Input id={`${provider.id}-api-key`} type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder={`Enter your ${provider.name} API key`} autoComplete="off" disabled={isLoading} />
           </div>
           <div className="space-y-2">
-            <Label htmlFor={`${provider.id}-subdomain`}>Subdomain *</Label>
-            <Input id={`${provider.id}-subdomain`} value={subdomain} onChange={(e) => setSubdomain(e.target.value)} placeholder={`your-company.${provider.id}.io`} autoComplete="off" disabled={isLoading} />
+            <Label htmlFor={`${provider.id}-subdomain`}>{provider.boardLabel ?? "Subdomain"} *</Label>
+            <Input id={`${provider.id}-subdomain`} value={subdomain} onChange={(e) => setSubdomain(e.target.value)} placeholder={provider.boardPlaceholder} autoComplete="off" disabled={isLoading} />
           </div>
           {provider.credentialsHelp && <p className="text-xs text-neon-cyan">{provider.credentialsHelp}</p>}
         </div>
@@ -115,7 +151,7 @@ export function ApiKeyConnectDialog({ provider, open, onOpenChange, onSuccess }:
           <Button variant="outline" className={outlineButton} onClick={() => onOpenChange(false)} disabled={isLoading}>
             Cancel
           </Button>
-          <Button className={gradientButton} disabled={!apiKey.trim() || isLoading} onClick={() => void handleConnect()}>
+          <Button className={gradientButton} disabled={!apiKey.trim() || !subdomain.trim() || isLoading} onClick={() => void handleConnect()}>
             {isLoading ? "Connecting…" : "Connect Integration"}
           </Button>
         </DialogFooter>
@@ -125,18 +161,32 @@ export function ApiKeyConnectDialog({ provider, open, onOpenChange, onSuccess }:
 }
 
 /* ------------------------------------------------------------------ */
-/* OAuth connect (Zoho Recruit, Lever, Keka, BambooHR, Workday)        */
+/* OAuth credentials (Zoho Recruit, Keka)                              */
 /* ------------------------------------------------------------------ */
 
 export function OAuthConnectDialog({ provider, open, onOpenChange, onSuccess }: DialogProps & { onSuccess: () => void }) {
   const [connect, { isLoading }] = useConnectAtsOAuthMutation();
+  const [clientId, setClientId] = useState("");
+  const [clientSecret, setClientSecret] = useState("");
+  const [subdomain, setSubdomain] = useState("");
+  const [refreshToken, setRefreshToken] = useState("");
+  const [region, setRegion] = useState("com");
+  const isKeka = provider.id === "keka";
+  const canSubmit = clientId.trim() && clientSecret.trim() && (isKeka ? subdomain.trim() : refreshToken.trim());
 
   const handleConnect = async () => {
     try {
-      await connect(provider.id).unwrap();
+      await connect({
+        provider: provider.id,
+        clientId: clientId.trim(),
+        clientSecret: clientSecret.trim(),
+        subdomain: isKeka ? subdomain.trim() : undefined,
+        refreshToken: isKeka ? undefined : refreshToken.trim(),
+        region: isKeka ? undefined : region,
+      }).unwrap();
       onSuccess();
     } catch (err) {
-      toastUnknownError(err, `Could not connect ${provider.name}. Please try again.`);
+      toastUnknownError(err, `Could not connect ${provider.name}. Check the OAuth credentials and try again.`);
     }
   };
 
@@ -145,24 +195,48 @@ export function OAuthConnectDialog({ provider, open, onOpenChange, onSuccess }: 
       <DialogContent className={contentClass}>
         <DialogHeader className={headerClass}>
           <DialogTitle>Connect {provider.name}</DialogTitle>
-          <DialogDescription className="sr-only">Authorize the {provider.name} integration</DialogDescription>
+          <DialogDescription className="sr-only">Enter OAuth credentials for {provider.name}</DialogDescription>
         </DialogHeader>
-        <div className={`${bodyClass} space-y-5`}>
-          <Banner tone="info">Connecting will sync your active job requisitions into Qelsa and route qualified candidates with readiness scores back into your {provider.name} pipeline.</Banner>
-          <div>
-            <div className="mb-2 flex items-center justify-between">
-              <span className="text-sm font-medium text-muted-foreground">Data synced</span>
-              <StatusPill tone="gray">OAuth</StatusPill>
+        <div className={`${bodyClass} space-y-4`}>
+          {isKeka && (
+            <div className="space-y-2">
+              <Label htmlFor={`${provider.id}-subdomain`}>Company subdomain *</Label>
+              <Input id={`${provider.id}-subdomain`} value={subdomain} onChange={(e) => setSubdomain(e.target.value)} placeholder="your-company" autoComplete="off" disabled={isLoading} />
             </div>
-            <MetaRow label="Job requisitions" value="Automatic" />
-            <MetaRow label="Candidate applications" value="Automatic" />
+          )}
+          <div className="space-y-2">
+            <Label htmlFor={`${provider.id}-client-id`}>Client ID *</Label>
+            <Input id={`${provider.id}-client-id`} value={clientId} onChange={(e) => setClientId(e.target.value)} autoComplete="off" disabled={isLoading} />
           </div>
+          <div className="space-y-2">
+            <Label htmlFor={`${provider.id}-client-secret`}>Client secret *</Label>
+            <Input id={`${provider.id}-client-secret`} type="password" value={clientSecret} onChange={(e) => setClientSecret(e.target.value)} autoComplete="off" disabled={isLoading} />
+          </div>
+          {!isKeka && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor={`${provider.id}-refresh`}>Refresh token *</Label>
+                <Input id={`${provider.id}-refresh`} type="password" value={refreshToken} onChange={(e) => setRefreshToken(e.target.value)} autoComplete="off" disabled={isLoading} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor={`${provider.id}-region`}>Data center</Label>
+                <select id={`${provider.id}-region`} value={region} onChange={(e) => setRegion(e.target.value)} disabled={isLoading} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+                  <option value="com">zoho.com (US)</option>
+                  <option value="in">zoho.in (India)</option>
+                  <option value="eu">zoho.eu (EU)</option>
+                  <option value="com.au">zoho.com.au (AU)</option>
+                  <option value="jp">zoho.jp (Japan)</option>
+                </select>
+              </div>
+            </>
+          )}
+          {provider.credentialsHelp && <p className="text-xs text-neon-cyan">{provider.credentialsHelp}</p>}
         </div>
         <DialogFooter className={footerClass}>
           <Button variant="outline" className={outlineButton} onClick={() => onOpenChange(false)} disabled={isLoading}>
             Cancel
           </Button>
-          <Button className={gradientButton} disabled={isLoading} onClick={() => void handleConnect()}>
+          <Button className={gradientButton} disabled={!canSubmit || isLoading} onClick={() => void handleConnect()}>
             {isLoading ? "Connecting…" : `Connect ${provider.name}`}
           </Button>
         </DialogFooter>
@@ -172,7 +246,7 @@ export function OAuthConnectDialog({ provider, open, onOpenChange, onSuccess }: 
 }
 
 /* ------------------------------------------------------------------ */
-/* Gated providers (Darwinbox, iCIMS)                                  */
+/* Gated providers (Workday, Darwinbox, iCIMS)                         */
 /* ------------------------------------------------------------------ */
 
 export function RequestAccessDialog({ provider, open, onOpenChange }: DialogProps) {
@@ -272,14 +346,27 @@ export function DisconnectDialog({ provider, integration, open, onOpenChange }: 
 export function ReconnectApiKeyDialog({ provider, integration, open, onOpenChange, onSuccess }: DialogProps & { integration: AtsIntegration; onSuccess: () => void }) {
   const [reconnect, { isLoading }] = useReconnectAtsMutation();
   const [apiKey, setApiKey] = useState("");
+  const [subdomain, setSubdomain] = useState(integration.subdomain ?? "");
+  const [clientId, setClientId] = useState("");
+  const [clientSecret, setClientSecret] = useState("");
+  const [refreshToken, setRefreshToken] = useState("");
+  const isOAuth = provider.authType === "oauth";
+  const isKeka = provider.id === "keka";
+  const canSubmit = isOAuth ? clientId.trim() && clientSecret.trim() && (isKeka ? subdomain.trim() : refreshToken.trim()) : subdomain.trim() && (provider.authType === "board" || apiKey.trim());
 
   const handleReconnect = async () => {
     try {
-      await reconnect({ provider: provider.id, apiKey: apiKey.trim() }).unwrap();
-      setApiKey("");
+      await reconnect({
+        provider: provider.id,
+        subdomain: subdomain.trim() || undefined,
+        apiKey: provider.authType === "api_key" ? apiKey.trim() : undefined,
+        clientId: isOAuth ? clientId.trim() : undefined,
+        clientSecret: isOAuth ? clientSecret.trim() : undefined,
+        refreshToken: isOAuth && !isKeka ? refreshToken.trim() : undefined,
+      }).unwrap();
       onSuccess();
     } catch (err) {
-      toastUnknownError(err, `Could not reconnect ${provider.name}. Check your API key and try again.`);
+      toastUnknownError(err, `Could not reconnect ${provider.name}. Check your credentials and try again.`);
     }
   };
 
@@ -288,24 +375,50 @@ export function ReconnectApiKeyDialog({ provider, integration, open, onOpenChang
       <DialogContent className={contentClass}>
         <DialogHeader className={headerClass}>
           <DialogTitle>Reconnect {provider.name}</DialogTitle>
-          <DialogDescription className="sr-only">Re-enter credentials for {provider.name}</DialogDescription>
+          <DialogDescription className="sr-only">Update credentials for {provider.name}</DialogDescription>
         </DialogHeader>
         <div className={`${bodyClass} space-y-5`}>
-          <Banner tone="error">API key expired — re-enter credentials to resume syncing.</Banner>
+          <Banner tone="error">{integration.error_message ?? "Sync failed — update credentials to resume importing jobs."}</Banner>
           <div>
             <MetaRow label="Last successful sync" value={relativeTime(integration.last_synced_at)} />
             <MetaRow label="Error detected" value={formatDate(integration.error_detected_at)} />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor={`${provider.id}-reconnect-key`}>API Key *</Label>
-            <Input id={`${provider.id}-reconnect-key`} type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="Enter your new API key" autoComplete="off" disabled={isLoading} />
-          </div>
+          {(provider.authType !== "oauth" || isKeka) && (
+            <div className="space-y-2">
+              <Label htmlFor={`${provider.id}-reconnect-board`}>{provider.boardLabel ?? "Subdomain"} *</Label>
+              <Input id={`${provider.id}-reconnect-board`} value={subdomain} onChange={(e) => setSubdomain(e.target.value)} placeholder={provider.boardPlaceholder} autoComplete="off" disabled={isLoading} />
+            </div>
+          )}
+          {provider.authType === "api_key" && (
+            <div className="space-y-2">
+              <Label htmlFor={`${provider.id}-reconnect-key`}>API Key *</Label>
+              <Input id={`${provider.id}-reconnect-key`} type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} autoComplete="off" disabled={isLoading} />
+            </div>
+          )}
+          {isOAuth && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor={`${provider.id}-reconnect-client`}>Client ID *</Label>
+                <Input id={`${provider.id}-reconnect-client`} value={clientId} onChange={(e) => setClientId(e.target.value)} autoComplete="off" disabled={isLoading} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor={`${provider.id}-reconnect-secret`}>Client secret *</Label>
+                <Input id={`${provider.id}-reconnect-secret`} type="password" value={clientSecret} onChange={(e) => setClientSecret(e.target.value)} autoComplete="off" disabled={isLoading} />
+              </div>
+              {!isKeka && (
+                <div className="space-y-2">
+                  <Label htmlFor={`${provider.id}-reconnect-refresh`}>Refresh token *</Label>
+                  <Input id={`${provider.id}-reconnect-refresh`} type="password" value={refreshToken} onChange={(e) => setRefreshToken(e.target.value)} autoComplete="off" disabled={isLoading} />
+                </div>
+              )}
+            </>
+          )}
         </div>
         <DialogFooter className={footerClass}>
           <Button variant="outline" className={outlineButton} onClick={() => onOpenChange(false)} disabled={isLoading}>
             Cancel
           </Button>
-          <Button className={gradientButton} disabled={!apiKey.trim() || isLoading} onClick={() => void handleReconnect()}>
+          <Button className={gradientButton} disabled={!canSubmit || isLoading} onClick={() => void handleReconnect()}>
             {isLoading ? "Reconnecting…" : "Reconnect"}
           </Button>
         </DialogFooter>
@@ -386,11 +499,9 @@ export function ErrorIntegrationDialog({
   integration,
   open,
   onOpenChange,
-  onReconnect,
   onReconnectWithKey,
 }: DialogProps & {
   integration: AtsIntegration;
-  onReconnect: () => void;
   onReconnectWithKey: () => void;
 }) {
   const [remove, { isLoading }] = useRemoveAtsMutation();
@@ -422,7 +533,7 @@ export function ErrorIntegrationDialog({
             <MetaRow label="Error detected since" value={formatDate(integration.error_detected_at)} />
           </div>
           <div className="flex flex-col items-center gap-3 pt-1">
-            <Button className={`${gradientButton} w-full`} onClick={provider.authType === "api_key" ? onReconnectWithKey : onReconnect}>
+            <Button className={`${gradientButton} w-full`} onClick={onReconnectWithKey}>
               Reconnect {provider.name}
             </Button>
             <button type="button" className="text-sm text-destructive underline-offset-4 hover:underline disabled:opacity-50" disabled={isLoading} onClick={() => void handleRemove()}>

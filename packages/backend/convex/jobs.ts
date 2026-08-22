@@ -1,11 +1,14 @@
 import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
+import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { internalMutation, internalQuery, type MutationCtx, type QueryCtx } from "./_generated/server";
-import { authedMutation, authedQuery, optionalAuthQuery } from "./lib/customFunctions";
+import { adminMutation, authedMutation, authedQuery, optionalAuthQuery } from "./lib/customFunctions";
 import { deleteJobCascade } from "./lib/deleteUserData";
 import { iso, withId } from "./lib/helpers";
+import { closeMissingAtsJobsPage as closeAtsJobsPage } from "./lib/atsJobReconcile";
 import { bumpJobCount, ensureJobStats, getJobCounts } from "./lib/jobCounts";
+import { jobNeedsSkillEnrichment } from "./lib/jobSkillExtraction";
 import { buildCompetencyFramework, clipPlainText } from "./lib/skillMatch";
 
 type SkillCache = Map<Id<"skills">, Doc<"skills"> | null>;
@@ -286,6 +289,55 @@ export const listPaginated = optionalAuthQuery({
       pageStatus: paged.pageStatus,
     };
   },
+});
+
+const browseFilterArgs = {
+  cities: v.optional(v.array(v.string())),
+  departments: v.optional(v.array(v.string())),
+  job_types: v.optional(v.array(v.string())),
+  workplace_types: v.optional(v.array(v.string())),
+  salary_min: v.optional(v.number()),
+  salary_max: v.optional(v.number()),
+  search: v.optional(v.string()),
+  sort_by: v.optional(v.string()),
+  city: v.optional(v.string()),
+  page_id: v.optional(v.string()),
+  posted_within: v.optional(v.union(v.literal("24h"), v.literal("week"), v.literal("month"))),
+  now: v.optional(v.number()),
+};
+
+async function countOpenJobsMatching(ctx: QueryCtx, filterArgs: Record<string, unknown>) {
+  const search = ((filterArgs.search as string | undefined) ?? "").trim();
+  const cities = (filterArgs.cities as string[] | undefined) ?? (filterArgs.city ? [filterArgs.city] : []);
+  const normalized = { ...filterArgs, cities };
+  // One read only — Convex forbids multiple .paginate() calls in the same function.
+  const rows = search
+    ? await ctx.db
+        .query("jobs")
+        .withSearchIndex("search_title", (q) => q.search("title", search))
+        .take(1024)
+    : await ctx.db
+        .query("jobs")
+        .withIndex("by_status", (q) => q.eq("status", "open"))
+        .take(8000);
+  let count = 0;
+  for (const job of rows) {
+    if (job.status !== "open") continue;
+    let cityName: string | null = null;
+    if (cities.length > 0 && job.city_id) {
+      const city = await ctx.db.get(job.city_id);
+      cityName = city?.name ?? null;
+    }
+    if (matchesFilters(job, cityName, normalized)) count += 1;
+  }
+  return count;
+}
+
+/** Filtered total for the All Jobs header: loaded page size vs this number. */
+export const countFiltered = optionalAuthQuery({
+  args: browseFilterArgs,
+  returns: v.number(),
+  handler: async (ctx, args) => await countOpenJobsMatching(ctx, args),
 });
 
 /** Lightweight count for the profile editor's "Smart Job Matches" callout. */
@@ -684,13 +736,7 @@ export const storeScrapedJobs = internalMutation({
       };
       if (existing) {
         await ctx.db.patch(existing._id, payload);
-        if (!existing.skills_extracted) {
-          const linked = await ctx.db
-            .query("job_skills")
-            .withIndex("by_job", (q) => q.eq("job_id", existing._id))
-            .take(1);
-          if (linked.length === 0) needsSkills.push(existing._id);
-        }
+        if (await jobNeedsSkillEnrichment(ctx, existing._id, existing.skills_extracted)) needsSkills.push(existing._id);
       } else {
         const jobId = await ctx.db.insert("jobs", { ...payload, view_count: 0, application_count: 0 });
         await ensureJobStats(ctx, jobId);
@@ -704,13 +750,15 @@ export const storeScrapedJobs = internalMutation({
 /**
  * Store jobs pulled from a connected ATS (Greenhouse/Lever public boards).
  * Expects jobs pre-normalized by the atsSync action into a common shape.
- * Dedupes by external_id; returns ids needing AI skill extraction.
+ * Dedupes by external_id and reopens listings that return on a later pull.
+ * Closing missing jobs is a separate paged mutation so this write set stays small.
  */
 export const storeAtsJobs = internalMutation({
   args: {
     integrationId: v.id("ats_integrations"),
     provider: v.string(),
     jobs: v.array(v.any()),
+    seenAt: v.number(),
   },
   returns: v.object({ stored: v.number(), needsSkills: v.array(v.id("jobs")) }),
   handler: async (ctx, args) => {
@@ -742,6 +790,8 @@ export const storeAtsJobs = internalMutation({
         salary_currency: job.salary_currency as string | undefined,
         published_date: (job.published_date as number | undefined) ?? Date.now(),
         resource: `ats:${args.provider}`,
+        ats_integration_id: args.integrationId,
+        ats_seen_at: args.seenAt,
         other_info: {
           ats_provider: args.provider,
           integration_id: args.integrationId,
@@ -753,13 +803,7 @@ export const storeAtsJobs = internalMutation({
       };
       if (existing) {
         await ctx.db.patch(existing._id, payload);
-        if (!existing.skills_extracted) {
-          const linked = await ctx.db
-            .query("job_skills")
-            .withIndex("by_job", (q) => q.eq("job_id", existing._id))
-            .take(1);
-          if (linked.length === 0) needsSkills.push(existing._id);
-        }
+        if (await jobNeedsSkillEnrichment(ctx, existing._id, existing.skills_extracted)) needsSkills.push(existing._id);
       } else {
         const jobId = await ctx.db.insert("jobs", { ...payload, view_count: 0, application_count: 0 });
         await ensureJobStats(ctx, jobId);
@@ -768,6 +812,31 @@ export const storeAtsJobs = internalMutation({
       stored++;
     }
     return { stored, needsSkills };
+  },
+});
+
+export const closeMissingAtsJobsPage = internalMutation({
+  args: {
+    integrationId: v.id("ats_integrations"),
+    provider: v.string(),
+    seenAt: v.number(),
+    cursor: v.union(v.string(), v.null()),
+    phase: v.union(v.literal("indexed"), v.literal("legacy")),
+  },
+  returns: v.object({
+    closed: v.number(),
+    continueCursor: v.union(v.string(), v.null()),
+    phase: v.union(v.literal("indexed"), v.literal("legacy")),
+    isDone: v.boolean(),
+  }),
+  handler: async (ctx, args) => {
+    return await closeAtsJobsPage(ctx, {
+      integrationId: args.integrationId,
+      provider: args.provider,
+      seenAt: args.seenAt,
+      cursor: args.cursor,
+      phase: args.phase,
+    });
   },
 });
 
@@ -823,5 +892,39 @@ export const saveAiSummary = internalMutation({
     if (!job) throw new Error("Job not found");
     await ctx.db.patch(args.jobId, { ai_summary: args.summary });
     return args.summary;
+  },
+});
+
+const WIPE_JOB_BATCH = 40;
+
+function isIngestedJob(job: Doc<"jobs">) {
+  // Recruiter-posted listings always have an owner. Seed, scrape, and ATS ingest do not.
+  return job.owner_id == null;
+}
+
+/** Admin-only: wipe seeded, scraped, and ATS-ingested jobs. User-posted jobs stay. */
+export const wipeAll = adminMutation({
+  args: {},
+  returns: v.object({ started: v.boolean() }),
+  handler: async (ctx) => {
+    const sample = await ctx.db.query("jobs").take(200);
+    if (!sample.some(isIngestedJob) && sample.length < 200) return { started: false };
+    await ctx.scheduler.runAfter(0, internal.jobs.wipeAllBatch, { cursor: null });
+    return { started: true };
+  },
+});
+
+export const wipeAllBatch = internalMutation({
+  args: { cursor: v.union(v.string(), v.null()) },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const result = await ctx.db.query("jobs").paginate({ numItems: WIPE_JOB_BATCH, cursor: args.cursor });
+    for (const job of result.page) {
+      if (isIngestedJob(job)) await deleteJobCascade(ctx, job._id);
+    }
+    if (!result.isDone) {
+      await ctx.scheduler.runAfter(0, internal.jobs.wipeAllBatch, { cursor: result.continueCursor });
+    }
+    return null;
   },
 });

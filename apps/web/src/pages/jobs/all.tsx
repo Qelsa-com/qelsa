@@ -1,7 +1,7 @@
 import { JobCard, JobsBrowseHeader, SearchFilters, toDiscoverArgs } from "@/components/job/jobBrowseShared";
 import { JOBS_PAGE_SIZE, JobsFeedPager } from "@/components/job/JobsFeedPager";
 import { AllJobsGridSkeleton } from "@/components/job/jobSkeletons";
-import { usePaginatedJobsQuery } from "@/features/api/jobsApi";
+import { useCountJobsQuery, usePaginatedJobsQuery } from "@/features/api/jobsApi";
 import { City } from "@/types/city";
 import { Job } from "@/types/job";
 import { Search } from "lucide-react";
@@ -38,31 +38,38 @@ const All = () => {
   // across filter/search changes, so we never refetch the whole set.
   const discoverArgs = useMemo(() => toDiscoverArgs(filters, query), [filters, query]);
   const { results, status, isLoading, loadMore } = usePaginatedJobsQuery(discoverArgs, JOBS_PAGE_SIZE);
+  const { data: filteredTotal } = useCountJobsQuery(discoverArgs);
   const jobs = (results as Job[]) ?? [];
-  const total = jobs.length;
-  const canLoadMore = status === "CanLoadMore";
+  const loaded = jobs.length;
+  const total = typeof filteredTotal === "number" ? filteredTotal : undefined;
 
   const applyFilters = (partial: Partial<SearchFilters>) => {
     setFilters((prev) => ({ ...prev, ...partial }));
   };
 
-  const isInitialLoading = isLoading && total === 0;
+  const isInitialLoading = isLoading && loaded === 0;
 
   return (
     <Layout activeSection={"jobs"}>
       <div className="mx-auto w-full max-w-[1400px] px-4 py-6 text-white sm:px-6 sm:py-8 md:px-12">
-        <JobsBrowseHeader activeTab="all" query={searchInput} setQuery={setSearchInput} onSearch={() => setQuery(searchInput)} filters={filters} onApplyFilters={applyFilters} cityFilter={cityFilter} setCityFilter={setCityFilter} />
+        <JobsBrowseHeader
+          activeTab="all"
+          query={searchInput}
+          setQuery={setSearchInput}
+          onSearch={() => setQuery(searchInput)}
+          filters={filters}
+          onApplyFilters={applyFilters}
+          cityFilter={cityFilter}
+          setCityFilter={setCityFilter}
+          resultsCount={{ loaded, total }}
+        />
 
         {/* ----------------------------- All jobs ------------------------------ */}
         <div className="mt-6 flex flex-col gap-4 pb-16 sm:mt-10 sm:gap-6 sm:pb-24">
           {isInitialLoading ? (
             <AllJobsGridSkeleton />
-          ) : total > 0 ? (
+          ) : loaded > 0 ? (
             <>
-              <p className="text-[13px] text-white/45 sm:text-sm">
-                Showing {total} job{total === 1 ? "" : "s"}
-                {canLoadMore || status === "LoadingMore" ? " (more available)" : ""}
-              </p>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">
                 {jobs.map((job) => (
                   <JobCard key={job.id} job={job} onClick={() => router.push(`/jobs/${job.id}`)} />
@@ -79,7 +86,7 @@ const All = () => {
             </div>
           ) : null}
 
-          <JobsFeedPager status={status} loadMore={loadMore} loadedCount={total} />
+          <JobsFeedPager status={status} loadMore={loadMore} loadedCount={loaded} />
         </div>
       </div>
     </Layout>

@@ -5,6 +5,7 @@ import { components, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { internalAction, internalMutation, internalQuery } from "./_generated/server";
 import { AI_AGENT_MODEL, requireOpenRouter } from "./lib/ai";
+import { hasExtractedSkills, markSkillsExtracted } from "./lib/jobSkillExtraction";
 import { clipPlainText, normalizeSkillName } from "./lib/skillMatch";
 
 const SKILL_TYPES = ["core", "preferred", "nice_to_have"] as const;
@@ -82,7 +83,7 @@ export const getJobForEnrich = internalQuery({
       title: job.title ?? "Untitled role",
       description: clipPlainText(job.description, 6000),
       hasSkills: existing.length > 0,
-      skillsExtracted: job.skills_extracted ?? false,
+      skillsExtracted: await hasExtractedSkills(ctx, job._id, job.skills_extracted),
     };
   },
 });
@@ -92,6 +93,9 @@ export const applyExtractedSkills = internalMutation({
   args: { jobId: v.id("jobs"), skills: v.array(extractedSkillValidator) },
   returns: v.number(),
   handler: async (ctx, args) => {
+    const job = await ctx.db.get(args.jobId);
+    if (!job) return 0;
+    if (await hasExtractedSkills(ctx, args.jobId, job.skills_extracted)) return 0;
     const catalog = await ctx.db.query("skills").take(1000);
     const byNormalized = new Map(catalog.map((skill) => [normalizeSkillName(skill.name), skill._id]));
     const existing = await ctx.db
@@ -122,7 +126,8 @@ export const applyExtractedSkills = internalMutation({
       });
       inserted++;
     }
-    await ctx.db.patch(args.jobId, { skills_extracted: true });
+    // Write the sidecar only — never patch `jobs`, which ATS sync also writes.
+    await markSkillsExtracted(ctx, args.jobId);
     return inserted;
   },
 });
@@ -205,7 +210,7 @@ export const listJobsMissingSkills = internalQuery({
     const jobIds: Id<"jobs">[] = [];
     for (const job of page) {
       if (jobIds.length >= args.limit) break;
-      if (job.status !== "open" || job.skills_extracted) continue;
+      if (job.status !== "open" || (await hasExtractedSkills(ctx, job._id, job.skills_extracted))) continue;
       const skill = await ctx.db
         .query("job_skills")
         .withIndex("by_job", (q) => q.eq("job_id", job._id))

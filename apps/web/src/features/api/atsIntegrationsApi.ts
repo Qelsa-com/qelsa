@@ -7,16 +7,20 @@ export function useListAtsIntegrationsQuery(options?: { skip?: boolean }) {
   return useConvexQueryHook(api.atsIntegrations.list, {}, options);
 }
 
+export function useConnectAtsBoardMutation() {
+  return useConvexMutationHook(api.atsIntegrations.connectBoard, (input: { provider: string; subdomain: string }) => input);
+}
+
 export function useConnectAtsApiKeyMutation() {
-  return useConvexMutationHook(api.atsIntegrations.connectApiKey, (input: { provider: string; apiKey: string; subdomain?: string }) => input);
+  return useConvexMutationHook(api.atsIntegrations.connectApiKey, (input: { provider: string; apiKey: string; subdomain: string }) => input);
 }
 
 export function useConnectAtsOAuthMutation() {
-  return useConvexMutationHook(api.atsIntegrations.connectOAuth, (provider: string) => ({ provider }));
+  return useConvexMutationHook(api.atsIntegrations.connectOAuth, (input: { provider: string; clientId: string; clientSecret: string; subdomain?: string; refreshToken?: string; region?: string }) => input);
 }
 
 export function useReconnectAtsMutation() {
-  return useConvexMutationHook(api.atsIntegrations.reconnect, (input: { provider: string; apiKey?: string }) => input);
+  return useConvexMutationHook(api.atsIntegrations.reconnect, (input: { provider: string; apiKey?: string; subdomain?: string; clientId?: string; clientSecret?: string; refreshToken?: string; region?: string }) => input);
 }
 
 export function useDisconnectAtsMutation() {
@@ -33,4 +37,20 @@ export function useUpdateAtsSyncSettingsMutation() {
 
 export function useRequestAtsAccessMutation() {
   return useConvexMutationHook(api.atsIntegrations.requestAccess, (provider: string) => ({ provider }));
+}
+
+export function useListPublicBoardsQuery(options?: { skip?: boolean }) {
+  return useConvexQueryHook(api.atsIntegrations.listPublicBoards, {}, options);
+}
+
+export function useAddPublicBoardMutation() {
+  return useConvexMutationHook(api.atsIntegrations.addPublicBoard, (input: { provider: string; subdomain: string }) => input);
+}
+
+export function useRemovePublicBoardMutation() {
+  return useConvexMutationHook(api.atsIntegrations.removePublicBoard, (id: string) => ({ id }));
+}
+
+export function useRetryPublicBoardMutation() {
+  return useConvexMutationHook(api.atsIntegrations.retryPublicBoard, (id: string) => ({ id }));
 }

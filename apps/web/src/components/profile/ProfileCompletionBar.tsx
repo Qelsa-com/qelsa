@@ -1,15 +1,23 @@
+import { cn } from "@/components/ui/utils";
+
 interface ProfileCompletionBarProps {
   /** 0–100. */
   percent: number;
   onComplete?: () => void;
+  className?: string;
 }
 
-/** Owner-only nudge that sits between the hero and the section grid. */
-export function ProfileCompletionBar({ percent, onComplete }: ProfileCompletionBarProps) {
+/** Owner-only nudge used on profile and the jobs browse header. */
+export function ProfileCompletionBar({ percent, onComplete, className }: ProfileCompletionBarProps) {
   const clamped = Math.min(100, Math.max(0, Math.round(percent)));
 
   return (
-    <div className="mx-auto flex w-full max-w-[1280px] flex-col gap-2.5 px-6 pb-3 pt-5 md:px-12 lg:px-20">
+    <div
+      className={cn(
+        "flex w-full flex-col gap-2.5 rounded-2xl border border-glass-border bg-white/[0.04] p-4 sm:rounded-[20px] sm:p-6",
+        className,
+      )}
+    >
       <div className="flex flex-wrap items-center gap-2 text-[13px]">
         <p className="flex-1 text-white/50">Your profile is {clamped}% complete — add more details to unlock better job matches</p>
         <button type="button" onClick={onComplete} className="shrink-0 font-semibold text-neon-cyan transition-opacity hover:opacity-80">

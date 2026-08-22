@@ -105,7 +105,11 @@ export function ProfilePage({ isOwner = false, username }: ProfilePageProps) {
     <div className="flex min-h-screen w-full flex-col bg-[#06060f]">
       <ProfileHero user={user} experiences={experienceList} isOwner={isOwner} isFollowing={isFollowing} onEdit={() => router.push("/profile/edit")} onFollow={handleFollow} onShare={handleShare} />
 
-      {isOwner && completion < 100 && <ProfileCompletionBar percent={completion} onComplete={() => router.push("/profile/edit")} />}
+      {isOwner && completion < 100 && (
+        <div className="mx-auto w-full max-w-[1280px] px-6 pt-5 md:px-12 lg:px-20">
+          <ProfileCompletionBar percent={completion} onComplete={() => router.push("/profile/edit")} />
+        </div>
+      )}
 
       <div className="mx-auto grid w-full max-w-[1280px] grid-cols-1 gap-6 px-6 pb-20 pt-6 md:px-12 lg:grid-cols-[minmax(0,1fr)_520px] lg:px-20">
         <div className="flex min-w-0 flex-col gap-6">

@@ -1,13 +1,7 @@
 import { JobCard, JobsBrowseHeader, matchScore, SearchFilters, toDiscoverArgs } from "@/components/job/jobBrowseShared";
 import { JOBS_PAGE_SIZE, JobsFeedPager } from "@/components/job/JobsFeedPager";
 import { SmartMatchesSkeleton } from "@/components/job/jobSkeletons";
-import { profileCompletion } from "@/components/profile/profileFormat";
-import { useAuth } from "@/contexts/AuthContext";
-import { useGetCertificationsQuery } from "@/features/api/certificationsApi";
-import { useGetEducationsQuery } from "@/features/api/educationsApi";
-import { useGetExperiencesQuery } from "@/features/api/experiencesApi";
-import { usePaginatedJobsQuery } from "@/features/api/jobsApi";
-import { useGetUserSkillsQuery } from "@/features/api/userSkillsApi";
+import { useCountJobsQuery, usePaginatedJobsQuery } from "@/features/api/jobsApi";
 import { City } from "@/types/city";
 import { Job } from "@/types/job";
 import { useRouter } from "next/navigation";
@@ -63,7 +57,6 @@ function applyExploreTab(jobs: Job[], tab: ExploreTab): Job[] {
 
 const SmartMatches = () => {
   const router = useRouter();
-  const { user, isAuthenticated } = useAuth();
 
   const [query, setQuery] = useState("");
   const [cityFilter, setCityFilter] = useState<City | null>(null);
@@ -86,15 +79,12 @@ const SmartMatches = () => {
     return () => clearTimeout(t);
   }, [searchInput]);
 
-  const { data: experiences } = useGetExperiencesQuery(undefined, { skip: !isAuthenticated });
-  const { data: educations } = useGetEducationsQuery(undefined, { skip: !isAuthenticated });
-  const { data: certifications } = useGetCertificationsQuery(undefined, { skip: !isAuthenticated });
-  const { data: skills } = useGetUserSkillsQuery(undefined, { skip: !isAuthenticated });
-
   // Reactive paginated feed — pages are cached by the Convex client.
   const discoverArgs = useMemo(() => toDiscoverArgs(filters, query), [filters, query]);
   const { results, status, isLoading, loadMore } = usePaginatedJobsQuery(discoverArgs, JOBS_PAGE_SIZE);
+  const { data: filteredTotal } = useCountJobsQuery(discoverArgs);
   const jobs = (results as Job[]) ?? [];
+  const total = typeof filteredTotal === "number" ? filteredTotal : undefined;
 
   const applyFilters = (partial: Partial<SearchFilters>) => {
     setFilters((prev) => ({ ...prev, ...partial }));
@@ -116,14 +106,6 @@ const SmartMatches = () => {
 
   const exploreJobs = useMemo(() => applyExploreTab(explore, exploreTab), [explore, exploreTab]);
 
-  const completionPercent = profileCompletion(user, {
-    experiences: experiences?.length ?? 0,
-    educations: educations?.length ?? 0,
-    certifications: certifications?.length ?? 0,
-    skills: skills?.length ?? 0,
-  });
-  const extraRoles = almost.length > 0 ? almost.length : jobs.filter((job) => matchScore(job) == null).length;
-
   const openJob = (id: string | number) => router.push(`/jobs/${id}`);
   const missingTiers = ready.length === 0 && almost.length === 0;
 
@@ -139,7 +121,7 @@ const SmartMatches = () => {
           onApplyFilters={applyFilters}
           cityFilter={cityFilter}
           setCityFilter={setCityFilter}
-          profileBanner={{ percent: completionPercent, extraRoles }}
+          resultsCount={{ loaded: jobs.length, total }}
         />
 
         {/* ---------------------------- Job sections --------------------------- */}
