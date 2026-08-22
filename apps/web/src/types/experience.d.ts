@@ -10,6 +10,7 @@ export type Experience = {
   company?: Company;
   job_title?: JobTitle;
   employment_type?: string;
+  work_type?: string;
   start_date: Date;
   end_date?: Date;
   is_current?: boolean;

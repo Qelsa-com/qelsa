@@ -26,6 +26,11 @@ export function useBulkModifyUserSkillsMutation() {
   return useConvexMutationHook(api.userSkills.bulkModify, (skills) => ({ skills }));
 }
 
+/** Get-or-create a catalog skill by name ("Add as new skill" flows). */
+export function useResolveSkillMutation() {
+  return useConvexMutationHook(api.userSkills.resolveSkill, (name: string) => ({ name }));
+}
+
 export function useLazySearchSkillsQuery() {
   const [trigger, state] = useLazyConvexQueryHook(api.seed.skills);
   const run = (search?: string) => trigger({ search: search || undefined });

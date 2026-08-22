@@ -29,6 +29,7 @@ export const me = optionalAuthQuery({
       .collect();
     return {
       ...asUserJson(ctx.user),
+      profile_image: (await signedFileUrl(r2, ctx.user.profile_image_storage_id)) ?? ctx.user.profile_image,
       city: city ? { ...withId(city), state: state ? withId(state) : null } : null,
       culture_preference: culture ? withId(culture) : null,
       resumes: await Promise.all(
@@ -70,6 +71,7 @@ export const publicProfile = query({
     return {
       user: {
         ...asUserJson(user),
+        profile_image: (await signedFileUrl(r2, user.profile_image_storage_id)) ?? user.profile_image,
         city: city ? withId(city) : null,
       },
       experiences: experiences.map(withId),
@@ -80,25 +82,87 @@ export const publicProfile = query({
   },
 });
 
+const USER_PATCH_KEYS = new Set([
+  "name",
+  "username",
+  "gender",
+  "dob",
+  "city_id",
+  "phone",
+  "profile_image",
+  "profile_image_storage_id",
+  "about",
+  "headline",
+  "nationality",
+  "pronoun",
+  "professional_summary",
+  "work_preference",
+  "want_to_relocate",
+  "preffer_full_time",
+  "preffer_contract",
+  "preffer_internship",
+  "preffer_freelance",
+  "preffer_part_time",
+  "expected_salary_currency",
+  "expected_min_salary",
+  "expected_max_salary",
+  "linkedin_url",
+  "github_url",
+  "twitter_url",
+  "other_social_link",
+  "custom_profile_url",
+  "profile_visibility",
+  "show_contact_to_recruiters",
+  "allow_profile_downloads",
+  "profile_view_analytics",
+  "account_type",
+  "job_seeking_status",
+  "hiring_role",
+  "active_page_id",
+  "onboarding_completed",
+  "profile_type",
+  "find_job",
+  "explore_career",
+  "upskill_and_learn",
+  "prepare_interview",
+  "relocate_location",
+  "website",
+  "show_phone_number",
+  "phone_country_code",
+  "relocate_locations",
+  "default_resume_id",
+  "languages",
+  "interests",
+  "portfolio_links",
+]);
+
+function profileUpdates(raw: Record<string, unknown>) {
+  const updates: Record<string, unknown> = { ...raw };
+  if (updates.city && typeof updates.city === "object" && updates.city !== null && "id" in updates.city) {
+    updates.city_id = (updates.city as { id: string }).id;
+  }
+  if (updates.dob && typeof updates.dob === "string") {
+    updates.dob = new Date(updates.dob).getTime();
+  }
+  // Signed R2 URLs expire; persist the storage key and re-sign on read.
+  if (updates.profile_image_storage_id && typeof updates.profile_image === "string" && updates.profile_image.includes("X-Amz-")) {
+    delete updates.profile_image;
+  }
+  const next: Record<string, unknown> = {};
+  for (const key of USER_PATCH_KEYS) {
+    const value = updates[key];
+    if (value !== undefined && value !== null) next[key] = value;
+  }
+  return next;
+}
+
 export const updateProfile = authedMutation({
   args: { updates: v.any() },
   returns: v.any(),
   handler: async (ctx, args) => {
-    const updates = { ...(args.updates as Record<string, unknown>) };
-    delete updates.id;
-    delete updates._id;
-    delete updates.authId;
-    delete updates.email;
-    delete updates.role;
-    if (updates.city && typeof updates.city === "object" && updates.city !== null && "id" in updates.city) {
-      updates.city_id = (updates.city as { id: string }).id;
-      delete updates.city;
-    }
-    const culture = updates.culture_preference;
-    delete updates.culture_preference;
-    if (updates.dob && typeof updates.dob === "string") {
-      updates.dob = new Date(updates.dob).getTime();
-    }
+    const incoming = args.updates as Record<string, unknown>;
+    const culture = incoming.culture_preference;
+    const updates = profileUpdates(incoming);
     await ctx.db.patch(ctx.user._id, updates);
 
     if (culture !== undefined) {
@@ -132,7 +196,10 @@ export const updateProfile = authedMutation({
     }
 
     const user = (await ctx.db.get(ctx.user._id)) as Doc<"users">;
-    return asUserJson(user);
+    return {
+      ...asUserJson(user),
+      profile_image: (await signedFileUrl(r2, user.profile_image_storage_id)) ?? user.profile_image,
+    };
   },
 });
 

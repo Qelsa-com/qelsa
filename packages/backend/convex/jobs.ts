@@ -215,6 +215,25 @@ export const list = optionalAuthQuery({
   },
 });
 
+/** Lightweight count for the profile editor's "Smart Job Matches" callout. */
+export const matchCount = authedQuery({
+  args: {
+    cities: v.optional(v.array(v.string())),
+    workplace_types: v.optional(v.array(v.string())),
+    job_types: v.optional(v.array(v.string())),
+  },
+  returns: v.number(),
+  handler: async (ctx, args) => {
+    const open = await openJobs(ctx, 400);
+    let count = 0;
+    for (const job of open) {
+      const city = job.city_id ? await ctx.db.get(job.city_id) : null;
+      if (matchesFilters(job, city?.name ?? null, { ...args })) count++;
+    }
+    return count;
+  },
+});
+
 export const getById = optionalAuthQuery({
   args: { id: v.id("jobs") },
   returns: v.any(),

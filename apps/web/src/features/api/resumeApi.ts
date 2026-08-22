@@ -10,6 +10,17 @@ export function useGetMyResumesQuery(_filters?: Record<string, string> | void, o
   return useConvexQueryHook(api.resumes.listMine, {}, options);
 }
 
+export function useDeleteResumeMutation() {
+  const remove = useMutation(api.resumes.remove);
+  const [isLoading, setIsLoading] = useState(false);
+  const run = (id: string | number) => {
+    setIsLoading(true);
+    const promise = Promise.resolve(remove({ id: String(id) as never })).finally(() => setIsLoading(false));
+    return withUnwrap(promise);
+  };
+  return [run, { isLoading }] as const;
+}
+
 export function useCreateResumeMutation() {
   const generateUploadUrl = useMutation(api.files.generateUploadUrl);
   const syncMetadata = useMutation(api.files.syncMetadata);

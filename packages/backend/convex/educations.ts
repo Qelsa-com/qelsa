@@ -4,6 +4,7 @@ import type { QueryCtx } from "./_generated/server";
 import { authedMutation, authedQuery } from "./lib/customFunctions";
 import { withId } from "./lib/helpers";
 import { titledList, withLocalIds } from "./lib/profileFields";
+import { resolveNamedRef, type NamedRefInput } from "./lib/resolve";
 
 async function hydrate(ctx: QueryCtx, row: Doc<"educations">) {
   const degree = row.degree_id ? await ctx.db.get(row.degree_id) : null;
@@ -40,9 +41,9 @@ export const create = authedMutation({
     const existing = await ctx.db.query("educations").withIndex("by_user", (q) => q.eq("user_id", ctx.user._id)).collect();
     const id = await ctx.db.insert("educations", {
       user_id: ctx.user._id,
-      degree_id: (data.degree as { id?: Id<"degree_names"> } | undefined)?.id,
-      field_of_study_id: (data.field_of_study as { id?: Id<"fields_of_study"> } | undefined)?.id,
-      college_id: (data.college as { id?: Id<"colleges"> } | undefined)?.id,
+      degree_id: await resolveNamedRef(ctx, "degree_names", data.degree as NamedRefInput),
+      field_of_study_id: await resolveNamedRef(ctx, "fields_of_study", data.field_of_study as NamedRefInput),
+      college_id: await resolveNamedRef(ctx, "colleges", data.college as NamedRefInput),
       city_id: (data.city as { id?: Id<"cities"> } | undefined)?.id,
       start_year: Number(data.start_year),
       end_year: data.end_year ? Number(data.end_year) : undefined,
@@ -64,9 +65,9 @@ export const update = authedMutation({
     if (!row || row.user_id !== ctx.user._id) throw new Error("Education not found");
     const data = args.data as Record<string, unknown>;
     await ctx.db.patch(args.id, {
-      degree_id: (data.degree as { id?: Id<"degree_names"> } | undefined)?.id ?? row.degree_id,
-      field_of_study_id: (data.field_of_study as { id?: Id<"fields_of_study"> } | undefined)?.id ?? row.field_of_study_id,
-      college_id: (data.college as { id?: Id<"colleges"> } | undefined)?.id ?? row.college_id,
+      degree_id: data.degree !== undefined ? await resolveNamedRef(ctx, "degree_names", data.degree as NamedRefInput) : row.degree_id,
+      field_of_study_id: data.field_of_study !== undefined ? await resolveNamedRef(ctx, "fields_of_study", data.field_of_study as NamedRefInput) : row.field_of_study_id,
+      college_id: data.college !== undefined ? await resolveNamedRef(ctx, "colleges", data.college as NamedRefInput) : row.college_id,
       city_id: (data.city as { id?: Id<"cities"> } | undefined)?.id ?? row.city_id,
       start_year: data.start_year != null ? Number(data.start_year) : row.start_year,
       end_year: data.end_year != null ? Number(data.end_year) : row.end_year,

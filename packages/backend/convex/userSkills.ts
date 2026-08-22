@@ -64,6 +64,23 @@ export const remove = authedMutation({
   },
 });
 
+/** Get-or-create a catalog skill by exact name, for "Add as new skill" flows. */
+export const resolveSkill = authedMutation({
+  args: { name: v.string() },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    const name = args.name.trim();
+    if (!name) throw new Error("Skill name is required");
+    const existing = await ctx.db
+      .query("skills")
+      .withIndex("by_name", (q) => q.eq("name", name))
+      .unique();
+    if (existing) return withId(existing);
+    const id = await ctx.db.insert("skills", { name });
+    return withId((await ctx.db.get(id))!);
+  },
+});
+
 export const bulkModify = authedMutation({
   args: { skills: v.array(v.any()) },
   returns: v.any(),

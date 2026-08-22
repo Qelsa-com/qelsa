@@ -58,3 +58,27 @@ export function useLazySearchCitiesQuery() {
   const run = (search?: string) => trigger({ search: search ?? "" });
   return [run, state] as const;
 }
+
+export function useLazySearchCompaniesQuery() {
+  const [trigger, state] = useLazyConvexQueryHook(api.seed.companies);
+  const run = (search?: string) => trigger({ search: search ?? "" });
+  return [run, state] as const;
+}
+
+export function useLazySearchJobTitlesQuery() {
+  const [trigger, state] = useLazyConvexQueryHook(api.seed.jobTitles);
+  const run = (search?: string) => trigger({ search: search ?? "" });
+  return [run, state] as const;
+}
+
+export function useLazyGetDegreeNamesQuery() {
+  const [trigger, state] = useLazyConvexQueryHook(api.seed.degreeNames);
+  const run = (search?: string) => trigger({ search: search || undefined });
+  return [run, state] as const;
+}
+
+export function useLazyGetFieldsOfStudyQuery() {
+  const [trigger, state] = useLazyConvexQueryHook(api.seed.fieldsOfStudy);
+  const run = (search?: string) => trigger({ search: search || undefined });
+  return [run, state] as const;
+}

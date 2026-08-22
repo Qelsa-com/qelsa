@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * JobDetailPageRedesign
+ * JobDetail
  *
  * Figma "Job Detail" frame (Qelsa-Screen, node 191:50111) converted to the repo's
  * conventions and wired to live data:
@@ -107,7 +107,7 @@ const interviewQuestions = [
   "Describe your experience with state management libraries like Redux or Zustand.",
 ];
 
-export function JobDetailPageRedesign() {
+export function JobDetail() {
   const { user, isAuthenticated } = useAuth();
   const router = useRouter();
   const params = useParams<{ id: string }>();
@@ -566,4 +566,4 @@ function SectionCard({ icon, title, titleSize = "text-lg lg:text-xl", children }
   );
 }
 
-export default JobDetailPageRedesign;
+export default JobDetail;

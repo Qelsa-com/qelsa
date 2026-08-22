@@ -70,6 +70,14 @@ export default defineSchema({
     relocate_location: v.optional(v.string()),
     website: v.optional(v.string()),
     show_phone_number: v.boolean(),
+    // Profile editor additions
+    phone_country_code: v.optional(v.string()),
+    relocate_locations: v.optional(v.array(v.string())),
+    preffer_part_time: v.optional(v.boolean()),
+    default_resume_id: v.optional(v.id("resumes")),
+    languages: v.optional(v.array(v.object({ name: v.string(), proficiency: v.string() }))),
+    interests: v.optional(v.array(v.string())),
+    portfolio_links: v.optional(v.array(v.object({ title: v.string(), url: v.string() }))),
   })
     .index("by_authId", ["authId"])
     .index("by_email", ["email"])
@@ -292,6 +300,8 @@ export default defineSchema({
     start_date: v.number(),
     end_date: v.optional(v.number()),
     is_current: v.optional(v.boolean()),
+    employment_type: v.optional(v.string()),
+    work_type: v.optional(v.string()),
     description: v.optional(v.string()),
     team_size: v.optional(v.number()),
     responsibilities: v.optional(v.array(titledItem)),
@@ -340,11 +350,12 @@ export default defineSchema({
   }).index("by_name", ["name"]),
 
   degree_names: defineTable({
-    level_id: v.id("degree_levels"),
+    level_id: v.optional(v.id("degree_levels")),
     name: v.string(),
     abbreviation: v.optional(v.string()),
   })
     .index("by_level", ["level_id"])
+    .index("by_name", ["name"])
     .searchIndex("search_name", { searchField: "name" }),
 
   fields_of_study: defineTable({
