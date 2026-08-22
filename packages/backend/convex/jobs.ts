@@ -142,9 +142,11 @@ function matchesFilters(job: Doc<"jobs">, cityName: string | null, args: Record<
 
   if (page_id && job.page_id !== page_id) return false;
   if (cities.length) {
-    const other = (job.other_info as { cities?: Array<{ name?: string }> } | undefined)?.cities ?? [];
-    const names = [cityName, ...other.map((c) => c.name)].filter(Boolean).map((n) => n!.toLowerCase());
-    if (!cities.some((c) => names.includes(c.toLowerCase()))) return false;
+    const extra = job.other_info as { cities?: Array<{ name?: string }>; location?: string } | undefined;
+    const names = [cityName, extra?.location, ...(extra?.cities ?? []).map((c) => c.name)]
+      .filter(Boolean)
+      .map((n) => n!.toLowerCase());
+    if (!cities.some((c) => names.some((n) => n === c.toLowerCase() || n.includes(c.toLowerCase())))) return false;
   }
   if (job_types.length) {
     const squash = (s?: string | null) => (s ?? "").toLowerCase().replace(/[-\s]/g, "");
@@ -721,6 +723,8 @@ export const storeAtsJobs = internalMutation({
         .query("jobs")
         .withIndex("by_external_id", (q) => q.eq("external_id", external_id))
         .unique();
+      const location = typeof job.location === "string" ? job.location.trim() : "";
+      const cityHint = location.split(",")[0]?.trim();
       const payload = {
         external_id,
         title: job.title as string | undefined,
@@ -728,14 +732,22 @@ export const storeAtsJobs = internalMutation({
         application_url: job.application_url as string | undefined,
         company_name: job.company_name as string | undefined,
         company_logo: job.company_logo as string | undefined,
+        company_website_url: job.company_website_url as string | undefined,
         has_remote: Boolean(job.has_remote),
+        workplace_type: job.workplace_type as "on-site" | "hybrid" | "remote" | undefined,
+        work_type: job.work_type as string | undefined,
+        language: job.language as string | undefined,
+        salary_min: job.salary_min as number | undefined,
+        salary_max: job.salary_max as number | undefined,
+        salary_currency: job.salary_currency as string | undefined,
         published_date: (job.published_date as number | undefined) ?? Date.now(),
         resource: `ats:${args.provider}`,
         other_info: {
           ats_provider: args.provider,
           integration_id: args.integrationId,
-          location: job.location,
+          location: location || undefined,
           departments: job.departments,
+          cities: cityHint ? [{ name: cityHint }] : [],
         },
         status: "open" as const,
       };

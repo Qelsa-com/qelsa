@@ -1,14 +1,14 @@
-import { City } from "@/types/city";
 import { JobCard, JobsBrowseHeader, matchScore, SearchFilters, toDiscoverArgs } from "@/components/job/jobBrowseShared";
 import { JOBS_PAGE_SIZE, JobsFeedPager } from "@/components/job/JobsFeedPager";
 import { SmartMatchesSkeleton } from "@/components/job/jobSkeletons";
+import { profileCompletion } from "@/components/profile/profileFormat";
+import { useAuth } from "@/contexts/AuthContext";
 import { useGetCertificationsQuery } from "@/features/api/certificationsApi";
 import { useGetEducationsQuery } from "@/features/api/educationsApi";
 import { useGetExperiencesQuery } from "@/features/api/experiencesApi";
 import { usePaginatedJobsQuery } from "@/features/api/jobsApi";
 import { useGetUserSkillsQuery } from "@/features/api/userSkillsApi";
-import { useAuth } from "@/contexts/AuthContext";
-import { profileCompletion } from "@/components/profile/profileFormat";
+import { City } from "@/types/city";
 import { Job } from "@/types/job";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -166,9 +166,7 @@ const SmartMatches = () => {
                 <div className="flex flex-col gap-4 sm:gap-8">
                   <div className="flex flex-col gap-1 sm:gap-2">
                     <h2 className="text-xl font-bold text-white sm:text-2xl">Explore More</h2>
-                    <p className="text-[13px] text-white/45 sm:text-sm">
-                      {missingTiers ? "Roles across your interests — complete your profile to unlock tailored match tiers." : "More roles to explore across your interests."}
-                    </p>
+                    <p className="text-[13px] text-white/45 sm:text-sm">{missingTiers ? "Roles across your interests — complete your profile to unlock tailored match tiers." : "More roles to explore across your interests."}</p>
                   </div>
 
                   {/* Sub-tabs */}
@@ -189,23 +187,13 @@ const SmartMatches = () => {
                     })}
                   </div>
 
-                  {exploreJobs.length > 0 ? (
-                    <JobGrid jobs={exploreJobs} onOpen={openJob} />
-                  ) : (
-                    <p className="text-[13px] text-white/45 sm:text-sm">No roles in this view right now.</p>
-                  )}
+                  {exploreJobs.length > 0 ? <JobGrid jobs={exploreJobs} onOpen={openJob} /> : <p className="text-[13px] text-white/45 sm:text-sm">No roles in this view right now.</p>}
                 </div>
               )}
             </>
           ) : null}
 
-          <JobsFeedPager
-            status={status}
-            loadMore={loadMore}
-            loadedCount={jobs.length}
-            moreLabel="Load more matches"
-            doneLabel="You're all caught up."
-          />
+          <JobsFeedPager status={status} loadMore={loadMore} loadedCount={jobs.length} moreLabel="Load more matches" doneLabel="You're all caught up." />
         </div>
       </div>
     </Layout>

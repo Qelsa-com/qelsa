@@ -1,8 +1,8 @@
-import { City } from "@/types/city";
 import { JobCard, JobsBrowseHeader, SearchFilters, toDiscoverArgs } from "@/components/job/jobBrowseShared";
 import { JOBS_PAGE_SIZE, JobsFeedPager } from "@/components/job/JobsFeedPager";
 import { AllJobsGridSkeleton } from "@/components/job/jobSkeletons";
 import { usePaginatedJobsQuery } from "@/features/api/jobsApi";
+import { City } from "@/types/city";
 import { Job } from "@/types/job";
 import { Search } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -51,16 +51,7 @@ const All = () => {
   return (
     <Layout activeSection={"jobs"}>
       <div className="mx-auto w-full max-w-[1400px] px-4 py-6 text-white sm:px-6 sm:py-8 md:px-12">
-        <JobsBrowseHeader
-          activeTab="all"
-          query={searchInput}
-          setQuery={setSearchInput}
-          onSearch={() => setQuery(searchInput)}
-          filters={filters}
-          onApplyFilters={applyFilters}
-          cityFilter={cityFilter}
-          setCityFilter={setCityFilter}
-        />
+        <JobsBrowseHeader activeTab="all" query={searchInput} setQuery={setSearchInput} onSearch={() => setQuery(searchInput)} filters={filters} onApplyFilters={applyFilters} cityFilter={cityFilter} setCityFilter={setCityFilter} />
 
         {/* ----------------------------- All jobs ------------------------------ */}
         <div className="mt-6 flex flex-col gap-4 pb-16 sm:mt-10 sm:gap-6 sm:pb-24">
