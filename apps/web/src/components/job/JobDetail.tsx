@@ -14,9 +14,8 @@
  * have no backing data in the model and were intentionally dropped.
  */
 
-import { experienceChip, matchScore, salaryText } from "@/components/job/jobBrowseShared";
+import { CompanyLogo, displayCompanyName, displayLocation, experienceChip, matchScore, salaryText } from "@/components/job/jobBrowseShared";
 import { experienceMonths } from "@/components/profile/profileFormat";
-import { formatCity } from "@/constants/city";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGetEducationsQuery } from "@/features/api/educationsApi";
 import { useGetExperiencesQuery } from "@/features/api/experiencesApi";
@@ -167,7 +166,8 @@ export function JobDetail() {
   if (error) return <p className="p-6 text-white/70 lg:p-8">Error loading job.</p>;
   if (!job) return <p className="p-6 text-white/70 lg:p-8">No job found.</p>;
 
-  const companyName = job.page?.name || job.company_name || "Company";
+  const companyName = displayCompanyName(job.page?.name || job.company_name);
+  const locationLabel = displayLocation(job);
   const title = job.job_title?.name ?? job.title;
   const description = DOMPurify.sanitize(jobDescriptionToHtml(job.description || ""));
   const applied = job.has_applied ?? job.applications?.some((a) => a.user_id === user?.id) ?? false;
@@ -275,13 +275,8 @@ export function JobDetail() {
           {/* Company on one line, actions on the next — a phone can't fit both. */}
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between lg:gap-0">
             <div className="flex min-w-0 items-center gap-3">
-              <div className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-glass-border bg-white/[0.04] lg:size-16">
-                {job.company_logo ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={job.company_logo} alt={companyName} className="size-full object-cover" />
-                ) : (
-                  <Building2 className="size-6 text-white/80 lg:size-8" />
-                )}
+              <div className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-full border border-glass-border bg-white/[0.04] lg:size-16">
+                <CompanyLogo job={job} name={companyName} fallback={<Building2 className="size-6 text-white/80 lg:size-8" />} />
               </div>
               <div className="flex min-w-0 flex-col gap-1">
                 <div className="flex flex-wrap items-center gap-2">
@@ -294,7 +289,7 @@ export function JobDetail() {
                       Verified
                     </span>
                   )}
-                  {job.city && <span className="text-xs text-white/45">{formatCity(job.city)}</span>}
+                  {locationLabel && <span className="text-xs text-white/45">{locationLabel}</span>}
                 </div>
               </div>
             </div>
@@ -362,7 +357,7 @@ export function JobDetail() {
             {description && (
               <SectionCard icon={<FileText className="size-5 text-neon-cyan" />} title="Job Description">
                 <div
-                  className="break-words text-sm leading-[22px] text-white/70 max-lg:overflow-x-auto [&_p]:mb-3 [&_p:last-child]:mb-0 [&_ul]:mb-3 [&_ul]:list-disc [&_ul]:space-y-1.5 [&_ul]:pl-5 [&_li]:leading-[22px] [&_strong]:font-semibold [&_strong]:text-white"
+                  className="break-words text-sm leading-[22px] text-white/70 max-lg:overflow-x-auto [&_p]:mb-3 [&_p:last-child]:mb-0 [&_ul]:mb-3 [&_ul]:list-disc [&_ul]:space-y-1.5 [&_ul]:pl-5 [&_ol]:mb-3 [&_ol]:list-decimal [&_ol]:space-y-1.5 [&_ol]:pl-5 [&_li]:leading-[22px] [&_strong]:font-semibold [&_strong]:text-white [&_h1]:mb-3 [&_h1]:text-base [&_h1]:font-semibold [&_h1]:text-white [&_h2]:mb-3 [&_h2]:text-base [&_h2]:font-semibold [&_h2]:text-white [&_h3]:mb-2 [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:text-white [&_a]:text-neon-cyan [&_a]:underline"
                   dangerouslySetInnerHTML={{ __html: description }}
                 />
               </SectionCard>
@@ -403,13 +398,8 @@ export function JobDetail() {
                 so the desktop rendering is byte-for-byte what it was.
               */}
               <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-3 lg:flex lg:gap-4">
-                <div className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-full border border-glass-border bg-white/[0.04] lg:size-16 lg:rounded-2xl">
-                  {job.company_logo ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={job.company_logo} alt={companyName} className="size-full object-cover" />
-                  ) : (
-                    <Building2 className="size-6 text-white/80 lg:size-8" />
-                  )}
+                <div className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-full border border-glass-border bg-white/[0.04] lg:size-16">
+                  <CompanyLogo job={job} name={companyName} fallback={<Building2 className="size-6 text-white/80 lg:size-8" />} />
                 </div>
                 <div className="contents lg:flex lg:min-w-0 lg:flex-1 lg:flex-col lg:gap-2">
                   <div className="flex min-w-0 flex-col gap-1 lg:contents">
@@ -492,7 +482,7 @@ export function JobDetail() {
                           <span className="text-xs leading-snug text-white/45">
                             {sName}
                             {sName && j.city ? " • " : ""}
-                            {j.city && formatCity(j.city)}
+                            {displayLocation(j)}
                           </span>
                           <span className="text-xs text-white/45">{salary ?? "Salary not disclosed"}</span>
                         </div>

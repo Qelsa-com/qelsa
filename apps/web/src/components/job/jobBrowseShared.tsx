@@ -21,7 +21,7 @@ import { City } from "@/types/city";
 import { Job } from "@/types/job";
 import { Building2, Check, ChevronDown, MapPin, Search, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 /* --------------------------------- types ---------------------------------- */
 
@@ -93,6 +93,75 @@ export function workplaceChip(job: Job): string | null {
   return job.has_remote ? "Remote" : null;
 }
 
+export function displayCompanyName(name?: string | null) {
+  const raw = (name ?? "").trim();
+  if (!raw) return "Company";
+  if (/[a-z]/.test(raw) && /[A-Z]/.test(raw)) return raw;
+  return raw
+    .replace(/[-_]+/g, " ")
+    .split(/\s+/)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+}
+
+export function displayLocation(job: Job): string | null {
+  if (job.city) return formatCity(job.city);
+  const location = typeof job.other_info?.location === "string" ? job.other_info.location.trim() : "";
+  return location || null;
+}
+
+function companyDomainFromJob(job: Job) {
+  const url = job.company_website_url || job.application_url;
+  if (url) {
+    try {
+      const host = new URL(url).hostname.replace(/^www\./i, "");
+      if (!/(greenhouse\.io|lever\.co)$/i.test(host)) {
+        const parts = host.split(".");
+        return parts.length >= 2 ? parts.slice(-2).join(".") : host;
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  const slug = (job.company_name ?? "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "");
+  return slug ? `${slug}.com` : undefined;
+}
+
+function logoUrlForDomain(domain: string) {
+  return `https://www.google.com/s2/favicons?sz=128&domain=${encodeURIComponent(domain)}`;
+}
+
+function isUsableLogo(url?: string | null) {
+  return Boolean(url) && !/logo\.clearbit\.com/i.test(url ?? "");
+}
+
+export function companyLogoUrl(job: Job) {
+  if (isUsableLogo(job.company_logo)) return job.company_logo!;
+  if (isUsableLogo(job.page?.logo)) return job.page!.logo!;
+  const domain = companyDomainFromJob(job);
+  return domain ? logoUrlForDomain(domain) : undefined;
+}
+
+export function CompanyLogo({
+  job,
+  name,
+  className = "size-full object-cover",
+  fallback,
+}: {
+  job: Job;
+  name?: string;
+  className?: string;
+  fallback: ReactNode;
+}) {
+  const src = companyLogoUrl(job);
+  const [failed, setFailed] = useState(false);
+  if (!src || failed) return <>{fallback}</>;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={src} alt={name || job.company_name || "Company"} className={className} onError={() => setFailed(true)} />
+  );
+}
+
 function formatMoney(value: number, currency?: string | null): string {
   const cur = currency || "USD";
   const locale = cur === "INR" ? "en-IN" : "en-US";
@@ -150,7 +219,10 @@ function logoTint(key: string): string {
   return LOGO_TINTS[Math.abs(hash) % LOGO_TINTS.length] ?? "#0ea5e9";
 }
 
-/** Args for `api.jobs.list`. `now` is required when a recency window is set — queries cannot call Date.now(). */
+/** Bucket recency so `now` stays stable and Convex can cache the query. */
+const RECENCY_BUCKET_MS = 5 * 60 * 1000;
+
+/** Args for `api.jobs.listPaginated`. `now` is required when a recency window is set — queries cannot call Date.now(). */
 export function toDiscoverArgs(filters: SearchFilters, search: string) {
   return {
     cities: filters.cities,
@@ -161,7 +233,7 @@ export function toDiscoverArgs(filters: SearchFilters, search: string) {
     search: search.trim() || undefined,
     sort_by: filters.sort_by,
     posted_within: filters.date_posted || undefined,
-    now: filters.date_posted ? Date.now() : undefined,
+    now: filters.date_posted ? Math.floor(Date.now() / RECENCY_BUCKET_MS) * RECENCY_BUCKET_MS : undefined,
   };
 }
 
@@ -169,12 +241,14 @@ export function toDiscoverArgs(filters: SearchFilters, search: string) {
 
 export function JobCard({ job, onClick }: { job: Job; onClick: () => void }) {
   const title = job.job_title?.name ?? job.title;
-  const company = job.page?.name || job.company_name;
+  const company = displayCompanyName(job.page?.name || job.company_name);
+  const location = displayLocation(job);
   const score = matchScore(job);
   const chips = [experienceChip(job), workTypeChip(job), workplaceChip(job)].filter(Boolean) as string[];
   const salary = salaryText(job);
   const posted = postedAgo(job);
   const tint = logoTint(String(job.id ?? title ?? "job"));
+  const hasLogo = Boolean(companyLogoUrl(job));
 
   return (
     <button
@@ -184,15 +258,10 @@ export function JobCard({ job, onClick }: { job: Job; onClick: () => void }) {
     >
       <div className="flex items-center justify-between">
         <div
-          className="flex size-9 items-center justify-center overflow-hidden rounded-lg"
-          style={job.company_logo ? undefined : { backgroundColor: `${tint}22`, border: `1px solid ${tint}55` }}
+          className="flex size-9 items-center justify-center overflow-hidden rounded-full"
+          style={hasLogo ? undefined : { backgroundColor: `${tint}22`, border: `1px solid ${tint}55` }}
         >
-          {job.company_logo ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={job.company_logo} alt={company ?? "Company"} className="size-full object-cover" />
-          ) : (
-            <Building2 className="size-4" style={{ color: tint }} />
-          )}
+          <CompanyLogo job={job} name={company} fallback={<Building2 className="size-4" style={{ color: tint }} />} />
         </div>
         {score != null && <MatchRing value={score} />}
       </div>
@@ -200,7 +269,7 @@ export function JobCard({ job, onClick }: { job: Job; onClick: () => void }) {
       <div className="flex flex-col gap-1">
         <p className="line-clamp-2 text-[15px] font-bold text-white">{title}</p>
         {company && <p className="line-clamp-1 text-[13px] text-white/55">{company}</p>}
-        {job.city && <p className="line-clamp-1 text-xs text-white/40">{formatCity(job.city)}</p>}
+        {location && <p className="line-clamp-1 text-xs text-white/40">{location}</p>}
       </div>
 
       {chips.length > 0 && (

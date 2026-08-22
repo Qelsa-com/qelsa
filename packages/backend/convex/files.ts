@@ -16,10 +16,7 @@ export const { generateUploadUrl, syncMetadata } = r2.clientApi<DataModel>({
   checkUpload: requireIdentity,
 });
 
-export const {
-  generateUploadUrl: generateResumeUploadUrl,
-  syncMetadata: syncResumeMetadata,
-} = r2.clientApi<DataModel>({
+export const { generateUploadUrl: generateResumeUploadUrl, syncMetadata: syncResumeMetadata } = r2.clientApi<DataModel>({
   checkUpload: async () => {},
 });
 

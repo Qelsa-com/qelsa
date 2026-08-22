@@ -51,16 +51,7 @@ export function ProfileCardEmpty({ message }: { message: string }) {
 
 /** Rounded pill used for skills, interests and certification tags. */
 export function ProfileTag({ children, size = "md" }: { children: ReactNode; size?: "sm" | "md" }) {
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center rounded-full border border-white/12 bg-white/10 font-medium text-white/70",
-        size === "sm" ? "px-2 py-[3px] text-[11px]" : "px-2.5 py-1 text-xs"
-      )}
-    >
-      {children}
-    </span>
-  );
+  return <span className={cn("inline-flex items-center rounded-full border border-white/12 bg-white/10 font-medium text-white/70", size === "sm" ? "px-2 py-[3px] text-[11px]" : "px-2.5 py-1 text-xs")}>{children}</span>;
 }
 
 /** "+2" counter that follows a truncated list of tags. */
