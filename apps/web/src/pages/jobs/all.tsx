@@ -1,24 +1,21 @@
 import { City } from "@/types/city";
 import { JobCard, JobsBrowseHeader, SearchFilters, toDiscoverArgs } from "@/components/job/jobBrowseShared";
+import { JOBS_PAGE_SIZE, JobsFeedPager } from "@/components/job/JobsFeedPager";
 import { AllJobsGridSkeleton } from "@/components/job/jobSkeletons";
-import { useLazyGetDiscoverJobsQuery } from "@/features/api/jobsApi";
+import { usePaginatedJobsQuery } from "@/features/api/jobsApi";
 import { Job } from "@/types/job";
 import { Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import Layout from "../../layout";
 
-const PAGE_SIZE = 12;
-
 /* --------------------------------- page ----------------------------------- */
 
 const All = () => {
   const router = useRouter();
 
-  const [jobs, setJobs] = useState<Job[]>([]);
   const [query, setQuery] = useState("");
   const [cityFilter, setCityFilter] = useState<City | null>(null);
-  const [page, setPage] = useState(1);
 
   const [filters, setFilters] = useState<SearchFilters>({
     cities: [],
@@ -30,44 +27,35 @@ const All = () => {
     date_posted: "",
   });
 
-  const [triggerGetJobs, { isLoading }] = useLazyGetDiscoverJobsQuery();
-
-  const runSearch = async (nextFilters: SearchFilters, nextQuery: string) => {
-    setPage(1);
-    try {
-      const result = await triggerGetJobs(toDiscoverArgs(nextFilters, nextQuery), false).unwrap();
-      setJobs((result as Job[]) ?? []);
-    } catch {
-      setJobs([]);
-    }
-  };
-
+  // Debounce the search box so each keystroke doesn't restart the pagination.
+  const [searchInput, setSearchInput] = useState("");
   useEffect(() => {
-    runSearch(filters, query);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    const t = setTimeout(() => setQuery(searchInput), 300);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
+  // Reactive paginated query — Convex caches each loaded page and reuses them
+  // across filter/search changes, so we never refetch the whole set.
+  const discoverArgs = useMemo(() => toDiscoverArgs(filters, query), [filters, query]);
+  const { results, status, isLoading, loadMore } = usePaginatedJobsQuery(discoverArgs, JOBS_PAGE_SIZE);
+  const jobs = (results as Job[]) ?? [];
+  const total = jobs.length;
+  const canLoadMore = status === "CanLoadMore";
 
   const applyFilters = (partial: Partial<SearchFilters>) => {
-    const next = { ...filters, ...partial };
-    setFilters(next);
-    runSearch(next, query);
+    setFilters((prev) => ({ ...prev, ...partial }));
   };
 
-  const total = jobs.length;
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const currentPage = Math.min(page, totalPages);
-  const pageJobs = useMemo(() => jobs.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE), [jobs, currentPage]);
-  const rangeStart = total === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
-  const rangeEnd = Math.min(currentPage * PAGE_SIZE, total);
+  const isInitialLoading = isLoading && total === 0;
 
   return (
     <Layout activeSection={"jobs"}>
       <div className="mx-auto w-full max-w-[1400px] px-4 py-6 text-white sm:px-6 sm:py-8 md:px-12">
         <JobsBrowseHeader
           activeTab="all"
-          query={query}
-          setQuery={setQuery}
-          onSearch={() => runSearch(filters, query)}
+          query={searchInput}
+          setQuery={setSearchInput}
+          onSearch={() => setQuery(searchInput)}
           filters={filters}
           onApplyFilters={applyFilters}
           cityFilter={cityFilter}
@@ -76,23 +64,21 @@ const All = () => {
 
         {/* ----------------------------- All jobs ------------------------------ */}
         <div className="mt-6 flex flex-col gap-4 pb-16 sm:mt-10 sm:gap-6 sm:pb-24">
-          {isLoading ? (
+          {isInitialLoading ? (
             <AllJobsGridSkeleton />
-          ) : (
+          ) : total > 0 ? (
             <>
-              <p className="text-[13px] text-white/45 sm:text-sm">{total === 0 ? "No jobs found" : `Showing ${rangeStart}-${rangeEnd} of ${total} jobs`}</p>
-
-              {total > 0 && (
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">
-                  {pageJobs.map((job) => (
-                    <JobCard key={job.id} job={job} onClick={() => router.push(`/jobs/${job.id}`)} />
-                  ))}
-                </div>
-              )}
+              <p className="text-[13px] text-white/45 sm:text-sm">
+                Showing {total} job{total === 1 ? "" : "s"}
+                {canLoadMore || status === "LoadingMore" ? " (more available)" : ""}
+              </p>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">
+                {jobs.map((job) => (
+                  <JobCard key={job.id} job={job} onClick={() => router.push(`/jobs/${job.id}`)} />
+                ))}
+              </div>
             </>
-          )}
-
-          {total === 0 && !isLoading && (
+          ) : status === "Exhausted" ? (
             <div className="flex flex-col items-center gap-4 py-12 text-center sm:py-16">
               <div className="flex size-16 items-center justify-center rounded-full border border-glass-border bg-white/[0.04] sm:size-20">
                 <Search className="size-7 text-white/45 sm:size-9" />
@@ -100,65 +86,13 @@ const All = () => {
               <p className="text-lg font-semibold text-white sm:text-xl">No jobs found</p>
               <p className="max-w-md text-[13px] text-white/70 sm:text-sm">Try adjusting your search or filters to find more opportunities.</p>
             </div>
-          )}
+          ) : null}
 
-          {totalPages > 1 && <Pagination page={currentPage} totalPages={totalPages} onChange={setPage} />}
+          <JobsFeedPager status={status} loadMore={loadMore} loadedCount={total} />
         </div>
       </div>
     </Layout>
   );
 };
-
-/* ------------------------------ sub-components ----------------------------- */
-
-function Pagination({ page, totalPages, onChange }: { page: number; totalPages: number; onChange: (page: number) => void }) {
-  const pages: (number | "…")[] = [];
-  const push = (n: number | "…") => pages.push(n);
-  if (totalPages <= 7) {
-    for (let i = 1; i <= totalPages; i++) push(i);
-  } else {
-    push(1);
-    if (page > 3) push("…");
-    for (let i = Math.max(2, page - 1); i <= Math.min(totalPages - 1, page + 1); i++) push(i);
-    if (page < totalPages - 2) push("…");
-    push(totalPages);
-  }
-
-  return (
-    <div className="flex flex-wrap items-center justify-center gap-1.5 pt-4 sm:gap-2">
-      <button
-        onClick={() => onChange(Math.max(1, page - 1))}
-        disabled={page === 1}
-        className="px-3 py-1.5 text-xs font-medium text-white/50 transition-colors hover:text-white disabled:opacity-40 sm:px-4 sm:py-2 sm:text-[13px]"
-      >
-        Previous
-      </button>
-      {pages.map((p, i) =>
-        p === "…" ? (
-          <span key={`e${i}`} className="px-2 text-white/45">
-            …
-          </span>
-        ) : (
-          <button
-            key={p}
-            onClick={() => onChange(p)}
-            className={`flex size-8 items-center justify-center rounded-full text-xs font-semibold transition-colors sm:size-9 sm:text-[13px] ${
-              p === page ? "bg-neon-cyan text-white" : "text-white hover:bg-white/5"
-            }`}
-          >
-            {p}
-          </button>
-        )
-      )}
-      <button
-        onClick={() => onChange(Math.min(totalPages, page + 1))}
-        disabled={page === totalPages}
-        className="px-3 py-1.5 text-xs font-medium text-white/50 transition-colors hover:text-white disabled:opacity-40 sm:px-4 sm:py-2 sm:text-[13px]"
-      >
-        Next &gt;
-      </button>
-    </div>
-  );
-}
 
 export default All;

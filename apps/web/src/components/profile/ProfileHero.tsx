@@ -29,10 +29,7 @@ export function ProfileHero({ user, experiences, isOwner, isFollowing, mutualLab
   const avatarUrl = user.profile_image || user.avatar || undefined;
 
   return (
-    <section
-      className="relative w-full shadow-[0_40px_120px_rgba(0,212,255,0.08)]"
-      style={{ backgroundImage: "linear-gradient(19deg, rgb(6, 6, 15) 25%, rgba(0, 212, 255, 0.094) 50%, rgba(168, 85, 247, 0.071) 75%)" }}
-    >
+    <section className="relative w-full shadow-[0_40px_120px_rgba(0,212,255,0.08)]" style={{ backgroundImage: "linear-gradient(19deg, rgb(6, 6, 15) 25%, rgba(0, 212, 255, 0.094) 50%, rgba(168, 85, 247, 0.071) 75%)" }}>
       {/* Fades the hero back into the page background along its bottom edge. */}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40" style={{ backgroundImage: "linear-gradient(173deg, rgba(6, 6, 15, 0) 25%, rgb(6, 6, 15) 75%)" }} />
 
@@ -46,9 +43,7 @@ export function ProfileHero({ user, experiences, isOwner, isFollowing, mutualLab
           <div className="flex flex-col gap-1">
             <div className="flex flex-wrap items-center justify-center gap-3 sm:justify-start">
               <h1 className="text-4xl font-extrabold text-white lg:text-5xl">{user.name}</h1>
-              {mutualLabel && (
-                <span className="rounded-full border border-neon-green/50 bg-neon-green/15 px-2.5 py-[3px] text-xs font-medium uppercase text-neon-green">{mutualLabel}</span>
-              )}
+              {mutualLabel && <span className="rounded-full border border-neon-green/50 bg-neon-green/15 px-2.5 py-[3px] text-xs font-medium uppercase text-neon-green">{mutualLabel}</span>}
             </div>
             {user.username && <p className="text-xl text-[#00d4ff]">@{user.username}</p>}
           </div>
@@ -107,27 +102,15 @@ export function ProfileHero({ user, experiences, isOwner, isFollowing, mutualLab
 
           <div className="flex flex-wrap items-center justify-center gap-3 sm:justify-start">
             {isOwner ? (
-              <button
-                type="button"
-                onClick={onEdit}
-                className="rounded-full border border-white/12 bg-white/4 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/10"
-              >
+              <button type="button" onClick={onEdit} className="rounded-full border border-white/12 bg-white/4 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/10">
                 Edit
               </button>
             ) : (
-              <button
-                type="button"
-                onClick={onFollow}
-                className="rounded-full bg-gradient-to-r from-[#7c2ff3] to-[#d73e9d] px-6 py-3 text-sm font-bold text-white transition-opacity hover:opacity-90"
-              >
+              <button type="button" onClick={onFollow} className="rounded-full bg-gradient-to-r from-[#7c2ff3] to-[#d73e9d] px-6 py-3 text-sm font-bold text-white transition-opacity hover:opacity-90">
                 {isFollowing ? "Following" : "Follow"}
               </button>
             )}
-            <button
-              type="button"
-              onClick={onShare}
-              className="rounded-full border border-white/25 bg-white/12 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/20"
-            >
+            <button type="button" onClick={onShare} className="rounded-full border border-white/25 bg-white/12 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/20">
               Share profile
             </button>
           </div>

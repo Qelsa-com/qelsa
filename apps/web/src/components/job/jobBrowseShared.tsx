@@ -150,7 +150,10 @@ function logoTint(key: string): string {
   return LOGO_TINTS[Math.abs(hash) % LOGO_TINTS.length] ?? "#0ea5e9";
 }
 
-/** Args for `api.jobs.list`. `now` is required when a recency window is set — queries cannot call Date.now(). */
+/** Bucket recency so `now` stays stable and Convex can cache the query. */
+const RECENCY_BUCKET_MS = 5 * 60 * 1000;
+
+/** Args for `api.jobs.listPaginated`. `now` is required when a recency window is set — queries cannot call Date.now(). */
 export function toDiscoverArgs(filters: SearchFilters, search: string) {
   return {
     cities: filters.cities,
@@ -161,7 +164,7 @@ export function toDiscoverArgs(filters: SearchFilters, search: string) {
     search: search.trim() || undefined,
     sort_by: filters.sort_by,
     posted_within: filters.date_posted || undefined,
-    now: filters.date_posted ? Date.now() : undefined,
+    now: filters.date_posted ? Math.floor(Date.now() / RECENCY_BUCKET_MS) * RECENCY_BUCKET_MS : undefined,
   };
 }
 

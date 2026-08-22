@@ -362,7 +362,7 @@ export function JobDetail() {
             {description && (
               <SectionCard icon={<FileText className="size-5 text-neon-cyan" />} title="Job Description">
                 <div
-                  className="break-words text-sm leading-[22px] text-white/70 max-lg:overflow-x-auto [&_p]:mb-3 [&_p:last-child]:mb-0 [&_ul]:mb-3 [&_ul]:list-disc [&_ul]:space-y-1.5 [&_ul]:pl-5 [&_li]:leading-[22px] [&_strong]:font-semibold [&_strong]:text-white"
+                  className="break-words text-sm leading-[22px] text-white/70 max-lg:overflow-x-auto [&_p]:mb-3 [&_p:last-child]:mb-0 [&_ul]:mb-3 [&_ul]:list-disc [&_ul]:space-y-1.5 [&_ul]:pl-5 [&_ol]:mb-3 [&_ol]:list-decimal [&_ol]:space-y-1.5 [&_ol]:pl-5 [&_li]:leading-[22px] [&_strong]:font-semibold [&_strong]:text-white [&_h1]:mb-3 [&_h1]:text-base [&_h1]:font-semibold [&_h1]:text-white [&_h2]:mb-3 [&_h2]:text-base [&_h2]:font-semibold [&_h2]:text-white [&_h3]:mb-2 [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:text-white [&_a]:text-neon-cyan [&_a]:underline"
                   dangerouslySetInnerHTML={{ __html: description }}
                 />
               </SectionCard>

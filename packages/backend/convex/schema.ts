@@ -507,4 +507,25 @@ export default defineSchema({
     .index("by_user", ["user_id"])
     .index("by_user_and_job", ["user_id", "job_id"])
     .index("by_thread", ["thread_id"]),
+
+  ats_integrations: defineTable({
+    user_id: v.id("users"),
+    provider: v.union(v.literal("zoho_recruit"), v.literal("greenhouse"), v.literal("lever"), v.literal("keka"), v.literal("ashby"), v.literal("bamboohr"), v.literal("workday"), v.literal("darwinbox"), v.literal("icims")),
+    status: v.union(v.literal("connected"), v.literal("error"), v.literal("pending"), v.literal("disconnected")),
+    auth_type: v.union(v.literal("oauth"), v.literal("api_key"), v.literal("gated")),
+    // TODO: move secrets to an encrypted vault before production use.
+    api_key: v.optional(v.string()),
+    subdomain: v.optional(v.string()),
+    sync_jobs: v.boolean(),
+    sync_candidates: v.boolean(),
+    records_synced: v.number(),
+    connected_since: v.optional(v.number()),
+    last_synced_at: v.optional(v.number()),
+    next_sync_at: v.optional(v.number()),
+    error_message: v.optional(v.string()),
+    error_detected_at: v.optional(v.number()),
+    requested_at: v.optional(v.number()),
+  })
+    .index("by_user", ["user_id"])
+    .index("by_user_and_provider", ["user_id", "provider"]),
 });

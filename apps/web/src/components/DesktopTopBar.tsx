@@ -32,11 +32,7 @@ export function DesktopTopBar({ activeSection, onProfileClick }: { activeSection
 
   return (
     <header className="sticky top-0 z-50 hidden items-center justify-between border-b border-white/[0.08] bg-[#06060f] px-10 py-4 lg:flex">
-      <button
-        type="button"
-        onClick={() => router.push("/")}
-        className="bg-gradient-to-r from-neon-cyan via-neon-purple to-neon-pink bg-clip-text text-[18px] font-bold leading-8 tracking-[-0.53px] text-transparent"
-      >
+      <button type="button" onClick={() => router.push("/")} className="bg-gradient-to-r from-neon-cyan via-neon-purple to-neon-pink bg-clip-text text-[18px] font-bold leading-8 tracking-[-0.53px] text-transparent">
         Qelsa
       </button>
 
@@ -61,12 +57,7 @@ export function DesktopTopBar({ activeSection, onProfileClick }: { activeSection
         <span aria-hidden="true" className="text-white/70">
           <Bell className="size-5" />
         </span>
-        <button
-          type="button"
-          aria-label="Open profile"
-          onClick={onProfileClick}
-          className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/[0.12] bg-white/[0.04]"
-        >
+        <button type="button" aria-label="Open profile" onClick={onProfileClick} className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/[0.12] bg-white/[0.04]">
           {user?.profile_image ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={user.profile_image} alt={user.name || "Profile"} className="size-full object-cover" />

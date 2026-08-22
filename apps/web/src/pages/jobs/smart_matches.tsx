@@ -1,10 +1,11 @@
 import { City } from "@/types/city";
 import { JobCard, JobsBrowseHeader, matchScore, SearchFilters, toDiscoverArgs } from "@/components/job/jobBrowseShared";
+import { JOBS_PAGE_SIZE, JobsFeedPager } from "@/components/job/JobsFeedPager";
 import { SmartMatchesSkeleton } from "@/components/job/jobSkeletons";
 import { useGetCertificationsQuery } from "@/features/api/certificationsApi";
 import { useGetEducationsQuery } from "@/features/api/educationsApi";
 import { useGetExperiencesQuery } from "@/features/api/experiencesApi";
-import { useLazyGetDiscoverJobsQuery } from "@/features/api/jobsApi";
+import { usePaginatedJobsQuery } from "@/features/api/jobsApi";
 import { useGetUserSkillsQuery } from "@/features/api/userSkillsApi";
 import { useAuth } from "@/contexts/AuthContext";
 import { profileCompletion } from "@/components/profile/profileFormat";
@@ -64,7 +65,6 @@ const SmartMatches = () => {
   const router = useRouter();
   const { user, isAuthenticated } = useAuth();
 
-  const [jobs, setJobs] = useState<Job[]>([]);
   const [query, setQuery] = useState("");
   const [cityFilter, setCityFilter] = useState<City | null>(null);
   const [exploreTab, setExploreTab] = useState<ExploreTab>("moving_fast");
@@ -79,30 +79,25 @@ const SmartMatches = () => {
     date_posted: "",
   });
 
-  const [triggerGetJobs, { isLoading }] = useLazyGetDiscoverJobsQuery();
+  // Debounce search so each keystroke doesn't restart pagination.
+  const [searchInput, setSearchInput] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setQuery(searchInput), 300);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
   const { data: experiences } = useGetExperiencesQuery(undefined, { skip: !isAuthenticated });
   const { data: educations } = useGetEducationsQuery(undefined, { skip: !isAuthenticated });
   const { data: certifications } = useGetCertificationsQuery(undefined, { skip: !isAuthenticated });
   const { data: skills } = useGetUserSkillsQuery(undefined, { skip: !isAuthenticated });
 
-  const runSearch = async (nextFilters: SearchFilters, nextQuery: string) => {
-    try {
-      const result = await triggerGetJobs(toDiscoverArgs(nextFilters, nextQuery), false).unwrap();
-      setJobs((result as Job[]) ?? []);
-    } catch {
-      setJobs([]);
-    }
-  };
-
-  useEffect(() => {
-    runSearch(filters, query);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // Reactive paginated feed — pages are cached by the Convex client.
+  const discoverArgs = useMemo(() => toDiscoverArgs(filters, query), [filters, query]);
+  const { results, status, isLoading, loadMore } = usePaginatedJobsQuery(discoverArgs, JOBS_PAGE_SIZE);
+  const jobs = (results as Job[]) ?? [];
 
   const applyFilters = (partial: Partial<SearchFilters>) => {
-    const next = { ...filters, ...partial };
-    setFilters(next);
-    runSearch(next, query);
+    setFilters((prev) => ({ ...prev, ...partial }));
   };
 
   // Bucket jobs into match tiers; unscored jobs fall through to "Explore More".
@@ -137,9 +132,9 @@ const SmartMatches = () => {
       <div className="mx-auto w-full max-w-[1400px] px-4 py-6 text-white sm:px-6 sm:py-8 md:px-12">
         <JobsBrowseHeader
           activeTab="smart_matches"
-          query={query}
-          setQuery={setQuery}
-          onSearch={() => runSearch(filters, query)}
+          query={searchInput}
+          setQuery={setSearchInput}
+          onSearch={() => setQuery(searchInput)}
           filters={filters}
           onApplyFilters={applyFilters}
           cityFilter={cityFilter}
@@ -149,11 +144,11 @@ const SmartMatches = () => {
 
         {/* ---------------------------- Job sections --------------------------- */}
         <div className="mt-6 flex flex-col gap-12 pb-16 sm:mt-12 sm:gap-16 sm:pb-24">
-          {isLoading ? (
+          {isLoading && jobs.length === 0 ? (
             <SmartMatchesSkeleton />
-          ) : jobs.length === 0 ? (
+          ) : jobs.length === 0 && status === "Exhausted" ? (
             <p className="text-[13px] text-white/45 sm:text-sm">No matches found. Try adjusting your search or filters.</p>
-          ) : (
+          ) : jobs.length > 0 ? (
             <>
               {ready.length > 0 && (
                 <MatchSection dotColor="#10b981" title="Ready Now" subtitle="These roles match your experience. It's go time for these roles.">
@@ -202,7 +197,15 @@ const SmartMatches = () => {
                 </div>
               )}
             </>
-          )}
+          ) : null}
+
+          <JobsFeedPager
+            status={status}
+            loadMore={loadMore}
+            loadedCount={jobs.length}
+            moreLabel="Load more matches"
+            doneLabel="You're all caught up."
+          />
         </div>
       </div>
     </Layout>

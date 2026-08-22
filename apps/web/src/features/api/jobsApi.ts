@@ -1,14 +1,24 @@
 "use client";
 
-import { useAction } from "convex/react";
 import { api } from "@/lib/convexApi";
 import { useConvexMutationHook, useConvexQueryHook, useLazyConvexQueryHook } from "@/lib/convexHooks";
+import { useAction, usePaginatedQuery } from "convex/react";
 import type { JobFilters } from "./utils/buildJobQueryParams";
+
+function omitEmpty(value: Record<string, unknown>) {
+  const next: Record<string, unknown> = {};
+  for (const [key, item] of Object.entries(value)) {
+    if (item === undefined || item === "") continue;
+    if (Array.isArray(item) && item.length === 0) continue;
+    next[key] = item;
+  }
+  return next;
+}
 
 function jobListArgs(filters?: JobFilters | Record<string, string> | void) {
   if (!filters) return {};
   const record = filters as JobFilters & Record<string, string>;
-  return {
+  return omitEmpty({
     cities: record.cities,
     departments: record.departments,
     job_types: record.job_types,
@@ -21,7 +31,7 @@ function jobListArgs(filters?: JobFilters | Record<string, string> | void) {
     page_id: record.page_id,
     posted_within: record.posted_within,
     now: record.now,
-  };
+  });
 }
 
 export function useGetJobsQuery(filters?: JobFilters | void, options?: { skip?: boolean }) {
@@ -40,17 +50,22 @@ export function useLazyGetDiscoverJobsQuery() {
   const run = (filters?: JobFilters, preferCacheValue?: boolean) => trigger(jobListArgs(filters) as never, preferCacheValue);
   return [run, state] as const;
 }
+
+/**
+ * Cursor-paginated discover feed. Subscribes reactively and caches each page in
+ * the Convex client, so navigating back/forward or re-filtering reuses loaded
+ * pages instead of refetching everything. Use `loadMore(pageSize)` to grow.
+ */
+export function usePaginatedJobsQuery(filters?: JobFilters | Record<string, string> | void, pageSize = 12) {
+  const args = jobListArgs(filters);
+  return usePaginatedQuery(api.jobs.listPaginated, args as never, { initialNumItems: pageSize });
+}
 export function useGetAppliedJobsQuery(filters?: Record<string, string> | void, options?: { skip?: boolean }) {
-  return useConvexQueryHook(
-    api.jobs.listApplied,
-    { search: filters && "search" in filters ? filters.search : undefined, status: filters && "status" in filters ? filters.status : undefined },
-    options,
-  );
+  return useConvexQueryHook(api.jobs.listApplied, { search: filters && "search" in filters ? filters.search : undefined, status: filters && "status" in filters ? filters.status : undefined }, options);
 }
 export function useLazyGetAppliedJobsQuery() {
   const [trigger, state] = useLazyConvexQueryHook(api.jobs.listApplied);
-  const run = (filters?: Record<string, string>, preferCacheValue?: boolean) =>
-    trigger({ search: filters?.search, status: filters?.status } as never, preferCacheValue);
+  const run = (filters?: Record<string, string>, preferCacheValue?: boolean) => trigger({ search: filters?.search, status: filters?.status } as never, preferCacheValue);
   return [run, state] as const;
 }
 export function useGetInProgressJobsQuery(filters?: JobFilters | void, options?: { skip?: boolean }) {
@@ -69,8 +84,7 @@ export function useGetSavedJobsQuery(filters?: Record<string, string> | void, op
 }
 export function useLazyGetSavedJobsQuery() {
   const [trigger, state] = useLazyConvexQueryHook(api.jobs.listSaved);
-  const run = (filters?: Record<string, string>, preferCacheValue?: boolean) =>
-    trigger({ search: filters?.search } as never, preferCacheValue);
+  const run = (filters?: Record<string, string>, preferCacheValue?: boolean) => trigger({ search: filters?.search } as never, preferCacheValue);
   return [run, state] as const;
 }
 export function useGetJobByIdQuery(id?: string, options?: { skip?: boolean }) {
@@ -107,18 +121,10 @@ export function useSendMatchMessageAction() {
   return useAction(api.jobMatchGenerate.sendMessage);
 }
 export function useGetMatchSessionQuery(sessionId?: string, options?: { skip?: boolean }) {
-  return useConvexQueryHook(
-    api.jobMatch.getSession,
-    sessionId ? { sessionId } : undefined,
-    { skip: options?.skip || !sessionId },
-  );
+  return useConvexQueryHook(api.jobMatch.getSession, sessionId ? { sessionId } : undefined, { skip: options?.skip || !sessionId });
 }
 export function useGetMatchByJobQuery(jobId?: string, options?: { skip?: boolean }) {
-  return useConvexQueryHook(
-    api.jobMatch.getByJob,
-    jobId ? { jobId } : undefined,
-    { skip: options?.skip || !jobId },
-  );
+  return useConvexQueryHook(api.jobMatch.getByJob, jobId ? { jobId } : undefined, { skip: options?.skip || !jobId });
 }
 export function useToggleSaveJobMutation() {
   return useConvexMutationHook(api.jobs.toggleSave, (jobId: string | number) => ({ jobId: String(jobId) }));

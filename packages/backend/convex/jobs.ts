@@ -1,3 +1,4 @@
+import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { internalMutation, internalQuery, type MutationCtx, type QueryCtx } from "./_generated/server";
@@ -212,6 +213,76 @@ export const list = optionalAuthQuery({
       results.sort((a, b) => ((b.salary_max ?? b.salary ?? 0) as number) - ((a.salary_max ?? a.salary ?? 0) as number));
     }
     return results;
+  },
+});
+
+/**
+ * Paginated job browse. Uses cursor pagination so the client can load jobs in
+ * chunks (with per-page caching via usePaginatedQuery) instead of pulling the
+ * whole open set at once. Filters that can't use an index (search, city, salary,
+ * recency) are applied in-memory per page, so a page may occasionally return
+ * fewer than numItems — the cursor still advances correctly.
+ */
+export const listPaginated = optionalAuthQuery({
+  args: {
+    paginationOpts: paginationOptsValidator,
+    cities: v.optional(v.array(v.string())),
+    departments: v.optional(v.array(v.string())),
+    job_types: v.optional(v.array(v.string())),
+    workplace_types: v.optional(v.array(v.string())),
+    salary_min: v.optional(v.number()),
+    salary_max: v.optional(v.number()),
+    search: v.optional(v.string()),
+    sort_by: v.optional(v.string()),
+    city: v.optional(v.string()),
+    page_id: v.optional(v.string()),
+    posted_within: v.optional(v.union(v.literal("24h"), v.literal("week"), v.literal("month"))),
+    now: v.optional(v.number()),
+  },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    const { paginationOpts, ...filterArgs } = args;
+    const search = ((filterArgs.search as string | undefined) ?? "").trim();
+
+    // usePaginatedQuery requires the Convex PaginationResult shape (`page`,
+    // not `results`). Search uses the title index; the default browse path
+    // walks open jobs newest-first via by_status_and_published.
+    const paged = search
+      ? await ctx.db
+          .query("jobs")
+          .withSearchIndex("search_title", (q) => q.search("title", search))
+          .paginate(paginationOpts)
+      : await ctx.db
+          .query("jobs")
+          .withIndex("by_status_and_published", (q) => q.eq("status", "open"))
+          .order("desc")
+          .paginate(paginationOpts);
+
+    const hydration = await listHydration(ctx, ctx.user);
+    const page = [];
+    for (const job of paged.page) {
+      if (search && job.status !== "open") continue;
+      const city = job.city_id ? await ctx.db.get(job.city_id) : null;
+      if (
+        !matchesFilters(job, city?.name ?? null, {
+          ...filterArgs,
+          cities: filterArgs.cities ?? (filterArgs.city ? [filterArgs.city] : []),
+        })
+      ) {
+        continue;
+      }
+      page.push(await enrichJob(ctx, job, ctx.user, hydration));
+    }
+    if (filterArgs.sort_by === "salary") {
+      page.sort((a, b) => ((b.salary_max ?? b.salary ?? 0) as number) - ((a.salary_max ?? a.salary ?? 0) as number));
+    }
+    return {
+      page,
+      isDone: paged.isDone,
+      continueCursor: paged.continueCursor,
+      splitCursor: paged.splitCursor,
+      pageStatus: paged.pageStatus,
+    };
   },
 });
 
@@ -625,6 +696,66 @@ export const storeScrapedJobs = internalMutation({
       }
     }
     return needsSkills;
+  },
+});
+
+/**
+ * Store jobs pulled from a connected ATS (Greenhouse/Lever public boards).
+ * Expects jobs pre-normalized by the atsSync action into a common shape.
+ * Dedupes by external_id; returns ids needing AI skill extraction.
+ */
+export const storeAtsJobs = internalMutation({
+  args: {
+    integrationId: v.id("ats_integrations"),
+    provider: v.string(),
+    jobs: v.array(v.any()),
+  },
+  returns: v.object({ stored: v.number(), needsSkills: v.array(v.id("jobs")) }),
+  handler: async (ctx, args) => {
+    const needsSkills: Id<"jobs">[] = [];
+    let stored = 0;
+    for (const job of args.jobs) {
+      const external_id = String(job.external_id ?? "");
+      if (!external_id) continue;
+      const existing = await ctx.db
+        .query("jobs")
+        .withIndex("by_external_id", (q) => q.eq("external_id", external_id))
+        .unique();
+      const payload = {
+        external_id,
+        title: job.title as string | undefined,
+        description: job.description as string | undefined,
+        application_url: job.application_url as string | undefined,
+        company_name: job.company_name as string | undefined,
+        company_logo: job.company_logo as string | undefined,
+        has_remote: Boolean(job.has_remote),
+        published_date: (job.published_date as number | undefined) ?? Date.now(),
+        resource: `ats:${args.provider}`,
+        other_info: {
+          ats_provider: args.provider,
+          integration_id: args.integrationId,
+          location: job.location,
+          departments: job.departments,
+        },
+        status: "open" as const,
+      };
+      if (existing) {
+        await ctx.db.patch(existing._id, payload);
+        if (!existing.skills_extracted) {
+          const linked = await ctx.db
+            .query("job_skills")
+            .withIndex("by_job", (q) => q.eq("job_id", existing._id))
+            .take(1);
+          if (linked.length === 0) needsSkills.push(existing._id);
+        }
+      } else {
+        const jobId = await ctx.db.insert("jobs", { ...payload, view_count: 0, application_count: 0 });
+        await ensureJobStats(ctx, jobId);
+        needsSkills.push(jobId);
+      }
+      stored++;
+    }
+    return { stored, needsSkills };
   },
 });
 

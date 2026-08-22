@@ -4,17 +4,10 @@ import { useDeleteAccountMutation } from "@/features/api/authApi";
 import { authClient } from "@/lib/auth-client";
 import { toastUnknownError } from "@/lib/errors";
 import { clearResumeDraft } from "@/lib/resumeDraft";
-import { AlertTriangle, Settings as SettingsIcon } from "lucide-react";
+import { AlertTriangle, ChevronRight, Plug, Settings as SettingsIcon } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
-import {
-  AlertDialog,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "../components/ui/alert-dialog";
+import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../components/ui/alert-dialog";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
@@ -52,6 +45,19 @@ const Settings = () => {
           </div>
         </div>
 
+        <Link href="/settings/integrations" className="mb-8 flex items-center justify-between rounded-2xl border border-glass-border glass p-6 transition-colors hover:bg-white/5">
+          <div className="flex items-start gap-4">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-neon-purple/20">
+              <Plug className="h-5 w-5 text-neon-purple" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-white">Integrations</h2>
+              <p className="mt-1 text-sm text-muted-foreground">Connect your ATS (Greenhouse, Zoho Recruit, Lever…) to sync job requisitions and route candidates into your hiring pipeline.</p>
+            </div>
+          </div>
+          <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />
+        </Link>
+
         <section className="rounded-2xl border border-destructive/40 bg-destructive/5 p-6">
           <div className="mb-4 flex items-start gap-3">
             <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
@@ -85,28 +91,15 @@ const Settings = () => {
         <AlertDialogContent className="glass-strong border-glass-border">
           <AlertDialogHeader>
             <AlertDialogTitle>Delete your account?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This cannot be undone. Type {DELETE_CONFIRMATION} to confirm.
-            </AlertDialogDescription>
+            <AlertDialogDescription>This cannot be undone. Type {DELETE_CONFIRMATION} to confirm.</AlertDialogDescription>
           </AlertDialogHeader>
           <div className="space-y-2">
             <Label htmlFor="delete-account-confirm">Confirmation</Label>
-            <Input
-              id="delete-account-confirm"
-              value={confirmText}
-              onChange={(event) => setConfirmText(event.target.value)}
-              placeholder={DELETE_CONFIRMATION}
-              autoComplete="off"
-              disabled={isLoading}
-            />
+            <Input id="delete-account-confirm" value={confirmText} onChange={(event) => setConfirmText(event.target.value)} placeholder={DELETE_CONFIRMATION} autoComplete="off" disabled={isLoading} />
           </div>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isLoading}>Cancel</AlertDialogCancel>
-            <Button
-              variant="destructive"
-              disabled={confirmText !== DELETE_CONFIRMATION || isLoading}
-              onClick={() => void handleDelete()}
-            >
+            <Button variant="destructive" disabled={confirmText !== DELETE_CONFIRMATION || isLoading} onClick={() => void handleDelete()}>
               {isLoading ? "Deleting…" : "Delete account"}
             </Button>
           </AlertDialogFooter>

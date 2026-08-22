@@ -1,12 +1,39 @@
 const SECTION =
   /^(about the role|responsibilities|requirements|nice to have|about the company|what you'll do|what you will do|qualifications|benefits|who you are)\s*:?\s*$/i;
 
+const BLOCK_TAG = /<(p|br|ul|ol|li|div|h[1-6]|span|strong|em|b|i)[\s/>]/i;
+const ESCAPED_BLOCK_TAG = /&lt;\s*\/?\s*(p|br|ul|ol|li|div|h[1-6]|span|strong|em|b|i)[\s/>]/i;
+
 function escapeHtml(value: string) {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
 function hasBlockHtml(text: string) {
-  return /<(p|br|ul|ol|li|div|h[1-6])[\s>/]/i.test(text);
+  return BLOCK_TAG.test(text);
+}
+
+/** Greenhouse (and some other ATS boards) return the whole JD as HTML entities. */
+function decodeHtmlEntities(value: string) {
+  let text = value;
+  for (let i = 0; i < 3; i++) {
+    const next = text
+      .replace(/&nbsp;|&#160;/gi, " ")
+      .replace(/&quot;|&#34;/g, '"')
+      .replace(/&apos;|&#39;/g, "'")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
+      .replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCharCode(parseInt(code, 16)))
+      .replace(/&amp;/g, "&");
+    if (next === text) break;
+    text = next;
+  }
+  return text;
+}
+
+function decodeStoredDescription(text: string) {
+  if (ESCAPED_BLOCK_TAG.test(text) || /&amp;lt;/.test(text)) return decodeHtmlEntities(text);
+  return text;
 }
 
 function restorePlainBreaks(text: string) {
@@ -20,9 +47,9 @@ function restorePlainBreaks(text: string) {
     .replace(/\s+[-•]\s+/g, "\n- ");
 }
 
-/** Turn stored JD text (plain or HTML) into sanitizable HTML with sections and lists. */
+/** Turn stored JD text (plain, HTML, or ATS-escaped HTML) into sanitizable HTML. */
 export function jobDescriptionToHtml(raw: string) {
-  const text = raw.trim();
+  const text = decodeStoredDescription(raw.trim());
   if (!text) return "";
   if (hasBlockHtml(text)) return text;
 
