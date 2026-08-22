@@ -143,6 +143,7 @@ export type AtsPublicBoard = {
   next_sync_at?: number;
   error_message?: string;
   error_detected_at?: number;
+  sync_started_at?: number;
   has_api_key: boolean;
 };
 

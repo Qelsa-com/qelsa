@@ -256,6 +256,7 @@ const publicBoardReturn = v.object({
   next_sync_at: v.optional(v.number()),
   error_message: v.optional(v.string()),
   error_detected_at: v.optional(v.number()),
+  sync_started_at: v.optional(v.number()),
   has_api_key: v.boolean(),
 });
 
@@ -274,6 +275,7 @@ function asPublicBoard(row: {
   next_sync_at?: number;
   error_message?: string;
   error_detected_at?: number;
+  sync_started_at?: number;
 }) {
   return {
     id: row._id,
@@ -291,6 +293,7 @@ function asPublicBoard(row: {
     next_sync_at: row.next_sync_at,
     error_message: row.error_message,
     error_detected_at: row.error_detected_at,
+    sync_started_at: row.sync_started_at,
     has_api_key: false,
   };
 }
@@ -334,6 +337,24 @@ export const addPublicBoard = adminMutation({
     });
     await ctx.scheduler.runAfter(0, internal.atsSync.syncIntegration, { integrationId });
     return asPublicBoard((await ctx.db.get(integrationId))!);
+  },
+});
+
+const STALE_SYNC_MS = 20 * 60 * 1000;
+
+export const retryPublicBoard = adminMutation({
+  args: { id: v.id("ats_integrations") },
+  returns: publicBoardReturn,
+  handler: async (ctx, args) => {
+    const existing = await ctx.db.get(args.id);
+    if (!existing || existing.kind !== "public_board") throw new Error("Public board not found");
+    if (existing.status !== "error" && existing.status !== "connected") throw new Error("This board cannot be retried");
+    const now = Date.now();
+    if (existing.sync_started_at && now - existing.sync_started_at < STALE_SYNC_MS) {
+      return asPublicBoard(existing);
+    }
+    await ctx.scheduler.runAfter(0, internal.atsSync.syncIntegration, { integrationId: existing._id });
+    return asPublicBoard(existing);
   },
 });
 

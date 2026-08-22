@@ -55,6 +55,12 @@ async function deleteJob(ctx: MutationCtx, jobId: Id<"jobs">) {
     .collect();
   for (const row of skills) await ctx.db.delete(row._id);
 
+  const extractions = await ctx.db
+    .query("job_skill_extractions")
+    .withIndex("by_job", (q) => q.eq("job_id", jobId))
+    .collect();
+  for (const row of extractions) await ctx.db.delete(row._id);
+
   const views = await ctx.db
     .query("job_views")
     .withIndex("by_job", (q) => q.eq("job_id", jobId))

@@ -1,6 +1,6 @@
 "use client";
 
-import { useAddPublicBoardMutation, useListPublicBoardsQuery, useRemovePublicBoardMutation } from "@/features/api/atsIntegrationsApi";
+import { useAddPublicBoardMutation, useListPublicBoardsQuery, useRemovePublicBoardMutation, useRetryPublicBoardMutation } from "@/features/api/atsIntegrationsApi";
 import { useWipeAllJobsMutation } from "@/features/api/jobsApi";
 import { toastUnknownError } from "@/lib/errors";
 import { useState } from "react";
@@ -9,15 +9,27 @@ import { Button } from "../../ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../ui/dialog";
 import { Input } from "../../ui/input";
 import { Label } from "../../ui/label";
+import { PublicBoardRowSkeleton } from "./atsSkeletons";
 import { PUBLIC_BOARD_PROVIDERS, publicBoardProviderById, relativeTime, type AtsPublicBoard, type PublicBoardProviderId } from "./catalog";
 
 const gradientButton = "rounded-full bg-gradient-to-r from-neon-purple to-neon-pink px-5 text-white hover:opacity-90";
 const outlineButton = "rounded-full border-glass-border bg-transparent px-5 text-white hover:bg-white/5";
 
 function StatusBadge({ board }: { board: AtsPublicBoard }) {
+  if (board.sync_started_at) return <span className="rounded-md bg-amber-500/15 px-2 py-0.5 text-[11px] font-semibold tracking-wide text-amber-400 uppercase">Syncing</span>;
   if (board.status === "connected") return <span className="rounded-md bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold tracking-wide text-emerald-400 uppercase">Live</span>;
   if (board.status === "error") return <span className="rounded-md bg-destructive/15 px-2 py-0.5 text-[11px] font-semibold tracking-wide text-rose-400 uppercase">Error</span>;
   return <span className="rounded-md bg-white/10 px-2 py-0.5 text-[11px] font-semibold tracking-wide text-white/50 uppercase">{board.status}</span>;
+}
+
+function boardFooter(board: AtsPublicBoard) {
+  if (board.sync_started_at) return "Sync in progress…";
+  if (board.status === "error") {
+    const message = board.error_message ?? "Sync failed";
+    if (message.includes("changed while this mutation")) return "Sync hit a write conflict. Retry to pull this board again.";
+    return message;
+  }
+  return `${board.records_synced.toLocaleString()} jobs · Last synced ${relativeTime(board.last_synced_at)}`;
 }
 
 function AddPublicBoardDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
@@ -122,9 +134,23 @@ function RemovePublicBoardDialog({ board, open, onOpenChange }: { board: AtsPubl
 
 export function PublicBoardsSection() {
   const { data, isLoading } = useListPublicBoardsQuery();
+  const [retryBoard] = useRetryPublicBoardMutation();
   const boards = (data as AtsPublicBoard[] | undefined) ?? [];
   const [addOpen, setAddOpen] = useState(false);
   const [removeBoard, setRemoveBoard] = useState<AtsPublicBoard | null>(null);
+  const [retryingId, setRetryingId] = useState<string | null>(null);
+
+  const handleRetry = async (board: AtsPublicBoard) => {
+    setRetryingId(board.id);
+    try {
+      await retryBoard(board.id).unwrap();
+      toast.success(`Retrying ${board.subdomain ?? "this board"}…`);
+    } catch (err) {
+      toastUnknownError(err, "Could not start a retry. Please try again.");
+    } finally {
+      setRetryingId(null);
+    }
+  };
 
   return (
     <section className="mt-14">
@@ -141,7 +167,7 @@ export function PublicBoardsSection() {
 
       <div className="mt-6 space-y-3">
         {isLoading &&
-          [0, 1].map((key) => <div key={key} className="h-[76px] animate-pulse rounded-2xl border border-glass-border bg-white/5" />)}
+          [0, 1].map((key) => <PublicBoardRowSkeleton key={key} />)}
 
         {!isLoading && boards.length === 0 && (
           <div className="rounded-2xl border border-dashed border-glass-border px-5 py-8 text-center text-sm text-muted-foreground">No public boards yet. Add a slug to start pulling live jobs.</div>
@@ -158,13 +184,24 @@ export function PublicBoardsSection() {
                   <span className="truncate text-sm text-muted-foreground">{board.subdomain}</span>
                   <StatusBadge board={board} />
                 </div>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {board.status === "error" ? (board.error_message ?? "Sync failed") : `${board.records_synced.toLocaleString()} jobs · Last synced ${relativeTime(board.last_synced_at)}`}
-                </p>
+                <p className="mt-1 text-xs text-muted-foreground">{boardFooter(board)}</p>
               </div>
-              <Button variant="outline" size="sm" className={outlineButton} onClick={() => setRemoveBoard(board)}>
-                Remove
-              </Button>
+              <div className="flex shrink-0 items-center gap-2">
+                {board.status === "error" && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={outlineButton}
+                    disabled={Boolean(board.sync_started_at) || retryingId === board.id}
+                    onClick={() => void handleRetry(board)}
+                  >
+                    {board.sync_started_at || retryingId === board.id ? "Retrying…" : "Retry"}
+                  </Button>
+                )}
+                <Button variant="outline" size="sm" className={outlineButton} onClick={() => setRemoveBoard(board)}>
+                  Remove
+                </Button>
+              </div>
             </div>
           );
         })}

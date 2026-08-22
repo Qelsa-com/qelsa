@@ -289,8 +289,8 @@ export function JobCard({ job, onClick }: { job: Job; onClick: () => void }) {
       )}
 
       <div className="mt-auto flex items-center justify-between gap-2">
-        <span className="text-[13px] font-bold text-white">{salary ?? "—"}</span>
-        {posted && <span className="text-[11px] text-white/40 sm:text-xs">{posted}</span>}
+        {salary && <span className="text-[13px] font-bold text-white">{salary}</span>}
+        {posted && <span className="ml-auto text-[11px] text-white/40 sm:text-xs">{posted}</span>}
       </div>
     </button>
   );

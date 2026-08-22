@@ -66,9 +66,9 @@ export function JobsFeedPager({
     requestMore();
   }, [canLoadMore, loadedCount, requestMore]);
 
-  if (status === "LoadingFirstPage") return null;
-
-  const showFooter = canLoadMore || isLoadingMore;
+  // Keep the sentinel mounted during search resets so the observer does not
+  // remount and flash the Load more button over the skeleton grid.
+  const showFooter = loadedCount > 0 && (canLoadMore || isLoadingMore);
   const showSpinner = isLoadingMore || (canLoadMore && sentinelInView);
 
   return (

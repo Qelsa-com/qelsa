@@ -145,6 +145,8 @@ export default defineSchema({
     resource: v.optional(v.string()),
     // Set on ATS-ingested jobs so a board sync can close postings that left the live pull.
     ats_integration_id: v.optional(v.id("ats_integrations")),
+    // Timestamp of the pull that last upserted this row — used to close missing jobs without shipping the full id list.
+    ats_seen_at: v.optional(v.number()),
     other_info: v.optional(v.any()),
     work_type: v.optional(v.string()),
     workplace_type: v.optional(workplaceType),
@@ -184,6 +186,11 @@ export default defineSchema({
   })
     .index("by_job", ["job_id"])
     .index("by_skill", ["skill_id"]),
+
+  // Sidecar so skill enrichment never patches `jobs` (avoids OCC with ATS sync).
+  job_skill_extractions: defineTable({
+    job_id: v.id("jobs"),
+  }).index("by_job", ["job_id"]),
 
   job_applications: defineTable({
     user_id: v.id("users"),
@@ -531,6 +538,8 @@ export default defineSchema({
     connected_since: v.optional(v.number()),
     last_synced_at: v.optional(v.number()),
     next_sync_at: v.optional(v.number()),
+    // Set while a sync action is in flight so overlapping pulls skip instead of colliding.
+    sync_started_at: v.optional(v.number()),
     error_message: v.optional(v.string()),
     error_detected_at: v.optional(v.number()),
     requested_at: v.optional(v.number()),

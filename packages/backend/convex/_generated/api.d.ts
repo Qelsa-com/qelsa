@@ -35,6 +35,7 @@ import type * as lib_customFunctions from "../lib/customFunctions.js";
 import type * as lib_deleteUserData from "../lib/deleteUserData.js";
 import type * as lib_helpers from "../lib/helpers.js";
 import type * as lib_jobCounts from "../lib/jobCounts.js";
+import type * as lib_jobSkillExtraction from "../lib/jobSkillExtraction.js";
 import type * as lib_parsedProfile from "../lib/parsedProfile.js";
 import type * as lib_profileFields from "../lib/profileFields.js";
 import type * as lib_r2 from "../lib/r2.js";
@@ -83,6 +84,7 @@ declare const fullApi: ApiFromModules<{
   "lib/deleteUserData": typeof lib_deleteUserData;
   "lib/helpers": typeof lib_helpers;
   "lib/jobCounts": typeof lib_jobCounts;
+  "lib/jobSkillExtraction": typeof lib_jobSkillExtraction;
   "lib/parsedProfile": typeof lib_parsedProfile;
   "lib/profileFields": typeof lib_profileFields;
   "lib/r2": typeof lib_r2;

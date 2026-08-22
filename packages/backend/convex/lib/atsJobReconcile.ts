@@ -42,18 +42,89 @@ export async function closeMissingAtsJobs(
   const existing = await jobsForAtsIntegration(ctx, args.integrationId, args.provider);
   let closed = 0;
   for (const job of existing) {
-    if (!job.external_id || args.liveExternalIds.has(job.external_id)) continue;
-    if (job.status === "closed") {
-      if (job.ats_integration_id !== args.integrationId) {
-        await ctx.db.patch(job._id, { ats_integration_id: args.integrationId });
-      }
-      continue;
-    }
-    await ctx.db.patch(job._id, {
-      status: "closed",
-      ats_integration_id: args.integrationId,
-    });
-    closed++;
+    closed += await reconcileAtsJob(ctx, job, args.integrationId, args.liveExternalIds);
   }
   return closed;
+}
+
+const CLOSE_PAGE_SIZE = 40;
+
+export type CloseAtsPhase = "indexed" | "legacy";
+
+/** One page of close/reopen reconcile so sync does not read the whole board at once. */
+export async function closeMissingAtsJobsPage(
+  ctx: MutationCtx,
+  args: {
+    integrationId: Id<"ats_integrations">;
+    provider: string;
+    seenAt: number;
+    cursor: string | null;
+    phase: CloseAtsPhase;
+  },
+): Promise<{ closed: number; continueCursor: string | null; phase: CloseAtsPhase; isDone: boolean }> {
+  if (args.phase === "indexed") {
+    const result = await ctx.db
+      .query("jobs")
+      .withIndex("by_ats_integration", (q) => q.eq("ats_integration_id", args.integrationId))
+      .paginate({ cursor: args.cursor, numItems: CLOSE_PAGE_SIZE });
+    let closed = 0;
+    for (const job of result.page) {
+      closed += await reconcileUnseenAtsJob(ctx, job, args.integrationId, args.seenAt);
+    }
+    if (!result.isDone) {
+      return { closed, continueCursor: result.continueCursor, phase: "indexed", isDone: false };
+    }
+    return { closed, continueCursor: null, phase: "legacy", isDone: false };
+  }
+
+  const result = await ctx.db
+    .query("jobs")
+    .withIndex("by_resource", (q) => q.eq("resource", `ats:${args.provider}`))
+    .paginate({ cursor: args.cursor, numItems: CLOSE_PAGE_SIZE });
+  let closed = 0;
+  for (const job of result.page) {
+    if (job.ats_integration_id === args.integrationId) continue;
+    if (integrationIdFromOtherInfo(job.other_info) !== args.integrationId) continue;
+    closed += await reconcileUnseenAtsJob(ctx, job, args.integrationId, args.seenAt);
+  }
+  return {
+    closed,
+    continueCursor: result.isDone ? null : result.continueCursor,
+    phase: "legacy",
+    isDone: result.isDone,
+  };
+}
+
+async function reconcileAtsJob(
+  ctx: MutationCtx,
+  job: Doc<"jobs">,
+  integrationId: Id<"ats_integrations">,
+  liveExternalIds: Set<string>,
+): Promise<number> {
+  if (!job.external_id || liveExternalIds.has(job.external_id)) return 0;
+  return await closeAtsJob(ctx, job, integrationId);
+}
+
+async function reconcileUnseenAtsJob(
+  ctx: MutationCtx,
+  job: Doc<"jobs">,
+  integrationId: Id<"ats_integrations">,
+  seenAt: number,
+): Promise<number> {
+  if (job.ats_seen_at === seenAt) return 0;
+  return await closeAtsJob(ctx, job, integrationId);
+}
+
+async function closeAtsJob(ctx: MutationCtx, job: Doc<"jobs">, integrationId: Id<"ats_integrations">): Promise<number> {
+  if (job.status === "closed") {
+    if (job.ats_integration_id !== integrationId) {
+      await ctx.db.patch(job._id, { ats_integration_id: integrationId });
+    }
+    return 0;
+  }
+  await ctx.db.patch(job._id, {
+    status: "closed",
+    ats_integration_id: integrationId,
+  });
+  return 1;
 }

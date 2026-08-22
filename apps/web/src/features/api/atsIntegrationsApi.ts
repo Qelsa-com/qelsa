@@ -50,3 +50,7 @@ export function useAddPublicBoardMutation() {
 export function useRemovePublicBoardMutation() {
   return useConvexMutationHook(api.atsIntegrations.removePublicBoard, (id: string) => ({ id }));
 }
+
+export function useRetryPublicBoardMutation() {
+  return useConvexMutationHook(api.atsIntegrations.retryPublicBoard, (id: string) => ({ id }));
+}

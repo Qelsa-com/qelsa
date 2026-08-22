@@ -7,6 +7,7 @@ import { useState } from "react";
 import { Button } from "../../ui/button";
 import { ATS_PROVIDERS, relativeTime, type AtsIntegration, type AtsProviderMeta } from "./catalog";
 import { ApiKeyConnectDialog, BoardConnectDialog, ConnectionSuccessDialog, DisconnectDialog, ErrorIntegrationDialog, ManageIntegrationDialog, OAuthConnectDialog, ReconnectApiKeyDialog, RequestAccessDialog } from "./IntegrationDialogs";
+import { IntegrationCardSkeleton } from "./atsSkeletons";
 import { PublicBoardsSection } from "./PublicBoardsSection";
 
 type DialogState =
@@ -114,13 +115,11 @@ const AtsIntegrationsPage = () => {
       {isAdmin && <h2 className="mt-8 text-lg font-semibold text-white">Your ATS</h2>}
 
       <div className={`${isAdmin ? "mt-4" : "mt-8"} grid gap-6 md:grid-cols-2 lg:grid-cols-3`}>
-        {ATS_PROVIDERS.map((provider) =>
-          isLoading ? (
-            <div key={provider.id} className="h-[220px] animate-pulse rounded-2xl border border-glass-border bg-white/5" />
-          ) : (
-            <IntegrationCard key={provider.id} provider={provider} integration={integrationFor(provider.id)} onAction={setDialog} />
-          ),
-        )}
+        {isLoading
+          ? ATS_PROVIDERS.map((provider) => <IntegrationCardSkeleton key={provider.id} />)
+          : ATS_PROVIDERS.map((provider) => (
+              <IntegrationCard key={provider.id} provider={provider} integration={integrationFor(provider.id)} onAction={setDialog} />
+            ))}
       </div>
 
       {dialog?.kind === "connect" &&

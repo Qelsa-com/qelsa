@@ -6,8 +6,9 @@ import { internalMutation, internalQuery, type MutationCtx, type QueryCtx } from
 import { adminMutation, authedMutation, authedQuery, optionalAuthQuery } from "./lib/customFunctions";
 import { deleteJobCascade } from "./lib/deleteUserData";
 import { iso, withId } from "./lib/helpers";
-import { closeMissingAtsJobs } from "./lib/atsJobReconcile";
+import { closeMissingAtsJobsPage as closeAtsJobsPage } from "./lib/atsJobReconcile";
 import { bumpJobCount, ensureJobStats, getJobCounts } from "./lib/jobCounts";
+import { jobNeedsSkillEnrichment } from "./lib/jobSkillExtraction";
 import { buildCompetencyFramework, clipPlainText } from "./lib/skillMatch";
 
 type SkillCache = Map<Id<"skills">, Doc<"skills"> | null>;
@@ -735,13 +736,7 @@ export const storeScrapedJobs = internalMutation({
       };
       if (existing) {
         await ctx.db.patch(existing._id, payload);
-        if (!existing.skills_extracted) {
-          const linked = await ctx.db
-            .query("job_skills")
-            .withIndex("by_job", (q) => q.eq("job_id", existing._id))
-            .take(1);
-          if (linked.length === 0) needsSkills.push(existing._id);
-        }
+        if (await jobNeedsSkillEnrichment(ctx, existing._id, existing.skills_extracted)) needsSkills.push(existing._id);
       } else {
         const jobId = await ctx.db.insert("jobs", { ...payload, view_count: 0, application_count: 0 });
         await ensureJobStats(ctx, jobId);
@@ -755,25 +750,23 @@ export const storeScrapedJobs = internalMutation({
 /**
  * Store jobs pulled from a connected ATS (Greenhouse/Lever public boards).
  * Expects jobs pre-normalized by the atsSync action into a common shape.
- * Dedupes by external_id; reopens listings that return on a later pull;
- * closes board jobs missing from a complete pull.
+ * Dedupes by external_id and reopens listings that return on a later pull.
+ * Closing missing jobs is a separate paged mutation so this write set stays small.
  */
 export const storeAtsJobs = internalMutation({
   args: {
     integrationId: v.id("ats_integrations"),
     provider: v.string(),
     jobs: v.array(v.any()),
-    listComplete: v.boolean(),
+    seenAt: v.number(),
   },
-  returns: v.object({ stored: v.number(), closed: v.number(), needsSkills: v.array(v.id("jobs")) }),
+  returns: v.object({ stored: v.number(), needsSkills: v.array(v.id("jobs")) }),
   handler: async (ctx, args) => {
     const needsSkills: Id<"jobs">[] = [];
-    const liveExternalIds = new Set<string>();
     let stored = 0;
     for (const job of args.jobs) {
       const external_id = String(job.external_id ?? "");
       if (!external_id) continue;
-      liveExternalIds.add(external_id);
       const existing = await ctx.db
         .query("jobs")
         .withIndex("by_external_id", (q) => q.eq("external_id", external_id))
@@ -798,6 +791,7 @@ export const storeAtsJobs = internalMutation({
         published_date: (job.published_date as number | undefined) ?? Date.now(),
         resource: `ats:${args.provider}`,
         ats_integration_id: args.integrationId,
+        ats_seen_at: args.seenAt,
         other_info: {
           ats_provider: args.provider,
           integration_id: args.integrationId,
@@ -809,13 +803,7 @@ export const storeAtsJobs = internalMutation({
       };
       if (existing) {
         await ctx.db.patch(existing._id, payload);
-        if (!existing.skills_extracted) {
-          const linked = await ctx.db
-            .query("job_skills")
-            .withIndex("by_job", (q) => q.eq("job_id", existing._id))
-            .take(1);
-          if (linked.length === 0) needsSkills.push(existing._id);
-        }
+        if (await jobNeedsSkillEnrichment(ctx, existing._id, existing.skills_extracted)) needsSkills.push(existing._id);
       } else {
         const jobId = await ctx.db.insert("jobs", { ...payload, view_count: 0, application_count: 0 });
         await ensureJobStats(ctx, jobId);
@@ -823,13 +811,32 @@ export const storeAtsJobs = internalMutation({
       }
       stored++;
     }
-    const closed = await closeMissingAtsJobs(ctx, {
+    return { stored, needsSkills };
+  },
+});
+
+export const closeMissingAtsJobsPage = internalMutation({
+  args: {
+    integrationId: v.id("ats_integrations"),
+    provider: v.string(),
+    seenAt: v.number(),
+    cursor: v.union(v.string(), v.null()),
+    phase: v.union(v.literal("indexed"), v.literal("legacy")),
+  },
+  returns: v.object({
+    closed: v.number(),
+    continueCursor: v.union(v.string(), v.null()),
+    phase: v.union(v.literal("indexed"), v.literal("legacy")),
+    isDone: v.boolean(),
+  }),
+  handler: async (ctx, args) => {
+    return await closeAtsJobsPage(ctx, {
       integrationId: args.integrationId,
       provider: args.provider,
-      liveExternalIds,
-      listComplete: args.listComplete,
+      seenAt: args.seenAt,
+      cursor: args.cursor,
+      phase: args.phase,
     });
-    return { stored, closed, needsSkills };
   },
 });
 
