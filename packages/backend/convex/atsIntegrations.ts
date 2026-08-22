@@ -18,8 +18,8 @@ async function getByProvider(ctx: Ctx, providerId: string) {
 
 /** Never leak stored secrets to the client. */
 function sanitize(row: Record<string, unknown>) {
-  const { api_key: _apiKey, ...rest } = row;
-  return { ...withId(rest as { _id: string }), has_api_key: Boolean(_apiKey) };
+  const { api_key: _apiKey, client_id: _clientId, refresh_token: _refresh, ...rest } = row;
+  return { ...withId(rest as { _id: string }), has_api_key: Boolean(_apiKey || _clientId || _refresh) };
 }
 
 function connectedPatch() {
@@ -46,73 +46,109 @@ export const list = authedQuery({
   },
 });
 
-/** API-key providers (Greenhouse, Ashby, …): validate + store credentials. */
-export const connectApiKey = authedMutation({
-  args: { provider, apiKey: v.string(), subdomain: v.optional(v.string()) },
+type ConnectFields = {
+  provider: string;
+  auth_type: "board" | "api_key" | "oauth";
+  subdomain?: string;
+  apiKey?: string;
+  clientId?: string;
+  refreshToken?: string;
+  region?: string;
+};
+
+async function upsertConnected(ctx: { db: any; user: { _id: string }; scheduler: any }, args: ConnectFields) {
+  const existing = await getByProvider(ctx, args.provider);
+  const patch = {
+    ...connectedPatch(),
+    auth_type: args.auth_type,
+    subdomain: args.subdomain,
+    region: args.region,
+    ...(args.apiKey ? { api_key: args.apiKey } : {}),
+    ...(args.clientId ? { client_id: args.clientId } : {}),
+    ...(args.refreshToken ? { refresh_token: args.refreshToken } : {}),
+  };
+  let integrationId;
+  if (existing) {
+    await ctx.db.patch(existing._id, patch);
+    integrationId = existing._id;
+  } else {
+    integrationId = await ctx.db.insert("ats_integrations", {
+      user_id: ctx.user._id,
+      provider: args.provider as never,
+      sync_jobs: true,
+      sync_candidates: true,
+      records_synced: 0,
+      ...patch,
+    });
+  }
+  await ctx.scheduler.runAfter(0, internal.atsSync.syncIntegration, { integrationId });
+  return sanitize((await ctx.db.get(integrationId))!);
+}
+
+/** Public job-board providers (Lever, Ashby). */
+export const connectBoard = authedMutation({
+  args: { provider, subdomain: v.string() },
   returns: v.any(),
   handler: async (ctx, args) => {
-    const existing = await getByProvider(ctx, args.provider);
-    let integrationId;
-    if (existing) {
-      await ctx.db.patch(existing._id, {
-        ...connectedPatch(),
-        auth_type: "api_key",
-        api_key: args.apiKey,
-        subdomain: args.subdomain,
-      });
-      integrationId = existing._id;
-    } else {
-      integrationId = await ctx.db.insert("ats_integrations", {
-        user_id: ctx.user._id,
-        provider: args.provider as never,
-        auth_type: "api_key",
-        api_key: args.apiKey,
-        subdomain: args.subdomain,
-        sync_jobs: true,
-        sync_candidates: true,
-        records_synced: 0,
-        ...connectedPatch(),
-      });
-    }
-    // Kick off the first sync right away so jobs start flowing in.
-    await ctx.scheduler.runAfter(0, internal.atsSync.syncIntegration, { integrationId });
-    return sanitize((await ctx.db.get(integrationId))!);
+    const subdomain = args.subdomain.trim();
+    if (!subdomain) throw new Error("A board slug is required");
+    return await upsertConnected(ctx, { provider: args.provider, auth_type: "board", subdomain });
   },
 });
 
-/**
- * OAuth providers (Zoho Recruit, Lever, …).
- * Placeholder: marks the integration connected immediately. Replace with a real
- * OAuth redirect + token exchange before shipping.
- */
-export const connectOAuth = authedMutation({
-  args: { provider },
+/** API-key providers (Greenhouse, BambooHR). */
+export const connectApiKey = authedMutation({
+  args: { provider, apiKey: v.string(), subdomain: v.string() },
   returns: v.any(),
   handler: async (ctx, args) => {
-    const existing = await getByProvider(ctx, args.provider);
-    let integrationId;
-    if (existing) {
-      await ctx.db.patch(existing._id, { ...connectedPatch(), auth_type: "oauth" });
-      integrationId = existing._id;
-    } else {
-      integrationId = await ctx.db.insert("ats_integrations", {
-        user_id: ctx.user._id,
-        provider: args.provider as never,
-        auth_type: "oauth",
-        sync_jobs: true,
-        sync_candidates: true,
-        records_synced: 0,
-        ...connectedPatch(),
-      });
-    }
-    await ctx.scheduler.runAfter(0, internal.atsSync.syncIntegration, { integrationId });
-    return sanitize((await ctx.db.get(integrationId))!);
+    const apiKey = args.apiKey.trim();
+    const subdomain = args.subdomain.trim();
+    if (!apiKey) throw new Error("API key is required");
+    if (!subdomain) throw new Error("Company subdomain is required");
+    return await upsertConnected(ctx, { provider: args.provider, auth_type: "api_key", subdomain, apiKey });
+  },
+});
+
+/** OAuth credential providers (Zoho Recruit, Keka). */
+export const connectOAuth = authedMutation({
+  args: {
+    provider,
+    clientId: v.string(),
+    clientSecret: v.string(),
+    subdomain: v.optional(v.string()),
+    refreshToken: v.optional(v.string()),
+    region: v.optional(v.string()),
+  },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    const clientId = args.clientId.trim();
+    const clientSecret = args.clientSecret.trim();
+    if (!clientId || !clientSecret) throw new Error("OAuth client ID and secret are required");
+    if (args.provider === "keka" && !args.subdomain?.trim()) throw new Error("Keka company subdomain is required");
+    if (args.provider === "zoho_recruit" && !args.refreshToken?.trim()) throw new Error("Zoho refresh token is required");
+    return await upsertConnected(ctx, {
+      provider: args.provider,
+      auth_type: "oauth",
+      subdomain: args.subdomain?.trim(),
+      apiKey: clientSecret,
+      clientId,
+      refreshToken: args.refreshToken?.trim(),
+      region: args.region?.trim(),
+    });
   },
 });
 
 /** Re-enter credentials after a token/API-key expiry. Keeps sync configuration. */
 export const reconnect = authedMutation({
-  args: { provider, apiKey: v.optional(v.string()) },
+  args: {
+    provider,
+    apiKey: v.optional(v.string()),
+    subdomain: v.optional(v.string()),
+    clientId: v.optional(v.string()),
+    clientSecret: v.optional(v.string()),
+    refreshToken: v.optional(v.string()),
+    region: v.optional(v.string()),
+  },
   returns: v.any(),
   handler: async (ctx, args) => {
     const existing = await getByProvider(ctx, args.provider);
@@ -120,7 +156,12 @@ export const reconnect = authedMutation({
     await ctx.db.patch(existing._id, {
       ...connectedPatch(),
       connected_since: existing.connected_since ?? Date.now(),
-      ...(args.apiKey ? { api_key: args.apiKey } : {}),
+      ...(args.subdomain?.trim() ? { subdomain: args.subdomain.trim() } : {}),
+      ...(args.apiKey?.trim() ? { api_key: args.apiKey.trim() } : {}),
+      ...(args.clientSecret?.trim() ? { api_key: args.clientSecret.trim() } : {}),
+      ...(args.clientId?.trim() ? { client_id: args.clientId.trim() } : {}),
+      ...(args.refreshToken?.trim() ? { refresh_token: args.refreshToken.trim() } : {}),
+      ...(args.region?.trim() ? { region: args.region.trim() } : {}),
     });
     await ctx.scheduler.runAfter(0, internal.atsSync.syncIntegration, { integrationId: existing._id });
     return sanitize((await ctx.db.get(existing._id))!);

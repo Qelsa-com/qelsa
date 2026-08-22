@@ -701,24 +701,85 @@ export const storeScrapedJobs = internalMutation({
   },
 });
 
+function integrationIdFromOtherInfo(otherInfo: unknown): string | undefined {
+  if (!otherInfo || typeof otherInfo !== "object" || !("integration_id" in otherInfo)) return undefined;
+  const value = (otherInfo as { integration_id?: unknown }).integration_id;
+  return typeof value === "string" ? value : undefined;
+}
+
+async function jobsForAtsIntegration(
+  ctx: MutationCtx,
+  integrationId: Id<"ats_integrations">,
+  provider: string,
+): Promise<Doc<"jobs">[]> {
+  const indexed = await ctx.db
+    .query("jobs")
+    .withIndex("by_ats_integration", (q) => q.eq("ats_integration_id", integrationId))
+    .collect();
+  const seen = new Set(indexed.map((job) => job._id));
+  // Legacy rows stored integration_id only in other_info before the indexed field existed.
+  const fromResource = await ctx.db
+    .query("jobs")
+    .withIndex("by_resource", (q) => q.eq("resource", `ats:${provider}`))
+    .collect();
+  const extras = fromResource.filter((job) => {
+    if (seen.has(job._id)) return false;
+    return integrationIdFromOtherInfo(job.other_info) === integrationId;
+  });
+  return extras.length === 0 ? indexed : [...indexed, ...extras];
+}
+
+async function closeMissingAtsJobs(
+  ctx: MutationCtx,
+  args: {
+    integrationId: Id<"ats_integrations">;
+    provider: string;
+    liveExternalIds: Set<string>;
+    listComplete: boolean;
+  },
+): Promise<number> {
+  if (!args.listComplete) return 0;
+  const existing = await jobsForAtsIntegration(ctx, args.integrationId, args.provider);
+  let closed = 0;
+  for (const job of existing) {
+    if (!job.external_id || args.liveExternalIds.has(job.external_id)) continue;
+    if (job.status === "closed") {
+      if (job.ats_integration_id !== args.integrationId) {
+        await ctx.db.patch(job._id, { ats_integration_id: args.integrationId });
+      }
+      continue;
+    }
+    await ctx.db.patch(job._id, {
+      status: "closed",
+      ats_integration_id: args.integrationId,
+    });
+    closed++;
+  }
+  return closed;
+}
+
 /**
  * Store jobs pulled from a connected ATS (Greenhouse/Lever public boards).
  * Expects jobs pre-normalized by the atsSync action into a common shape.
- * Dedupes by external_id; returns ids needing AI skill extraction.
+ * Dedupes by external_id; reopens listings that return on a later pull;
+ * closes board jobs missing from a complete pull.
  */
 export const storeAtsJobs = internalMutation({
   args: {
     integrationId: v.id("ats_integrations"),
     provider: v.string(),
     jobs: v.array(v.any()),
+    listComplete: v.boolean(),
   },
-  returns: v.object({ stored: v.number(), needsSkills: v.array(v.id("jobs")) }),
+  returns: v.object({ stored: v.number(), closed: v.number(), needsSkills: v.array(v.id("jobs")) }),
   handler: async (ctx, args) => {
     const needsSkills: Id<"jobs">[] = [];
+    const liveExternalIds = new Set<string>();
     let stored = 0;
     for (const job of args.jobs) {
       const external_id = String(job.external_id ?? "");
       if (!external_id) continue;
+      liveExternalIds.add(external_id);
       const existing = await ctx.db
         .query("jobs")
         .withIndex("by_external_id", (q) => q.eq("external_id", external_id))
@@ -742,6 +803,7 @@ export const storeAtsJobs = internalMutation({
         salary_currency: job.salary_currency as string | undefined,
         published_date: (job.published_date as number | undefined) ?? Date.now(),
         resource: `ats:${args.provider}`,
+        ats_integration_id: args.integrationId,
         other_info: {
           ats_provider: args.provider,
           integration_id: args.integrationId,
@@ -767,7 +829,13 @@ export const storeAtsJobs = internalMutation({
       }
       stored++;
     }
-    return { stored, needsSkills };
+    const closed = await closeMissingAtsJobs(ctx, {
+      integrationId: args.integrationId,
+      provider: args.provider,
+      liveExternalIds,
+      listComplete: args.listComplete,
+    });
+    return { stored, closed, needsSkills };
   },
 });
 

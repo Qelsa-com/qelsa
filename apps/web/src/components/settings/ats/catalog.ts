@@ -1,6 +1,6 @@
 export type AtsProviderId = "zoho_recruit" | "greenhouse" | "lever" | "keka" | "ashby" | "bamboohr" | "workday" | "darwinbox" | "icims";
 
-export type AtsAuthType = "oauth" | "api_key" | "gated";
+export type AtsAuthType = "board" | "api_key" | "oauth" | "gated";
 export type AtsStatus = "connected" | "error" | "pending" | "disconnected";
 
 export type AtsIntegration = {
@@ -9,6 +9,7 @@ export type AtsIntegration = {
   status: AtsStatus;
   auth_type: AtsAuthType;
   subdomain?: string;
+  region?: string;
   sync_jobs: boolean;
   sync_candidates: boolean;
   records_synced: number;
@@ -25,11 +26,11 @@ export type AtsProviderMeta = {
   id: AtsProviderId;
   name: string;
   initials: string;
-  /** Tailwind classes for the logo tile. */
   tileClass: string;
   description: string;
   authType: AtsAuthType;
-  /** Shown under the API-key field in the connect dialog. */
+  boardLabel?: string;
+  boardPlaceholder?: string;
   credentialsHelp?: string;
 };
 
@@ -39,8 +40,9 @@ export const ATS_PROVIDERS: AtsProviderMeta[] = [
     name: "Zoho Recruit",
     initials: "Z",
     tileClass: "bg-sky-500/20 text-sky-400",
-    description: "Auto-sync active requisitions and route candidates with match quality scores into your pipeline.",
+    description: "OAuth integration that pulls Job Openings from your Zoho Recruit org.",
     authType: "oauth",
+    credentialsHelp: "Create a Zoho API Console self-client with scope ZohoRecruit.modules.jobopening.READ, then paste the client ID, secret, and refresh token.",
   },
   {
     id: "greenhouse",
@@ -49,40 +51,53 @@ export const ATS_PROVIDERS: AtsProviderMeta[] = [
     tileClass: "bg-emerald-500/20 text-emerald-400",
     description: "Sync candidates, jobs, and readiness signals directly to your Greenhouse pipeline.",
     authType: "api_key",
-    credentialsHelp: "Find your API key in Greenhouse under Configure → Dev Center → API Credential Management",
+    boardLabel: "Board slug",
+    boardPlaceholder: "your-company",
+    credentialsHelp: "Find your API key in Greenhouse under Configure → Dev Center → API Credential Management. The board slug is the last segment of boards.greenhouse.io/your-company.",
   },
   {
     id: "lever",
     name: "Lever",
     initials: "L",
     tileClass: "bg-orange-500/20 text-orange-400",
-    description: "Import job postings and manage candidate applications with shortlist confidence scores.",
-    authType: "oauth",
+    description: "Import published postings from your Lever job site.",
+    authType: "board",
+    boardLabel: "Site slug",
+    boardPlaceholder: "your-company",
+    credentialsHelp: "Lever’s Postings API uses your public site name from jobs.lever.co/your-company.",
   },
   {
     id: "keka",
     name: "Keka",
     initials: "K",
     tileClass: "bg-rose-500/20 text-rose-400",
-    description: "Sync requisitions and push candidates with readiness signals into your Keka hiring pipeline.",
+    description: "Connect with Keka Hire client credentials and sync published jobs.",
     authType: "oauth",
+    boardLabel: "Company subdomain",
+    boardPlaceholder: "your-company",
+    credentialsHelp: "From Keka API settings: company subdomain, client ID, and client secret. We exchange these for a Hire API token.",
   },
   {
     id: "ashby",
     name: "Ashby",
     initials: "A",
     tileClass: "bg-violet-500/20 text-violet-400",
-    description: "Fast-growing team sync with consolidated candidate management and match quality scores.",
-    authType: "api_key",
-    credentialsHelp: "Find your API key in Ashby under Admin → Integrations → API Keys",
+    description: "Sync published postings from your Ashby job board.",
+    authType: "board",
+    boardLabel: "Job board name",
+    boardPlaceholder: "your-company",
+    credentialsHelp: "Ashby’s public Job Postings API uses the last segment of jobs.ashbyhq.com/your-company.",
   },
   {
     id: "bamboohr",
     name: "BambooHR",
     initials: "B",
     tileClass: "bg-lime-500/20 text-lime-400",
-    description: "Sync onboarding data and push fewer, better profiles with readiness signals into BambooHR.",
-    authType: "oauth",
+    description: "Sync open jobs from BambooHR Applicant Tracking with your API key.",
+    authType: "api_key",
+    boardLabel: "Company subdomain",
+    boardPlaceholder: "your-company",
+    credentialsHelp: "Create an API key under your BambooHR profile → API Keys. Subdomain is the your-company part of your-company.bamboohr.com.",
   },
   {
     id: "workday",
@@ -90,7 +105,8 @@ export const ATS_PROVIDERS: AtsProviderMeta[] = [
     initials: "W",
     tileClass: "bg-amber-500/20 text-amber-400",
     description: "Enterprise-grade sync for offer letters, employee profiles, and candidate pipelines.",
-    authType: "oauth",
+    authType: "gated",
+    credentialsHelp: "Workday Recruiting APIs require a tenant integration user and vendor setup.",
   },
   {
     id: "darwinbox",

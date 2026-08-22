@@ -143,6 +143,8 @@ export default defineSchema({
     company_github_url: v.optional(v.string()),
     company_is_agency: v.optional(v.boolean()),
     resource: v.optional(v.string()),
+    // Set on ATS-ingested jobs so a board sync can close postings that left the live pull.
+    ats_integration_id: v.optional(v.id("ats_integrations")),
     other_info: v.optional(v.any()),
     work_type: v.optional(v.string()),
     workplace_type: v.optional(workplaceType),
@@ -169,6 +171,8 @@ export default defineSchema({
     .index("by_job_title", ["job_title_id"])
     .index("by_external_id", ["external_id"])
     .index("by_status_and_published", ["status", "published_date"])
+    .index("by_ats_integration", ["ats_integration_id"])
+    .index("by_resource", ["resource"])
     .searchIndex("search_title", { searchField: "title" }),
 
   job_skills: defineTable({
@@ -512,9 +516,12 @@ export default defineSchema({
     user_id: v.id("users"),
     provider: v.union(v.literal("zoho_recruit"), v.literal("greenhouse"), v.literal("lever"), v.literal("keka"), v.literal("ashby"), v.literal("bamboohr"), v.literal("workday"), v.literal("darwinbox"), v.literal("icims")),
     status: v.union(v.literal("connected"), v.literal("error"), v.literal("pending"), v.literal("disconnected")),
-    auth_type: v.union(v.literal("oauth"), v.literal("api_key"), v.literal("gated")),
+    auth_type: v.union(v.literal("oauth"), v.literal("api_key"), v.literal("gated"), v.literal("board")),
     // TODO: move secrets to an encrypted vault before production use.
     api_key: v.optional(v.string()),
+    client_id: v.optional(v.string()),
+    refresh_token: v.optional(v.string()),
+    region: v.optional(v.string()),
     subdomain: v.optional(v.string()),
     sync_jobs: v.boolean(),
     sync_candidates: v.boolean(),

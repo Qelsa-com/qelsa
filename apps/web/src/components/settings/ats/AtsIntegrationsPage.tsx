@@ -1,12 +1,11 @@
 "use client";
 
-import { useConnectAtsOAuthMutation, useListAtsIntegrationsQuery } from "@/features/api/atsIntegrationsApi";
-import { toastUnknownError } from "@/lib/errors";
+import { useListAtsIntegrationsQuery } from "@/features/api/atsIntegrationsApi";
 import Link from "next/link";
 import { useState } from "react";
 import { Button } from "../../ui/button";
 import { ATS_PROVIDERS, relativeTime, type AtsIntegration, type AtsProviderMeta } from "./catalog";
-import { ApiKeyConnectDialog, ConnectionSuccessDialog, DisconnectDialog, ErrorIntegrationDialog, ManageIntegrationDialog, OAuthConnectDialog, ReconnectApiKeyDialog, RequestAccessDialog } from "./IntegrationDialogs";
+import { ApiKeyConnectDialog, BoardConnectDialog, ConnectionSuccessDialog, DisconnectDialog, ErrorIntegrationDialog, ManageIntegrationDialog, OAuthConnectDialog, ReconnectApiKeyDialog, RequestAccessDialog } from "./IntegrationDialogs";
 
 type DialogState =
   | { kind: "connect"; provider: AtsProviderMeta }
@@ -56,7 +55,7 @@ function IntegrationCard({ provider, integration, onAction }: { provider: AtsPro
       </Button>
     );
   } else if (provider.authType === "gated") {
-    footerText = "Not available";
+    footerText = "Vendor approval required";
     action = (
       <Button variant="outline" size="sm" className="rounded-full border-glass-border bg-transparent px-5 text-white/70 hover:bg-white/5" onClick={() => onAction({ kind: "request", provider })}>
         Request Access
@@ -90,20 +89,10 @@ const AtsIntegrationsPage = () => {
   const { data, isLoading } = useListAtsIntegrationsQuery();
   const integrations = (data as AtsIntegration[] | undefined) ?? [];
   const [dialog, setDialog] = useState<DialogState>(null);
-  const [connectOAuth, { isLoading: isReconnecting }] = useConnectAtsOAuthMutation();
 
   const integrationFor = (providerId: string) => integrations.find((row) => row.provider === providerId);
 
   const close = () => setDialog(null);
-
-  const handleOAuthReconnect = async (provider: AtsProviderMeta) => {
-    try {
-      await connectOAuth(provider.id).unwrap();
-      setDialog({ kind: "success", provider });
-    } catch (err) {
-      toastUnknownError(err, `Could not reconnect ${provider.name}. Please try again.`);
-    }
-  };
 
   return (
     <div className="mx-auto w-full max-w-[1200px] px-6 py-8 text-white md:px-12">
@@ -131,8 +120,10 @@ const AtsIntegrationsPage = () => {
       {dialog?.kind === "connect" &&
         (dialog.provider.authType === "api_key" ? (
           <ApiKeyConnectDialog provider={dialog.provider} open onOpenChange={(open) => !open && close()} onSuccess={() => setDialog({ kind: "success", provider: dialog.provider })} />
-        ) : (
+        ) : dialog.provider.authType === "oauth" ? (
           <OAuthConnectDialog provider={dialog.provider} open onOpenChange={(open) => !open && close()} onSuccess={() => setDialog({ kind: "success", provider: dialog.provider })} />
+        ) : (
+          <BoardConnectDialog provider={dialog.provider} open onOpenChange={(open) => !open && close()} onSuccess={() => setDialog({ kind: "success", provider: dialog.provider })} />
         ))}
 
       {dialog?.kind === "request" && <RequestAccessDialog provider={dialog.provider} open onOpenChange={(open) => !open && close()} />}
@@ -155,7 +146,6 @@ const AtsIntegrationsPage = () => {
           integration={dialog.integration}
           open
           onOpenChange={(open) => !open && close()}
-          onReconnect={() => void handleOAuthReconnect(dialog.provider)}
           onReconnectWithKey={() => setDialog({ kind: "reconnectKey", provider: dialog.provider, integration: dialog.integration })}
         />
       )}
@@ -177,7 +167,6 @@ const AtsIntegrationsPage = () => {
         />
       )}
 
-      {isReconnecting && <span className="sr-only">Reconnecting…</span>}
     </div>
   );
 };

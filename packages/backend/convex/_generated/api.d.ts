@@ -11,6 +11,7 @@
 import type * as applicantSearch from "../applicantSearch.js";
 import type * as applicantSearchGenerate from "../applicantSearchGenerate.js";
 import type * as atsIntegrations from "../atsIntegrations.js";
+import type * as atsProviders from "../atsProviders.js";
 import type * as atsSync from "../atsSync.js";
 import type * as auth from "../auth.js";
 import type * as certifications from "../certifications.js";
@@ -57,6 +58,7 @@ declare const fullApi: ApiFromModules<{
   applicantSearch: typeof applicantSearch;
   applicantSearchGenerate: typeof applicantSearchGenerate;
   atsIntegrations: typeof atsIntegrations;
+  atsProviders: typeof atsProviders;
   atsSync: typeof atsSync;
   auth: typeof auth;
   certifications: typeof certifications;
