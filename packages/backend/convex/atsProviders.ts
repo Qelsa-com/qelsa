@@ -147,6 +147,26 @@ function slugFromInput(value: string, suffix: RegExp) {
   return value.replace(suffix, "").replace(/^https?:\/\//i, "").replace(/\/.*$/, "").trim();
 }
 
+/** Accept a slug or a full board URL and return the company segment. */
+export function normalizePublicBoardSlug(input: string): string {
+  const trimmed = input.trim();
+  if (!trimmed) return "";
+  try {
+    const asUrl = trimmed.includes("://") ? new URL(trimmed) : trimmed.includes("/") ? new URL(`https://${trimmed}`) : null;
+    const pathSlug = asUrl?.pathname.split("/").filter(Boolean)[0];
+    if (pathSlug) return pathSlug.toLowerCase();
+  } catch {
+    /* fall through to plain slug */
+  }
+  return trimmed
+    .replace(/^https?:\/\//i, "")
+    .replace(/\/+$/, "")
+    .split("/")[0]
+    ?.replace(/\.(greenhouse\.io|lever\.co|ashbyhq\.com).*$/i, "")
+    .split(".")[0]
+    ?.toLowerCase() ?? "";
+}
+
 async function getJson(url: string, init?: RequestInit) {
   const res = await fetch(url, {
     ...init,

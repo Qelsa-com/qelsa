@@ -49,11 +49,11 @@ export const ATS_PROVIDERS: AtsProviderMeta[] = [
     name: "Greenhouse",
     initials: "G",
     tileClass: "bg-emerald-500/20 text-emerald-400",
-    description: "Sync candidates, jobs, and readiness signals directly to your Greenhouse pipeline.",
+    description: "Connect your Greenhouse Harvest API key to sync jobs and readiness signals into your hiring pipeline.",
     authType: "api_key",
     boardLabel: "Board slug",
     boardPlaceholder: "your-company",
-    credentialsHelp: "Find your API key in Greenhouse under Configure → Dev Center → API Credential Management. The board slug is the last segment of boards.greenhouse.io/your-company.",
+    credentialsHelp: "Find your Harvest API key in Greenhouse under Configure → Dev Center → API Credential Management. The board slug is the last segment of boards.greenhouse.io/your-company.",
   },
   {
     id: "lever",
@@ -126,7 +126,64 @@ export const ATS_PROVIDERS: AtsProviderMeta[] = [
   },
 ];
 
+export type PublicBoardProviderId = "greenhouse" | "lever" | "ashby";
+
+export type AtsPublicBoard = {
+  id: string;
+  provider: PublicBoardProviderId;
+  status: AtsStatus;
+  auth_type: "board";
+  kind: "public_board";
+  subdomain?: string;
+  sync_jobs: boolean;
+  sync_candidates: boolean;
+  records_synced: number;
+  connected_since?: number;
+  last_synced_at?: number;
+  next_sync_at?: number;
+  error_message?: string;
+  error_detected_at?: number;
+  has_api_key: boolean;
+};
+
+export const PUBLIC_BOARD_PROVIDERS: AtsProviderMeta[] = [
+  {
+    id: "greenhouse",
+    name: "Greenhouse",
+    initials: "G",
+    tileClass: "bg-emerald-500/20 text-emerald-400",
+    description: "Public Job Board API. Add as many board slugs as you want.",
+    authType: "board",
+    boardLabel: "Board slug",
+    boardPlaceholder: "airbnb",
+    credentialsHelp: "Use the last segment of boards.greenhouse.io/your-company. No API key — this is the public board.",
+  },
+  {
+    id: "lever",
+    name: "Lever",
+    initials: "L",
+    tileClass: "bg-orange-500/20 text-orange-400",
+    description: "Public Lever postings API.",
+    authType: "board",
+    boardLabel: "Site slug",
+    boardPlaceholder: "your-company",
+    credentialsHelp: "The site name from jobs.lever.co/your-company.",
+  },
+  {
+    id: "ashby",
+    name: "Ashby",
+    initials: "A",
+    tileClass: "bg-violet-500/20 text-violet-400",
+    description: "Public Ashby job board.",
+    authType: "board",
+    boardLabel: "Job board name",
+    boardPlaceholder: "your-company",
+    credentialsHelp: "The last segment of jobs.ashbyhq.com/your-company.",
+  },
+];
+
 export const providerById = (id: AtsProviderId): AtsProviderMeta => ATS_PROVIDERS.find((p) => p.id === id) ?? ATS_PROVIDERS[0];
+export const publicBoardProviderById = (id: PublicBoardProviderId): AtsProviderMeta => PUBLIC_BOARD_PROVIDERS.find((p) => p.id === id) ?? PUBLIC_BOARD_PROVIDERS[0];
 
 export function relativeTime(timestamp?: number): string {
   if (!timestamp) return "Never";

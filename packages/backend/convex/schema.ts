@@ -517,6 +517,8 @@ export default defineSchema({
     provider: v.union(v.literal("zoho_recruit"), v.literal("greenhouse"), v.literal("lever"), v.literal("keka"), v.literal("ashby"), v.literal("bamboohr"), v.literal("workday"), v.literal("darwinbox"), v.literal("icims")),
     status: v.union(v.literal("connected"), v.literal("error"), v.literal("pending"), v.literal("disconnected")),
     auth_type: v.union(v.literal("oauth"), v.literal("api_key"), v.literal("gated"), v.literal("board")),
+    // employer = user's own ATS (Harvest / API key). public_board = admin-ingested career site.
+    kind: v.optional(v.union(v.literal("employer"), v.literal("public_board"))),
     // TODO: move secrets to an encrypted vault before production use.
     api_key: v.optional(v.string()),
     client_id: v.optional(v.string()),
@@ -534,5 +536,7 @@ export default defineSchema({
     requested_at: v.optional(v.number()),
   })
     .index("by_user", ["user_id"])
-    .index("by_user_and_provider", ["user_id", "provider"]),
+    .index("by_user_and_provider", ["user_id", "provider"])
+    .index("by_kind", ["kind"])
+    .index("by_kind_provider_subdomain", ["kind", "provider", "subdomain"]),
 });

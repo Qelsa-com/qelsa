@@ -1,19 +1,28 @@
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
-import { authedMutation, authedQuery } from "./lib/customFunctions";
+import type { Id } from "./_generated/dataModel";
+import { normalizePublicBoardSlug } from "./atsProviders";
+import { closeMissingAtsJobs } from "./lib/atsJobReconcile";
+import { adminMutation, adminQuery, authedMutation, authedQuery } from "./lib/customFunctions";
 import { withId } from "./lib/helpers";
 
 const provider = v.union(v.literal("zoho_recruit"), v.literal("greenhouse"), v.literal("lever"), v.literal("keka"), v.literal("ashby"), v.literal("bamboohr"), v.literal("workday"), v.literal("darwinbox"), v.literal("icims"));
+const publicBoardProvider = v.union(v.literal("greenhouse"), v.literal("lever"), v.literal("ashby"));
 
 const SYNC_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
 
 type Ctx = { db: any; user: { _id: string } };
 
+function isEmployerRow(row: { kind?: string }) {
+  return row.kind !== "public_board";
+}
+
 async function getByProvider(ctx: Ctx, providerId: string) {
-  return await ctx.db
+  const rows = await ctx.db
     .query("ats_integrations")
     .withIndex("by_user_and_provider", (q: any) => q.eq("user_id", ctx.user._id).eq("provider", providerId))
-    .unique();
+    .collect();
+  return rows.find(isEmployerRow) ?? null;
 }
 
 /** Never leak stored secrets to the client. */
@@ -42,7 +51,7 @@ export const list = authedQuery({
       .query("ats_integrations")
       .withIndex("by_user", (q) => q.eq("user_id", ctx.user._id))
       .collect();
-    return rows.map(sanitize);
+    return rows.filter(isEmployerRow).map(sanitize);
   },
 });
 
@@ -75,6 +84,7 @@ async function upsertConnected(ctx: { db: any; user: { _id: string }; scheduler:
     integrationId = await ctx.db.insert("ats_integrations", {
       user_id: ctx.user._id,
       provider: args.provider as never,
+      kind: "employer",
       sync_jobs: true,
       sync_candidates: true,
       records_synced: 0,
@@ -218,6 +228,7 @@ export const requestAccess = authedMutation({
     const id = await ctx.db.insert("ats_integrations", {
       user_id: ctx.user._id,
       provider: args.provider as never,
+      kind: "employer",
       status: "pending",
       auth_type: "gated",
       sync_jobs: true,
@@ -226,5 +237,119 @@ export const requestAccess = authedMutation({
       requested_at: Date.now(),
     });
     return sanitize((await ctx.db.get(id))!);
+  },
+});
+
+const publicBoardReturn = v.object({
+  id: v.id("ats_integrations"),
+  _id: v.id("ats_integrations"),
+  provider: publicBoardProvider,
+  status: v.union(v.literal("connected"), v.literal("error"), v.literal("pending"), v.literal("disconnected")),
+  auth_type: v.literal("board"),
+  kind: v.literal("public_board"),
+  subdomain: v.optional(v.string()),
+  sync_jobs: v.boolean(),
+  sync_candidates: v.boolean(),
+  records_synced: v.number(),
+  connected_since: v.optional(v.number()),
+  last_synced_at: v.optional(v.number()),
+  next_sync_at: v.optional(v.number()),
+  error_message: v.optional(v.string()),
+  error_detected_at: v.optional(v.number()),
+  has_api_key: v.boolean(),
+});
+
+function asPublicBoard(row: {
+  _id: Id<"ats_integrations">;
+  provider: "greenhouse" | "lever" | "ashby" | string;
+  status: "connected" | "error" | "pending" | "disconnected";
+  auth_type: string;
+  kind?: string;
+  subdomain?: string;
+  sync_jobs: boolean;
+  sync_candidates: boolean;
+  records_synced: number;
+  connected_since?: number;
+  last_synced_at?: number;
+  next_sync_at?: number;
+  error_message?: string;
+  error_detected_at?: number;
+}) {
+  return {
+    id: row._id,
+    _id: row._id,
+    provider: row.provider as "greenhouse" | "lever" | "ashby",
+    status: row.status,
+    auth_type: "board" as const,
+    kind: "public_board" as const,
+    subdomain: row.subdomain,
+    sync_jobs: row.sync_jobs,
+    sync_candidates: row.sync_candidates,
+    records_synced: row.records_synced,
+    connected_since: row.connected_since,
+    last_synced_at: row.last_synced_at,
+    next_sync_at: row.next_sync_at,
+    error_message: row.error_message,
+    error_detected_at: row.error_detected_at,
+    has_api_key: false,
+  };
+}
+
+/** Admin catalog of public career-site boards. Multiple slugs per ATS are allowed. */
+export const listPublicBoards = adminQuery({
+  args: {},
+  returns: v.array(publicBoardReturn),
+  handler: async (ctx) => {
+    const rows = await ctx.db
+      .query("ats_integrations")
+      .withIndex("by_kind", (q) => q.eq("kind", "public_board"))
+      .collect();
+    return rows
+      .sort((a, b) => (b.connected_since ?? b._creationTime) - (a.connected_since ?? a._creationTime))
+      .map((row) => asPublicBoard(row));
+  },
+});
+
+export const addPublicBoard = adminMutation({
+  args: { provider: publicBoardProvider, subdomain: v.string() },
+  returns: publicBoardReturn,
+  handler: async (ctx, args) => {
+    const subdomain = normalizePublicBoardSlug(args.subdomain);
+    if (!subdomain) throw new Error("A board slug is required");
+    const existing = await ctx.db
+      .query("ats_integrations")
+      .withIndex("by_kind_provider_subdomain", (q) => q.eq("kind", "public_board").eq("provider", args.provider).eq("subdomain", subdomain))
+      .unique();
+    if (existing) throw new Error(`That ${args.provider} board is already added`);
+    const integrationId = await ctx.db.insert("ats_integrations", {
+      user_id: ctx.user._id,
+      provider: args.provider,
+      kind: "public_board",
+      auth_type: "board",
+      subdomain,
+      sync_jobs: true,
+      sync_candidates: false,
+      records_synced: 0,
+      ...connectedPatch(),
+    });
+    await ctx.scheduler.runAfter(0, internal.atsSync.syncIntegration, { integrationId });
+    return asPublicBoard((await ctx.db.get(integrationId))!);
+  },
+});
+
+export const removePublicBoard = adminMutation({
+  args: { id: v.id("ats_integrations") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const existing = await ctx.db.get(args.id);
+    if (!existing || existing.kind !== "public_board") throw new Error("Public board not found");
+    await closeMissingAtsJobs(ctx, {
+      integrationId: existing._id,
+      provider: existing.provider,
+      liveExternalIds: new Set(),
+      listComplete: true,
+    });
+    await ctx.db.delete(existing._id);
+    return null;
   },
 });

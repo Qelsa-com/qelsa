@@ -1,11 +1,13 @@
 "use client";
 
 import { useListAtsIntegrationsQuery } from "@/features/api/atsIntegrationsApi";
+import { useGetProfileQuery } from "@/features/api/authApi";
 import Link from "next/link";
 import { useState } from "react";
 import { Button } from "../../ui/button";
 import { ATS_PROVIDERS, relativeTime, type AtsIntegration, type AtsProviderMeta } from "./catalog";
 import { ApiKeyConnectDialog, BoardConnectDialog, ConnectionSuccessDialog, DisconnectDialog, ErrorIntegrationDialog, ManageIntegrationDialog, OAuthConnectDialog, ReconnectApiKeyDialog, RequestAccessDialog } from "./IntegrationDialogs";
+import { PublicBoardsSection } from "./PublicBoardsSection";
 
 type DialogState =
   | { kind: "connect"; provider: AtsProviderMeta }
@@ -87,8 +89,10 @@ function IntegrationCard({ provider, integration, onAction }: { provider: AtsPro
 
 const AtsIntegrationsPage = () => {
   const { data, isLoading } = useListAtsIntegrationsQuery();
+  const { data: profile } = useGetProfileQuery();
   const integrations = (data as AtsIntegration[] | undefined) ?? [];
   const [dialog, setDialog] = useState<DialogState>(null);
+  const isAdmin = profile?.role === "admin";
 
   const integrationFor = (providerId: string) => integrations.find((row) => row.provider === providerId);
 
@@ -107,7 +111,9 @@ const AtsIntegrationsPage = () => {
       <h1 className="text-3xl font-bold">Integrations</h1>
       <p className="mt-2 max-w-2xl text-sm text-muted-foreground">Connect your ATS to sync job requisitions and route qualified candidates with readiness scores directly into your hiring pipeline.</p>
 
-      <div className="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      {isAdmin && <h2 className="mt-8 text-lg font-semibold text-white">Your ATS</h2>}
+
+      <div className={`${isAdmin ? "mt-4" : "mt-8"} grid gap-6 md:grid-cols-2 lg:grid-cols-3`}>
         {ATS_PROVIDERS.map((provider) =>
           isLoading ? (
             <div key={provider.id} className="h-[220px] animate-pulse rounded-2xl border border-glass-border bg-white/5" />
@@ -166,6 +172,8 @@ const AtsIntegrationsPage = () => {
           }}
         />
       )}
+
+      {isAdmin && <PublicBoardsSection />}
 
     </div>
   );
