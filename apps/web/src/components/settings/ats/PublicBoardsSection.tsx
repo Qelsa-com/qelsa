@@ -221,7 +221,7 @@ function DeleteAllJobsPanel() {
 
   const handleWipe = async () => {
     try {
-      const result = (await wipeAll().unwrap()) as { started: boolean };
+      const result = await wipeAll(undefined).unwrap();
       setOpen(false);
       setConfirm("");
       if (result.started) toast.success("Deleting seeded and ingested jobs in the background. Jobs posted by users are kept.");
