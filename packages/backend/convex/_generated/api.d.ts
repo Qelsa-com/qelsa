@@ -20,6 +20,7 @@ import type * as http from "../http.js";
 import type * as jobApplications from "../jobApplications.js";
 import type * as jobMatch from "../jobMatch.js";
 import type * as jobMatchGenerate from "../jobMatchGenerate.js";
+import type * as jobSkillsEnrich from "../jobSkillsEnrich.js";
 import type * as jobs from "../jobs.js";
 import type * as jobsGenerate from "../jobsGenerate.js";
 import type * as jobsScraper from "../jobsScraper.js";
@@ -62,6 +63,7 @@ declare const fullApi: ApiFromModules<{
   jobApplications: typeof jobApplications;
   jobMatch: typeof jobMatch;
   jobMatchGenerate: typeof jobMatchGenerate;
+  jobSkillsEnrich: typeof jobSkillsEnrich;
   jobs: typeof jobs;
   jobsGenerate: typeof jobsGenerate;
   jobsScraper: typeof jobsScraper;
