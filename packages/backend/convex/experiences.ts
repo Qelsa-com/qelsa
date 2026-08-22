@@ -48,7 +48,10 @@ export const list = authedQuery({
   args: {},
   returns: v.any(),
   handler: async (ctx) => {
-    const rows = await ctx.db.query("experiences").withIndex("by_user", (q) => q.eq("user_id", ctx.user._id)).collect();
+    const rows = await ctx.db
+      .query("experiences")
+      .withIndex("by_user", (q) => q.eq("user_id", ctx.user._id))
+      .collect();
     const out = [];
     for (const row of rows) out.push(await hydrate(ctx, row));
     return out.sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
@@ -60,7 +63,10 @@ export const create = authedMutation({
   returns: v.any(),
   handler: async (ctx, args) => {
     const data = args.data as Record<string, unknown>;
-    const existing = await ctx.db.query("experiences").withIndex("by_user", (q) => q.eq("user_id", ctx.user._id)).collect();
+    const existing = await ctx.db
+      .query("experiences")
+      .withIndex("by_user", (q) => q.eq("user_id", ctx.user._id))
+      .collect();
     const id = await ctx.db.insert("experiences", {
       user_id: ctx.user._id,
       company_id: await resolveNamedRef(ctx, "companies", data.company as NamedRefInput),

@@ -1,9 +1,9 @@
 "use client";
 
 import { useLazySearchSkillsQuery, useResolveSkillMutation } from "@/features/api/userSkillsApi";
+import { toastUnknownError } from "@/lib/errors";
 import { Plus } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { toastUnknownError } from "@/lib/errors";
 import { inputClass, TagChip } from "./fields";
 
 export type PickedSkill = { id: string | number; name: string };
@@ -96,22 +96,14 @@ export function SkillPicker({ selected, onChange, placeholder = "Add a skill..."
         <ul className="absolute left-0 right-0 top-full z-20 mt-1 max-h-52 overflow-y-auto rounded-xl border border-white/10 bg-[#15152b] shadow-xl">
           {options.map((option) => (
             <li key={String(option.id)}>
-              <button
-                type="button"
-                onClick={() => add(option)}
-                className="w-full px-4 py-2.5 text-left text-sm text-white/85 transition-colors hover:bg-neon-cyan/10"
-              >
+              <button type="button" onClick={() => add(option)} className="w-full px-4 py-2.5 text-left text-sm text-white/85 transition-colors hover:bg-neon-cyan/10">
                 {option.name}
               </button>
             </li>
           ))}
           {trimmed && !exactMatch && (
             <li>
-              <button
-                type="button"
-                onClick={addNew}
-                className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-neon-cyan transition-colors hover:bg-neon-cyan/10"
-              >
+              <button type="button" onClick={addNew} className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-neon-cyan transition-colors hover:bg-neon-cyan/10">
                 <Plus className="size-3.5" />
                 Add &quot;{trimmed}&quot; as new skill
               </button>

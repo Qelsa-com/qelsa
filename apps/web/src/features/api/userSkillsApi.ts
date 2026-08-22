@@ -12,10 +12,7 @@ export function useCreateUserSkillMutation() {
 }
 
 export function useUpdateUserSkillMutation() {
-  return useConvexMutationHook(
-    api.userSkills.update,
-    ({ id, data }: { id: string | number; data: unknown }) => ({ id: String(id), data }),
-  );
+  return useConvexMutationHook(api.userSkills.update, ({ id, data }: { id: string | number; data: unknown }) => ({ id: String(id), data }));
 }
 
 export function useDeleteUserSkillMutation() {

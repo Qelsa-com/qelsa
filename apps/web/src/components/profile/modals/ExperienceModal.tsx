@@ -9,7 +9,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Autocomplete, AutocompleteOption } from "../../ui/autocomplete";
 import { CheckboxRow, Field, MonthYearSelect, Select, inputClass, monthValueToIso, toMonthValue } from "./fields";
-import { GradientButton, GhostButton, ModalShell } from "./ModalShell";
+import { GhostButton, GradientButton, ModalShell } from "./ModalShell";
 import { PickedSkill, SkillPicker } from "./SkillPicker";
 
 const EMPLOYMENT_TYPES = ["Full-time", "Part-time", "Contract", "Internship", "Freelance"];
@@ -218,13 +218,7 @@ export function ExperienceModal({ open, onClose, experience }: ExperienceModalPr
         </Field>
 
         <Field label="Description">
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="Describe your role and responsibilities…"
-            rows={4}
-            className={`${inputClass} resize-none`}
-          />
+          <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Describe your role and responsibilities…" rows={4} className={`${inputClass} resize-none`} />
         </Field>
       </div>
     </ModalShell>

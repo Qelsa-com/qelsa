@@ -1,7 +1,7 @@
 "use client";
 
 import { useCreateEducationMutation, useUpdateEducationMutation } from "@/features/api/educationsApi";
-import { useLazyGetDegreeNamesQuery, useLazyGetFieldsOfStudyQuery, useLazyGetCollegesQuery, useLazySearchCitiesQuery } from "@/features/api/seedApi";
+import { useLazyGetCollegesQuery, useLazyGetDegreeNamesQuery, useLazyGetFieldsOfStudyQuery, useLazySearchCitiesQuery } from "@/features/api/seedApi";
 import { toastUnknownError } from "@/lib/errors";
 import { City } from "@/types/city";
 import { Education } from "@/types/education";
@@ -9,7 +9,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Autocomplete, AutocompleteOption } from "../../ui/autocomplete";
 import { CheckboxRow, Field, YearSelect, inputClass } from "./fields";
-import { GradientButton, GhostButton, ModalShell } from "./ModalShell";
+import { GhostButton, GradientButton, ModalShell } from "./ModalShell";
 
 interface EducationModalProps {
   open: boolean;

@@ -41,17 +41,7 @@ export function ModalShell({ title, subtitle, onClose, children, footer, maxWidt
 }
 
 /** Gradient primary action used by modal footers and the editor Publish button. */
-export function GradientButton({
-  children,
-  onClick,
-  disabled,
-  type = "button",
-}: {
-  children: ReactNode;
-  onClick?: () => void;
-  disabled?: boolean;
-  type?: "button" | "submit";
-}) {
+export function GradientButton({ children, onClick, disabled, type = "button" }: { children: ReactNode; onClick?: () => void; disabled?: boolean; type?: "button" | "submit" }) {
   return (
     <button
       type={type}
@@ -66,12 +56,7 @@ export function GradientButton({
 
 export function GhostButton({ children, onClick, disabled }: { children: ReactNode; onClick?: () => void; disabled?: boolean }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className="rounded-full border border-white/15 bg-white/[0.03] px-6 py-2.5 text-sm font-semibold text-white/80 transition-colors hover:bg-white/[0.08] disabled:opacity-50"
-    >
+    <button type="button" onClick={onClick} disabled={disabled} className="rounded-full border border-white/15 bg-white/[0.03] px-6 py-2.5 text-sm font-semibold text-white/80 transition-colors hover:bg-white/[0.08] disabled:opacity-50">
       {children}
     </button>
   );

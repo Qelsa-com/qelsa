@@ -9,6 +9,7 @@ import { Experience } from "@/types/experience";
 import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
+import { ProfilePageSkeleton } from "../pageSkeletons";
 import { CertificationsCard } from "./CertificationsCard";
 import { EducationCard } from "./EducationCard";
 import { InterestsCard, LanguagesCard } from "./ExtrasCards";
@@ -23,15 +24,9 @@ import { ExperienceModal } from "./modals/ExperienceModal";
 import { InterestsModal, LanguagesModal } from "./modals/ExtrasModals";
 import { SkillsModal } from "./modals/SkillsModal";
 import { profileCompletion } from "./profileFormat";
-import { ProfilePageSkeleton } from "../pageSkeletons";
 
 type ProfileModal =
-  | { kind: "experience"; item: Experience | null }
-  | { kind: "education"; item: Education | null }
-  | { kind: "certification"; item: Certification | null }
-  | { kind: "skills" }
-  | { kind: "languages" }
-  | { kind: "interests" };
+  { kind: "experience"; item: Experience | null } | { kind: "education"; item: Education | null } | { kind: "certification"; item: Certification | null } | { kind: "skills" } | { kind: "languages" } | { kind: "interests" };
 
 interface ProfilePageProps {
   /**
@@ -61,11 +56,7 @@ export function ProfilePage({ isOwner = false, username }: ProfilePageProps) {
   const { data: ownCertifications } = useGetCertificationsQuery(undefined, { skip: !isOwner });
   const { data: ownSkills } = useGetUserSkillsQuery(undefined, { skip: !isOwner });
 
-  const {
-    data: publicProfile,
-    isLoading: isPublicLoading,
-    isError: isPublicError,
-  } = useGetPublicProfileQuery(isPublicView ? username : undefined, { skip: !isPublicView || !username });
+  const { data: publicProfile, isLoading: isPublicLoading, isError: isPublicError } = useGetPublicProfileQuery(isPublicView ? username : undefined, { skip: !isPublicView || !username });
 
   const user = isOwner ? ownUser : publicProfile?.user;
   const isLoading = isOwner ? isOwnUserLoading : isPublicLoading || !username;
@@ -112,15 +103,7 @@ export function ProfilePage({ isOwner = false, username }: ProfilePageProps) {
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-[#06060f]">
-      <ProfileHero
-        user={user}
-        experiences={experienceList}
-        isOwner={isOwner}
-        isFollowing={isFollowing}
-        onEdit={() => router.push("/profile/edit")}
-        onFollow={handleFollow}
-        onShare={handleShare}
-      />
+      <ProfileHero user={user} experiences={experienceList} isOwner={isOwner} isFollowing={isFollowing} onEdit={() => router.push("/profile/edit")} onFollow={handleFollow} onShare={handleShare} />
 
       {isOwner && completion < 100 && <ProfileCompletionBar percent={completion} onComplete={() => router.push("/profile/edit")} />}
 

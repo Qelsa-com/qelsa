@@ -5,8 +5,7 @@ import { ReactNode } from "react";
 
 /* Shared form styling + primitives for the profile modals and editor pages. */
 
-export const inputClass =
-  "w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white placeholder:text-white/35 focus:border-neon-cyan/60 focus:outline-none transition-colors";
+export const inputClass = "w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white placeholder:text-white/35 focus:border-neon-cyan/60 focus:outline-none transition-colors";
 
 export const selectClass = `${inputClass} appearance-none pr-10 cursor-pointer`;
 
@@ -24,19 +23,7 @@ export function Field({ label, required, children, hint }: { label: string; requ
 }
 
 /** Native select with a chevron, styled to match the dark inputs. */
-export function Select({
-  value,
-  onChange,
-  children,
-  placeholder = "Select",
-  disabled,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  children: ReactNode;
-  placeholder?: string;
-  disabled?: boolean;
-}) {
+export function Select({ value, onChange, children, placeholder = "Select", disabled }: { value: string; onChange: (value: string) => void; children: ReactNode; placeholder?: string; disabled?: boolean }) {
   return (
     <div className="relative">
       <select value={value} onChange={(e) => onChange(e.target.value)} disabled={disabled} className={`${selectClass} disabled:opacity-50`}>
@@ -60,17 +47,7 @@ export function yearOptions(from = 1970): number[] {
 }
 
 /** "January 2023" style month+year pair, stored as a "YYYY-MM" string. */
-export function MonthYearSelect({
-  value,
-  onChange,
-  placeholder = "Select",
-  disabled,
-}: {
-  value?: string | null;
-  onChange: (value: string | null) => void;
-  placeholder?: string;
-  disabled?: boolean;
-}) {
+export function MonthYearSelect({ value, onChange, placeholder = "Select", disabled }: { value?: string | null; onChange: (value: string | null) => void; placeholder?: string; disabled?: boolean }) {
   const [year = "", month = ""] = (value ?? "").split("-");
   const set = (y: string, m: string) => {
     if (!y && !m) return onChange(null);
@@ -112,14 +89,7 @@ export function YearSelect({ value, onChange, disabled }: { value?: number | nul
 /** Blue switch used across the editor (relocate, privacy settings). */
 export function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (value: boolean) => void; label?: string }) {
   return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      aria-label={label}
-      onClick={() => onChange(!checked)}
-      className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${checked ? "bg-neon-cyan" : "bg-white/15"}`}
-    >
+    <button type="button" role="switch" aria-checked={checked} aria-label={label} onClick={() => onChange(!checked)} className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${checked ? "bg-neon-cyan" : "bg-white/15"}`}>
       <span className={`absolute top-0.5 size-5 rounded-full bg-white shadow transition-transform ${checked ? "translate-x-[22px]" : "translate-x-0.5"}`} />
     </button>
   );
@@ -145,9 +115,7 @@ export function ChoiceChip({ selected, onClick, children }: { selected: boolean;
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-full border px-4 py-2 text-sm font-medium transition-colors ${
-        selected ? "border-neon-cyan/60 bg-neon-cyan/15 text-neon-cyan" : "border-white/12 bg-white/[0.03] text-white/60 hover:text-white"
-      }`}
+      className={`rounded-full border px-4 py-2 text-sm font-medium transition-colors ${selected ? "border-neon-cyan/60 bg-neon-cyan/15 text-neon-cyan" : "border-white/12 bg-white/[0.03] text-white/60 hover:text-white"}`}
     >
       {children}
     </button>

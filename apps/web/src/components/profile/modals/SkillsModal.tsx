@@ -6,8 +6,7 @@ import { toastUnknownError } from "@/lib/errors";
 import { Star, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Field } from "./fields";
-import { GradientButton, GhostButton, ModalShell } from "./ModalShell";
+import { GhostButton, GradientButton, ModalShell } from "./ModalShell";
 import { PickedSkill, SkillPicker } from "./SkillPicker";
 
 const MAX_TOP_SKILLS = 3;
@@ -148,20 +147,13 @@ export function SkillsModal({ open, onClose }: SkillsModalProps) {
                 >
                   <span className="min-w-0 truncate text-sm font-medium text-white">{draft.skill.name}</span>
                   {draft.proficiency ? (
-                    <span className="shrink-0 rounded-full border border-[#f97316]/40 bg-[#f97316]/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#f97316]">
-                      {proficiencyLabel(draft.proficiency)}
-                    </span>
+                    <span className="shrink-0 rounded-full border border-[#f97316]/40 bg-[#f97316]/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#f97316]">{proficiencyLabel(draft.proficiency)}</span>
                   ) : (
                     <span className="shrink-0 text-xs font-medium text-neon-cyan">Set level</span>
                   )}
                 </button>
 
-                <button
-                  type="button"
-                  onClick={() => toggleTop(index)}
-                  aria-label={draft.is_top_skill ? "Remove from top skills" : "Mark as top skill"}
-                  className="shrink-0 text-white/40 transition-colors hover:text-neon-yellow"
-                >
+                <button type="button" onClick={() => toggleTop(index)} aria-label={draft.is_top_skill ? "Remove from top skills" : "Mark as top skill"} className="shrink-0 text-white/40 transition-colors hover:text-neon-yellow">
                   <Star className={`size-4 ${draft.is_top_skill ? "fill-neon-yellow text-neon-yellow" : ""}`} />
                 </button>
                 <button type="button" onClick={() => removeSkill(index)} aria-label="Remove skill" className="shrink-0 text-white/30 transition-colors hover:text-white">

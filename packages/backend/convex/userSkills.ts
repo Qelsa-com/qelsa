@@ -5,7 +5,7 @@ import { withId } from "./lib/helpers";
 
 async function hydrate(ctx: { db: { get: Function } }, row: { _id: string } & Record<string, unknown>) {
   const skill = row.skill_id ? await ctx.db.get(row.skill_id) : null;
-  const category = row.category_id ? await ctx.db.get(row.category_id) : (skill?.category_id ? await ctx.db.get(skill.category_id) : null);
+  const category = row.category_id ? await ctx.db.get(row.category_id) : skill?.category_id ? await ctx.db.get(skill.category_id) : null;
   return { ...withId(row), skill: skill ? withId(skill) : null, category: category ? withId(category) : null };
 }
 
@@ -13,7 +13,10 @@ export const list = authedQuery({
   args: {},
   returns: v.any(),
   handler: async (ctx) => {
-    const rows = await ctx.db.query("user_skills").withIndex("by_user", (q) => q.eq("user_id", ctx.user._id)).collect();
+    const rows = await ctx.db
+      .query("user_skills")
+      .withIndex("by_user", (q) => q.eq("user_id", ctx.user._id))
+      .collect();
     const out = [];
     for (const row of rows) out.push(await hydrate(ctx, row));
     return out;
@@ -86,7 +89,10 @@ export const bulkModify = authedMutation({
   returns: v.any(),
   handler: async (ctx, args) => {
     const incoming = args.skills as Array<Record<string, unknown>>;
-    const existing = await ctx.db.query("user_skills").withIndex("by_user", (q) => q.eq("user_id", ctx.user._id)).collect();
+    const existing = await ctx.db
+      .query("user_skills")
+      .withIndex("by_user", (q) => q.eq("user_id", ctx.user._id))
+      .collect();
     const keep = new Set(incoming.map((s) => s.id).filter(Boolean));
     for (const row of existing) {
       if (!keep.has(row._id)) await ctx.db.delete(row._id);

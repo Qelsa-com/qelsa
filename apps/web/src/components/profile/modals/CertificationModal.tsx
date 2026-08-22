@@ -8,7 +8,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Autocomplete, AutocompleteOption } from "../../ui/autocomplete";
 import { CheckboxRow, Field, MonthYearSelect, inputClass, monthValueToIso, toMonthValue } from "./fields";
-import { GradientButton, GhostButton, ModalShell } from "./ModalShell";
+import { GhostButton, GradientButton, ModalShell } from "./ModalShell";
 
 interface CertificationModalProps {
   open: boolean;
@@ -167,13 +167,7 @@ export function CertificationModal({ open, onClose, certification }: Certificati
         </Field>
 
         <Field label="Credential URL">
-          <input
-            value={credentialUrl}
-            onChange={(e) => setCredentialUrl(e.target.value)}
-            placeholder="Enter credential URL (optional)"
-            type="url"
-            className={inputClass}
-          />
+          <input value={credentialUrl} onChange={(e) => setCredentialUrl(e.target.value)} placeholder="Enter credential URL (optional)" type="url" className={inputClass} />
         </Field>
       </div>
     </ModalShell>

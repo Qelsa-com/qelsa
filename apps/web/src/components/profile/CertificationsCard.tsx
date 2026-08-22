@@ -36,12 +36,7 @@ export function CertificationsCard({ certifications, isOwner, onAdd, onEdit, onE
                       <div className="flex items-start justify-between gap-2">
                         <p className="text-base font-semibold text-white">{(certification as unknown as { name?: string }).name ?? certification.certification?.name}</p>
                         {isOwner && onEditItem && (
-                          <button
-                            type="button"
-                            onClick={() => onEditItem(certification)}
-                            aria-label="Edit certification"
-                            className="shrink-0 text-white/30 opacity-0 transition-opacity hover:text-neon-cyan group-hover:opacity-100"
-                          >
+                          <button type="button" onClick={() => onEditItem(certification)} aria-label="Edit certification" className="shrink-0 text-white/30 opacity-0 transition-opacity hover:text-neon-cyan group-hover:opacity-100">
                             <Pencil className="size-3.5" />
                           </button>
                         )}

@@ -41,7 +41,10 @@ export const list = authedQuery({
   args: {},
   returns: v.any(),
   handler: async (ctx) => {
-    const rows = await ctx.db.query("user_certifications").withIndex("by_user", (q) => q.eq("user_id", ctx.user._id)).collect();
+    const rows = await ctx.db
+      .query("user_certifications")
+      .withIndex("by_user", (q) => q.eq("user_id", ctx.user._id))
+      .collect();
     const out = [];
     for (const row of rows) out.push(await hydrate(ctx, row));
     return out;
@@ -88,11 +91,7 @@ export const update = authedMutation({
       name: (data.name as string | undefined) ?? row.name,
       issuingOrganization: (data.issuingOrganization as string | undefined) ?? row.issuingOrganization,
       issue_date: data.issueDate ? new Date(data.issueDate as string).getTime() : row.issue_date,
-      expiration_date: doesNotExpire
-        ? undefined
-        : data.expirationDate
-          ? new Date(data.expirationDate as string).getTime()
-          : row.expiration_date,
+      expiration_date: doesNotExpire ? undefined : data.expirationDate ? new Date(data.expirationDate as string).getTime() : row.expiration_date,
       does_not_expire: doesNotExpire,
       credential_id: (data.credentialId as string | undefined) ?? row.credential_id,
       credential_url: (data.credentialUrl as string | undefined) ?? row.credential_url,

@@ -1,12 +1,12 @@
-import { v } from "convex/values";
-import type { Doc } from "./_generated/dataModel";
-import { components } from "./_generated/api";
-import { authedMutation, optionalAuthQuery } from "./lib/customFunctions";
-import { query, type MutationCtx } from "./_generated/server";
-import { asUserJson, iso, withId } from "./lib/helpers";
-import { deleteAppUserData } from "./lib/deleteUserData";
-import { deleteR2Keys, signedFileUrl } from "./lib/r2";
 import { R2 } from "@convex-dev/r2";
+import { v } from "convex/values";
+import { components } from "./_generated/api";
+import type { Doc } from "./_generated/dataModel";
+import { query, type MutationCtx } from "./_generated/server";
+import { authedMutation, optionalAuthQuery } from "./lib/customFunctions";
+import { deleteAppUserData } from "./lib/deleteUserData";
+import { asUserJson, iso, withId } from "./lib/helpers";
+import { deleteR2Keys, signedFileUrl } from "./lib/r2";
 
 const r2 = new R2(components.r2);
 
@@ -60,10 +60,22 @@ export const publicProfile = query({
     if (!user || !user.isActive || user.profile_visibility === "private") return null;
 
     const [experiences, educations, certifications, skills] = await Promise.all([
-      ctx.db.query("experiences").withIndex("by_user", (q) => q.eq("user_id", user._id)).collect(),
-      ctx.db.query("educations").withIndex("by_user", (q) => q.eq("user_id", user._id)).collect(),
-      ctx.db.query("user_certifications").withIndex("by_user", (q) => q.eq("user_id", user._id)).collect(),
-      ctx.db.query("user_skills").withIndex("by_user", (q) => q.eq("user_id", user._id)).collect(),
+      ctx.db
+        .query("experiences")
+        .withIndex("by_user", (q) => q.eq("user_id", user._id))
+        .collect(),
+      ctx.db
+        .query("educations")
+        .withIndex("by_user", (q) => q.eq("user_id", user._id))
+        .collect(),
+      ctx.db
+        .query("user_certifications")
+        .withIndex("by_user", (q) => q.eq("user_id", user._id))
+        .collect(),
+      ctx.db
+        .query("user_skills")
+        .withIndex("by_user", (q) => q.eq("user_id", user._id))
+        .collect(),
     ]);
 
     const city = user.city_id ? await ctx.db.get(user.city_id) : null;
@@ -228,29 +240,19 @@ export const deleteAccount = authedMutation({
   },
 });
 
-const BA_USER_OWNED_MODELS = [
-  "session",
-  "account",
-  "twoFactor",
-  "oauthApplication",
-  "oauthAccessToken",
-  "oauthConsent",
-] as const;
+const BA_USER_OWNED_MODELS = ["session", "account", "twoFactor", "oauthApplication", "oauthAccessToken", "oauthConsent"] as const;
 
 async function deleteBetterAuthUser(ctx: MutationCtx, authId: string) {
   for (const model of BA_USER_OWNED_MODELS) {
     let cursor: string | null = null;
     for (;;) {
-      const result: { isDone: boolean; continueCursor: string } = await ctx.runMutation(
-        components.betterAuth.adapter.deleteMany,
-        {
-          input: {
-            model,
-            where: [{ field: "userId", value: authId }],
-          },
-          paginationOpts: { numItems: 100, cursor },
+      const result: { isDone: boolean; continueCursor: string } = await ctx.runMutation(components.betterAuth.adapter.deleteMany, {
+        input: {
+          model,
+          where: [{ field: "userId", value: authId }],
         },
-      );
+        paginationOpts: { numItems: 100, cursor },
+      });
       if (result.isDone) break;
       cursor = result.continueCursor;
     }

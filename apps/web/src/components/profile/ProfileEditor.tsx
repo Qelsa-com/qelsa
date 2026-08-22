@@ -1,45 +1,23 @@
 "use client";
 
-import { api } from "@/lib/convexApi";
-import { useConvexQueryHook } from "@/lib/convexHooks";
-import { uploadFileToR2 } from "@/lib/r2Upload";
-import { toastUnknownError } from "@/lib/errors";
 import { useGetProfileQuery, useUpdateProfileMutation } from "@/features/api/authApi";
 import { useGetExperiencesQuery } from "@/features/api/experiencesApi";
 import { useCreateResumeMutation, useDeleteResumeMutation, useGetMyResumesQuery } from "@/features/api/resumeApi";
 import { useLazySearchCitiesQuery } from "@/features/api/seedApi";
+import { api } from "@/lib/convexApi";
+import { useConvexQueryHook } from "@/lib/convexHooks";
+import { toastUnknownError } from "@/lib/errors";
+import { uploadFileToR2 } from "@/lib/r2Upload";
 import { City } from "@/types/city";
-import { CulturePreference, PortfolioLink, User, UserLanguage } from "@/types/user";
+import { CulturePreference, User } from "@/types/user";
 import { useConvex, useMutation } from "convex/react";
-import {
-  ArrowLeft,
-  BadgeCheck,
-  Building2,
-  Check,
-  Download,
-  Dribbble,
-  FileText,
-  Globe,
-  Link2,
-  Linkedin,
-  Loader2,
-  Lock,
-  MapPin,
-  Paperclip,
-  Plus,
-  ShieldCheck,
-  Sparkles,
-  Trash2,
-  Twitter,
-  Upload,
-  User as UserIcon,
-} from "lucide-react";
+import { ArrowLeft, BadgeCheck, Building2, Check, Download, Dribbble, FileText, Globe, Link2, Linkedin, Loader2, Lock, MapPin, Paperclip, Plus, ShieldCheck, Sparkles, Trash2, Twitter, Upload, User as UserIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Autocomplete } from "../ui/autocomplete";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
-import { CheckboxRow, ChoiceChip, Field, Select, TagChip, Toggle, inputClass } from "./modals/fields";
+import { ChoiceChip, Field, Select, TagChip, Toggle, inputClass } from "./modals/fields";
 import { GradientButton } from "./modals/ModalShell";
 import { initials } from "./profileFormat";
 
@@ -145,7 +123,14 @@ export function ProfileEditor() {
     if (user && !profile) setProfile(user);
   }, [user, profile]);
 
-  const workplaceTypes = useMemo(() => (profile?.work_preference ?? "").split(",").map((w) => w.trim()).filter(Boolean), [profile?.work_preference]);
+  const workplaceTypes = useMemo(
+    () =>
+      (profile?.work_preference ?? "")
+        .split(",")
+        .map((w) => w.trim())
+        .filter(Boolean),
+    [profile?.work_preference],
+  );
 
   const matchArgs = useMemo(
     () => ({
@@ -167,8 +152,7 @@ export function ProfileEditor() {
   const patch = (updates: Partial<User>) => setProfile((prev) => (prev ? { ...prev, ...updates } : prev));
 
   const culture = profile.culture_preference ?? emptyCulture();
-  const patchCulture = (updates: Partial<CulturePreference>) =>
-    patch({ culture_preference: { ...culture, ...updates } });
+  const patchCulture = (updates: Partial<CulturePreference>) => patch({ culture_preference: { ...culture, ...updates } });
 
   const toggleWorkplace = (value: string) => {
     const next = workplaceTypes.includes(value) ? workplaceTypes.filter((w) => w !== value) : [...workplaceTypes, value];
@@ -301,9 +285,7 @@ export function ProfileEditor() {
                   key={item.id}
                   type="button"
                   onClick={() => setActiveSection(item.id)}
-                  className={`flex items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors ${
-                    active ? "bg-neon-cyan/10 text-neon-cyan" : "text-white/55 hover:bg-white/[0.05] hover:text-white"
-                  }`}
+                  className={`flex items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors ${active ? "bg-neon-cyan/10 text-neon-cyan" : "text-white/55 hover:bg-white/[0.05] hover:text-white"}`}
                 >
                   <Icon className="size-[18px] shrink-0" />
                   {item.label}
@@ -373,12 +355,7 @@ export function ProfileEditor() {
                   <Field label="Username" hint="Your unique username for your Qelsa profile URL">
                     <div className="relative">
                       <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40">@</span>
-                      <input
-                        value={profile.username ?? ""}
-                        onChange={(e) => patch({ username: e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, "") })}
-                        placeholder="username"
-                        className={`${inputClass} pl-9`}
-                      />
+                      <input value={profile.username ?? ""} onChange={(e) => patch({ username: e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, "") })} placeholder="username" className={`${inputClass} pl-9`} />
                     </div>
                   </Field>
 
@@ -408,12 +385,7 @@ export function ProfileEditor() {
               <CardSection title="Headline & Summary" subtitle="A short headline plus a professional summary">
                 <div className="flex flex-col gap-5">
                   <Field label="Professional Headline" required hint={`${profile.headline?.length ?? 0}/120 characters`}>
-                    <input
-                      value={profile.headline ?? ""}
-                      onChange={(e) => e.target.value.length <= 120 && patch({ headline: e.target.value })}
-                      placeholder="Building products that make a difference | PM Lead"
-                      className={inputClass}
-                    />
+                    <input value={profile.headline ?? ""} onChange={(e) => e.target.value.length <= 120 && patch({ headline: e.target.value })} placeholder="Building products that make a difference | PM Lead" className={inputClass} />
                   </Field>
                   <Field label="Professional Summary">
                     <textarea
@@ -425,13 +397,7 @@ export function ProfileEditor() {
                     />
                   </Field>
                   <Field label="About">
-                    <textarea
-                      value={profile.about ?? ""}
-                      onChange={(e) => patch({ about: e.target.value })}
-                      placeholder="Anything else you want people to know…"
-                      rows={4}
-                      className={`${inputClass} resize-none`}
-                    />
+                    <textarea value={profile.about ?? ""} onChange={(e) => patch({ about: e.target.value })} placeholder="Anything else you want people to know…" rows={4} className={`${inputClass} resize-none`} />
                   </Field>
                 </div>
               </CardSection>
@@ -477,10 +443,7 @@ export function ProfileEditor() {
                         {(profile.relocate_locations ?? []).length > 0 && (
                           <div className="mt-2 flex flex-wrap gap-2">
                             {(profile.relocate_locations ?? []).map((location) => (
-                              <TagChip
-                                key={location}
-                                onRemove={() => patch({ relocate_locations: (profile.relocate_locations ?? []).filter((l) => l !== location) })}
-                              >
+                              <TagChip key={location} onRemove={() => patch({ relocate_locations: (profile.relocate_locations ?? []).filter((l) => l !== location) })}>
                                 {location}
                               </TagChip>
                             ))}
@@ -496,11 +459,7 @@ export function ProfileEditor() {
                     <Field label="Work type">
                       <div className="flex flex-wrap gap-2">
                         {WORK_TYPE_CHIPS.map((chip) => (
-                          <ChoiceChip
-                            key={chip.key}
-                            selected={Boolean(profile[chip.key as keyof User])}
-                            onClick={() => patch({ [chip.key]: !profile[chip.key as keyof User] } as Partial<User>)}
-                          >
+                          <ChoiceChip key={chip.key} selected={Boolean(profile[chip.key as keyof User])} onClick={() => patch({ [chip.key]: !profile[chip.key as keyof User] } as Partial<User>)}>
                             {chip.label}
                           </ChoiceChip>
                         ))}
@@ -521,23 +480,11 @@ export function ProfileEditor() {
                         </div>
                         <div>
                           <p className="mb-1.5 text-xs text-white/45">Minimum</p>
-                          <input
-                            type="number"
-                            value={profile.expected_min_salary ?? ""}
-                            onChange={(e) => patch({ expected_min_salary: e.target.value ? Number(e.target.value) : undefined })}
-                            placeholder="2000000"
-                            className={inputClass}
-                          />
+                          <input type="number" value={profile.expected_min_salary ?? ""} onChange={(e) => patch({ expected_min_salary: e.target.value ? Number(e.target.value) : undefined })} placeholder="2000000" className={inputClass} />
                         </div>
                         <div>
                           <p className="mb-1.5 text-xs text-white/45">Maximum</p>
-                          <input
-                            type="number"
-                            value={profile.expected_max_salary ?? ""}
-                            onChange={(e) => patch({ expected_max_salary: e.target.value ? Number(e.target.value) : undefined })}
-                            placeholder="3500000"
-                            className={inputClass}
-                          />
+                          <input type="number" value={profile.expected_max_salary ?? ""} onChange={(e) => patch({ expected_max_salary: e.target.value ? Number(e.target.value) : undefined })} placeholder="3500000" className={inputClass} />
                         </div>
                       </div>
                     </Field>
@@ -558,11 +505,7 @@ export function ProfileEditor() {
                     <Field label="Culture Attributes">
                       <div className="flex flex-wrap gap-2">
                         {CULTURE_ATTRIBUTES.map((attribute) => (
-                          <ChoiceChip
-                            key={attribute.key}
-                            selected={culture.attributes.some((a) => a.key === attribute.key)}
-                            onClick={() => toggleCultureAttribute(attribute.key)}
-                          >
+                          <ChoiceChip key={attribute.key} selected={culture.attributes.some((a) => a.key === attribute.key)} onClick={() => toggleCultureAttribute(attribute.key)}>
                             {attribute.label}
                           </ChoiceChip>
                         ))}
@@ -610,12 +553,7 @@ export function ProfileEditor() {
                             ))}
                           </Select>
                         </div>
-                        <input
-                          value={profile.phone ?? ""}
-                          onChange={(e) => patch({ phone: e.target.value.replace(/[^\d\s-]/g, "") })}
-                          placeholder="98765 43210"
-                          className={inputClass}
-                        />
+                        <input value={profile.phone ?? ""} onChange={(e) => patch({ phone: e.target.value.replace(/[^\d\s-]/g, "") })} placeholder="98765 43210" className={inputClass} />
                       </div>
                     </Field>
                   </div>
@@ -642,12 +580,7 @@ export function ProfileEditor() {
                             </svg>
                           )}
                         </span>
-                        <input
-                          value={(profile[key as keyof User] as string) ?? ""}
-                          onChange={(e) => patch({ [key]: e.target.value } as Partial<User>)}
-                          placeholder={placeholder}
-                          className={inputClass}
-                        />
+                        <input value={(profile[key as keyof User] as string) ?? ""} onChange={(e) => patch({ [key]: e.target.value } as Partial<User>)} placeholder={placeholder} className={inputClass} />
                       </div>
                     ))}
                   </div>
@@ -689,9 +622,7 @@ export function ProfileEditor() {
                           </span>
                           <div className="min-w-0 flex-1">
                             <p className="truncate text-sm font-medium text-white">{resume.title}</p>
-                            <p className="text-xs text-white/45">
-                              Last updated: {resume.updatedAt ? new Date(resume.updatedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "—"}
-                            </p>
+                            <p className="text-xs text-white/45">Last updated: {resume.updatedAt ? new Date(resume.updatedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "—"}</p>
                           </div>
                           {resume.file_url && (
                             <a
@@ -742,20 +673,8 @@ export function ProfileEditor() {
                           <Trash2 className="size-4" />
                         </button>
                         <p className="text-xs font-medium text-white/50">Link entry</p>
-                        <input
-                          value={link.title}
-                          onChange={(e) =>
-                            patch({ portfolio_links: (profile.portfolio_links ?? []).map((l, i) => (i === index ? { ...l, title: e.target.value } : l)) })
-                          }
-                          placeholder="Title"
-                          className={inputClass}
-                        />
-                        <input
-                          value={link.url}
-                          onChange={(e) => patch({ portfolio_links: (profile.portfolio_links ?? []).map((l, i) => (i === index ? { ...l, url: e.target.value } : l)) })}
-                          placeholder="URL"
-                          className={inputClass}
-                        />
+                        <input value={link.title} onChange={(e) => patch({ portfolio_links: (profile.portfolio_links ?? []).map((l, i) => (i === index ? { ...l, title: e.target.value } : l)) })} placeholder="Title" className={inputClass} />
+                        <input value={link.url} onChange={(e) => patch({ portfolio_links: (profile.portfolio_links ?? []).map((l, i) => (i === index ? { ...l, url: e.target.value } : l)) })} placeholder="URL" className={inputClass} />
                       </div>
                     ))}
                     <button
@@ -791,9 +710,7 @@ export function ProfileEditor() {
                             key={option.value}
                             type="button"
                             onClick={() => patch({ profile_visibility: option.value })}
-                            className={`flex flex-col items-start gap-2 rounded-2xl border p-4 text-left transition-colors ${
-                              selected ? "border-[#a855f7]/70 bg-[#a855f7]/[0.08]" : "border-white/10 bg-white/[0.02] hover:border-white/20"
-                            }`}
+                            className={`flex flex-col items-start gap-2 rounded-2xl border p-4 text-left transition-colors ${selected ? "border-[#a855f7]/70 bg-[#a855f7]/[0.08]" : "border-white/10 bg-white/[0.02] hover:border-white/20"}`}
                           >
                             <span className={`flex size-9 items-center justify-center rounded-lg ${selected ? "bg-[#a855f7]/20 text-[#c084fc]" : "bg-white/[0.06] text-white/60"}`}>
                               <Icon className="size-4" />
@@ -828,11 +745,7 @@ export function ProfileEditor() {
                             <p className="text-sm font-medium text-white">{setting.title}</p>
                             <p className="mt-0.5 text-xs text-white/45">{setting.description}</p>
                           </div>
-                          <Toggle
-                            checked={Boolean(profile[setting.key as keyof User])}
-                            onChange={(value) => patch({ [setting.key]: value } as Partial<User>)}
-                            label={setting.title}
-                          />
+                          <Toggle checked={Boolean(profile[setting.key as keyof User])} onChange={(value) => patch({ [setting.key]: value } as Partial<User>)} label={setting.title} />
                         </div>
                       ))}
                     </div>

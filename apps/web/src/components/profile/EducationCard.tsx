@@ -34,21 +34,14 @@ export function EducationCard({ educations, isOwner, onAdd, onEdit, onEditItem }
                     <div className="flex w-full items-start justify-between gap-2">
                       <p className="text-base font-semibold text-white">{educationDegree(education)}</p>
                       {isOwner && onEditItem && (
-                        <button
-                          type="button"
-                          onClick={() => onEditItem(education)}
-                          aria-label="Edit education"
-                          className="shrink-0 text-white/30 opacity-0 transition-opacity hover:text-neon-cyan group-hover:opacity-100"
-                        >
+                        <button type="button" onClick={() => onEditItem(education)} aria-label="Edit education" className="shrink-0 text-white/30 opacity-0 transition-opacity hover:text-neon-cyan group-hover:opacity-100">
                           <Pencil className="size-3.5" />
                         </button>
                       )}
                     </div>
                     {education.college?.name && <p className="text-sm text-[#00d4ff]">{education.college.name}</p>}
                     {meta && <p className="text-[13px] text-white/70">{meta}</p>}
-                    {education.grade && (
-                      <span className="rounded-full border border-white/12 bg-neon-cyan/8 px-2 py-1 text-xs font-bold text-neon-cyan">{education.grade}</span>
-                    )}
+                    {education.grade && <span className="rounded-full border border-white/12 bg-neon-cyan/8 px-2 py-1 text-xs font-bold text-neon-cyan">{education.grade}</span>}
                   </div>
                 </div>
               </Fragment>

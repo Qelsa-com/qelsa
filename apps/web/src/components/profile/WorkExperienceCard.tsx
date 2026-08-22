@@ -50,12 +50,7 @@ function RoleBody({ experience, showCompany, onEdit }: { experience: Experience;
       <div className="flex items-start justify-between gap-2">
         <p className="text-base font-bold text-white">{experience.job_title?.name || experience.position || "Role"}</p>
         {onEdit && (
-          <button
-            type="button"
-            onClick={onEdit}
-            aria-label="Edit role"
-            className="shrink-0 text-white/30 opacity-0 transition-opacity hover:text-neon-cyan group-hover:opacity-100"
-          >
+          <button type="button" onClick={onEdit} aria-label="Edit role" className="shrink-0 text-white/30 opacity-0 transition-opacity hover:text-neon-cyan group-hover:opacity-100">
             <Pencil className="size-3.5" />
           </button>
         )}
@@ -65,9 +60,7 @@ function RoleBody({ experience, showCompany, onEdit }: { experience: Experience;
 
       <div className="flex flex-wrap items-center gap-2">
         <p className="text-[13px] text-white/45">{experienceMeta(experience)}</p>
-        {experience.employment_type && (
-          <span className="rounded-full bg-neon-cyan/8 px-2 py-0.5 text-[11px] font-medium text-neon-cyan/80">{experience.employment_type}</span>
-        )}
+        {experience.employment_type && <span className="rounded-full bg-neon-cyan/8 px-2 py-0.5 text-[11px] font-medium text-neon-cyan/80">{experience.employment_type}</span>}
       </div>
 
       {visibleBullets.length > 0 && (

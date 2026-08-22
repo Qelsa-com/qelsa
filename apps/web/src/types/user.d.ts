@@ -86,7 +86,7 @@ export type User = {
   last_login_at?: string;
   city?: City;
   relocate_location?: string;
-  show_phone_number?: boolean
+  show_phone_number?: boolean;
 
   phone_country_code?: string;
   relocate_locations?: string[];

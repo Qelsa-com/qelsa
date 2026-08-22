@@ -7,7 +7,7 @@ import { Plus, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Field, Select, TagChip, inputClass } from "./fields";
-import { GradientButton, GhostButton, ModalShell } from "./ModalShell";
+import { GhostButton, GradientButton, ModalShell } from "./ModalShell";
 
 const LANGUAGE_LEVELS = ["Native / Bilingual", "Professional Working", "Limited Working", "Elementary"];
 
@@ -69,21 +69,12 @@ export function LanguagesModal({ open, onClose, languages }: { open: boolean; on
                 ))}
               </Select>
             </div>
-            <button
-              type="button"
-              onClick={() => setRows(rows.filter((_, i) => i !== index))}
-              aria-label="Remove language"
-              className="shrink-0 text-white/30 transition-colors hover:text-white"
-            >
+            <button type="button" onClick={() => setRows(rows.filter((_, i) => i !== index))} aria-label="Remove language" className="shrink-0 text-white/30 transition-colors hover:text-white">
               <X className="size-4" />
             </button>
           </div>
         ))}
-        <button
-          type="button"
-          onClick={() => setRows([...rows, { name: "", proficiency: "" }])}
-          className="flex w-fit items-center gap-1.5 text-sm font-medium text-neon-cyan transition-opacity hover:opacity-80"
-        >
+        <button type="button" onClick={() => setRows([...rows, { name: "", proficiency: "" }])} className="flex w-fit items-center gap-1.5 text-sm font-medium text-neon-cyan transition-opacity hover:opacity-80">
           <Plus className="size-4" />
           Add language
         </button>

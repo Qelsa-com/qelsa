@@ -13,26 +13,14 @@ export function refName(value: NamedRefInput): string {
   return (value?.name ?? "").trim();
 }
 
-type NamedTable =
-  | "skills"
-  | "companies"
-  | "colleges"
-  | "job_titles"
-  | "degree_names"
-  | "fields_of_study"
-  | "issuing_bodies"
-  | "certifications";
+type NamedTable = "skills" | "companies" | "colleges" | "job_titles" | "degree_names" | "fields_of_study" | "issuing_bodies" | "certifications";
 
 /**
  * Resolves a catalog reference: an existing id passes through, a name is matched
  * exactly against the table's by_name index, and unknown names are created so
  * free-text form entries still link (and can match other profiles/jobs later).
  */
-export async function resolveNamedRef<T extends NamedTable>(
-  ctx: MutationCtx,
-  table: T,
-  value: NamedRefInput,
-): Promise<Id<T> | undefined> {
+export async function resolveNamedRef<T extends NamedTable>(ctx: MutationCtx, table: T, value: NamedRefInput): Promise<Id<T> | undefined> {
   const direct = refId(value);
   if (direct) return direct as Id<T>;
   const name = refName(value);
