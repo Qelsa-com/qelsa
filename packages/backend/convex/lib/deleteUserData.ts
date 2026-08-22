@@ -1,6 +1,6 @@
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
-import { bumpJobCount } from "./jobCounts";
+import { bumpJobCount, bumpOpenJobCount, openCountDelta } from "./jobCounts";
 
 async function deleteApplication(
   ctx: MutationCtx,
@@ -43,6 +43,7 @@ async function deleteQuestionSet(ctx: MutationCtx, setId: Id<"question_sets">) {
 }
 
 async function deleteJob(ctx: MutationCtx, jobId: Id<"jobs">) {
+  const job = await ctx.db.get(jobId);
   const applications = await ctx.db
     .query("job_applications")
     .withIndex("by_job", (q) => q.eq("job_id", jobId))
@@ -85,6 +86,7 @@ async function deleteJob(ctx: MutationCtx, jobId: Id<"jobs">) {
     .collect();
   for (const set of sets) await deleteQuestionSet(ctx, set._id);
 
+  await bumpOpenJobCount(ctx, openCountDelta(job?.status, undefined));
   await ctx.db.delete(jobId);
 }
 

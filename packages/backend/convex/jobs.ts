@@ -7,7 +7,7 @@ import { adminMutation, authedMutation, authedQuery, optionalAuthQuery } from ".
 import { deleteJobCascade } from "./lib/deleteUserData";
 import { iso, withId } from "./lib/helpers";
 import { closeMissingAtsJobsPage as closeAtsJobsPage } from "./lib/atsJobReconcile";
-import { bumpJobCount, ensureJobStats, getJobCounts } from "./lib/jobCounts";
+import { bumpJobCount, bumpOpenJobCount, ensureJobStats, ensureOpenJobCount, getJobCounts, getOpenJobCount, openCountDelta } from "./lib/jobCounts";
 import { jobNeedsSkillEnrichment } from "./lib/jobSkillExtraction";
 import { buildCompetencyFramework, clipPlainText } from "./lib/skillMatch";
 
@@ -306,38 +306,32 @@ const browseFilterArgs = {
   now: v.optional(v.number()),
 };
 
-async function countOpenJobsMatching(ctx: QueryCtx, filterArgs: Record<string, unknown>) {
-  const search = ((filterArgs.search as string | undefined) ?? "").trim();
-  const cities = (filterArgs.cities as string[] | undefined) ?? (filterArgs.city ? [filterArgs.city] : []);
-  const normalized = { ...filterArgs, cities };
-  // One read only — Convex forbids multiple .paginate() calls in the same function.
-  const rows = search
-    ? await ctx.db
-        .query("jobs")
-        .withSearchIndex("search_title", (q) => q.search("title", search))
-        .take(1024)
-    : await ctx.db
-        .query("jobs")
-        .withIndex("by_status", (q) => q.eq("status", "open"))
-        .take(8000);
-  let count = 0;
-  for (const job of rows) {
-    if (job.status !== "open") continue;
-    let cityName: string | null = null;
-    if (cities.length > 0 && job.city_id) {
-      const city = await ctx.db.get(job.city_id);
-      cityName = city?.name ?? null;
-    }
-    if (matchesFilters(job, cityName, normalized)) count += 1;
-  }
-  return count;
+function hasBrowseFilters(args: Record<string, unknown>) {
+  const search = ((args.search as string | undefined) ?? "").trim();
+  const cities = args.cities as string[] | undefined;
+  const jobTypes = args.job_types as string[] | undefined;
+  const workplaces = args.workplace_types as string[] | undefined;
+  return Boolean(
+    search ||
+      args.city ||
+      args.page_id ||
+      args.posted_within ||
+      args.salary_min != null ||
+      args.salary_max != null ||
+      (cities && cities.length > 0) ||
+      (jobTypes && jobTypes.length > 0) ||
+      (workplaces && workplaces.length > 0),
+  );
 }
 
-/** Filtered total for the All Jobs header: loaded page size vs this number. */
+/** Browse header total. Unfiltered reads a 1-doc counter; filters skip the 8k-job scan. */
 export const countFiltered = optionalAuthQuery({
   args: browseFilterArgs,
-  returns: v.number(),
-  handler: async (ctx, args) => await countOpenJobsMatching(ctx, args),
+  returns: v.union(v.number(), v.null()),
+  handler: async (ctx, args) => {
+    if (hasBrowseFilters(args)) return null;
+    return await getOpenJobCount(ctx);
+  },
 });
 
 /** Lightweight count for the profile editor's "Smart Job Matches" callout. */
@@ -644,6 +638,7 @@ export const createWithQuestions = authedMutation({
       application_count: 0,
     });
     await ensureJobStats(ctx, jobId);
+    await bumpOpenJobCount(ctx, 1);
 
     for (const skill of payload.skills ?? []) {
       await ctx.db.insert("job_skills", {
@@ -698,7 +693,9 @@ export const storeScrapedJobs = internalMutation({
   args: { jobs: v.array(v.any()) },
   returns: v.array(v.id("jobs")),
   handler: async (ctx, args) => {
+    await ensureOpenJobCount(ctx);
     const needsSkills: Id<"jobs">[] = [];
+    let openDelta = 0;
     for (const job of args.jobs) {
       const external_id = String(job.id ?? "");
       if (!external_id) continue;
@@ -736,13 +733,16 @@ export const storeScrapedJobs = internalMutation({
       };
       if (existing) {
         await ctx.db.patch(existing._id, payload);
+        openDelta += openCountDelta(existing.status, "open");
         if (await jobNeedsSkillEnrichment(ctx, existing._id, existing.skills_extracted)) needsSkills.push(existing._id);
       } else {
         const jobId = await ctx.db.insert("jobs", { ...payload, view_count: 0, application_count: 0 });
         await ensureJobStats(ctx, jobId);
+        openDelta += 1;
         needsSkills.push(jobId);
       }
     }
+    await bumpOpenJobCount(ctx, openDelta);
     return needsSkills;
   },
 });
@@ -762,8 +762,10 @@ export const storeAtsJobs = internalMutation({
   },
   returns: v.object({ stored: v.number(), needsSkills: v.array(v.id("jobs")) }),
   handler: async (ctx, args) => {
+    await ensureOpenJobCount(ctx);
     const needsSkills: Id<"jobs">[] = [];
     let stored = 0;
+    let openDelta = 0;
     for (const job of args.jobs) {
       const external_id = String(job.external_id ?? "");
       if (!external_id) continue;
@@ -803,14 +805,17 @@ export const storeAtsJobs = internalMutation({
       };
       if (existing) {
         await ctx.db.patch(existing._id, payload);
+        openDelta += openCountDelta(existing.status, "open");
         if (await jobNeedsSkillEnrichment(ctx, existing._id, existing.skills_extracted)) needsSkills.push(existing._id);
       } else {
         const jobId = await ctx.db.insert("jobs", { ...payload, view_count: 0, application_count: 0 });
         await ensureJobStats(ctx, jobId);
+        openDelta += 1;
         needsSkills.push(jobId);
       }
       stored++;
     }
+    await bumpOpenJobCount(ctx, openDelta);
     return { stored, needsSkills };
   },
 });
