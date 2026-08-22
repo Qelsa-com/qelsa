@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { ATS_JOB_FETCH_LIMIT, fetchJobsForProvider } from "./atsProviders";
+import { ensureOpenJobCount } from "./lib/jobCounts";
 import { internalAction, internalMutation, internalQuery, type ActionCtx } from "./_generated/server";
 
 const SYNC_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
@@ -186,6 +187,7 @@ export const claimSync = internalMutation({
     const row = await ctx.db.get(args.id);
     if (!row || !row.sync_jobs || (row.status !== "connected" && row.status !== "error")) return false;
     if (row.sync_started_at && args.at - row.sync_started_at < STALE_SYNC_MS) return false;
+    await ensureOpenJobCount(ctx);
     await ctx.db.patch(args.id, { sync_started_at: args.at });
     return true;
   },

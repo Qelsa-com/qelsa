@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { withId } from "./lib/helpers";
-import { ensureJobStats } from "./lib/jobCounts";
+import { bumpOpenJobCount, ensureJobStats } from "./lib/jobCounts";
 import * as catalog from "./seedCatalogData";
 import cityData from "./seed/cities.json";
 
@@ -376,6 +376,7 @@ export const seedJobs = mutation({
         other_info: { cities: city ? [{ name: city.name }] : [{ name: job.city }] },
       });
       await ensureJobStats(ctx, jobId);
+      await bumpOpenJobCount(ctx, 1);
 
       for (const skill of job.skills) {
         const row = await namedDoc(ctx, "skills", skill.name);

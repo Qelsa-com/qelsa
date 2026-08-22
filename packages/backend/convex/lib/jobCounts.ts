@@ -26,6 +26,51 @@ export async function getJobCounts(ctx: QueryCtx | MutationCtx, job: Doc<"jobs">
   };
 }
 
+const OPEN_JOBS_KEY = "open";
+
+export async function getOpenJobCount(ctx: QueryCtx | MutationCtx) {
+  const row = await ctx.db
+    .query("job_browse_stats")
+    .withIndex("by_key", (q) => q.eq("key", OPEN_JOBS_KEY))
+    .unique();
+  return row?.count ?? null;
+}
+
+export async function bumpOpenJobCount(ctx: MutationCtx, delta: number) {
+  if (delta === 0) return;
+  const row = await ctx.db
+    .query("job_browse_stats")
+    .withIndex("by_key", (q) => q.eq("key", OPEN_JOBS_KEY))
+    .unique();
+  if (!row) {
+    await ctx.db.insert("job_browse_stats", { key: OPEN_JOBS_KEY, count: Math.max(0, delta) });
+    return;
+  }
+  await ctx.db.patch(row._id, { count: Math.max(0, row.count + delta) });
+}
+
+export function openCountDelta(previousStatus?: string, nextStatus?: string) {
+  const wasOpen = previousStatus === "open";
+  const isOpen = nextStatus === "open";
+  if (wasOpen === isOpen) return 0;
+  return isOpen ? 1 : -1;
+}
+
+/** One-time fill so the browse header has a total before the next ingest. */
+export async function ensureOpenJobCount(ctx: MutationCtx) {
+  const existing = await ctx.db
+    .query("job_browse_stats")
+    .withIndex("by_key", (q) => q.eq("key", OPEN_JOBS_KEY))
+    .unique();
+  if (existing) return existing.count;
+  const open = await ctx.db
+    .query("jobs")
+    .withIndex("by_status", (q) => q.eq("status", "open"))
+    .take(8000);
+  await ctx.db.insert("job_browse_stats", { key: OPEN_JOBS_KEY, count: open.length });
+  return open.length;
+}
+
 export async function bumpJobCount(
   ctx: MutationCtx,
   jobId: Id<"jobs">,

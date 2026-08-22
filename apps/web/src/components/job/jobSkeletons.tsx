@@ -77,7 +77,7 @@ export function AllJobsGridSkeleton() {
     <div className="flex flex-col gap-4 sm:gap-6" role="status" aria-label="Loading jobs">
       <span className="sr-only">Loading jobs</span>
       <Bone className="h-4 w-40" />
-      <JobCardGridSkeleton count={12} columns={3} />
+      <JobCardGridSkeleton count={12} columns={4} />
     </div>
   );
 }

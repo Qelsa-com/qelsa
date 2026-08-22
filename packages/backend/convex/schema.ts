@@ -240,6 +240,12 @@ export default defineSchema({
     application_count: v.number(),
   }).index("by_job", ["job_id"]),
 
+  // Denormalized browse totals. countFiltered reads this instead of scanning every open job.
+  job_browse_stats: defineTable({
+    key: v.string(),
+    count: v.number(),
+  }).index("by_key", ["key"]),
+
   saved_jobs: defineTable({
     job_id: v.id("jobs"),
     user_id: v.id("users"),
