@@ -1,41 +1,15 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
-const proficiency = v.union(
-  v.literal("beginner"),
-  v.literal("intermediate"),
-  v.literal("advance"),
-  v.literal("expert"),
-);
+const proficiency = v.union(v.literal("beginner"), v.literal("intermediate"), v.literal("advance"), v.literal("expert"));
 
-const jobStatus = v.union(
-  v.literal("draft"),
-  v.literal("open"),
-  v.literal("closed"),
-  v.literal("paused"),
-);
+const jobStatus = v.union(v.literal("draft"), v.literal("open"), v.literal("closed"), v.literal("paused"));
 
-const workplaceType = v.union(
-  v.literal("on-site"),
-  v.literal("hybrid"),
-  v.literal("remote"),
-);
+const workplaceType = v.union(v.literal("on-site"), v.literal("hybrid"), v.literal("remote"));
 
-const applicationStatus = v.union(
-  v.literal("applied"),
-  v.literal("viewed"),
-  v.literal("shortlisted"),
-  v.literal("sorted"),
-  v.literal("rejected"),
-  v.literal("hold"),
-  v.literal("cancelled"),
-);
+const applicationStatus = v.union(v.literal("applied"), v.literal("viewed"), v.literal("shortlisted"), v.literal("sorted"), v.literal("rejected"), v.literal("hold"), v.literal("cancelled"));
 
-const skillType = v.union(
-  v.literal("core"),
-  v.literal("preferred"),
-  v.literal("nice_to_have"),
-);
+const skillType = v.union(v.literal("core"), v.literal("preferred"), v.literal("nice_to_have"));
 
 const titledItem = v.object({ title: v.string() });
 
@@ -83,23 +57,12 @@ export default defineSchema({
     profile_view_analytics: v.optional(v.boolean()),
     role: v.union(v.literal("user"), v.literal("admin")),
     account_type: v.optional(v.union(v.literal("seeker"), v.literal("recruiter"))),
-    job_seeking_status: v.optional(
-      v.union(v.literal("actively_hunting"), v.literal("exploring"), v.literal("building_skills")),
-    ),
-    hiring_role: v.optional(
-      v.union(
-        v.literal("founder_cxo"),
-        v.literal("hr_ta"),
-        v.literal("hiring_manager"),
-        v.literal("recruitment_agency"),
-      ),
-    ),
+    job_seeking_status: v.optional(v.union(v.literal("actively_hunting"), v.literal("exploring"), v.literal("building_skills"))),
+    hiring_role: v.optional(v.union(v.literal("founder_cxo"), v.literal("hr_ta"), v.literal("hiring_manager"), v.literal("recruitment_agency"))),
     active_page_id: v.optional(v.id("pages")),
     onboarding_completed: v.optional(v.boolean()),
     isActive: v.boolean(),
-    profile_type: v.optional(
-      v.union(v.literal("student"), v.literal("professional"), v.literal("career-switcher")),
-    ),
+    profile_type: v.optional(v.union(v.literal("student"), v.literal("professional"), v.literal("career-switcher"))),
     find_job: v.optional(v.boolean()),
     explore_career: v.optional(v.boolean()),
     upskill_and_learn: v.optional(v.boolean()),
@@ -107,6 +70,14 @@ export default defineSchema({
     relocate_location: v.optional(v.string()),
     website: v.optional(v.string()),
     show_phone_number: v.boolean(),
+    // Profile editor additions
+    phone_country_code: v.optional(v.string()),
+    relocate_locations: v.optional(v.array(v.string())),
+    preffer_part_time: v.optional(v.boolean()),
+    default_resume_id: v.optional(v.id("resumes")),
+    languages: v.optional(v.array(v.object({ name: v.string(), proficiency: v.string() }))),
+    interests: v.optional(v.array(v.string())),
+    portfolio_links: v.optional(v.array(v.object({ title: v.string(), url: v.string() }))),
   })
     .index("by_authId", ["authId"])
     .index("by_email", ["email"])
@@ -181,6 +152,9 @@ export default defineSchema({
     owner_id: v.optional(v.id("users")),
     view_count: v.optional(v.number()),
     application_count: v.optional(v.number()),
+    // Set once AI skill extraction has run, so jobs without extractable skills
+    // are not re-processed on every scrape/backfill pass.
+    skills_extracted: v.optional(v.boolean()),
     ai_summary: v.optional(
       v.object({
         role_overview: v.string(),
@@ -326,6 +300,8 @@ export default defineSchema({
     start_date: v.number(),
     end_date: v.optional(v.number()),
     is_current: v.optional(v.boolean()),
+    employment_type: v.optional(v.string()),
+    work_type: v.optional(v.string()),
     description: v.optional(v.string()),
     team_size: v.optional(v.number()),
     responsibilities: v.optional(v.array(titledItem)),
@@ -374,11 +350,12 @@ export default defineSchema({
   }).index("by_name", ["name"]),
 
   degree_names: defineTable({
-    level_id: v.id("degree_levels"),
+    level_id: v.optional(v.id("degree_levels")),
     name: v.string(),
     abbreviation: v.optional(v.string()),
   })
     .index("by_level", ["level_id"])
+    .index("by_name", ["name"])
     .searchIndex("search_name", { searchField: "name" }),
 
   fields_of_study: defineTable({
@@ -417,12 +394,7 @@ export default defineSchema({
     website: v.optional(v.string()),
     submitted_by: v.optional(v.string()),
     submission_count: v.number(),
-    status: v.union(
-      v.literal("pending"),
-      v.literal("approved"),
-      v.literal("rejected"),
-      v.literal("duplicate"),
-    ),
+    status: v.union(v.literal("pending"), v.literal("approved"), v.literal("rejected"), v.literal("duplicate")),
   })
     .index("by_name", ["name"])
     .index("by_submitted_by", ["submitted_by"]),

@@ -4,6 +4,7 @@ import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { authedMutation, authedQuery } from "./lib/customFunctions";
 import { iso, withId } from "./lib/helpers";
 import { impactMetricList, titledList, withLocalIds } from "./lib/profileFields";
+import { resolveNamedRef, type NamedRefInput } from "./lib/resolve";
 
 async function replaceExperienceSkills(ctx: MutationCtx, experienceId: Id<"experiences">, skills: unknown) {
   const existing = await ctx.db
@@ -47,7 +48,10 @@ export const list = authedQuery({
   args: {},
   returns: v.any(),
   handler: async (ctx) => {
-    const rows = await ctx.db.query("experiences").withIndex("by_user", (q) => q.eq("user_id", ctx.user._id)).collect();
+    const rows = await ctx.db
+      .query("experiences")
+      .withIndex("by_user", (q) => q.eq("user_id", ctx.user._id))
+      .collect();
     const out = [];
     for (const row of rows) out.push(await hydrate(ctx, row));
     return out.sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
@@ -59,15 +63,20 @@ export const create = authedMutation({
   returns: v.any(),
   handler: async (ctx, args) => {
     const data = args.data as Record<string, unknown>;
-    const existing = await ctx.db.query("experiences").withIndex("by_user", (q) => q.eq("user_id", ctx.user._id)).collect();
+    const existing = await ctx.db
+      .query("experiences")
+      .withIndex("by_user", (q) => q.eq("user_id", ctx.user._id))
+      .collect();
     const id = await ctx.db.insert("experiences", {
       user_id: ctx.user._id,
-      company_id: (data.company as { id?: Id<"companies"> } | undefined)?.id,
-      job_title_id: (data.job_title as { id?: Id<"job_titles"> } | undefined)?.id,
+      company_id: await resolveNamedRef(ctx, "companies", data.company as NamedRefInput),
+      job_title_id: await resolveNamedRef(ctx, "job_titles", data.job_title as NamedRefInput),
       city_id: (data.city as { id?: Id<"cities"> } | undefined)?.id,
       start_date: data.start_date ? new Date(data.start_date as string).getTime() : Date.now(),
       end_date: data.end_date ? new Date(data.end_date as string).getTime() : undefined,
       is_current: Boolean(data.is_current),
+      employment_type: (data.employment_type as string | undefined) ?? undefined,
+      work_type: (data.work_type as string | undefined) ?? undefined,
       description: data.description as string | undefined,
       team_size: data.team_size as number | undefined,
       position: existing.length,
@@ -87,12 +96,14 @@ export const update = authedMutation({
     if (!row || row.user_id !== ctx.user._id) throw new Error("Experience not found");
     const data = args.data as Record<string, unknown>;
     await ctx.db.patch(args.id, {
-      company_id: (data.company as { id?: Id<"companies"> } | undefined)?.id ?? row.company_id,
-      job_title_id: (data.job_title as { id?: Id<"job_titles"> } | undefined)?.id ?? row.job_title_id,
+      company_id: data.company !== undefined ? await resolveNamedRef(ctx, "companies", data.company as NamedRefInput) : row.company_id,
+      job_title_id: data.job_title !== undefined ? await resolveNamedRef(ctx, "job_titles", data.job_title as NamedRefInput) : row.job_title_id,
       city_id: (data.city as { id?: Id<"cities"> } | undefined)?.id ?? row.city_id,
       start_date: data.start_date ? new Date(data.start_date as string).getTime() : row.start_date,
       end_date: data.end_date ? new Date(data.end_date as string).getTime() : row.end_date,
       is_current: data.is_current != null ? Boolean(data.is_current) : row.is_current,
+      employment_type: (data.employment_type as string | undefined) ?? row.employment_type,
+      work_type: (data.work_type as string | undefined) ?? row.work_type,
       description: (data.description as string | undefined) ?? row.description,
       team_size: (data.team_size as number | undefined) ?? row.team_size,
       responsibilities: data.responsibilities !== undefined ? titledList(data.responsibilities) : row.responsibilities,

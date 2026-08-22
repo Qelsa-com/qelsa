@@ -25,6 +25,16 @@ export type CulturePreference = {
   updated_at?: string;
 };
 
+export type UserLanguage = {
+  name: string;
+  proficiency: string;
+};
+
+export type PortfolioLink = {
+  title: string;
+  url: string;
+};
+
 export type User = {
   id?: number | string;
   name?: string;
@@ -36,6 +46,7 @@ export type User = {
   active_page_id?: string | null;
   onboarding_completed?: boolean;
   profile_image?: string;
+  profile_image_storage_id?: string;
   pronoun?: string;
   linkedin_url?: string;
   github_url?: string;
@@ -75,7 +86,15 @@ export type User = {
   last_login_at?: string;
   city?: City;
   relocate_location?: string;
-  show_phone_number?: boolean
+  show_phone_number?: boolean;
+
+  phone_country_code?: string;
+  relocate_locations?: string[];
+  preffer_part_time?: boolean;
+  default_resume_id?: string;
+  languages?: UserLanguage[];
+  interests?: string[];
+  portfolio_links?: PortfolioLink[];
 
   skills?: UserSkill[];
   educations?: Education[];

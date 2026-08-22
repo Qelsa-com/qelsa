@@ -1,5 +1,5 @@
 import { Certification } from "@/types/certification";
-import { GraduationCap } from "lucide-react";
+import { GraduationCap, Pencil } from "lucide-react";
 import { Fragment } from "react";
 import { ProfileCard, ProfileCardDivider, ProfileCardEmpty, ProfileTag } from "./ProfileCard";
 import { certificationMeta } from "./profileFormat";
@@ -9,9 +9,10 @@ interface CertificationsCardProps {
   isOwner: boolean;
   onAdd?: () => void;
   onEdit?: () => void;
+  onEditItem?: (certification: Certification) => void;
 }
 
-export function CertificationsCard({ certifications, isOwner, onAdd, onEdit }: CertificationsCardProps) {
+export function CertificationsCard({ certifications, isOwner, onAdd, onEdit, onEditItem }: CertificationsCardProps) {
   return (
     <ProfileCard title="Certifications" onAdd={isOwner ? onAdd : undefined} onEdit={isOwner ? onEdit : undefined}>
       {certifications.length === 0 ? (
@@ -30,10 +31,19 @@ export function CertificationsCard({ certifications, isOwner, onAdd, onEdit }: C
                     <GraduationCap className="size-6 text-white/70" />
                   </div>
 
-                  <div className="flex min-w-0 flex-1 flex-col gap-5">
+                  <div className="group flex min-w-0 flex-1 flex-col gap-5">
                     <div className="flex flex-col gap-1.5">
-                      <p className="text-base font-semibold text-white">{certification.certification?.name}</p>
-                      {certification.issuing_body?.name && <p className="text-sm text-[#00d4ff]">{certification.issuing_body.name}</p>}
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-base font-semibold text-white">{(certification as unknown as { name?: string }).name ?? certification.certification?.name}</p>
+                        {isOwner && onEditItem && (
+                          <button type="button" onClick={() => onEditItem(certification)} aria-label="Edit certification" className="shrink-0 text-white/30 opacity-0 transition-opacity hover:text-neon-cyan group-hover:opacity-100">
+                            <Pencil className="size-3.5" />
+                          </button>
+                        )}
+                      </div>
+                      {(certification.issuing_body?.name || (certification as unknown as { issuingOrganization?: string }).issuingOrganization) && (
+                        <p className="text-sm text-[#00d4ff]">{certification.issuing_body?.name ?? (certification as unknown as { issuingOrganization?: string }).issuingOrganization}</p>
+                      )}
                       {meta && <p className="text-[13px] text-white/45">{meta}</p>}
                     </div>
 

@@ -2,9 +2,9 @@ import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { internalMutation, internalQuery, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { authedMutation, authedQuery, optionalAuthQuery } from "./lib/customFunctions";
+import { deleteJobCascade } from "./lib/deleteUserData";
 import { iso, withId } from "./lib/helpers";
 import { bumpJobCount, ensureJobStats, getJobCounts } from "./lib/jobCounts";
-import { deleteJobCascade } from "./lib/deleteUserData";
 import { buildCompetencyFramework, clipPlainText } from "./lib/skillMatch";
 
 type SkillCache = Map<Id<"skills">, Doc<"skills"> | null>;
@@ -16,7 +16,10 @@ type ListHydration = {
 };
 
 async function jobSkillsFor(ctx: QueryCtx, jobId: Id<"jobs">, cache?: SkillCache) {
-  const rows = await ctx.db.query("job_skills").withIndex("by_job", (q) => q.eq("job_id", jobId)).collect();
+  const rows = await ctx.db
+    .query("job_skills")
+    .withIndex("by_job", (q) => q.eq("job_id", jobId))
+    .collect();
   const skillCache = cache ?? new Map();
   const missing = rows.filter((row) => !skillCache.has(row.skill_id));
   await Promise.all(
@@ -33,9 +36,15 @@ async function jobSkillsFor(ctx: QueryCtx, jobId: Id<"jobs">, cache?: SkillCache
 async function listHydration(ctx: QueryCtx, user: Doc<"users"> | null, loadSaved = true): Promise<ListHydration> {
   if (!user) return { userSkills: [], savedJobIds: new Set(), skillCache: new Map() };
   const [skillRows, saved] = await Promise.all([
-    ctx.db.query("user_skills").withIndex("by_user", (q) => q.eq("user_id", user._id)).collect(),
+    ctx.db
+      .query("user_skills")
+      .withIndex("by_user", (q) => q.eq("user_id", user._id))
+      .collect(),
     loadSaved
-      ? ctx.db.query("saved_jobs").withIndex("by_user", (q) => q.eq("user_id", user._id)).collect()
+      ? ctx.db
+          .query("saved_jobs")
+          .withIndex("by_user", (q) => q.eq("user_id", user._id))
+          .collect()
       : Promise.resolve([]),
   ]);
   return {
@@ -45,13 +54,7 @@ async function listHydration(ctx: QueryCtx, user: Doc<"users"> | null, loadSaved
   };
 }
 
-async function enrichJob(
-  ctx: QueryCtx,
-  job: Doc<"jobs">,
-  user: Doc<"users"> | null,
-  list?: ListHydration,
-  includeSaved = true,
-) {
+async function enrichJob(ctx: QueryCtx, job: Doc<"jobs">, user: Doc<"users"> | null, list?: ListHydration, includeSaved = true) {
   const [page, city, job_title, job_skills] = await Promise.all([
     job.page_id ? ctx.db.get(job.page_id) : null,
     job.city_id ? ctx.db.get(job.city_id) : null,
@@ -76,9 +79,12 @@ async function enrichJob(
       : false;
     const userSkills = list
       ? list.userSkills
-      : (await ctx.db.query("user_skills").withIndex("by_user", (q) => q.eq("user_id", user._id)).collect()).map(
-          (row) => ({ skill_id: row.skill_id, proficiency: row.proficiency }),
-        );
+      : (
+          await ctx.db
+            .query("user_skills")
+            .withIndex("by_user", (q) => q.eq("user_id", user._id))
+            .collect()
+        ).map((row) => ({ skill_id: row.skill_id, proficiency: row.proficiency }));
     competency = buildCompetencyFramework(
       job_skills.map((js) => ({
         skill_id: js.skill_id,
@@ -141,9 +147,7 @@ function matchesFilters(job: Doc<"jobs">, cityName: string | null, args: Record<
   }
   if (job_types.length) {
     const squash = (s?: string | null) => (s ?? "").toLowerCase().replace(/[-\s]/g, "");
-    const otherTypes = ((job.other_info as { types?: Array<{ name?: string }> } | undefined)?.types ?? []).map((t) =>
-      squash(t.name),
-    );
+    const otherTypes = ((job.other_info as { types?: Array<{ name?: string }> } | undefined)?.types ?? []).map((t) => squash(t.name));
     const wanted = job_types.map(squash);
     if (!wanted.includes(squash(job.work_type)) && !otherTypes.some((t) => wanted.includes(t))) return false;
   }
@@ -163,8 +167,7 @@ function matchesFilters(job: Doc<"jobs">, cityName: string | null, args: Record<
   const now = args.now as number | undefined;
   if (posted_within && typeof now === "number") {
     const postedAt = job.published_date ?? job._creationTime;
-    const maxAge =
-      posted_within === "24h" ? 86_400_000 : posted_within === "week" ? 7 * 86_400_000 : 30 * 86_400_000;
+    const maxAge = posted_within === "24h" ? 86_400_000 : posted_within === "week" ? 7 * 86_400_000 : 30 * 86_400_000;
     if (now - postedAt > maxAge) return false;
   }
   return true;
@@ -212,6 +215,25 @@ export const list = optionalAuthQuery({
   },
 });
 
+/** Lightweight count for the profile editor's "Smart Job Matches" callout. */
+export const matchCount = authedQuery({
+  args: {
+    cities: v.optional(v.array(v.string())),
+    workplace_types: v.optional(v.array(v.string())),
+    job_types: v.optional(v.array(v.string())),
+  },
+  returns: v.number(),
+  handler: async (ctx, args) => {
+    const open = await openJobs(ctx, 400);
+    let count = 0;
+    for (const job of open) {
+      const city = job.city_id ? await ctx.db.get(job.city_id) : null;
+      if (matchesFilters(job, city?.name ?? null, { ...args })) count++;
+    }
+    return count;
+  },
+});
+
 export const getById = optionalAuthQuery({
   args: { id: v.id("jobs") },
   returns: v.any(),
@@ -219,14 +241,23 @@ export const getById = optionalAuthQuery({
     const job = await ctx.db.get(args.id);
     if (!job) return null;
     const base = await enrichJob(ctx, job, ctx.user, undefined, false);
-    const sets = await ctx.db.query("question_sets").withIndex("by_job", (q) => q.eq("jobId", job._id)).collect();
+    const sets = await ctx.db
+      .query("question_sets")
+      .withIndex("by_job", (q) => q.eq("jobId", job._id))
+      .collect();
     const questionSets = [];
     const isOwner = ctx.user && job.owner_id === ctx.user._id;
     for (const set of sets) {
-      const questions = await ctx.db.query("questions").withIndex("by_set", (q) => q.eq("question_set_id", set._id)).collect();
+      const questions = await ctx.db
+        .query("questions")
+        .withIndex("by_set", (q) => q.eq("question_set_id", set._id))
+        .collect();
       const withOptions = [];
       for (const question of questions) {
-        const options = await ctx.db.query("options").withIndex("by_question", (q) => q.eq("question_id", question._id)).collect();
+        const options = await ctx.db
+          .query("options")
+          .withIndex("by_question", (q) => q.eq("question_id", question._id))
+          .collect();
         const q = { ...withId(question), options: options.map(withId) };
         if (!isOwner) {
           delete (q as { is_knockout?: boolean }).is_knockout;
@@ -268,7 +299,10 @@ export const listPosted = authedQuery({
   args: { search: v.optional(v.string()), status: v.optional(v.string()) },
   returns: v.any(),
   handler: async (ctx, args) => {
-    let jobs = await ctx.db.query("jobs").withIndex("by_owner", (q) => q.eq("owner_id", ctx.user._id)).collect();
+    let jobs = await ctx.db
+      .query("jobs")
+      .withIndex("by_owner", (q) => q.eq("owner_id", ctx.user._id))
+      .collect();
     if (args.status) jobs = jobs.filter((j) => j.status === args.status);
     if (args.search) {
       const q = args.search.toLowerCase();
@@ -285,7 +319,10 @@ export const listSaved = authedQuery({
   args: { search: v.optional(v.string()) },
   returns: v.any(),
   handler: async (ctx, args) => {
-    const saved = await ctx.db.query("saved_jobs").withIndex("by_user", (q) => q.eq("user_id", ctx.user._id)).collect();
+    const saved = await ctx.db
+      .query("saved_jobs")
+      .withIndex("by_user", (q) => q.eq("user_id", ctx.user._id))
+      .collect();
     const hydration = await listHydration(ctx, ctx.user);
     const out = [];
     for (const row of saved) {
@@ -302,7 +339,10 @@ export const listApplied = authedQuery({
   args: { status: v.optional(v.string()), search: v.optional(v.string()) },
   returns: v.any(),
   handler: async (ctx, args) => {
-    let apps = await ctx.db.query("job_applications").withIndex("by_user", (q) => q.eq("user_id", ctx.user._id)).collect();
+    let apps = await ctx.db
+      .query("job_applications")
+      .withIndex("by_user", (q) => q.eq("user_id", ctx.user._id))
+      .collect();
     if (args.status) apps = apps.filter((a) => a.status === args.status);
     const hydration = await listHydration(ctx, ctx.user);
     const out = [];
@@ -455,15 +495,12 @@ export const createWithQuestions = authedMutation({
     const jobIn = payload.job ?? {};
     const pageId = (jobIn.page_id as Id<"pages"> | undefined) ?? undefined;
     const jobTitleId = (jobIn.job_title as { id?: Id<"job_titles"> } | undefined)?.id;
-    const [page, jobTitle] = await Promise.all([
-      pageId ? ctx.db.get(pageId) : null,
-      jobTitleId ? ctx.db.get(jobTitleId) : null,
-    ]);
+    const [page, jobTitle] = await Promise.all([pageId ? ctx.db.get(pageId) : null, jobTitleId ? ctx.db.get(jobTitleId) : null]);
     const jobId = await ctx.db.insert("jobs", {
       title: (jobIn.title as string | undefined) ?? jobTitle?.name,
       description: jobIn.description as string | undefined,
       page_id: pageId,
-      city_id: (jobIn.city_id as Id<"cities"> | undefined) ?? ((jobIn.city as { id?: Id<"cities"> } | undefined)?.id),
+      city_id: (jobIn.city_id as Id<"cities"> | undefined) ?? (jobIn.city as { id?: Id<"cities"> } | undefined)?.id,
       job_title_id: jobTitleId,
       workplace_type: jobIn.workplace_type as "on-site" | "hybrid" | "remote" | undefined,
       work_type: jobIn.work_type as string | undefined,
@@ -534,8 +571,9 @@ export const createWithQuestions = authedMutation({
 
 export const storeScrapedJobs = internalMutation({
   args: { jobs: v.array(v.any()) },
-  returns: v.null(),
+  returns: v.array(v.id("jobs")),
   handler: async (ctx, args) => {
+    const needsSkills: Id<"jobs">[] = [];
     for (const job of args.jobs) {
       const external_id = String(job.id ?? "");
       if (!external_id) continue;
@@ -571,13 +609,22 @@ export const storeScrapedJobs = internalMutation({
         },
         status: "open" as const,
       };
-      if (existing) await ctx.db.patch(existing._id, payload);
-      else {
+      if (existing) {
+        await ctx.db.patch(existing._id, payload);
+        if (!existing.skills_extracted) {
+          const linked = await ctx.db
+            .query("job_skills")
+            .withIndex("by_job", (q) => q.eq("job_id", existing._id))
+            .take(1);
+          if (linked.length === 0) needsSkills.push(existing._id);
+        }
+      } else {
         const jobId = await ctx.db.insert("jobs", { ...payload, view_count: 0, application_count: 0 });
         await ensureJobStats(ctx, jobId);
+        needsSkills.push(jobId);
       }
     }
-    return null;
+    return needsSkills;
   },
 });
 
@@ -602,7 +649,10 @@ export const loadSummarySource = internalQuery({
     const [page, jobTitle, skillRows] = await Promise.all([
       job.page_id ? ctx.db.get(job.page_id) : null,
       job.job_title_id ? ctx.db.get(job.job_title_id) : null,
-      ctx.db.query("job_skills").withIndex("by_job", (q) => q.eq("job_id", job._id)).take(20),
+      ctx.db
+        .query("job_skills")
+        .withIndex("by_job", (q) => q.eq("job_id", job._id))
+        .take(20),
     ]);
     const skills: string[] = [];
     for (const row of skillRows) {

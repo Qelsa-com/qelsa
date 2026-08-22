@@ -1,13 +1,24 @@
 "use client";
 
 import { api } from "@/lib/convexApi";
-import { useMutation } from "convex/react";
 import { useConvexQueryHook, withUnwrap } from "@/lib/convexHooks";
 import { uploadFileToR2 } from "@/lib/r2Upload";
+import { useMutation } from "convex/react";
 import { useState } from "react";
 
 export function useGetMyResumesQuery(_filters?: Record<string, string> | void, options?: { skip?: boolean }) {
   return useConvexQueryHook(api.resumes.listMine, {}, options);
+}
+
+export function useDeleteResumeMutation() {
+  const remove = useMutation(api.resumes.remove);
+  const [isLoading, setIsLoading] = useState(false);
+  const run = (id: string | number) => {
+    setIsLoading(true);
+    const promise = Promise.resolve(remove({ id: String(id) as never })).finally(() => setIsLoading(false));
+    return withUnwrap(promise);
+  };
+  return [run, { isLoading }] as const;
 }
 
 export function useCreateResumeMutation() {

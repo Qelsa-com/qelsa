@@ -12,10 +12,7 @@ export function useCreateUserSkillMutation() {
 }
 
 export function useUpdateUserSkillMutation() {
-  return useConvexMutationHook(
-    api.userSkills.update,
-    ({ id, data }: { id: string | number; data: unknown }) => ({ id: String(id), data }),
-  );
+  return useConvexMutationHook(api.userSkills.update, ({ id, data }: { id: string | number; data: unknown }) => ({ id: String(id), data }));
 }
 
 export function useDeleteUserSkillMutation() {
@@ -24,6 +21,11 @@ export function useDeleteUserSkillMutation() {
 
 export function useBulkModifyUserSkillsMutation() {
   return useConvexMutationHook(api.userSkills.bulkModify, (skills) => ({ skills }));
+}
+
+/** Get-or-create a catalog skill by name ("Add as new skill" flows). */
+export function useResolveSkillMutation() {
+  return useConvexMutationHook(api.userSkills.resolveSkill, (name: string) => ({ name }));
 }
 
 export function useLazySearchSkillsQuery() {

@@ -3,18 +3,30 @@ import { useGetCertificationsQuery } from "@/features/api/certificationsApi";
 import { useGetEducationsQuery } from "@/features/api/educationsApi";
 import { useGetExperiencesQuery } from "@/features/api/experiencesApi";
 import { useGetUserSkillsQuery } from "@/features/api/userSkillsApi";
+import { Certification } from "@/types/certification";
+import { Education } from "@/types/education";
+import { Experience } from "@/types/experience";
 import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
+import { ProfilePageSkeleton } from "../pageSkeletons";
 import { CertificationsCard } from "./CertificationsCard";
 import { EducationCard } from "./EducationCard";
+import { InterestsCard, LanguagesCard } from "./ExtrasCards";
 import { ProfileCompletionBar } from "./ProfileCompletionBar";
 import { ProfileFooter } from "./ProfileFooter";
 import { ProfileHero } from "./ProfileHero";
 import { SkillsCard } from "./SkillsCard";
 import { WorkExperienceCard } from "./WorkExperienceCard";
+import { CertificationModal } from "./modals/CertificationModal";
+import { EducationModal } from "./modals/EducationModal";
+import { ExperienceModal } from "./modals/ExperienceModal";
+import { InterestsModal, LanguagesModal } from "./modals/ExtrasModals";
+import { SkillsModal } from "./modals/SkillsModal";
 import { profileCompletion } from "./profileFormat";
-import { ProfilePageSkeleton } from "../pageSkeletons";
+
+type ProfileModal =
+  { kind: "experience"; item: Experience | null } | { kind: "education"; item: Education | null } | { kind: "certification"; item: Certification | null } | { kind: "skills" } | { kind: "languages" } | { kind: "interests" };
 
 interface ProfilePageProps {
   /**
@@ -29,6 +41,8 @@ interface ProfilePageProps {
 export function ProfilePage({ isOwner = false, username }: ProfilePageProps) {
   const router = useRouter();
   const [isFollowing, setIsFollowing] = useState(false);
+  const [modal, setModal] = useState<ProfileModal | null>(null);
+  const closeModal = useCallback(() => setModal(null), []);
 
   // Two ways into the same page. The owner reads the authenticated endpoints,
   // which is what the editors invalidate after a save; a visitor reads the
@@ -42,11 +56,7 @@ export function ProfilePage({ isOwner = false, username }: ProfilePageProps) {
   const { data: ownCertifications } = useGetCertificationsQuery(undefined, { skip: !isOwner });
   const { data: ownSkills } = useGetUserSkillsQuery(undefined, { skip: !isOwner });
 
-  const {
-    data: publicProfile,
-    isLoading: isPublicLoading,
-    isError: isPublicError,
-  } = useGetPublicProfileQuery(isPublicView ? username : undefined, { skip: !isPublicView || !username });
+  const { data: publicProfile, isLoading: isPublicLoading, isError: isPublicError } = useGetPublicProfileQuery(isPublicView ? username : undefined, { skip: !isPublicView || !username });
 
   const user = isOwner ? ownUser : publicProfile?.user;
   const isLoading = isOwner ? isOwnUserLoading : isPublicLoading || !username;
@@ -93,15 +103,7 @@ export function ProfilePage({ isOwner = false, username }: ProfilePageProps) {
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-[#06060f]">
-      <ProfileHero
-        user={user}
-        experiences={experienceList}
-        isOwner={isOwner}
-        isFollowing={isFollowing}
-        onEdit={() => router.push("/profile/edit")}
-        onFollow={handleFollow}
-        onShare={handleShare}
-      />
+      <ProfileHero user={user} experiences={experienceList} isOwner={isOwner} isFollowing={isFollowing} onEdit={() => router.push("/profile/edit")} onFollow={handleFollow} onShare={handleShare} />
 
       {isOwner && completion < 100 && <ProfileCompletionBar percent={completion} onComplete={() => router.push("/profile/edit")} />}
 
@@ -110,24 +112,42 @@ export function ProfilePage({ isOwner = false, username }: ProfilePageProps) {
           <WorkExperienceCard
             experiences={experienceList}
             isOwner={isOwner}
-            onAdd={() => router.push("/profile/work-experience")}
-            onEdit={() => router.push("/profile/work-experience")}
+            onAdd={() => setModal({ kind: "experience", item: null })}
+            onEdit={() => setModal({ kind: "experience", item: experienceList[0] ?? null })}
+            onEditItem={(experience) => setModal({ kind: "experience", item: experience })}
           />
           <CertificationsCard
             certifications={certificationList}
             isOwner={isOwner}
-            onAdd={() => router.push("/profile/certifications")}
-            onEdit={() => router.push("/profile/certifications")}
+            onAdd={() => setModal({ kind: "certification", item: null })}
+            onEdit={() => setModal({ kind: "certification", item: certificationList[0] ?? null })}
+            onEditItem={(certification) => setModal({ kind: "certification", item: certification })}
           />
         </div>
 
         <div className="flex min-w-0 flex-col gap-6">
-          <SkillsCard skills={skillList} isOwner={isOwner} onAdd={() => router.push("/profile/skills/edit")} onEdit={() => router.push("/profile/skills/edit")} />
-          <EducationCard educations={educationList} isOwner={isOwner} onAdd={() => router.push("/profile/educations")} onEdit={() => router.push("/profile/educations")} />
+          <SkillsCard skills={skillList} isOwner={isOwner} onAdd={() => setModal({ kind: "skills" })} onEdit={() => setModal({ kind: "skills" })} />
+          <EducationCard
+            educations={educationList}
+            isOwner={isOwner}
+            onAdd={() => setModal({ kind: "education", item: null })}
+            onEdit={() => setModal({ kind: "education", item: educationList[0] ?? null })}
+            onEditItem={(education) => setModal({ kind: "education", item: education })}
+          />
+          <LanguagesCard languages={user?.languages ?? []} isOwner={isOwner} onAdd={() => setModal({ kind: "languages" })} onEdit={() => setModal({ kind: "languages" })} />
+          <InterestsCard interests={user?.interests ?? []} isOwner={isOwner} onAdd={() => setModal({ kind: "interests" })} onEdit={() => setModal({ kind: "interests" })} />
         </div>
       </div>
 
       <ProfileFooter />
+
+      {/* Add/edit modals — owner only; Convex queries refresh the page on save. */}
+      <ExperienceModal open={modal?.kind === "experience"} onClose={closeModal} experience={modal?.kind === "experience" ? modal.item : null} />
+      <EducationModal open={modal?.kind === "education"} onClose={closeModal} education={modal?.kind === "education" ? modal.item : null} />
+      <CertificationModal open={modal?.kind === "certification"} onClose={closeModal} certification={modal?.kind === "certification" ? modal.item : null} />
+      <SkillsModal open={modal?.kind === "skills"} onClose={closeModal} />
+      <LanguagesModal open={modal?.kind === "languages"} onClose={closeModal} languages={user?.languages ?? []} />
+      <InterestsModal open={modal?.kind === "interests"} onClose={closeModal} interests={user?.interests ?? []} />
     </div>
   );
 }

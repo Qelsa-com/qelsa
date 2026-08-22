@@ -1,5 +1,5 @@
 import { Experience } from "@/types/experience";
-import { Building } from "lucide-react";
+import { Building, Pencil } from "lucide-react";
 import { useState } from "react";
 import { ProfileCard, ProfileCardDivider, ProfileCardEmpty, ProfileOverflowTag, ProfileTag } from "./ProfileCard";
 import { experienceBullets, experienceMeta, experienceMonths, formatDuration, toDate } from "./profileFormat";
@@ -12,6 +12,8 @@ interface WorkExperienceCardProps {
   isOwner: boolean;
   onAdd?: () => void;
   onEdit?: () => void;
+  /** Per-row edit affordance (owner only). */
+  onEditItem?: (experience: Experience) => void;
 }
 
 /** 40px tile that stands in for a company logo. */
@@ -33,7 +35,7 @@ function TimelineDot() {
 }
 
 /** Title, dates, bullets and skills for a single role. */
-function RoleBody({ experience, showCompany }: { experience: Experience; showCompany?: boolean }) {
+function RoleBody({ experience, showCompany, onEdit }: { experience: Experience; showCompany?: boolean; onEdit?: () => void }) {
   const [expanded, setExpanded] = useState(false);
 
   const bullets = experienceBullets(experience);
@@ -44,16 +46,21 @@ function RoleBody({ experience, showCompany }: { experience: Experience; showCom
   const canExpand = bullets.length > COLLAPSED_BULLETS || skills.length > COLLAPSED_SKILLS;
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-      <p className="text-base font-bold text-white">{experience.job_title?.name || experience.position || "Role"}</p>
+    <div className="group flex min-w-0 flex-1 flex-col gap-1.5">
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-base font-bold text-white">{experience.job_title?.name || experience.position || "Role"}</p>
+        {onEdit && (
+          <button type="button" onClick={onEdit} aria-label="Edit role" className="shrink-0 text-white/30 opacity-0 transition-opacity hover:text-neon-cyan group-hover:opacity-100">
+            <Pencil className="size-3.5" />
+          </button>
+        )}
+      </div>
 
       {showCompany && experience.company?.name && <p className="text-sm text-[#00d4ff]">{experience.company.name}</p>}
 
       <div className="flex flex-wrap items-center gap-2">
         <p className="text-[13px] text-white/45">{experienceMeta(experience)}</p>
-        {experience.employment_type && (
-          <span className="rounded-full bg-neon-cyan/8 px-2 py-0.5 text-[11px] font-medium text-neon-cyan/80">{experience.employment_type}</span>
-        )}
+        {experience.employment_type && <span className="rounded-full bg-neon-cyan/8 px-2 py-0.5 text-[11px] font-medium text-neon-cyan/80">{experience.employment_type}</span>}
       </div>
 
       {visibleBullets.length > 0 && (
@@ -111,8 +118,9 @@ function groupByCompany(experiences: Experience[]) {
     .sort((a, b) => startedAt(b.roles[0]) - startedAt(a.roles[0]));
 }
 
-export function WorkExperienceCard({ experiences, isOwner, onAdd, onEdit }: WorkExperienceCardProps) {
+export function WorkExperienceCard({ experiences, isOwner, onAdd, onEdit, onEditItem }: WorkExperienceCardProps) {
   const groups = groupByCompany(experiences);
+  const rowEdit = isOwner ? onEditItem : undefined;
 
   return (
     <ProfileCard title={isOwner ? "Work Experience" : "Work experience"} onAdd={isOwner ? onAdd : undefined} onEdit={isOwner ? onEdit : undefined}>
@@ -140,7 +148,7 @@ export function WorkExperienceCard({ experiences, isOwner, onAdd, onEdit }: Work
                     {group.roles.map((role) => (
                       <div key={role.id} className="relative flex items-start gap-4">
                         <TimelineDot />
-                        <RoleBody experience={role} />
+                        <RoleBody experience={role} onEdit={rowEdit ? () => rowEdit(role) : undefined} />
                       </div>
                     ))}
                   </div>
@@ -148,7 +156,7 @@ export function WorkExperienceCard({ experiences, isOwner, onAdd, onEdit }: Work
               ) : (
                 <div className="flex items-start gap-4">
                   <CompanyLogo />
-                  <RoleBody experience={group.roles[0]} showCompany />
+                  <RoleBody experience={group.roles[0]} showCompany onEdit={rowEdit ? () => rowEdit(group.roles[0]) : undefined} />
                 </div>
               )}
             </div>

@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * JobDetailPageRedesign
+ * JobDetail
  *
  * Figma "Job Detail" frame (Qelsa-Screen, node 191:50111) converted to the repo's
  * conventions and wired to live data:
@@ -14,35 +14,19 @@
  * have no backing data in the model and were intentionally dropped.
  */
 
+import { experienceChip, matchScore, salaryText } from "@/components/job/jobBrowseShared";
+import { experienceMonths } from "@/components/profile/profileFormat";
 import { formatCity } from "@/constants/city";
 import { useAuth } from "@/contexts/AuthContext";
-import { experienceChip, matchScore, salaryText } from "@/components/job/jobBrowseShared";
 import { useGetEducationsQuery } from "@/features/api/educationsApi";
 import { useGetExperiencesQuery } from "@/features/api/experiencesApi";
 import { useGetJobByIdQuery, useGetMatchByJobQuery, useGetSimilarJobsQuery, useIsJobSavedQuery, useRecordJobViewMutation, useToggleSaveJobMutation } from "@/features/api/jobsApi";
 import { useGetMyResumesQuery } from "@/features/api/resumeApi";
-import { experienceMonths } from "@/components/profile/profileFormat";
 import { toastUnknownError } from "@/lib/errors";
 import { jobDescriptionToHtml } from "@/lib/jobDescription";
 import { Job } from "@/types/job";
 import DOMPurify from "dompurify";
-import {
-  ArrowLeft,
-  Bookmark,
-  BookmarkCheck,
-  BookOpen,
-  Briefcase,
-  Building2,
-  CheckCircle2,
-  FileText,
-  HelpCircle,
-  Info,
-  Link as LinkIcon,
-  Linkedin,
-  MessageCircle,
-  Share2,
-  Twitter,
-} from "lucide-react";
+import { ArrowLeft, Bookmark, BookmarkCheck, BookOpen, Briefcase, Building2, CheckCircle2, FileText, HelpCircle, Info, Linkedin, Link as LinkIcon, MessageCircle, Share2, Twitter } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { QuickApplyModal } from "../QuickApplyModal";
@@ -123,7 +107,7 @@ const interviewQuestions = [
   "Describe your experience with state management libraries like Redux or Zustand.",
 ];
 
-export function JobDetailPageRedesign() {
+export function JobDetail() {
   const { user, isAuthenticated } = useAuth();
   const router = useRouter();
   const params = useParams<{ id: string }>();
@@ -190,26 +174,13 @@ export function JobDetailPageRedesign() {
   const competency = job.competency;
 
   const dailySkills = (job.job_skills ?? []).map((s) => s.skill?.name ?? s.title).filter(Boolean);
-  const skillsSubtitle = competency
-    ? `You match ${competency.matchedCount} of ${competency.totalCount} skills listed here.`
-    : "The skills this role uses day to day.";
+  const skillsSubtitle = competency ? `You match ${competency.matchedCount} of ${competency.totalCount} skills listed here.` : "The skills this role uses day to day.";
 
   const userYears = (experiences ?? []).reduce((sum, exp) => sum + experienceMonths(exp), 0) / 12;
-  const experienceMatch =
-    job.experience != null
-      ? userYears >= job.experience
-        ? Math.min(100, 75 + Math.round((userYears - job.experience) * 4))
-        : Math.round((userYears / Math.max(job.experience, 0.5)) * 100)
-      : userYears > 0
-        ? 72
-        : null;
+  const experienceMatch = job.experience != null ? (userYears >= job.experience ? Math.min(100, 75 + Math.round((userYears - job.experience) * 4)) : Math.round((userYears / Math.max(job.experience, 0.5)) * 100)) : userYears > 0 ? 72 : null;
   const educationMatch = (educations?.length ?? 0) > 0 ? 68 : null;
 
-  const companyMeta = [
-    job.page?.industry || job.page?.primaryIndustry,
-    job.page?.company_size?.label,
-    job.page?.founded_year ? `Founded ${job.page.founded_year}` : job.page?.foundedYear ? `Founded ${job.page.foundedYear}` : null,
-  ]
+  const companyMeta = [job.page?.industry || job.page?.primaryIndustry, job.page?.company_size?.label, job.page?.founded_year ? `Founded ${job.page.founded_year}` : job.page?.foundedYear ? `Founded ${job.page.foundedYear}` : null]
     .filter(Boolean)
     .join(" • ");
 
@@ -220,7 +191,10 @@ export function JobDetailPageRedesign() {
 
   const overallMatch = matchSession?.analysis?.overall;
   const metrics = [
-    { label: "Readiness Score", value: overallMatch != null ? `${overallMatch}%` : competency ? `${competency.readiness}%` : "—" },
+    // Readiness is the deterministic skill-vs-skill match; the AI composite
+    // (whole profile) is shown separately as AI Fit.
+    { label: "Readiness Score", value: competency ? `${competency.readiness}%` : "—" },
+    ...(overallMatch != null ? [{ label: "AI Fit", value: `${overallMatch}%` }] : []),
     { label: "Views", value: formatCount(job.view_count ?? 0) },
     { label: "Applications", value: `${job.application_count ?? job.applications?.length ?? 0}` },
   ];
@@ -254,11 +228,7 @@ export function JobDetailPageRedesign() {
       {/* Mobile header bar (Figma 721:264). Desktop keeps the breadcrumb below. */}
       <div className="flex h-16 items-center justify-between border-b border-white/[0.12] bg-white/[0.06] px-4 lg:hidden">
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => router.back()}
-            aria-label="Back"
-            className="flex size-10 shrink-0 items-center justify-center rounded-full border border-white/[0.12] bg-white/[0.03]"
-          >
+          <button onClick={() => router.back()} aria-label="Back" className="flex size-10 shrink-0 items-center justify-center rounded-full border border-white/[0.12] bg-white/[0.03]">
             <ArrowLeft className="size-5" />
           </button>
           <span className="text-lg font-bold text-white">Job Detail</span>
@@ -285,10 +255,18 @@ export function JobDetailPageRedesign() {
                 {saved ? <BookmarkCheck className="size-[18px]" /> : <Bookmark className="size-[18px]" />}
               </ShareButton>
             )}
-            <ShareButton onClick={share.copy}><LinkIcon className="size-[18px]" /></ShareButton>
-            <ShareButton onClick={share.linkedin}><Linkedin className="size-[18px]" /></ShareButton>
-            <ShareButton onClick={share.twitter}><Twitter className="size-[18px]" /></ShareButton>
-            <ShareButton onClick={share.whatsapp}><MessageCircle className="size-[18px]" /></ShareButton>
+            <ShareButton onClick={share.copy}>
+              <LinkIcon className="size-[18px]" />
+            </ShareButton>
+            <ShareButton onClick={share.linkedin}>
+              <Linkedin className="size-[18px]" />
+            </ShareButton>
+            <ShareButton onClick={share.twitter}>
+              <Twitter className="size-[18px]" />
+            </ShareButton>
+            <ShareButton onClick={share.whatsapp}>
+              <MessageCircle className="size-[18px]" />
+            </ShareButton>
           </div>
         </div>
 
@@ -366,21 +344,17 @@ export function JobDetailPageRedesign() {
           {/* Left */}
           <div className="flex min-w-0 flex-1 flex-col gap-4 lg:gap-6">
             <Card className="flex-col items-start gap-3 rounded-[20px] border-neon-cyan/40 bg-white/[0.03] p-4 lg:flex-row lg:items-center lg:gap-4 lg:p-5">
-                <div className="flex size-10 shrink-0 items-center justify-center rounded-[20px] border border-glass-border bg-white/[0.04]">
-                  <FileText className="size-5 text-neon-cyan" />
-                </div>
-                <div className="flex w-full flex-1 flex-col gap-1 lg:w-auto">
-                  <span className="text-sm font-semibold text-white">Profile & Resume Match Intelligence</span>
-                  <span className="text-sm leading-5 text-white/70">See how your profile and resume align with this role, where the gaps are, and what to do next.</span>
-                </div>
-                <Button
-                  variant="outline"
-                  onClick={() => setMatchOpen(true)}
-                  className="h-auto w-full shrink-0 rounded-full border-neon-cyan/50 bg-transparent px-4 py-2.5 text-sm font-semibold text-neon-cyan hover:bg-neon-cyan/10 lg:w-auto"
-                >
-                  Check Match Details
-                </Button>
-              </Card>
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-[20px] border border-glass-border bg-white/[0.04]">
+                <FileText className="size-5 text-neon-cyan" />
+              </div>
+              <div className="flex w-full flex-1 flex-col gap-1 lg:w-auto">
+                <span className="text-sm font-semibold text-white">Profile & Resume Match Intelligence</span>
+                <span className="text-sm leading-5 text-white/70">See how your profile and resume align with this role, where the gaps are, and what to do next.</span>
+              </div>
+              <Button variant="outline" onClick={() => setMatchOpen(true)} className="h-auto w-full shrink-0 rounded-full border-neon-cyan/50 bg-transparent px-4 py-2.5 text-sm font-semibold text-neon-cyan hover:bg-neon-cyan/10 lg:w-auto">
+                Check Match Details
+              </Button>
+            </Card>
 
             <JobAiSummary jobId={String(job.id)} summary={job.ai_summary} />
 
@@ -408,15 +382,10 @@ export function JobDetailPageRedesign() {
               </SectionCard>
             )}
 
-            {/* How you fit this role — reuses the data-wired competency panel */}
-            {competency && (
-              <CompetencyTable
-                competency={competency}
-                overallMatch={overallMatch}
-                experienceMatch={matchSession?.analysis?.experience_match ?? experienceMatch}
-                educationMatch={matchSession?.analysis?.education_match ?? educationMatch}
-              />
-            )}
+            {/* How you fit this role — reuses the data-wired competency panel.
+                The ring shows the skill-based readiness; the AI composite stays
+                in the chat/AI Fit metric so the two scores don't conflate. */}
+            {competency && <CompetencyTable competency={competency} experienceMatch={matchSession?.analysis?.experience_match ?? experienceMatch} educationMatch={matchSession?.analysis?.education_match ?? educationMatch} />}
 
             {/* About the Company */}
             <SectionCard icon={<BookOpen className="size-5 text-neon-purple" />} title="About the Company">
@@ -457,7 +426,11 @@ export function JobDetailPageRedesign() {
                   </div>
                   <p className="col-span-2 text-sm leading-[22px] text-white/70">{job.page?.description || "Company description not available."}</p>
                   {job.page?.id && (
-                    <Button variant="outline" onClick={() => router.push(`/pages/${job.page!.id}`)} className="col-span-2 mt-1 h-auto w-full rounded-full border-[1.5px] border-white/20 bg-transparent px-4 py-3 text-sm text-white hover:bg-white/5 sm:w-fit lg:px-6 lg:py-3.5">
+                    <Button
+                      variant="outline"
+                      onClick={() => router.push(`/pages/${job.page!.id}`)}
+                      className="col-span-2 mt-1 h-auto w-full rounded-full border-[1.5px] border-white/20 bg-transparent px-4 py-3 text-sm text-white hover:bg-white/5 sm:w-fit lg:px-6 lg:py-3.5"
+                    >
                       Visit Company Page
                     </Button>
                   )}
@@ -536,12 +509,7 @@ export function JobDetailPageRedesign() {
         <div className="flex flex-col gap-3 lg:hidden">
           <div className="flex items-center gap-3">
             {isAuthenticated && (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleSave}
-                className="h-auto flex-1 rounded-full border-[1.5px] border-white/20 bg-transparent px-6 py-3.5 text-sm text-white hover:bg-white/5"
-              >
+              <Button type="button" variant="outline" onClick={handleSave} className="h-auto flex-1 rounded-full border-[1.5px] border-white/20 bg-transparent px-6 py-3.5 text-sm text-white hover:bg-white/5">
                 {saved ? "Saved" : "Save job"}
               </Button>
             )}
@@ -556,13 +524,7 @@ export function JobDetailPageRedesign() {
         </div>
       </div>
 
-      <MatchChatDrawer
-        isOpen={matchOpen}
-        onClose={() => setMatchOpen(false)}
-        jobId={String(job.id)}
-        jobTitle={title}
-        company={companyName}
-      />
+      <MatchChatDrawer isOpen={matchOpen} onClose={() => setMatchOpen(false)} jobId={String(job.id)} jobTitle={title} company={companyName} />
 
       <QuickApplyModal
         isOpen={showQuickApplyModal}
@@ -585,9 +547,7 @@ function ShareButton({ children, onClick, active }: { children: React.ReactNode;
   return (
     <button
       onClick={onClick}
-      className={`flex size-9 items-center justify-center rounded-[20px] transition-colors lg:size-10 ${
-        active ? "bg-neon-cyan text-white" : "border border-glass-border bg-white/[0.03] text-white/80 hover:text-white"
-      }`}
+      className={`flex size-9 items-center justify-center rounded-[20px] transition-colors lg:size-10 ${active ? "bg-neon-cyan text-white" : "border border-glass-border bg-white/[0.03] text-white/80 hover:text-white"}`}
     >
       {children}
     </button>
@@ -606,4 +566,4 @@ function SectionCard({ icon, title, titleSize = "text-lg lg:text-xl", children }
   );
 }
 
-export default JobDetailPageRedesign;
+export default JobDetail;
