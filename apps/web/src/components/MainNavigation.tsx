@@ -20,7 +20,7 @@ interface MainNavigationProps {
 // Main navigation items (bottom nav)
 const mainNavigationItems: NavigationItem[] = [
   { id: "profile", label: "My Space", icon: Home, url: "/" },
-  { id: "jobs", label: "Jobs", icon: Briefcase, badge: 12, url: "/jobs/smart_matches" },
+  { id: "jobs", label: "Jobs", icon: Briefcase, badge: 12, url: "/jobs/smart-matches" },
   { id: "pages", label: "Pages", icon: FileText, url: "/pages" },
 ];
 

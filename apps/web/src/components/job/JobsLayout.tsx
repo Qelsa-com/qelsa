@@ -70,7 +70,7 @@ const Layout = ({ active_job_page, children, jobs, filters, setFilters, query, s
           <div className="mt-6">
             <div className="glass-strong border-glass-border w-fit p-0.5 rounded-2xl flex space-x-1">
               {user && isAuthenticated && (
-                <Button onClick={() => router.push("/jobs/smart_matches")} variant="outline" className={active_job_page === "smart_matches" ? "bg-neon-cyan/20 text-neon-cyan" : ""}>
+                <Button onClick={() => router.push("/jobs/smart-matches")} variant="outline" className={active_job_page === "smart-matches" ? "bg-neon-cyan/20 text-neon-cyan" : ""}>
                   <Sparkles className="w-4 h-4 mr-2" />
                   Smart Matches
                 </Button>

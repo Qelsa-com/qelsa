@@ -2,6 +2,7 @@
 
 import { api } from "@/lib/convexApi";
 import { useConvexMutationHook, useConvexQueryHook, useLazyConvexQueryHook } from "@/lib/convexHooks";
+import type { Job } from "@/types/job";
 import { useAction, usePaginatedQuery } from "convex/react";
 import type { JobFilters } from "./utils/buildJobQueryParams";
 
@@ -31,6 +32,8 @@ function jobListArgs(filters?: JobFilters | Record<string, string> | void) {
     page_id: record.page_id,
     posted_within: record.posted_within,
     now: record.now,
+    min_readiness: typeof record.min_readiness === "number" ? record.min_readiness : undefined,
+    max_readiness: typeof record.max_readiness === "number" ? record.max_readiness : undefined,
   });
 }
 
@@ -56,13 +59,25 @@ export function useLazyGetDiscoverJobsQuery() {
  * the Convex client, so navigating back/forward or re-filtering reuses loaded
  * pages instead of refetching everything. Use `loadMore(pageSize)` to grow.
  */
-export function usePaginatedJobsQuery(filters?: JobFilters | Record<string, string> | void, pageSize = 12) {
+export function usePaginatedJobsQuery(filters?: JobFilters | Record<string, string> | void, pageSize = 20) {
   const args = jobListArgs(filters);
   return usePaginatedQuery(api.jobs.listPaginated, args as never, { initialNumItems: pageSize });
 }
 
 export function useCountJobsQuery(filters?: JobFilters | Record<string, string> | void, options?: { skip?: boolean }) {
   return useConvexQueryHook(api.jobs.countFiltered, jobListArgs(filters), options);
+}
+
+export type MatchTiersResult = {
+  ready: Job[];
+  almost: Job[];
+  readyTotal: number;
+  almostTotal: number;
+  hasRoleProfile: boolean;
+};
+
+export function useMatchTiersQuery(filters?: JobFilters | Record<string, string> | void, options?: { skip?: boolean }) {
+  return useConvexQueryHook<ReturnType<typeof jobListArgs>, MatchTiersResult>(api.jobs.listMatchTiers, jobListArgs(filters), options);
 }
 export function useGetAppliedJobsQuery(filters?: Record<string, string> | void, options?: { skip?: boolean }) {
   return useConvexQueryHook(api.jobs.listApplied, { search: filters && "search" in filters ? filters.search : undefined, status: filters && "status" in filters ? filters.status : undefined }, options);

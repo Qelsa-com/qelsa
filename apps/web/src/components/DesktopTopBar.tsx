@@ -19,7 +19,7 @@ import { useRouter } from "next/navigation";
  */
 const NAV_LINKS = [
   { id: "profile", label: "Qelsa AI", href: "/" },
-  { id: "jobs", label: "Jobs", href: "/jobs/smart_matches" },
+  { id: "jobs", label: "Jobs", href: "/jobs/smart-matches" },
   { id: "connections", label: "Network", href: "/network" },
   { id: "pages", label: "Pages", href: "/pages" },
   { id: "courses", label: "Courses", href: "/courses" },

@@ -21,7 +21,7 @@ Wire the screens in `plans/hr-journey/` and `plans/candidate-journey/` into a re
 ```
 /auth (Google or email OTP)
   └─ role: seeker | recruiter
-       ├─ seeker  → /onboarding  (intent 1/2 → ready 2/2 → /jobs/smart_matches)
+       ├─ seeker  → /onboarding  (intent 1/2 → ready 2/2 → /jobs/smart-matches)
        └─ recruiter → /onboarding (company 1/4 → seat 2/4 → about 3/4 → ready → /jobs/posted)
 ```
 

@@ -23,11 +23,12 @@ import { useGetEducationsQuery } from "@/features/api/educationsApi";
 import { useGetExperiencesQuery } from "@/features/api/experiencesApi";
 import { useLazySearchCitiesQuery } from "@/features/api/seedApi";
 import { useGetUserSkillsQuery } from "@/features/api/userSkillsApi";
+import { MATCH_TIER, matchRingColor, type MatchTierId } from "@/lib/matchTiers";
 import { City } from "@/types/city";
 import { Job } from "@/types/job";
-import { Building2, Check, ChevronDown, MapPin, Search, X } from "lucide-react";
+import { Building2, Check, ChevronDown, MapPin, Search, Sparkles, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 /* --------------------------------- types ---------------------------------- */
 
@@ -43,13 +44,31 @@ export interface SearchFilters {
   sort_by: "relevance" | "date" | "salary";
   /** Recency window. Empty string = any time (pill stays labeled "Date posted"). */
   date_posted: "" | "24h" | "week" | "month";
+  min_readiness?: number;
+  max_readiness?: number;
 }
+
+export const EMPTY_SEARCH_FILTERS: SearchFilters = {
+  cities: [],
+  job_types: [],
+  experience_levels: [],
+  departments: [],
+  workplace_types: [],
+  sort_by: "relevance",
+  date_posted: "",
+};
 
 export const DATE_POSTED_OPTIONS: { label: string; value: SearchFilters["date_posted"] }[] = [
   { label: "Any time", value: "" },
   { label: "Past 24 hours", value: "24h" },
   { label: "Past week", value: "week" },
   { label: "Past month", value: "month" },
+];
+
+export const SORT_OPTIONS: { label: string; value: SearchFilters["sort_by"] }[] = [
+  { label: "Best match", value: "relevance" },
+  { label: "Newest", value: "date" },
+  { label: "Highest salary", value: "salary" },
 ];
 
 export const WORKPLACE_TYPE_OPTIONS = [
@@ -212,9 +231,7 @@ export function matchScore(job: Job): number | null {
 }
 
 function ringColor(score: number): string {
-  if (score >= 85) return "#10b981";
-  if (score >= 83) return "#0ea5e9";
-  return "#f59e0b";
+  return matchRingColor(score);
 }
 
 const LOGO_TINTS = ["#0ea5e9", "#7c3aed", "#10b981", "#ec4899", "#f59e0b"];
@@ -240,7 +257,32 @@ export function toDiscoverArgs(filters: SearchFilters, search: string) {
     sort_by: filters.sort_by,
     posted_within: filters.date_posted || undefined,
     now: filters.date_posted ? Math.floor(Date.now() / RECENCY_BUCKET_MS) * RECENCY_BUCKET_MS : undefined,
+    min_readiness: filters.min_readiness,
+    max_readiness: filters.max_readiness,
   };
+}
+
+export function useJobBrowseFilters(tier?: MatchTierId) {
+  const [query, setQuery] = useState("");
+  const [searchInput, setSearchInput] = useState("");
+  const [cityFilter, setCityFilter] = useState<City | null>(null);
+  const [filters, setFilters] = useState<SearchFilters>(() => ({
+    ...EMPTY_SEARCH_FILTERS,
+    min_readiness: tier ? MATCH_TIER[tier].minReadiness : undefined,
+    max_readiness: tier ? MATCH_TIER[tier].maxReadiness : undefined,
+  }));
+
+  useEffect(() => {
+    const t = setTimeout(() => setQuery(searchInput), 300);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
+  const discoverArgs = useMemo(() => toDiscoverArgs(filters, query), [filters, query]);
+  const applyFilters = (partial: Partial<SearchFilters>) => {
+    setFilters((prev) => ({ ...prev, ...partial }));
+  };
+
+  return { searchInput, setSearchInput, query, filters, applyFilters, discoverArgs, cityFilter, setCityFilter };
 }
 
 /* ------------------------------ job card ---------------------------------- */
@@ -264,7 +306,7 @@ export function JobCard({ job, onClick }: { job: Job; onClick: () => void }) {
     >
       <div className="flex items-center justify-between">
         <div
-          className="flex size-9 items-center justify-center overflow-hidden rounded-full"
+          className="flex size-9 items-center justify-center overflow-hidden rounded-lg"
           style={hasLogo ? undefined : { backgroundColor: `${tint}22`, border: `1px solid ${tint}55` }}
         >
           <CompanyLogo job={job} name={company} fallback={<Building2 className="size-4" style={{ color: tint }} />} />
@@ -478,7 +520,7 @@ function useIsMobile(): boolean {
 }
 
 interface JobsBrowseHeaderProps {
-  activeTab: "smart_matches" | "all";
+  activeTab: "smart-matches" | "all";
   query: string;
   setQuery: (v: string) => void;
   onSearch: () => void;
@@ -620,12 +662,20 @@ export function JobsBrowseHeader({
 
       {/* View tabs */}
       <div className="flex items-center gap-2 sm:gap-0">
-        <TabButton active={activeTab === "smart_matches"} label="Smart Matches" onClick={() => router.push("/jobs/smart_matches")} />
+        <TabButton active={activeTab === "smart-matches"} label="Smart Matches" onClick={() => router.push("/jobs/smart-matches")} />
         <TabButton active={activeTab === "all"} label="All Jobs" onClick={() => router.push("/jobs/all")} />
       </div>
 
       {/* Filter pills */}
       <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+        {activeTab === "all" && (
+          <PillDropdown
+            label="Sort"
+            value={filters.sort_by}
+            options={SORT_OPTIONS}
+            onSelect={(v) => onApplyFilters({ sort_by: v as SearchFilters["sort_by"] })}
+          />
+        )}
         <PillDropdown
           label="Date posted"
           value={filters.date_posted}
@@ -679,5 +729,81 @@ function TabButton({ active, label, onClick }: { active: boolean; label: string;
       <span className={`text-sm font-semibold transition-colors sm:text-[15px] ${active ? "text-white" : "text-white/50 hover:text-white/80"}`}>{label}</span>
       <span className={`mt-1 h-0.5 w-full rounded-full ${active ? "bg-neon-cyan" : "bg-transparent"}`} />
     </button>
+  );
+}
+
+export function MatchSection({
+  dotColor,
+  title,
+  subtitle,
+  viewAllHref,
+  children,
+}: {
+  dotColor: string;
+  title: string;
+  subtitle: string;
+  viewAllHref?: string;
+  children: ReactNode;
+}) {
+  const router = useRouter();
+  return (
+    <div className="flex flex-col gap-4 sm:gap-6">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex min-w-0 flex-col gap-1 sm:gap-2">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: dotColor }} />
+            <h2 className="text-xl font-bold text-white sm:text-2xl">{title}</h2>
+          </div>
+          <p className="text-[13px] text-white/45 sm:text-sm">{subtitle}</p>
+        </div>
+        {viewAllHref && (
+          <button
+            type="button"
+            onClick={() => router.push(viewAllHref)}
+            className="shrink-0 pt-0.5 text-[13px] font-semibold text-white/50 transition-colors hover:text-white sm:text-sm"
+          >
+            View All
+          </button>
+        )}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+export function MatchEmptyState({
+  title,
+  subtitle,
+  actionLabel,
+  onAction,
+}: {
+  title: string;
+  subtitle: string;
+  actionLabel: string;
+  onAction: () => void;
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center rounded-2xl border border-glass-border bg-white/[0.03] px-6 py-12 text-center sm:rounded-[20px] sm:px-10 sm:py-16">
+      <Sparkles className="size-6 text-neon-cyan sm:size-7" strokeWidth={1.75} />
+      <p className="mt-5 text-lg font-bold text-white sm:text-xl">{title}</p>
+      <p className="mt-2 max-w-md text-[13px] leading-relaxed text-white/45 sm:text-sm">{subtitle}</p>
+      <button
+        type="button"
+        onClick={onAction}
+        className="mt-6 rounded-full border border-neon-cyan/50 px-5 py-2.5 text-[13px] font-semibold text-neon-cyan transition-colors hover:bg-neon-cyan/10 sm:px-6 sm:text-sm"
+      >
+        {actionLabel}
+      </button>
+    </div>
+  );
+}
+
+export function JobGrid({ jobs, onOpen }: { jobs: Job[]; onOpen: (id: string | number) => void }) {
+  return (
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
+      {jobs.map((job) => (
+        <JobCard key={job.id} job={job} onClick={() => onOpen(job.id)} />
+      ))}
+    </div>
   );
 }

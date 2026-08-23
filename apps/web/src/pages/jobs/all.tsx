@@ -1,52 +1,22 @@
-import { JobCard, JobsBrowseHeader, SearchFilters, toDiscoverArgs } from "@/components/job/jobBrowseShared";
+import { JobGrid, JobsBrowseHeader, useJobBrowseFilters } from "@/components/job/jobBrowseShared";
 import { JOBS_PAGE_SIZE, JobsFeedPager } from "@/components/job/JobsFeedPager";
 import { AllJobsGridSkeleton } from "@/components/job/jobSkeletons";
 import { useCountJobsQuery, usePaginatedJobsQuery } from "@/features/api/jobsApi";
-import { City } from "@/types/city";
 import { Job } from "@/types/job";
 import { Search } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
 import Layout from "../../layout";
 
 /* --------------------------------- page ----------------------------------- */
 
 const All = () => {
   const router = useRouter();
-
-  const [query, setQuery] = useState("");
-  const [cityFilter, setCityFilter] = useState<City | null>(null);
-
-  const [filters, setFilters] = useState<SearchFilters>({
-    cities: [],
-    job_types: [],
-    experience_levels: [],
-    departments: [],
-    workplace_types: [],
-    sort_by: "relevance",
-    date_posted: "",
-  });
-
-  // Debounce the search box so each keystroke doesn't restart the pagination.
-  const [searchInput, setSearchInput] = useState("");
-  useEffect(() => {
-    const t = setTimeout(() => setQuery(searchInput), 300);
-    return () => clearTimeout(t);
-  }, [searchInput]);
-
-  // Reactive paginated query — Convex caches each loaded page and reuses them
-  // across filter/search changes, so we never refetch the whole set.
-  const discoverArgs = useMemo(() => toDiscoverArgs(filters, query), [filters, query]);
+  const { searchInput, setSearchInput, filters, applyFilters, discoverArgs, cityFilter, setCityFilter } = useJobBrowseFilters();
   const { results, status, isLoading, loadMore } = usePaginatedJobsQuery(discoverArgs, JOBS_PAGE_SIZE);
   const { data: filteredTotal } = useCountJobsQuery(discoverArgs);
   const jobs = (results as Job[]) ?? [];
   const loaded = jobs.length;
   const total = typeof filteredTotal === "number" ? filteredTotal : undefined;
-
-  const applyFilters = (partial: Partial<SearchFilters>) => {
-    setFilters((prev) => ({ ...prev, ...partial }));
-  };
-
   const isInitialLoading = isLoading && loaded === 0;
 
   return (
@@ -56,7 +26,7 @@ const All = () => {
           activeTab="all"
           query={searchInput}
           setQuery={setSearchInput}
-          onSearch={() => setQuery(searchInput)}
+          onSearch={() => undefined}
           filters={filters}
           onApplyFilters={applyFilters}
           cityFilter={cityFilter}
@@ -70,11 +40,7 @@ const All = () => {
             <AllJobsGridSkeleton />
           ) : loaded > 0 ? (
             <>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
-                {jobs.map((job) => (
-                  <JobCard key={job.id} job={job} onClick={() => router.push(`/jobs/${job.id}`)} />
-                ))}
-              </div>
+              <JobGrid jobs={jobs} onOpen={(id) => router.push(`/jobs/${id}`)} />
             </>
           ) : status === "Exhausted" ? (
             <div className="flex flex-col items-center gap-4 py-12 text-center sm:py-16">

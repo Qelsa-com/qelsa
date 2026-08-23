@@ -58,12 +58,15 @@ export function SmartMatchesSkeleton() {
       <span className="sr-only">Loading matches</span>
       {range(2).map((section) => (
         <div key={section} className="flex flex-col gap-4 sm:gap-6">
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-3">
-              <Bone className="size-2 rounded-full" />
-              <Bone className="h-7 w-36" />
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-3">
+                <Bone className="size-2 rounded-full" />
+                <Bone className="h-7 w-36" />
+              </div>
+              <Bone className="h-4 w-72 max-w-full" />
             </div>
-            <Bone className="h-4 w-72 max-w-full" />
+            <Bone className="mt-1 h-4 w-16" />
           </div>
           <JobCardGridSkeleton count={4} columns={4} />
         </div>
@@ -77,7 +80,7 @@ export function AllJobsGridSkeleton() {
     <div className="flex flex-col gap-4 sm:gap-6" role="status" aria-label="Loading jobs">
       <span className="sr-only">Loading jobs</span>
       <Bone className="h-4 w-40" />
-      <JobCardGridSkeleton count={12} columns={4} />
+      <JobCardGridSkeleton count={20} columns={4} />
     </div>
   );
 }
