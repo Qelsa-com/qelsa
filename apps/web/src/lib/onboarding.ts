@@ -11,5 +11,5 @@ export function homeForAccount(user: User | null | undefined) {
   if (user?.account_type === "recruiter") {
     return user.active_page_id ? `/pages/${user.active_page_id}` : "/jobs/posted";
   }
-  return "/jobs/smart_matches";
+  return "/jobs/smart-matches";
 }

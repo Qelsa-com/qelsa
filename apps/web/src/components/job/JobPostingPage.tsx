@@ -402,7 +402,7 @@ export function JobPostingPage() {
       const result = await createJob(payload).unwrap();
       toast.success("Job published successfully.");
       const newId = (result as { id?: number })?.id;
-      router.push(newId ? `/jobs/${newId}` : "/jobs/smart_matches");
+      router.push(newId ? `/jobs/${newId}` : "/jobs/smart-matches");
     } catch (err) {
       console.error("Job creation failed:", err);
       toast.error("Could not publish the job. Please try again.");
@@ -415,7 +415,7 @@ export function JobPostingPage() {
   return (
     <div className="mx-auto w-full max-w-[1200px] px-6 pb-32 pt-6 text-white md:px-12">
       {/* Breadcrumb */}
-      <button onClick={() => router.push("/jobs/smart_matches")} className="mb-6 flex items-center gap-2 text-sm text-white/70 transition-colors hover:text-white">
+      <button onClick={() => router.push("/jobs/smart-matches")} className="mb-6 flex items-center gap-2 text-sm text-white/70 transition-colors hover:text-white">
         <ArrowLeft className="size-4" />
         Back to Jobs
       </button>

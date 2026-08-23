@@ -7,8 +7,31 @@ import { adminMutation, authedMutation, authedQuery, optionalAuthQuery } from ".
 import { deleteJobCascade } from "./lib/deleteUserData";
 import { iso, withId } from "./lib/helpers";
 import { closeMissingAtsJobsPage as closeAtsJobsPage } from "./lib/atsJobReconcile";
+import {
+  BROWSE_SCAN,
+  emptyRelationCache,
+  prefetchCities,
+  rankCandidates,
+  scoreReadiness,
+  SCORE_CAP,
+  slimListJobs,
+  sortEnrichedJobs,
+  findSimilarOpenJobs,
+  jobsMatchingRoleTitles,
+  type BrowseCandidate,
+} from "./lib/jobBrowse";
 import { bumpJobCount, bumpOpenJobCount, ensureJobStats, ensureOpenJobCount, getJobCounts, getOpenJobCount, openCountDelta } from "./lib/jobCounts";
 import { jobNeedsSkillEnrichment } from "./lib/jobSkillExtraction";
+import {
+  hasRoleProfile,
+  isAlmostThere,
+  isReadyNow,
+  jobMatchesUserRole,
+  loadUserRoleProfile,
+  ROLE_SCAN,
+  scoreInRange,
+  type UserRoleProfile,
+} from "./lib/jobProfileMatch";
 import { buildCompetencyFramework, clipPlainText } from "./lib/skillMatch";
 
 type SkillCache = Map<Id<"skills">, Doc<"skills"> | null>;
@@ -179,6 +202,16 @@ function matchesFilters(job: Doc<"jobs">, cityName: string | null, args: Record<
   return true;
 }
 
+function jobTitleText(job: Doc<"jobs">) {
+  return job.title ?? null;
+}
+
+function matchesUserRole(job: Doc<"jobs">, profile: UserRoleProfile | null) {
+  if (!profile) return true;
+  if (!hasRoleProfile(profile)) return false;
+  return jobMatchesUserRole(job.job_title_id, jobTitleText(job), profile);
+}
+
 async function openJobs(ctx: QueryCtx, limit: number) {
   return await ctx.db
     .query("jobs")
@@ -206,27 +239,53 @@ export const list = optionalAuthQuery({
   handler: async (ctx, args) => {
     const open = await openJobs(ctx, 100);
     const hydration = await listHydration(ctx, ctx.user);
+    const profile = ctx.user ? await loadUserRoleProfile(ctx, ctx.user) : null;
     const results = [];
     for (const job of open) {
       const city = job.city_id ? await ctx.db.get(job.city_id) : null;
       if (!matchesFilters(job, city?.name ?? null, { ...args, cities: args.cities ?? (args.city ? [args.city] : []) })) {
         continue;
       }
+      if (!matchesUserRole(job, profile)) continue;
       results.push(await enrichJob(ctx, job, ctx.user, hydration));
     }
-    if (args.sort_by === "salary") {
-      results.sort((a, b) => ((b.salary_max ?? b.salary ?? 0) as number) - ((a.salary_max ?? a.salary ?? 0) as number));
-    }
+    sortEnrichedJobs(results, args.sort_by);
     return results;
   },
 });
 
+const BROWSE_CURSOR_PREFIX = "qelsa";
+const RANK_CURSOR_PREFIX = "qelsa-rank:";
+
+function encodeBrowseCursor(job: Doc<"jobs">) {
+  return `${BROWSE_CURSOR_PREFIX}:${job.published_date ?? job._creationTime}:${job._id}`;
+}
+
+function decodeBrowseCursor(cursor: string | null) {
+  if (!cursor || !cursor.startsWith(`${BROWSE_CURSOR_PREFIX}:`)) return null;
+  const rest = cursor.slice(BROWSE_CURSOR_PREFIX.length + 1);
+  const sep = rest.lastIndexOf(":");
+  if (sep <= 0) return null;
+  const published_date = Number(rest.slice(0, sep));
+  const id = rest.slice(sep + 1) as Id<"jobs">;
+  if (!Number.isFinite(published_date) || !id) return null;
+  return { published_date, id };
+}
+
+function encodeRankCursor(id: string) {
+  return `${RANK_CURSOR_PREFIX}${id}`;
+}
+
+function decodeRankCursor(cursor: string | null) {
+  if (!cursor || !cursor.startsWith(RANK_CURSOR_PREFIX)) return null;
+  const id = cursor.slice(RANK_CURSOR_PREFIX.length);
+  return id || null;
+}
+
 /**
- * Paginated job browse. Uses cursor pagination so the client can load jobs in
- * chunks (with per-page caching via usePaginatedQuery) instead of pulling the
- * whole open set at once. Filters that can't use an index (search, city, salary,
- * recency) are applied in-memory per page, so a page may occasionally return
- * fewer than numItems — the cursor still advances correctly.
+ * Paginated job browse. Role, score, and listing filters run on the server
+ * before anything is returned. Each page is filled up to numItems matches so
+ * the client only renders what it receives.
  */
 export const listPaginated = optionalAuthQuery({
   args: {
@@ -243,50 +302,133 @@ export const listPaginated = optionalAuthQuery({
     page_id: v.optional(v.string()),
     posted_within: v.optional(v.union(v.literal("24h"), v.literal("week"), v.literal("month"))),
     now: v.optional(v.number()),
+    min_readiness: v.optional(v.number()),
+    max_readiness: v.optional(v.number()),
   },
   returns: v.any(),
   handler: async (ctx, args) => {
     const { paginationOpts, ...filterArgs } = args;
     const search = ((filterArgs.search as string | undefined) ?? "").trim();
+    const minReadiness = filterArgs.min_readiness as number | undefined;
+    const maxReadiness = filterArgs.max_readiness as number | undefined;
+    const scoreFilter = minReadiness != null || maxReadiness != null;
+    const target = paginationOpts.numItems;
+    const [hydration, profile] = await Promise.all([
+      listHydration(ctx, ctx.user, false),
+      ctx.user ? loadUserRoleProfile(ctx, ctx.user) : Promise.resolve(null),
+    ]);
 
-    // usePaginatedQuery requires the Convex PaginationResult shape (`page`,
-    // not `results`). Search uses the title index; the default browse path
-    // walks open jobs newest-first via by_status_and_published.
-    const paged = search
-      ? await ctx.db
-          .query("jobs")
-          .withSearchIndex("search_title", (q) => q.search("title", search))
-          .paginate(paginationOpts)
-      : await ctx.db
-          .query("jobs")
-          .withIndex("by_status_and_published", (q) => q.eq("status", "open"))
-          .order("desc")
-          .paginate(paginationOpts);
+    const sortBy = typeof filterArgs.sort_by === "string" ? filterArgs.sort_by : undefined;
+    const canScore = Boolean(ctx.user);
+    const shouldScore = canScore && (scoreFilter || (sortBy !== "date" && sortBy !== "salary"));
+    const newestFirst = sortBy === "date" || (!shouldScore && sortBy !== "salary");
+    const cities = (filterArgs.cities as string[] | undefined) ?? (filterArgs.city ? [filterArgs.city] : []);
+    const needsCity = cities.length > 0;
+    const cache = emptyRelationCache();
 
-    const hydration = await listHydration(ctx, ctx.user);
-    const page = [];
-    for (const job of paged.page) {
-      if (search && job.status !== "open") continue;
-      const city = job.city_id ? await ctx.db.get(job.city_id) : null;
-      if (
-        !matchesFilters(job, city?.name ?? null, {
-          ...filterArgs,
-          cities: filterArgs.cities ?? (filterArgs.city ? [filterArgs.city] : []),
-        })
-      ) {
+    const passesListing = (job: Doc<"jobs">) => {
+      if (search && job.status !== "open") return false;
+      const cityName = needsCity && job.city_id ? (cache.cities.get(job.city_id)?.name ?? null) : null;
+      if (!matchesFilters(job, cityName, { ...filterArgs, cities })) return false;
+      return matchesUserRole(job, profile);
+    };
+
+    const toCandidates = async (jobs: Doc<"jobs">[], stopAt?: number): Promise<BrowseCandidate[]> => {
+      if (needsCity) await prefetchCities(ctx, jobs, cache);
+      const matched: Doc<"jobs">[] = [];
+      for (const job of jobs) {
+        if (!passesListing(job)) continue;
+        matched.push(job);
+        if (shouldScore && matched.length >= SCORE_CAP) break;
+        if (!shouldScore && stopAt != null && matched.length >= stopAt) break;
+      }
+      if (scoreFilter && !canScore) return [];
+      const scores = shouldScore ? await scoreReadiness(ctx, matched, hydration.userSkills) : null;
+      const candidates: BrowseCandidate[] = [];
+      for (const job of matched) {
+        const readiness = scores?.get(job._id) ?? null;
+        if (scoreFilter && !scoreInRange(readiness, minReadiness, maxReadiness)) continue;
+        candidates.push({ job, readiness });
+        if (stopAt != null && candidates.length >= stopAt) break;
+      }
+      return candidates;
+    };
+
+    if (search) {
+      const paged = await ctx.db
+        .query("jobs")
+        .withSearchIndex("search_title", (q) => q.search("title", search))
+        .paginate({ ...paginationOpts, numItems: Math.min(80, Math.max(target * 4, 32)) });
+      const candidates = await toCandidates(paged.page, newestFirst ? target : undefined);
+      if (!newestFirst) rankCandidates(candidates, sortBy);
+      const slice = newestFirst ? candidates : candidates.slice(0, target);
+      return {
+        page: await slimListJobs(ctx, slice, hydration, cache),
+        isDone: paged.isDone && (newestFirst ? candidates.length < target : candidates.length <= target),
+        continueCursor: paged.continueCursor,
+      };
+    }
+
+    if (!newestFirst) {
+      const [newest, titled] = await Promise.all([
+        openJobs(ctx, BROWSE_SCAN),
+        profile && hasRoleProfile(profile) ? jobsMatchingRoleTitles(ctx, profile) : Promise.resolve([]),
+      ]);
+      const seen = new Set(titled.map((job) => job._id));
+      const scanned = [...titled, ...newest.filter((job) => !seen.has(job._id))];
+      const candidates = await toCandidates(scanned);
+      rankCandidates(candidates, sortBy);
+      const afterId = decodeRankCursor(paginationOpts.cursor);
+      const afterIndex = afterId ? candidates.findIndex((item) => item.job._id === afterId) : -1;
+      if (afterId && afterIndex < 0) {
+        return { page: [], isDone: true, continueCursor: paginationOpts.cursor ?? "" };
+      }
+      const start = afterId ? afterIndex + 1 : 0;
+      const slice = candidates.slice(start, start + target);
+      const last = slice[slice.length - 1];
+      return {
+        page: await slimListJobs(ctx, slice, hydration, cache),
+        isDone: start + slice.length >= candidates.length,
+        continueCursor: last ? encodeRankCursor(last.job._id) : (paginationOpts.cursor ?? ""),
+      };
+    }
+
+    const cursor = decodeBrowseCursor(paginationOpts.cursor);
+    const scanned = await ctx.db
+      .query("jobs")
+      .withIndex("by_status_and_published", (q) =>
+        cursor ? q.eq("status", "open").lte("published_date", cursor.published_date) : q.eq("status", "open"),
+      )
+      .order("desc")
+      .take(BROWSE_SCAN);
+    if (needsCity) await prefetchCities(ctx, scanned, cache);
+
+    const picked: BrowseCandidate[] = [];
+    let pastCursor = cursor == null;
+    let lastExamined: Doc<"jobs"> | null = null;
+    const consider = (job: Doc<"jobs">) => {
+      lastExamined = job;
+      if (passesListing(job)) picked.push({ job, readiness: null });
+    };
+    for (const job of scanned) {
+      if (!pastCursor && cursor) {
+        if (job._id === cursor.id) pastCursor = true;
         continue;
       }
-      page.push(await enrichJob(ctx, job, ctx.user, hydration));
+      consider(job);
+      if (picked.length >= target) break;
     }
-    if (filterArgs.sort_by === "salary") {
-      page.sort((a, b) => ((b.salary_max ?? b.salary ?? 0) as number) - ((a.salary_max ?? a.salary ?? 0) as number));
+    if (cursor && !pastCursor) {
+      for (const job of scanned) {
+        consider(job);
+        if (picked.length >= target) break;
+      }
     }
+
     return {
-      page,
-      isDone: paged.isDone,
-      continueCursor: paged.continueCursor,
-      splitCursor: paged.splitCursor,
-      pageStatus: paged.pageStatus,
+      page: await slimListJobs(ctx, picked, hydration, cache),
+      isDone: scanned.length < BROWSE_SCAN && picked.length < target,
+      continueCursor: lastExamined ? encodeBrowseCursor(lastExamined) : (paginationOpts.cursor ?? ""),
     };
   },
 });
@@ -304,6 +446,8 @@ const browseFilterArgs = {
   page_id: v.optional(v.string()),
   posted_within: v.optional(v.union(v.literal("24h"), v.literal("week"), v.literal("month"))),
   now: v.optional(v.number()),
+  min_readiness: v.optional(v.number()),
+  max_readiness: v.optional(v.number()),
 };
 
 function hasBrowseFilters(args: Record<string, unknown>) {
@@ -318,6 +462,8 @@ function hasBrowseFilters(args: Record<string, unknown>) {
       args.posted_within ||
       args.salary_min != null ||
       args.salary_max != null ||
+      args.min_readiness != null ||
+      args.max_readiness != null ||
       (cities && cities.length > 0) ||
       (jobTypes && jobTypes.length > 0) ||
       (workplaces && workplaces.length > 0),
@@ -329,8 +475,75 @@ export const countFiltered = optionalAuthQuery({
   args: browseFilterArgs,
   returns: v.union(v.number(), v.null()),
   handler: async (ctx, args) => {
-    if (hasBrowseFilters(args)) return null;
+    // Signed-in browse is role-filtered, so the global open counter would lie.
+    if (ctx.user || hasBrowseFilters(args)) return null;
     return await getOpenJobCount(ctx);
+  },
+});
+
+const matchTierJob = v.any();
+
+/** Homepage rails: top Ready Now / Almost There jobs for the signed-in user. */
+export const listMatchTiers = authedQuery({
+  args: browseFilterArgs,
+  returns: v.object({
+    ready: v.array(matchTierJob),
+    almost: v.array(matchTierJob),
+    readyTotal: v.number(),
+    almostTotal: v.number(),
+    hasRoleProfile: v.boolean(),
+  }),
+  handler: async (ctx, args) => {
+    const [profile, hydration] = await Promise.all([loadUserRoleProfile(ctx, ctx.user), listHydration(ctx, ctx.user, false)]);
+    if (!hasRoleProfile(profile)) {
+      return { ready: [], almost: [], readyTotal: 0, almostTotal: 0, hasRoleProfile: false };
+    }
+
+    const [newest, titled] = await Promise.all([
+      openJobs(ctx, ROLE_SCAN.TITLE_SCAN_LIMIT),
+      jobsMatchingRoleTitles(ctx, profile),
+    ]);
+    const seen = new Set(titled.map((job) => job._id));
+    const open = [...titled, ...newest.filter((job) => !seen.has(job._id))];
+    const cities = args.cities ?? (args.city ? [args.city] : []);
+    const needsCity = cities.length > 0;
+    const cache = emptyRelationCache();
+    if (needsCity) await prefetchCities(ctx, open, cache);
+
+    const matched: Doc<"jobs">[] = [];
+    for (const job of open) {
+      const cityName = needsCity && job.city_id ? (cache.cities.get(job.city_id)?.name ?? null) : null;
+      if (!matchesFilters(job, cityName, { ...args, cities })) continue;
+      if (!matchesUserRole(job, profile)) continue;
+      matched.push(job);
+      if (matched.length >= ROLE_SCAN.TITLE_MATCH_CAP) break;
+    }
+
+    const scores = await scoreReadiness(ctx, matched, hydration.userSkills);
+    const readyJobs: BrowseCandidate[] = [];
+    const almostJobs: BrowseCandidate[] = [];
+    for (const job of matched) {
+      const readiness = scores.get(job._id) ?? null;
+      if (isReadyNow(readiness)) readyJobs.push({ job, readiness });
+      else if (isAlmostThere(readiness)) almostJobs.push({ job, readiness });
+    }
+    rankCandidates(readyJobs, "relevance");
+    rankCandidates(almostJobs, "relevance");
+
+    const readyTop = readyJobs.slice(0, 4);
+    const almostTop = almostJobs.slice(0, 4);
+    const [ready, almost] = await Promise.all([
+      slimListJobs(ctx, readyTop, hydration, cache),
+      slimListJobs(ctx, almostTop, hydration, cache),
+    ]);
+
+    return {
+      ready,
+      almost,
+      readyTotal: readyJobs.length,
+      almostTotal: almostJobs.length,
+      hasRoleProfile: true,
+    };
   },
 });
 
@@ -343,11 +556,14 @@ export const matchCount = authedQuery({
   },
   returns: v.number(),
   handler: async (ctx, args) => {
-    const open = await openJobs(ctx, 400);
+    const open = await openJobs(ctx, ROLE_SCAN.TITLE_SCAN_LIMIT);
+    const needsCity = Boolean(args.cities?.length);
+    const cache = emptyRelationCache();
+    if (needsCity) await prefetchCities(ctx, open, cache);
     let count = 0;
     for (const job of open) {
-      const city = job.city_id ? await ctx.db.get(job.city_id) : null;
-      if (matchesFilters(job, city?.name ?? null, { ...args })) count++;
+      const cityName = needsCity && job.city_id ? (cache.cities.get(job.city_id)?.name ?? null) : null;
+      if (matchesFilters(job, cityName, { ...args })) count++;
     }
     return count;
   },
@@ -403,14 +619,15 @@ export const listSimilar = optionalAuthQuery({
   handler: async (ctx, args) => {
     const job = await ctx.db.get(args.id);
     if (!job) return [];
-    const open = await openJobs(ctx, 20);
+    const similar = await findSimilarOpenJobs(ctx, job, 4);
+    if (similar.length === 0) return [];
     const hydration = await listHydration(ctx, ctx.user, false);
-    const out = [];
-    for (const other of open) {
-      if (other._id === job._id) continue;
-      out.push(await enrichJob(ctx, other, ctx.user, hydration));
-    }
-    return out;
+    const readinessByJob = ctx.user ? await scoreReadiness(ctx, similar.map((item) => item.job), hydration.userSkills) : null;
+    return await slimListJobs(
+      ctx,
+      similar.map((item) => ({ ...item, readiness: readinessByJob?.get(item.job._id) ?? null })),
+      hydration,
+    );
   },
 });
 

@@ -8,7 +8,7 @@ import { useEffect, useState } from "react";
 
 const PUBLIC_ROUTES = ["/", "/start", "/login", "/register", "/auth", "/jobs/all", "/jobs", "/qelsa-ai", "/network", "/courses", "/blogs"];
 const ONBOARDING_EXEMPT = new Set(["/onboarding", "/auth", "/privacy", "/terms", "/cookies"]);
-const JOB_STATIC = new Set(["all", "posted", "smart_matches", "create-job", "match"]);
+const JOB_STATIC = new Set(["all", "posted", "smart-matches", "create-job", "match", "ready", "almost", "smart_matches"]);
 const PUBLIC_JOB = /^\/jobs\/([^/]+)$/;
 const PUBLIC_PROFILE = /^\/profile\/([^/]+)$/;
 const RESERVED_PROFILE_HANDLES = ["edit", "certifications", "educations", "skills", "work-experience"];

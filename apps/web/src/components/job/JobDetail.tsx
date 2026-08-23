@@ -63,18 +63,9 @@ function workplaceLabel(job: Job): string | null {
   return job.has_remote ? "Remote" : null;
 }
 
-/**
- * The similar-jobs endpoint may send the match score under a few names
- * (`fitScore` is a UI-only field; the API commonly uses snake_case). Read them
- * all defensively and normalise to a rounded 0–100 number.
- */
+/** Same readiness number as job cards and the details header. */
 function similarMatch(job: Job): number | null {
-  const fromCompetency = matchScore(job);
-  if (fromCompetency != null) return fromCompetency;
-  const bag = job as Record<string, unknown>;
-  const raw = job.fitScore ?? bag.fit_score ?? bag.match_score ?? bag.matchScore ?? bag.similarity;
-  const n = typeof raw === "string" ? Number(raw) : raw;
-  return typeof n === "number" && Number.isFinite(n) ? Math.round(n) : null;
+  return matchScore(job);
 }
 
 /** 1240 -> "1.2k", so a busy posting doesn't blow out the metric tile. */
@@ -191,10 +182,10 @@ export function JobDetail() {
 
   const overallMatch = matchSession?.analysis?.overall;
   const metrics = [
-    // Readiness is the deterministic skill-vs-skill match; the AI composite
-    // (whole profile) is shown separately as AI Fit.
+    // Readiness is the deterministic skill-vs-skill match; the composite
+    // (whole profile) is shown separately as Profile Fit.
     { label: "Readiness Score", value: competency ? `${competency.readiness}%` : "—" },
-    ...(overallMatch != null ? [{ label: "AI Fit", value: `${overallMatch}%` }] : []),
+    ...(overallMatch != null ? [{ label: "Profile Fit", value: `${overallMatch}%` }] : []),
     { label: "Views", value: formatCount(job.view_count ?? 0) },
     { label: "Applications", value: `${job.application_count ?? job.applications?.length ?? 0}` },
   ];
@@ -245,7 +236,7 @@ export function JobDetail() {
         {/* Breadcrumb + share sit on one row above the card. Desktop only —
             the mobile frame uses the header bar above instead. */}
         <div className="hidden w-full items-center justify-between lg:flex">
-          <button onClick={() => router.push("/jobs/smart_matches")} className="flex w-fit items-center gap-2 text-sm text-white/70 transition-colors hover:text-neon-cyan">
+          <button onClick={() => router.push("/jobs/smart-matches")} className="flex w-fit items-center gap-2 text-sm text-white/70 transition-colors hover:text-neon-cyan">
             <ArrowLeft className="size-4" />
             Back to jobs
           </button>
@@ -378,8 +369,8 @@ export function JobDetail() {
             )}
 
             {/* How you fit this role — reuses the data-wired competency panel.
-                The ring shows the skill-based readiness; the AI composite stays
-                in the chat/AI Fit metric so the two scores don't conflate. */}
+                The ring shows the skill-based readiness; the composite stays
+                in the Profile Fit metric so the two scores don't conflate. */}
             {competency && <CompetencyTable competency={competency} experienceMatch={matchSession?.analysis?.experience_match ?? experienceMatch} educationMatch={matchSession?.analysis?.education_match ?? educationMatch} />}
 
             {/* About the Company */}

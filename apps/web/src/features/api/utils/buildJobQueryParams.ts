@@ -14,6 +14,8 @@ export type JobFilters = {
   posted_within?: "24h" | "week" | "month";
   /** Client clock; required with `posted_within` so the query stays deterministic. */
   now?: number;
+  min_readiness?: number;
+  max_readiness?: number;
 };
 
 export const buildJobQueryParams = (filters?: JobFilters | void) => {

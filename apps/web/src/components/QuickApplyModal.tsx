@@ -197,7 +197,7 @@ export function QuickApplyModal({ isOpen, onClose, job, companyName, screeningQu
             }}
             onBrowseJobs={() => {
               onClose();
-              router.push("/jobs/smart_matches");
+              router.push("/jobs/smart-matches");
             }}
           />
         ) : (

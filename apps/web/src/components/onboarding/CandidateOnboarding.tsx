@@ -164,7 +164,7 @@ export function CandidateOnboarding({ onBack, onComplete }: { onBack: () => void
         )}
         {step === "ready" && (
           <motion.div key="ready" {...cardMotion}>
-            <ReadyCard onContinue={() => router.push("/jobs/smart_matches")} />
+            <ReadyCard onContinue={() => router.push("/jobs/smart-matches")} />
           </motion.div>
         )}
       </AnimatePresence>

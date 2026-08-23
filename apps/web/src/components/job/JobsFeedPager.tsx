@@ -3,7 +3,7 @@
 import { Loader2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-export const JOBS_PAGE_SIZE = 12;
+export const JOBS_PAGE_SIZE = 20;
 
 type PaginatedStatus = "LoadingFirstPage" | "CanLoadMore" | "LoadingMore" | "Exhausted";
 
@@ -31,7 +31,6 @@ export function JobsFeedPager({
   const isLoadingMore = status === "LoadingMore";
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const pendingRef = useRef(false);
-  const emptyAdvances = useRef(0);
   const [sentinelInView, setSentinelInView] = useState(false);
 
   const requestMore = useCallback(() => {
@@ -42,7 +41,6 @@ export function JobsFeedPager({
 
   useEffect(() => {
     if (status === "CanLoadMore") pendingRef.current = false;
-    if (status === "LoadingFirstPage") emptyAdvances.current = 0;
   }, [status]);
 
   useEffect(() => {
@@ -59,12 +57,6 @@ export function JobsFeedPager({
     observer.observe(el);
     return () => observer.disconnect();
   }, [requestMore]);
-
-  useEffect(() => {
-    if (!canLoadMore || loadedCount > 0 || emptyAdvances.current >= 6) return;
-    emptyAdvances.current += 1;
-    requestMore();
-  }, [canLoadMore, loadedCount, requestMore]);
 
   // Keep the sentinel mounted during search resets so the observer does not
   // remount and flash the Load more button over the skeleton grid.
