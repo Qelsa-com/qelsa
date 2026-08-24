@@ -39,7 +39,10 @@ export function PublicBoardRowSkeleton() {
         </div>
         <Bone className="h-3 w-44" />
       </div>
-      <Bone className="h-8 w-[84px] shrink-0 rounded-full" />
+      <div className="flex shrink-0 items-center gap-2">
+        <Bone className="h-8 w-[72px] rounded-full" />
+        <Bone className="h-8 w-[84px] rounded-full" />
+      </div>
     </div>
   );
 }

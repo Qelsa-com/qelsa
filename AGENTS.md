@@ -4,6 +4,21 @@ pnpm + Turborepo monorepo. `apps/web` is a Next.js 16 app (Pages Router under `a
 
 See `README.md` for the canonical setup/dev commands. Package scripts live in the root `package.json`, `apps/web/package.json`, and `packages/backend/package.json`.
 
+## Performance is a first-pass requirement
+
+Treat cost, latency, data growth, and external-service usage as acceptance criteria for every implementation—not cleanup for later.
+
+- Design for at least 10× current data and traffic. Do not ship an approach that requires a later rewrite to scale.
+- Skip work already completed: use stable fingerprints, timestamps, status fields, and idempotency keys; reuse cached or previously computed results.
+- Use the cheapest reliable path first: structured data and deterministic parsing before external APIs or LLMs.
+- Keep reads and writes bounded: use indexes and pagination; avoid growing-table scans, unbounded `.collect()`, per-row network calls, and N+1 queries.
+- Store current truth rather than cumulative side effects. Syncs must be idempotent and must not inflate counters, duplicate records, wipe richer data, or recompute unchanged rows.
+- Run expensive work only when required. Batch or schedule it, no-op when disabled or unchanged, and never attach it to render/request paths unnecessarily.
+- On the frontend, request only the data the view needs, keep identities stable, and avoid redundant fetching, subscriptions, and rerenders.
+- Add indexes, caching, deduplication, batching, and incremental processing in the initial change when the access pattern requires them.
+
+Before finishing, explicitly check the hot path, query bounds, repeated work, external/LLM cost, idempotency, and behavior at 10× scale. If performance depends on a future optimization, implement that optimization now.
+
 ## Cursor Cloud specific instructions
 
 The startup update script runs `pnpm install --frozen-lockfile`. Everything below is about running/testing, which the update script intentionally does not do.
@@ -46,6 +61,7 @@ Set these on the local Convex deployment with `npx convex env set <NAME> <value>
 - Cloudflare R2 credentials — resume/profile-image uploads (the `@convex-dev/r2` component).
 - `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` — Google social login (disabled unless the secret is set).
 - `EXTERNAL_API_URL` — hourly job-scraper cron (cleanly no-ops when unset).
+- `ATS_SYNC_ENABLED` — `true`/`false` to force ATS and public-board sync on or off for this deployment. Unset: off on local Convex (`127.0.0.1` / localhost), on in the cloud. Admins can also toggle sync on the public-boards page unless this env var is set.
 
 ### Pre-existing lint/type failures (NOT environment problems)
 

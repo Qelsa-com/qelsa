@@ -2,10 +2,11 @@ import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { ATS_JOB_FETCH_LIMIT, fetchJobsForProvider } from "./atsProviders";
+import { resolveAtsSyncEnabled } from "./lib/atsSyncEnabled";
+import { ATS_SYNC_INTERVAL_MS } from "./lib/atsSyncInterval";
 import { ensureOpenJobCount } from "./lib/jobCounts";
 import { internalAction, internalMutation, internalQuery, type ActionCtx } from "./_generated/server";
 
-const SYNC_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
 const STORE_BATCH = 25;
 const STALE_SYNC_MS = 20 * 60 * 1000;
 const OCC_RETRIES = 4;
@@ -17,10 +18,23 @@ function isWriteConflict(err: unknown) {
   return message.includes("changed while this mutation was being run");
 }
 
+export const syncAllowed = internalQuery({
+  args: {},
+  returns: v.boolean(),
+  handler: async (ctx) => {
+    const row = await ctx.db.query("admin_settings").first();
+    return resolveAtsSyncEnabled(row?.ats_sync_enabled).enabled;
+  },
+});
+
 export const syncIntegration = internalAction({
-  args: { integrationId: v.id("ats_integrations") },
+  args: { integrationId: v.id("ats_integrations"), force: v.optional(v.boolean()) },
   returns: v.null(),
   handler: async (ctx, args) => {
+    if (!args.force && !(await ctx.runQuery(internal.atsSync.syncAllowed))) {
+      console.log("ATS sync is disabled — skipping", args.integrationId);
+      return null;
+    }
     const startedAt = Date.now();
     const claimed = await ctx.runMutation(internal.atsSync.claimSync, { id: args.integrationId, at: startedAt });
     if (!claimed) return null;
@@ -146,6 +160,10 @@ export const syncAllDue = internalAction({
   args: {},
   returns: v.null(),
   handler: async (ctx) => {
+    if (!(await ctx.runQuery(internal.atsSync.syncAllowed))) {
+      console.log("ATS sync is disabled — skipping due boards");
+      return null;
+    }
     const due = await ctx.runQuery(internal.atsSync.listDue, { now: Date.now() });
     for (let i = 0; i < due.length; i++) {
       const row = due[i];
@@ -169,7 +187,13 @@ export const listDue = internalQuery({
     const rows = await ctx.db.query("ats_integrations").collect();
     return rows
       .filter((row) => {
-        if (!row.sync_jobs || row.status !== "connected" || typeof row.next_sync_at !== "number" || row.next_sync_at > args.now) {
+        if (!row.sync_jobs || row.status !== "connected") return false;
+        // Prefer last_synced_at so a shorter stored next_sync_at from an older cadence
+        // cannot re-pull (and re-enqueue LLM extraction) after we lengthen the interval.
+        if (typeof row.last_synced_at === "number" && args.now < row.last_synced_at + ATS_SYNC_INTERVAL_MS) {
+          return false;
+        }
+        if (typeof row.next_sync_at !== "number" || row.next_sync_at > args.now) {
           return false;
         }
         // Skip boards mid-sync; allow a retry after the lock goes stale.
@@ -216,8 +240,8 @@ export const markSyncSuccess = internalMutation({
     await ctx.db.patch(args.id, {
       sync_started_at: undefined,
       last_synced_at: args.at,
-      next_sync_at: args.at + SYNC_INTERVAL_MS,
-      records_synced: (row.records_synced ?? 0) + args.count,
+      next_sync_at: args.at + ATS_SYNC_INTERVAL_MS,
+      records_synced: args.count,
       error_message: undefined,
       error_detected_at: undefined,
       status: "connected",

@@ -190,7 +190,11 @@ export default defineSchema({
   // Sidecar so skill enrichment never patches `jobs` (avoids OCC with ATS sync).
   job_skill_extractions: defineTable({
     job_id: v.id("jobs"),
-  }).index("by_job", ["job_id"]),
+    // Same title+JD fingerprint reuses extracted skills instead of another LLM call.
+    content_hash: v.optional(v.string()),
+  })
+    .index("by_job", ["job_id"])
+    .index("by_content_hash", ["content_hash"]),
 
   job_applications: defineTable({
     user_id: v.id("users"),
@@ -554,4 +558,9 @@ export default defineSchema({
     .index("by_user_and_provider", ["user_id", "provider"])
     .index("by_kind", ["kind"])
     .index("by_kind_provider_subdomain", ["kind", "provider", "subdomain"]),
+
+  // Singleton (at most one row). Admin toggle for ATS / public-board ingest.
+  admin_settings: defineTable({
+    ats_sync_enabled: v.boolean(),
+  }),
 });

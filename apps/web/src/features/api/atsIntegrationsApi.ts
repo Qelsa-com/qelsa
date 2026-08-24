@@ -54,3 +54,11 @@ export function useRemovePublicBoardMutation() {
 export function useRetryPublicBoardMutation() {
   return useConvexMutationHook(api.atsIntegrations.retryPublicBoard, (id: string) => ({ id }));
 }
+
+export function useGetSyncControlQuery(options?: { skip?: boolean }) {
+  return useConvexQueryHook(api.atsIntegrations.getSyncControl, {}, options);
+}
+
+export function useSetSyncEnabledMutation() {
+  return useConvexMutationHook(api.atsIntegrations.setSyncEnabled, (enabled: boolean) => ({ enabled }));
+}

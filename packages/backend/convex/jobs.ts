@@ -21,7 +21,8 @@ import {
   type BrowseCandidate,
 } from "./lib/jobBrowse";
 import { bumpJobCount, bumpOpenJobCount, ensureJobStats, ensureOpenJobCount, getJobCounts, getOpenJobCount, openCountDelta } from "./lib/jobCounts";
-import { jobNeedsSkillEnrichment } from "./lib/jobSkillExtraction";
+import { resolveJobSalary } from "./lib/jobSalary";
+import { canExtractSkills, jobNeedsSkillEnrichment, markSkillsExtracted, skillContentHash } from "./lib/jobSkillExtraction";
 import {
   hasRoleProfile,
   isAlmostThere,
@@ -906,6 +907,26 @@ export const createWithQuestions = authedMutation({
   },
 });
 
+async function queueSkillEnrichment(
+  ctx: MutationCtx,
+  jobId: Id<"jobs">,
+  title: string | undefined,
+  description: string | undefined,
+  alreadyExtracted: boolean | undefined,
+  needsSkills: Id<"jobs">[],
+) {
+  if (!canExtractSkills(description)) {
+    await markSkillsExtracted(ctx, jobId);
+    return;
+  }
+  const contentHash = skillContentHash(title ?? "", clipPlainText(description, 6000));
+  if (await jobNeedsSkillEnrichment(ctx, jobId, alreadyExtracted)) {
+    needsSkills.push(jobId);
+    return;
+  }
+  await markSkillsExtracted(ctx, jobId, contentHash);
+}
+
 export const storeScrapedJobs = internalMutation({
   args: { jobs: v.array(v.any()) },
   returns: v.array(v.id("jobs")),
@@ -930,10 +951,6 @@ export const storeScrapedJobs = internalMutation({
         has_remote: Boolean(job.has_remote) || (work_type ?? "").toLowerCase().includes("remote"),
         language: job.language as string | undefined,
         published_date: job.published ? new Date(job.published as string).getTime() : Date.now(),
-        salary_currency: job.salary_currency as string | undefined,
-        salary_max: job.salary_max as number | undefined,
-        salary_min: job.salary_min as number | undefined,
-        salary: job.salary as number | undefined,
         title: job.title as string | undefined,
         company_name: (job.company as { name?: string } | undefined)?.name,
         company_logo: (job.company as { logo?: string } | undefined)?.logo,
@@ -947,16 +964,21 @@ export const storeScrapedJobs = internalMutation({
           types: job.types,
         },
         status: "open" as const,
+        ...resolveJobSalary({
+          incoming: job,
+          existing,
+          description: job.description as string | undefined,
+        }),
       };
       if (existing) {
         await ctx.db.patch(existing._id, payload);
         openDelta += openCountDelta(existing.status, "open");
-        if (await jobNeedsSkillEnrichment(ctx, existing._id, existing.skills_extracted)) needsSkills.push(existing._id);
+        await queueSkillEnrichment(ctx, existing._id, payload.title, payload.description, existing.skills_extracted, needsSkills);
       } else {
         const jobId = await ctx.db.insert("jobs", { ...payload, view_count: 0, application_count: 0 });
         await ensureJobStats(ctx, jobId);
         openDelta += 1;
-        needsSkills.push(jobId);
+        await queueSkillEnrichment(ctx, jobId, payload.title, payload.description, undefined, needsSkills);
       }
     }
     await bumpOpenJobCount(ctx, openDelta);
@@ -1004,9 +1026,6 @@ export const storeAtsJobs = internalMutation({
         workplace_type: job.workplace_type as "on-site" | "hybrid" | "remote" | undefined,
         work_type: job.work_type as string | undefined,
         language: job.language as string | undefined,
-        salary_min: job.salary_min as number | undefined,
-        salary_max: job.salary_max as number | undefined,
-        salary_currency: job.salary_currency as string | undefined,
         published_date: (job.published_date as number | undefined) ?? Date.now(),
         resource: `ats:${args.provider}`,
         ats_integration_id: args.integrationId,
@@ -1019,16 +1038,21 @@ export const storeAtsJobs = internalMutation({
           cities: cityHint ? [{ name: cityHint }] : [],
         },
         status: "open" as const,
+        ...resolveJobSalary({
+          incoming: job,
+          existing,
+          description: job.description as string | undefined,
+        }),
       };
       if (existing) {
         await ctx.db.patch(existing._id, payload);
         openDelta += openCountDelta(existing.status, "open");
-        if (await jobNeedsSkillEnrichment(ctx, existing._id, existing.skills_extracted)) needsSkills.push(existing._id);
+        await queueSkillEnrichment(ctx, existing._id, payload.title, payload.description, existing.skills_extracted, needsSkills);
       } else {
         const jobId = await ctx.db.insert("jobs", { ...payload, view_count: 0, application_count: 0 });
         await ensureJobStats(ctx, jobId);
         openDelta += 1;
-        needsSkills.push(jobId);
+        await queueSkillEnrichment(ctx, jobId, payload.title, payload.description, undefined, needsSkills);
       }
       stored++;
     }
