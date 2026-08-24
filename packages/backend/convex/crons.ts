@@ -5,7 +5,7 @@ const crons = cronJobs();
 
 crons.interval("fetch external jobs", { hours: 1 }, internal.jobsScraper.fetchAndStoreJobs);
 
-// Re-sync connected ATS integrations whose next_sync_at is due.
-crons.interval("sync ATS integrations", { hours: 1 }, internal.atsSync.syncAllDue);
+// Public boards and employer ATS re-sync weekly (skill extraction is per new job).
+crons.cron("sync ATS integrations", "23 8 * * 1", internal.atsSync.syncAllDue, {});
 
 export default crons;

@@ -3,13 +3,13 @@ import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { normalizePublicBoardSlug } from "./atsProviders";
 import { closeMissingAtsJobs } from "./lib/atsJobReconcile";
+import { parseAtsSyncEnv, resolveAtsSyncEnabled } from "./lib/atsSyncEnabled";
+import { ATS_SYNC_INTERVAL_MS } from "./lib/atsSyncInterval";
 import { adminMutation, adminQuery, authedMutation, authedQuery } from "./lib/customFunctions";
 import { withId } from "./lib/helpers";
 
 const provider = v.union(v.literal("zoho_recruit"), v.literal("greenhouse"), v.literal("lever"), v.literal("keka"), v.literal("ashby"), v.literal("bamboohr"), v.literal("workday"), v.literal("darwinbox"), v.literal("icims"));
 const publicBoardProvider = v.union(v.literal("greenhouse"), v.literal("lever"), v.literal("ashby"));
-
-const SYNC_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
 
 type Ctx = { db: any; user: { _id: string } };
 
@@ -37,7 +37,7 @@ function connectedPatch() {
     status: "connected" as const,
     connected_since: now,
     last_synced_at: now,
-    next_sync_at: now + SYNC_INTERVAL_MS,
+    next_sync_at: now + ATS_SYNC_INTERVAL_MS,
     error_message: undefined,
     error_detected_at: undefined,
   };
@@ -307,9 +307,18 @@ export const listPublicBoards = adminQuery({
       .query("ats_integrations")
       .withIndex("by_kind", (q) => q.eq("kind", "public_board"))
       .collect();
-    return rows
-      .sort((a, b) => (b.connected_since ?? b._creationTime) - (a.connected_since ?? a._creationTime))
-      .map((row) => asPublicBoard(row));
+    const sorted = rows.sort((a, b) => (b.connected_since ?? b._creationTime) - (a.connected_since ?? a._creationTime));
+    const boards = [];
+    for (const row of sorted) {
+      const jobs = await ctx.db
+        .query("jobs")
+        .withIndex("by_ats_integration", (q) => q.eq("ats_integration_id", row._id))
+        .collect();
+      let open = 0;
+      for (const job of jobs) if (job.status === "open") open++;
+      boards.push({ ...asPublicBoard(row), records_synced: open });
+    }
+    return boards;
   },
 });
 
@@ -353,7 +362,7 @@ export const retryPublicBoard = adminMutation({
     if (existing.sync_started_at && now - existing.sync_started_at < STALE_SYNC_MS) {
       return asPublicBoard(existing);
     }
-    await ctx.scheduler.runAfter(0, internal.atsSync.syncIntegration, { integrationId: existing._id });
+    await ctx.scheduler.runAfter(0, internal.atsSync.syncIntegration, { integrationId: existing._id, force: true });
     return asPublicBoard(existing);
   },
 });
@@ -372,5 +381,30 @@ export const removePublicBoard = adminMutation({
     });
     await ctx.db.delete(existing._id);
     return null;
+  },
+});
+
+const syncControlReturn = v.object({ enabled: v.boolean(), locked: v.boolean() });
+
+export const getSyncControl = adminQuery({
+  args: {},
+  returns: syncControlReturn,
+  handler: async (ctx) => {
+    const row = await ctx.db.query("admin_settings").first();
+    return resolveAtsSyncEnabled(row?.ats_sync_enabled);
+  },
+});
+
+export const setSyncEnabled = adminMutation({
+  args: { enabled: v.boolean() },
+  returns: syncControlReturn,
+  handler: async (ctx, args) => {
+    if (parseAtsSyncEnv() !== undefined) {
+      throw new Error("ATS_SYNC_ENABLED is set on this deployment. Unset it to use the toggle.");
+    }
+    const existing = await ctx.db.query("admin_settings").first();
+    if (existing) await ctx.db.patch(existing._id, { ats_sync_enabled: args.enabled });
+    else await ctx.db.insert("admin_settings", { ats_sync_enabled: args.enabled });
+    return { enabled: args.enabled, locked: false };
   },
 });

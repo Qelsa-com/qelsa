@@ -5,7 +5,8 @@ import { components, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { internalAction, internalMutation, internalQuery } from "./_generated/server";
 import { AI_AGENT_MODEL, requireOpenRouter } from "./lib/ai";
-import { hasExtractedSkills, markSkillsExtracted } from "./lib/jobSkillExtraction";
+import { parseSalaryFromText, salaryFillPatch, salaryFromLlm } from "./lib/jobSalary";
+import { hasExtractedSkills, markSkillsExtracted, MIN_SKILL_DESCRIPTION_CHARS, skillContentHash } from "./lib/jobSkillExtraction";
 import { clipPlainText, normalizeSkillName } from "./lib/skillMatch";
 
 const SKILL_TYPES = ["core", "preferred", "nice_to_have"] as const;
@@ -14,7 +15,7 @@ const PROFICIENCIES = ["beginner", "intermediate", "advance", "expert"] as const
 /** Jobs enriched per scheduler tick — keeps AI spend and action runtime bounded. */
 const BATCH_CAP = 20;
 
-function toExtractedSkills(raw: unknown) {
+function toExtractedJd(raw: unknown) {
   const obj = raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
   const rows = Array.isArray(obj.skills) ? obj.skills : [];
   const skills = [];
@@ -39,11 +40,18 @@ function toExtractedSkills(raw: unknown) {
     });
     if (skills.length >= 16) break;
   }
-  return { skills };
+  const salaryRaw = obj.salary && typeof obj.salary === "object" && !Array.isArray(obj.salary) ? (obj.salary as Record<string, unknown>) : obj;
+  const salary = {
+    min: typeof salaryRaw.min === "number" ? salaryRaw.min : typeof salaryRaw.salary_min === "number" ? salaryRaw.salary_min : null,
+    max: typeof salaryRaw.max === "number" ? salaryRaw.max : typeof salaryRaw.salary_max === "number" ? salaryRaw.salary_max : null,
+    currency: typeof salaryRaw.currency === "string" ? salaryRaw.currency : typeof salaryRaw.salary_currency === "string" ? salaryRaw.salary_currency : null,
+    period: typeof salaryRaw.period === "string" ? salaryRaw.period : null,
+  };
+  return { skills, salary: salary.min == null && salary.max == null ? null : salary };
 }
 
-const extractedSkillsSchema = z.preprocess(
-  toExtractedSkills,
+const extractedJdSchema = z.preprocess(
+  toExtractedJd,
   z.object({
     skills: z.array(
       z.object({
@@ -52,6 +60,14 @@ const extractedSkillsSchema = z.preprocess(
         proficiency: z.enum(PROFICIENCIES).nullable(),
       }),
     ),
+    salary: z
+      .object({
+        min: z.number().nullable(),
+        max: z.number().nullable(),
+        currency: z.string().nullable(),
+        period: z.string().nullable(),
+      })
+      .nullable(),
   }),
 );
 
@@ -61,12 +77,20 @@ const extractedSkillValidator = v.object({
   proficiency: v.union(v.literal("beginner"), v.literal("intermediate"), v.literal("advance"), v.literal("expert"), v.null()),
 });
 
+const extractedSalaryValidator = v.object({
+  salary_min: v.optional(v.number()),
+  salary_max: v.optional(v.number()),
+  salary: v.optional(v.number()),
+  salary_currency: v.optional(v.string()),
+});
+
 export const getJobForEnrich = internalQuery({
   args: { jobId: v.id("jobs") },
   returns: v.union(
     v.object({
       title: v.string(),
       description: v.string(),
+      contentHash: v.string(),
       hasSkills: v.boolean(),
       skillsExtracted: v.boolean(),
     }),
@@ -79,18 +103,83 @@ export const getJobForEnrich = internalQuery({
       .query("job_skills")
       .withIndex("by_job", (q) => q.eq("job_id", job._id))
       .take(1);
+    const title = job.title ?? "Untitled role";
+    const description = clipPlainText(job.description, 6000);
     return {
-      title: job.title ?? "Untitled role",
-      description: clipPlainText(job.description, 6000),
+      title,
+      description,
+      contentHash: skillContentHash(title, description),
       hasSkills: existing.length > 0,
       skillsExtracted: await hasExtractedSkills(ctx, job._id, job.skills_extracted),
     };
   },
 });
 
+export const findSkillsByContentHash = internalQuery({
+  args: { contentHash: v.string(), excludeJobId: v.id("jobs") },
+  returns: v.union(v.id("jobs"), v.null()),
+  handler: async (ctx, args) => {
+    const rows = await ctx.db
+      .query("job_skill_extractions")
+      .withIndex("by_content_hash", (q) => q.eq("content_hash", args.contentHash))
+      .take(8);
+    const match = rows.find((row) => row.job_id !== args.excludeJobId);
+    return match?.job_id ?? null;
+  },
+});
+
+export const copyExtractedSkills = internalMutation({
+  args: { jobId: v.id("jobs"), fromJobId: v.id("jobs"), contentHash: v.string() },
+  returns: v.number(),
+  handler: async (ctx, args) => {
+    const job = await ctx.db.get(args.jobId);
+    if (!job) return 0;
+    if (await hasExtractedSkills(ctx, args.jobId, job.skills_extracted)) return 0;
+    const sourceJob = await ctx.db.get(args.fromJobId);
+    const source = await ctx.db
+      .query("job_skills")
+      .withIndex("by_job", (q) => q.eq("job_id", args.fromJobId))
+      .collect();
+    const existing = await ctx.db
+      .query("job_skills")
+      .withIndex("by_job", (q) => q.eq("job_id", args.jobId))
+      .collect();
+    const linked = new Set(existing.map((row) => row.skill_id));
+    let inserted = 0;
+    for (const row of source) {
+      if (linked.has(row.skill_id)) continue;
+      linked.add(row.skill_id);
+      await ctx.db.insert("job_skills", {
+        job_id: args.jobId,
+        skill_id: row.skill_id,
+        type: row.type,
+        proficiency: row.proficiency,
+      });
+      inserted++;
+    }
+    await markSkillsExtracted(ctx, args.jobId, args.contentHash);
+    const salary =
+      (sourceJob
+        ? salaryFillPatch(job, {
+            salary_min: sourceJob.salary_min,
+            salary_max: sourceJob.salary_max,
+            salary: sourceJob.salary,
+            salary_currency: sourceJob.salary_currency,
+          })
+        : undefined) ?? salaryFillPatch(job, parseSalaryFromText(job.description));
+    if (salary) await ctx.db.patch(args.jobId, salary);
+    return inserted;
+  },
+});
+
 /** Catalog lookup + insert of job_skills rows. Always flags the job so it is never re-processed. */
 export const applyExtractedSkills = internalMutation({
-  args: { jobId: v.id("jobs"), skills: v.array(extractedSkillValidator) },
+  args: {
+    jobId: v.id("jobs"),
+    skills: v.array(extractedSkillValidator),
+    contentHash: v.optional(v.string()),
+    salary: v.optional(extractedSalaryValidator),
+  },
   returns: v.number(),
   handler: async (ctx, args) => {
     const job = await ctx.db.get(args.jobId);
@@ -126,8 +215,11 @@ export const applyExtractedSkills = internalMutation({
       });
       inserted++;
     }
-    // Write the sidecar only — never patch `jobs`, which ATS sync also writes.
-    await markSkillsExtracted(ctx, args.jobId);
+    // Sidecar for skills; salary fills empty min/max only so ATS numbers stay
+    // authoritative and a later regex/LLM pass can still complete a partial range.
+    await markSkillsExtracted(ctx, args.jobId, args.contentHash);
+    const salary = salaryFillPatch(job, args.salary) ?? salaryFillPatch(job, parseSalaryFromText(job.description));
+    if (salary) await ctx.db.patch(args.jobId, salary);
     return inserted;
   },
 });
@@ -137,21 +229,49 @@ export const enrichJobSkills = internalAction({
   args: { jobId: v.id("jobs") },
   returns: v.boolean(),
   handler: async (ctx, args) => {
-    const openRouter = requireOpenRouter();
     const job = await ctx.runQuery(internal.jobSkillsEnrich.getJobForEnrich, { jobId: args.jobId });
-    if (!job || job.hasSkills || job.skillsExtracted || job.description.length < 80) return false;
+    if (!job || job.hasSkills || job.skillsExtracted) return false;
+    if (job.description.length < MIN_SKILL_DESCRIPTION_CHARS) {
+      await ctx.runMutation(internal.jobSkillsEnrich.applyExtractedSkills, {
+        jobId: args.jobId,
+        skills: [],
+        contentHash: job.contentHash,
+      });
+      return false;
+    }
+
+    const reuseFrom = await ctx.runQuery(internal.jobSkillsEnrich.findSkillsByContentHash, {
+      contentHash: job.contentHash,
+      excludeJobId: args.jobId,
+    });
+    if (reuseFrom) {
+      await ctx.runMutation(internal.jobSkillsEnrich.copyExtractedSkills, {
+        jobId: args.jobId,
+        fromJobId: reuseFrom,
+        contentHash: job.contentHash,
+      });
+      return true;
+    }
+
+    const openRouter = requireOpenRouter();
 
     const agent = new Agent(components.agent, {
       name: "Job Skill Extractor",
       languageModel: openRouter.chat(AI_AGENT_MODEL),
-      instructions: `You extract the skills a job requires from a job description.
+      instructions: `You extract the skills a job requires and any stated pay from a job description.
 Rules:
 - Only include skills that are explicitly mentioned or unambiguously implied by the text.
 - Include technologies, tools, frameworks, domains, and named soft skills.
 - Classify each skill: "core" when central to the role, "preferred" when stated as a plus, otherwise "nice_to_have".
 - Set proficiency only when the JD signals required depth ("expert in", "deep knowledge of" -> expert; "familiar with", "exposure to" -> beginner); otherwise null.
 - Use canonical skill names (e.g. "React", "PostgreSQL"), not sentences.
-- Return at most 16 skills.`,
+- Return at most 16 skills.
+Salary:
+- Fill salary only when the JD states a numeric base or range. Never invent "competitive" pay.
+- min/max are numbers (150000 not "150k"). LPA/lakhs are Indian rupees (15 LPA -> 1500000).
+- currency is an ISO code (USD, INR, EUR, GBP).
+- period is annual, monthly, or hourly.
+- Use null salary when pay is unstated.`,
       maxSteps: 1,
     });
 
@@ -159,14 +279,17 @@ Rules:
       ctx,
       { userId: "job-skill-extractor" },
       {
-        schema: extractedSkillsSchema,
+        schema: extractedJdSchema,
         prompt: `JOB TITLE\n${job.title}\n\nJOB DESCRIPTION\n${job.description}`,
       },
     );
 
+    const salary = salaryFromLlm(generated.object.salary);
     await ctx.runMutation(internal.jobSkillsEnrich.applyExtractedSkills, {
       jobId: args.jobId,
       skills: generated.object.skills,
+      contentHash: job.contentHash,
+      ...(salary ? { salary } : {}),
     });
     return generated.object.skills.length > 0;
   },
@@ -181,8 +304,9 @@ export const enrichBatch = internalAction({
       console.log("OPENROUTER_API_KEY is not set — skipping job skill enrichment");
       return null;
     }
-    const head = args.jobIds.slice(0, BATCH_CAP);
-    const tail = args.jobIds.slice(BATCH_CAP);
+    const uniqueIds = [...new Set(args.jobIds)];
+    const head = uniqueIds.slice(0, BATCH_CAP);
+    const tail = uniqueIds.slice(BATCH_CAP);
     for (const jobId of head) {
       try {
         await ctx.runAction(internal.jobSkillsEnrich.enrichJobSkills, { jobId });

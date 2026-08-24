@@ -8,6 +8,10 @@ export const fetchAndStoreJobs = internalAction({
   args: {},
   returns: v.null(),
   handler: async (ctx) => {
+    if (!(await ctx.runQuery(internal.atsSync.syncAllowed))) {
+      console.log("Job scrape is disabled — skipping");
+      return null;
+    }
     const url = process.env.EXTERNAL_API_URL;
     if (!url) {
       console.log("EXTERNAL_API_URL is not set — skipping job scrape");

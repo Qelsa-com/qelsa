@@ -1,6 +1,6 @@
 "use client";
 
-import { useAddPublicBoardMutation, useListPublicBoardsQuery, useRemovePublicBoardMutation, useRetryPublicBoardMutation } from "@/features/api/atsIntegrationsApi";
+import { useAddPublicBoardMutation, useGetSyncControlQuery, useListPublicBoardsQuery, useRemovePublicBoardMutation, useRetryPublicBoardMutation, useSetSyncEnabledMutation } from "@/features/api/atsIntegrationsApi";
 import { useWipeAllJobsMutation } from "@/features/api/jobsApi";
 import { toastUnknownError } from "@/lib/errors";
 import { useState } from "react";
@@ -9,6 +9,7 @@ import { Button } from "../../ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../ui/dialog";
 import { Input } from "../../ui/input";
 import { Label } from "../../ui/label";
+import { Switch } from "../../ui/switch";
 import { PublicBoardRowSkeleton } from "./atsSkeletons";
 import { PUBLIC_BOARD_PROVIDERS, publicBoardProviderById, relativeTime, type AtsPublicBoard, type PublicBoardProviderId } from "./catalog";
 
@@ -134,21 +135,34 @@ function RemovePublicBoardDialog({ board, open, onOpenChange }: { board: AtsPubl
 
 export function PublicBoardsSection() {
   const { data, isLoading } = useListPublicBoardsQuery();
+  const { data: syncControl } = useGetSyncControlQuery();
+  const [setSyncEnabled, { isLoading: isTogglingSync }] = useSetSyncEnabledMutation();
   const [retryBoard] = useRetryPublicBoardMutation();
   const boards = (data as AtsPublicBoard[] | undefined) ?? [];
   const [addOpen, setAddOpen] = useState(false);
   const [removeBoard, setRemoveBoard] = useState<AtsPublicBoard | null>(null);
   const [retryingId, setRetryingId] = useState<string | null>(null);
+  const syncEnabled = syncControl?.enabled ?? true;
+  const syncLocked = Boolean(syncControl?.locked);
 
-  const handleRetry = async (board: AtsPublicBoard) => {
+  const handleResync = async (board: AtsPublicBoard) => {
     setRetryingId(board.id);
     try {
       await retryBoard(board.id).unwrap();
-      toast.success(`Retrying ${board.subdomain ?? "this board"}…`);
+      toast.success(`Resyncing ${board.subdomain ?? "this board"}…`);
     } catch (err) {
-      toastUnknownError(err, "Could not start a retry. Please try again.");
+      toastUnknownError(err, "Could not start a resync. Please try again.");
     } finally {
       setRetryingId(null);
+    }
+  };
+
+  const handleToggleSync = async (enabled: boolean) => {
+    try {
+      await setSyncEnabled(enabled).unwrap();
+      toast.success(enabled ? "Board sync enabled." : "Board sync paused for this deployment.");
+    } catch (err) {
+      toastUnknownError(err, "Could not update sync. Check ATS_SYNC_ENABLED if this deployment is locked.");
     }
   };
 
@@ -158,11 +172,28 @@ export function PublicBoardsSection() {
         <div>
           <p className="text-xs font-semibold tracking-[0.2em] text-neon-cyan uppercase">Admin</p>
           <h2 className="mt-1 text-2xl font-bold">Add public boards</h2>
-          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">Ingest published jobs from company career sites into the global feed. Add as many Greenhouse, Lever, or Ashby boards as you need.</p>
+          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+            Ingest published jobs from company career sites into the global feed. Boards re-sync weekly. Add as many Greenhouse, Lever, or Ashby boards as you need.
+            {!syncEnabled && " Automatic sync is paused — cron and add will not pull jobs. Resync on a row still runs that board."}
+          </p>
         </div>
-        <Button className={gradientButton} onClick={() => setAddOpen(true)}>
-          Add board
-        </Button>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-3 rounded-full border border-glass-border px-4 py-2">
+            <div className="min-w-0">
+              <p className="text-xs font-semibold tracking-wide text-white uppercase">{syncEnabled ? "Sync on" : "Sync paused"}</p>
+              <p className="text-[11px] text-muted-foreground">{syncLocked ? "Locked by ATS_SYNC_ENABLED" : "This Convex deployment"}</p>
+            </div>
+            <Switch
+              checked={syncEnabled}
+              disabled={syncLocked || isTogglingSync}
+              onCheckedChange={(value) => void handleToggleSync(value)}
+              aria-label={syncEnabled ? "Pause board sync" : "Enable board sync"}
+            />
+          </div>
+          <Button className={gradientButton} onClick={() => setAddOpen(true)}>
+            Add board
+          </Button>
+        </div>
       </div>
 
       <div className="mt-6 space-y-3">
@@ -187,15 +218,21 @@ export function PublicBoardsSection() {
                 <p className="mt-1 text-xs text-muted-foreground">{boardFooter(board)}</p>
               </div>
               <div className="flex shrink-0 items-center gap-2">
-                {board.status === "error" && (
+                {(board.status === "connected" || board.status === "error") && (
                   <Button
                     variant="outline"
                     size="sm"
                     className={outlineButton}
                     disabled={Boolean(board.sync_started_at) || retryingId === board.id}
-                    onClick={() => void handleRetry(board)}
+                    onClick={() => void handleResync(board)}
                   >
-                    {board.sync_started_at || retryingId === board.id ? "Retrying…" : "Retry"}
+                    {board.sync_started_at || retryingId === board.id
+                      ? board.status === "error"
+                        ? "Retrying…"
+                        : "Syncing…"
+                      : board.status === "error"
+                        ? "Retry"
+                        : "Resync"}
                   </Button>
                 )}
                 <Button variant="outline" size="sm" className={outlineButton} onClick={() => setRemoveBoard(board)}>
