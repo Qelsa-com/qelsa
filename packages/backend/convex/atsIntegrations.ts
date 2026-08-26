@@ -303,22 +303,15 @@ export const listPublicBoards = adminQuery({
   args: {},
   returns: v.array(publicBoardReturn),
   handler: async (ctx) => {
+    // Job documents are large (descriptions, AI summaries). Never scan them here —
+    // records_synced is the count written at the end of each board sync.
     const rows = await ctx.db
       .query("ats_integrations")
       .withIndex("by_kind", (q) => q.eq("kind", "public_board"))
       .collect();
-    const sorted = rows.sort((a, b) => (b.connected_since ?? b._creationTime) - (a.connected_since ?? a._creationTime));
-    const boards = [];
-    for (const row of sorted) {
-      const jobs = await ctx.db
-        .query("jobs")
-        .withIndex("by_ats_integration", (q) => q.eq("ats_integration_id", row._id))
-        .collect();
-      let open = 0;
-      for (const job of jobs) if (job.status === "open") open++;
-      boards.push({ ...asPublicBoard(row), records_synced: open });
-    }
-    return boards;
+    return rows
+      .sort((a, b) => (b.connected_since ?? b._creationTime) - (a.connected_since ?? a._creationTime))
+      .map(asPublicBoard);
   },
 });
 
