@@ -25,7 +25,7 @@ import { toastUnknownError } from "@/lib/errors";
 import { jobDescriptionToHtml } from "@/lib/jobDescription";
 import { Job } from "@/types/job";
 import DOMPurify from "dompurify";
-import { ArrowLeft, Bookmark, BookmarkCheck, BookOpen, Briefcase, Building2, CheckCircle2, FileText, HelpCircle, Info, Linkedin, Link as LinkIcon, MessageCircle, Share2, Twitter } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, Bookmark, BookmarkCheck, BookOpen, Briefcase, Building2, CheckCircle2, FileText, HelpCircle, Info, Linkedin, Link as LinkIcon, MessageCircle, Share2, Twitter } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { QuickApplyModal } from "../QuickApplyModal";
@@ -73,6 +73,17 @@ function formatCount(value: number): string {
   if (value < 1000) return `${value}`;
   if (value < 1_000_000) return `${(value / 1000).toFixed(value < 10_000 ? 1 : 0).replace(/\.0$/, "")}k`;
   return `${(value / 1_000_000).toFixed(1).replace(/\.0$/, "")}m`;
+}
+
+function ApplyNowLabel({ external }: { external: boolean }) {
+  return (
+    <>
+      <span className="flex items-center gap-2">
+        Apply now
+        {external ? <ArrowUpRight className="size-4" aria-hidden /> : null}
+      </span>
+    </>
+  );
 }
 
 function formatPosted(job: Job): string | null {
@@ -190,6 +201,8 @@ export function JobDetail() {
     { label: "Applications", value: `${job.application_count ?? job.applications?.length ?? 0}` },
   ];
 
+  const isExternalApply = Boolean(job.application_url);
+
   const handleApply = () => {
     if (job.application_url) {
       window.open(job.application_url, "_blank", "noopener,noreferrer");
@@ -296,8 +309,12 @@ export function JobDetail() {
               {applied ? (
                 <span className="flex-1 rounded-full border border-neon-green/30 bg-neon-green/10 px-4 py-3 text-center text-sm font-semibold text-neon-green lg:flex-none lg:px-6 lg:py-3.5 lg:text-base">Applied</span>
               ) : (
-                <Button onClick={handleApply} className={`h-auto flex-1 rounded-full px-4 py-3 text-sm font-semibold text-white lg:flex-none lg:px-6 lg:py-3.5 lg:text-base ${GRADIENT} hover:opacity-90`}>
-                  Apply now
+                <Button
+                  onClick={handleApply}
+                  aria-label={isExternalApply ? "Apply now (opens in a new tab)" : undefined}
+                  className={`h-auto flex-1 rounded-full px-4 py-3 text-sm font-semibold text-white lg:flex-none lg:px-6 lg:py-3.5 lg:text-base ${GRADIENT} hover:opacity-90`}
+                >
+                  <ApplyNowLabel external={isExternalApply} />
                 </Button>
               )}
             </div>
@@ -497,8 +514,8 @@ export function JobDetail() {
             {applied ? (
               <span className="flex-1 rounded-full border border-neon-green/30 bg-neon-green/10 px-6 py-3.5 text-center text-base font-semibold text-neon-green">Applied</span>
             ) : (
-              <Button onClick={handleApply} className={`h-auto flex-1 rounded-full px-6 py-3.5 text-base font-semibold text-white ${GRADIENT} hover:opacity-90`}>
-                Apply now
+              <Button onClick={handleApply} aria-label={isExternalApply ? "Apply now (opens in a new tab)" : undefined} className={`h-auto flex-1 rounded-full px-6 py-3.5 text-base font-semibold text-white ${GRADIENT} hover:opacity-90`}>
+                <ApplyNowLabel external={isExternalApply} />
               </Button>
             )}
           </div>

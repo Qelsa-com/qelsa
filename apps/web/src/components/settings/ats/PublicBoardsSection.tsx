@@ -1,5 +1,6 @@
 "use client";
 
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useAddPublicBoardMutation, useGetSyncControlQuery, useListPublicBoardsQuery, useRemovePublicBoardMutation, useRetryPublicBoardMutation, useSetSyncEnabledMutation } from "@/features/api/atsIntegrationsApi";
 import { useWipeAllJobsMutation } from "@/features/api/jobsApi";
 import { toastUnknownError } from "@/lib/errors";
@@ -134,6 +135,14 @@ function RemovePublicBoardDialog({ board, open, onOpenChange }: { board: AtsPubl
 }
 
 export function PublicBoardsSection() {
+  return (
+    <ErrorBoundary variant="section" label="public boards">
+      <PublicBoardsSectionBody />
+    </ErrorBoundary>
+  );
+}
+
+function PublicBoardsSectionBody() {
   const { data, isLoading } = useListPublicBoardsQuery();
   const { data: syncControl } = useGetSyncControlQuery();
   const [setSyncEnabled, { isLoading: isTogglingSync }] = useSetSyncEnabledMutation();

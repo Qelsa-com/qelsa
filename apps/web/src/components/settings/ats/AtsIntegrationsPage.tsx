@@ -1,5 +1,6 @@
 "use client";
 
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useListAtsIntegrationsQuery } from "@/features/api/atsIntegrationsApi";
 import { useGetProfileQuery } from "@/features/api/authApi";
 import Link from "next/link";
@@ -28,6 +29,76 @@ function StatusBadge({ integration }: { integration?: AtsIntegration }) {
   if (status === "error") return <span className="rounded-md bg-destructive/15 px-2 py-0.5 text-[11px] font-semibold tracking-wide text-rose-400 uppercase">Error</span>;
   if (status === "pending") return <span className="rounded-md bg-amber-500/15 px-2 py-0.5 text-[11px] font-semibold tracking-wide text-amber-400 uppercase">Pending</span>;
   return <span className="rounded-md bg-white/10 px-2 py-0.5 text-[11px] font-semibold tracking-wide text-white/50 uppercase">Not connected</span>;
+}
+
+function EmployerAtsSection({ compact }: { compact: boolean }) {
+  const { data, isLoading } = useListAtsIntegrationsQuery();
+  const integrations = (data as AtsIntegration[] | undefined) ?? [];
+  const [dialog, setDialog] = useState<DialogState>(null);
+  const integrationFor = (providerId: string) => integrations.find((row) => row.provider === providerId);
+  const close = () => setDialog(null);
+
+  return (
+    <>
+      <div className={`${compact ? "mt-4" : "mt-8"} grid gap-6 md:grid-cols-2 lg:grid-cols-3`}>
+        {isLoading
+          ? ATS_PROVIDERS.map((provider) => <IntegrationCardSkeleton key={provider.id} />)
+          : ATS_PROVIDERS.map((provider) => (
+              <IntegrationCard key={provider.id} provider={provider} integration={integrationFor(provider.id)} onAction={setDialog} />
+            ))}
+      </div>
+
+      {dialog?.kind === "connect" &&
+        (dialog.provider.authType === "api_key" ? (
+          <ApiKeyConnectDialog provider={dialog.provider} open onOpenChange={(open) => !open && close()} onSuccess={() => setDialog({ kind: "success", provider: dialog.provider })} />
+        ) : dialog.provider.authType === "oauth" ? (
+          <OAuthConnectDialog provider={dialog.provider} open onOpenChange={(open) => !open && close()} onSuccess={() => setDialog({ kind: "success", provider: dialog.provider })} />
+        ) : (
+          <BoardConnectDialog provider={dialog.provider} open onOpenChange={(open) => !open && close()} onSuccess={() => setDialog({ kind: "success", provider: dialog.provider })} />
+        ))}
+
+      {dialog?.kind === "request" && <RequestAccessDialog provider={dialog.provider} open onOpenChange={(open) => !open && close()} />}
+
+      {dialog?.kind === "manage" && (
+        <ManageIntegrationDialog
+          provider={dialog.provider}
+          integration={dialog.integration}
+          open
+          onOpenChange={(open) => !open && close()}
+          onDisconnect={() => setDialog({ kind: "disconnect", provider: dialog.provider, integration: dialog.integration })}
+        />
+      )}
+
+      {dialog?.kind === "disconnect" && <DisconnectDialog provider={dialog.provider} integration={dialog.integration} open onOpenChange={(open) => !open && close()} />}
+
+      {dialog?.kind === "error" && (
+        <ErrorIntegrationDialog
+          provider={dialog.provider}
+          integration={dialog.integration}
+          open
+          onOpenChange={(open) => !open && close()}
+          onReconnectWithKey={() => setDialog({ kind: "reconnectKey", provider: dialog.provider, integration: dialog.integration })}
+        />
+      )}
+
+      {dialog?.kind === "reconnectKey" && (
+        <ReconnectApiKeyDialog provider={dialog.provider} integration={dialog.integration} open onOpenChange={(open) => !open && close()} onSuccess={() => setDialog({ kind: "success", provider: dialog.provider })} />
+      )}
+
+      {dialog?.kind === "success" && (
+        <ConnectionSuccessDialog
+          provider={dialog.provider}
+          open
+          onOpenChange={(open) => !open && close()}
+          onViewDetails={() => {
+            const integration = integrationFor(dialog.provider.id);
+            if (integration) setDialog({ kind: "manage", provider: dialog.provider, integration });
+            else close();
+          }}
+        />
+      )}
+    </>
+  );
 }
 
 function IntegrationCard({ provider, integration, onAction }: { provider: AtsProviderMeta; integration?: AtsIntegration; onAction: (state: DialogState) => void }) {
@@ -89,15 +160,8 @@ function IntegrationCard({ provider, integration, onAction }: { provider: AtsPro
 }
 
 const AtsIntegrationsPage = () => {
-  const { data, isLoading } = useListAtsIntegrationsQuery();
   const { data: profile } = useGetProfileQuery();
-  const integrations = (data as AtsIntegration[] | undefined) ?? [];
-  const [dialog, setDialog] = useState<DialogState>(null);
   const isAdmin = profile?.role === "admin";
-
-  const integrationFor = (providerId: string) => integrations.find((row) => row.provider === providerId);
-
-  const close = () => setDialog(null);
 
   return (
     <div className="mx-auto w-full max-w-[1200px] px-6 py-8 text-white md:px-12">
@@ -114,66 +178,11 @@ const AtsIntegrationsPage = () => {
 
       {isAdmin && <h2 className="mt-8 text-lg font-semibold text-white">Your ATS</h2>}
 
-      <div className={`${isAdmin ? "mt-4" : "mt-8"} grid gap-6 md:grid-cols-2 lg:grid-cols-3`}>
-        {isLoading
-          ? ATS_PROVIDERS.map((provider) => <IntegrationCardSkeleton key={provider.id} />)
-          : ATS_PROVIDERS.map((provider) => (
-              <IntegrationCard key={provider.id} provider={provider} integration={integrationFor(provider.id)} onAction={setDialog} />
-            ))}
-      </div>
-
-      {dialog?.kind === "connect" &&
-        (dialog.provider.authType === "api_key" ? (
-          <ApiKeyConnectDialog provider={dialog.provider} open onOpenChange={(open) => !open && close()} onSuccess={() => setDialog({ kind: "success", provider: dialog.provider })} />
-        ) : dialog.provider.authType === "oauth" ? (
-          <OAuthConnectDialog provider={dialog.provider} open onOpenChange={(open) => !open && close()} onSuccess={() => setDialog({ kind: "success", provider: dialog.provider })} />
-        ) : (
-          <BoardConnectDialog provider={dialog.provider} open onOpenChange={(open) => !open && close()} onSuccess={() => setDialog({ kind: "success", provider: dialog.provider })} />
-        ))}
-
-      {dialog?.kind === "request" && <RequestAccessDialog provider={dialog.provider} open onOpenChange={(open) => !open && close()} />}
-
-      {dialog?.kind === "manage" && (
-        <ManageIntegrationDialog
-          provider={dialog.provider}
-          integration={dialog.integration}
-          open
-          onOpenChange={(open) => !open && close()}
-          onDisconnect={() => setDialog({ kind: "disconnect", provider: dialog.provider, integration: dialog.integration })}
-        />
-      )}
-
-      {dialog?.kind === "disconnect" && <DisconnectDialog provider={dialog.provider} integration={dialog.integration} open onOpenChange={(open) => !open && close()} />}
-
-      {dialog?.kind === "error" && (
-        <ErrorIntegrationDialog
-          provider={dialog.provider}
-          integration={dialog.integration}
-          open
-          onOpenChange={(open) => !open && close()}
-          onReconnectWithKey={() => setDialog({ kind: "reconnectKey", provider: dialog.provider, integration: dialog.integration })}
-        />
-      )}
-
-      {dialog?.kind === "reconnectKey" && (
-        <ReconnectApiKeyDialog provider={dialog.provider} integration={dialog.integration} open onOpenChange={(open) => !open && close()} onSuccess={() => setDialog({ kind: "success", provider: dialog.provider })} />
-      )}
-
-      {dialog?.kind === "success" && (
-        <ConnectionSuccessDialog
-          provider={dialog.provider}
-          open
-          onOpenChange={(open) => !open && close()}
-          onViewDetails={() => {
-            const integration = integrationFor(dialog.provider.id);
-            if (integration) setDialog({ kind: "manage", provider: dialog.provider, integration });
-            else close();
-          }}
-        />
-      )}
+      <ErrorBoundary variant="section" label="ATS integrations">
+        <EmployerAtsSection compact={isAdmin} />
+      </ErrorBoundary>
 
       {isAdmin && <PublicBoardsSection />}
-
     </div>
   );
 };

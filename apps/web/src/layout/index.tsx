@@ -1,5 +1,6 @@
 "use client";
 
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { PublicNavbar } from "@/components/PublicNavbar";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCallback, useState } from "react";
@@ -35,7 +36,9 @@ const Layout = ({ activeSection, children }) => {
       {/* Main content with conditional spacing */}
       {/* <div className={activeSection === "qelsa-ai" ? "lg:pt-20" : "pb-20 lg:pb-0"}>{renderCurrentSection()}</div> */}
 
-      {children}
+      <ErrorBoundary label="this page">
+        {children}
+      </ErrorBoundary>
 
       {/* Clears the fixed mobile tab bar both navbars render, so the last thing
           on the page isn't sitting under it. */}

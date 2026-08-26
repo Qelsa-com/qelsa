@@ -15,14 +15,16 @@ function isDisconnect(message: string) {
   );
 }
 
-export function toastUnknownError(err: unknown, fallback: string) {
+/** Short copy for toasts and section fallbacks — never surface Convex request IDs. */
+export function userFacingErrorMessage(err: unknown, fallback: string) {
   const raw = errorText(err);
-  if (isDisconnect(raw)) {
-    toast.error("Connection lost. Check your network and try again.");
-    return;
+  if (isDisconnect(raw)) return "Connection lost. Check your network and try again.";
+  if (/too many bytes read|too many documents read/i.test(raw)) {
+    return "This list is too large to load at once. Please try again.";
   }
+  return fallback;
+}
 
-  // Server errors can contain function names, stack traces, request IDs, and
-  // implementation details. UI callers supply a short operation-specific copy.
-  toast.error(fallback);
+export function toastUnknownError(err: unknown, fallback: string) {
+  toast.error(userFacingErrorMessage(err, fallback));
 }
