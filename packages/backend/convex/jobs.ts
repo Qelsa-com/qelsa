@@ -11,12 +11,14 @@ import {
   BROWSE_SCAN,
   emptyRelationCache,
   prefetchCities,
+  publishedMs,
   rankCandidates,
   scoreReadiness,
   SCORE_CAP,
   slimListJobs,
   sortEnrichedJobs,
   findSimilarOpenJobs,
+  jobsMatchingBrowseSearch,
   jobsMatchingRoleTitles,
   type BrowseCandidate,
 } from "./lib/jobBrowse";
@@ -239,13 +241,15 @@ export const list = optionalAuthQuery({
   },
   returns: v.any(),
   handler: async (ctx, args) => {
-    const open = await openJobs(ctx, 100);
+    const search = ((args.search as string | undefined) ?? "").trim();
+    const open = search ? await jobsMatchingBrowseSearch(ctx, search) : await openJobs(ctx, 100);
     const hydration = await listHydration(ctx, ctx.user);
     const profile = ctx.user ? await loadUserRoleProfile(ctx, ctx.user) : null;
+    const listingArgs = { ...args, cities: args.cities ?? (args.city ? [args.city] : []), search: undefined };
     const results = [];
     for (const job of open) {
       const city = job.city_id ? await ctx.db.get(job.city_id) : null;
-      if (!matchesFilters(job, city?.name ?? null, { ...args, cities: args.cities ?? (args.city ? [args.city] : []) })) {
+      if (!matchesFilters(job, city?.name ?? null, listingArgs)) {
         continue;
       }
       if (!matchesUserRole(job, profile)) continue;
@@ -331,7 +335,9 @@ export const listPaginated = optionalAuthQuery({
     const passesListing = (job: Doc<"jobs">) => {
       if (search && job.status !== "open") return false;
       const cityName = needsCity && job.city_id ? (cache.cities.get(job.city_id)?.name ?? null) : null;
-      if (!matchesFilters(job, cityName, { ...filterArgs, cities })) return false;
+      // Search already selected title / company / skill hits; don't drop skill
+      // matches with a title+company substring check.
+      if (!matchesFilters(job, cityName, { ...filterArgs, cities, search: undefined })) return false;
       return matchesUserRole(job, profile);
     };
 
@@ -357,17 +363,25 @@ export const listPaginated = optionalAuthQuery({
     };
 
     if (search) {
-      const paged = await ctx.db
-        .query("jobs")
-        .withSearchIndex("search_title", (q) => q.search("title", search))
-        .paginate({ ...paginationOpts, numItems: Math.min(80, Math.max(target * 4, 32)) });
-      const candidates = await toCandidates(paged.page, newestFirst ? target : undefined);
-      if (!newestFirst) rankCandidates(candidates, sortBy);
-      const slice = newestFirst ? candidates : candidates.slice(0, target);
+      const found = await jobsMatchingBrowseSearch(ctx, search);
+      const candidates = await toCandidates(found);
+      if (newestFirst) {
+        candidates.sort((a, b) => publishedMs(b.job) - publishedMs(a.job));
+      } else {
+        rankCandidates(candidates, sortBy);
+      }
+      const afterId = decodeRankCursor(paginationOpts.cursor);
+      const afterIndex = afterId ? candidates.findIndex((item) => item.job._id === afterId) : -1;
+      if (afterId && afterIndex < 0) {
+        return { page: [], isDone: true, continueCursor: paginationOpts.cursor ?? "" };
+      }
+      const start = afterId ? afterIndex + 1 : 0;
+      const slice = candidates.slice(start, start + target);
+      const last = slice[slice.length - 1];
       return {
         page: await slimListJobs(ctx, slice, hydration, cache),
-        isDone: paged.isDone && (newestFirst ? candidates.length < target : candidates.length <= target),
-        continueCursor: paged.continueCursor,
+        isDone: start + slice.length >= candidates.length,
+        continueCursor: last ? encodeRankCursor(last.job._id) : (paginationOpts.cursor ?? ""),
       };
     }
 
@@ -501,12 +515,14 @@ export const listMatchTiers = authedQuery({
       return { ready: [], almost: [], readyTotal: 0, almostTotal: 0, hasRoleProfile: false };
     }
 
-    const [newest, titled] = await Promise.all([
-      openJobs(ctx, ROLE_SCAN.TITLE_SCAN_LIMIT),
-      jobsMatchingRoleTitles(ctx, profile),
+    const search = ((args.search as string | undefined) ?? "").trim();
+    const [newest, titled, searched] = await Promise.all([
+      search ? Promise.resolve([] as Doc<"jobs">[]) : openJobs(ctx, ROLE_SCAN.TITLE_SCAN_LIMIT),
+      search ? Promise.resolve([] as Doc<"jobs">[]) : jobsMatchingRoleTitles(ctx, profile),
+      search ? jobsMatchingBrowseSearch(ctx, search) : Promise.resolve([] as Doc<"jobs">[]),
     ]);
     const seen = new Set(titled.map((job) => job._id));
-    const open = [...titled, ...newest.filter((job) => !seen.has(job._id))];
+    const open = search ? searched : [...titled, ...newest.filter((job) => !seen.has(job._id))];
     const cities = args.cities ?? (args.city ? [args.city] : []);
     const needsCity = cities.length > 0;
     const cache = emptyRelationCache();
@@ -515,7 +531,7 @@ export const listMatchTiers = authedQuery({
     const matched: Doc<"jobs">[] = [];
     for (const job of open) {
       const cityName = needsCity && job.city_id ? (cache.cities.get(job.city_id)?.name ?? null) : null;
-      if (!matchesFilters(job, cityName, { ...args, cities })) continue;
+      if (!matchesFilters(job, cityName, { ...args, cities, search: undefined })) continue;
       if (!matchesUserRole(job, profile)) continue;
       matched.push(job);
       if (matched.length >= ROLE_SCAN.TITLE_MATCH_CAP) break;

@@ -175,7 +175,8 @@ export default defineSchema({
     .index("by_status_and_published", ["status", "published_date"])
     .index("by_ats_integration", ["ats_integration_id"])
     .index("by_resource", ["resource"])
-    .searchIndex("search_title", { searchField: "title" }),
+    .searchIndex("search_title", { searchField: "title", filterFields: ["status"] })
+    .searchIndex("search_company", { searchField: "company_name", filterFields: ["status"] }),
 
   job_skills: defineTable({
     job_id: v.id("jobs"),

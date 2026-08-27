@@ -13,7 +13,7 @@ export type { SearchFilters };
 const SmartMatches = () => {
   const router = useRouter();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
-  const { searchInput, setSearchInput, filters, applyFilters, discoverArgs, cityFilter, setCityFilter } = useJobBrowseFilters();
+  const { searchInput, setSearchInput, filters, applyFilters, discoverArgs, cityFilter, setCityFilter, commitSearch } = useJobBrowseFilters();
   const { data, isLoading } = useMatchTiersQuery(discoverArgs, { skip: !isAuthenticated });
 
   useEffect(() => {
@@ -45,7 +45,7 @@ const SmartMatches = () => {
           activeTab="smart-matches"
           query={searchInput}
           setQuery={setSearchInput}
-          onSearch={() => undefined}
+          onSearch={commitSearch}
           filters={filters}
           onApplyFilters={applyFilters}
           cityFilter={cityFilter}
