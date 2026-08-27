@@ -250,7 +250,7 @@ export function JobDetail() {
         {/* Breadcrumb + share sit on one row above the card. Desktop only —
             the mobile frame uses the header bar above instead. */}
         <div className="hidden w-full items-center justify-between lg:flex">
-          <button onClick={() => router.push("/jobs/smart-matches")} className="flex w-fit items-center gap-2 text-sm text-white/70 transition-colors hover:text-neon-cyan">
+          <button onClick={() => router.push(isAuthenticated ? "/jobs/smart-matches" : "/jobs/all")} className="flex w-fit items-center gap-2 text-sm text-white/70 transition-colors hover:text-neon-cyan">
             <ArrowLeft className="size-4" />
             Back to jobs
           </button>

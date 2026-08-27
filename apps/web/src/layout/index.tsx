@@ -31,7 +31,7 @@ const Layout = ({ activeSection, children }) => {
         <div className="absolute bottom-1/3 right-1/4 w-80 h-80 bg-neon-purple/3 rounded-full blur-2xl opacity-50"></div>
       </div>
 
-      {isAuthenticated && user ? <MainNavigation activeSection={activeSection} onProfileClick={handleProfileClick} /> : <PublicNavbar />}
+      {isAuthenticated && user ? <MainNavigation activeSection={activeSection} onProfileClick={handleProfileClick} /> : <PublicNavbar activeSection={activeSection} />}
 
       {/* Main content with conditional spacing */}
       {/* <div className={activeSection === "qelsa-ai" ? "lg:pt-20" : "pb-20 lg:pb-0"}>{renderCurrentSection()}</div> */}

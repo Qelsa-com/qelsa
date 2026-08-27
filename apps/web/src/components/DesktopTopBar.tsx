@@ -13,11 +13,12 @@ import { Bell, Search, User } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 /**
- * `id` matches the `activeSection` each page passes to Layout. Qelsa AI points
- * at the dashboard ("/"); Network, Courses and Blog are not built yet and land
- * on Coming Soon.
+ * `id` matches the `activeSection` each page passes to Layout. Signed-out users
+ * only see Jobs and Blog. Signed-in users keep the full product nav; Jobs lands
+ * on Smart Matches. Network, Courses, and Blog are not built yet and land on
+ * Coming Soon.
  */
-const NAV_LINKS = [
+const AUTHED_NAV_LINKS = [
   { id: "profile", label: "Qelsa AI", href: "/" },
   { id: "jobs", label: "Jobs", href: "/jobs/smart-matches" },
   { id: "connections", label: "Network", href: "/network" },
@@ -26,9 +27,15 @@ const NAV_LINKS = [
   { id: "blog", label: "Blog", href: "/blogs" },
 ];
 
+const GUEST_NAV_LINKS = [
+  { id: "jobs", label: "Jobs", href: "/jobs/all" },
+  { id: "blog", label: "Blog", href: "/blogs" },
+];
+
 export function DesktopTopBar({ activeSection, onProfileClick }: { activeSection?: string; onProfileClick?: () => void }) {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
+  const links = isAuthenticated ? AUTHED_NAV_LINKS : GUEST_NAV_LINKS;
 
   return (
     <header className="sticky top-0 z-50 hidden items-center justify-between border-b border-white/[0.08] bg-[#06060f] px-10 py-4 lg:flex">
@@ -37,7 +44,7 @@ export function DesktopTopBar({ activeSection, onProfileClick }: { activeSection
       </button>
 
       <nav className="flex items-center gap-7">
-        {NAV_LINKS.map((link) => {
+        {links.map((link) => {
           const active = link.id === activeSection;
           return (
             <button key={link.id} type="button" onClick={() => router.push(link.href)} className="relative flex items-center justify-center">

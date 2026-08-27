@@ -1,8 +1,10 @@
 import { JobGrid, JobsBrowseHeader, MatchEmptyState, MatchSection, SearchFilters, useJobBrowseFilters } from "@/components/job/jobBrowseShared";
 import { SmartMatchesSkeleton } from "@/components/job/jobSkeletons";
+import { useAuth } from "@/contexts/AuthContext";
 import { useMatchTiersQuery } from "@/features/api/jobsApi";
 import { MATCH_TIER } from "@/lib/matchTiers";
 import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 import Layout from "../../layout";
 
 // Re-exported so other jobs pages can keep importing the type from this route.
@@ -10,14 +12,31 @@ export type { SearchFilters };
 
 const SmartMatches = () => {
   const router = useRouter();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { searchInput, setSearchInput, filters, applyFilters, discoverArgs, cityFilter, setCityFilter, commitSearch } = useJobBrowseFilters();
-  const { data, isLoading } = useMatchTiersQuery(discoverArgs);
+  const { data, isLoading } = useMatchTiersQuery(discoverArgs, { skip: !isAuthenticated });
+
+  useEffect(() => {
+    if (authLoading || isAuthenticated) return;
+    void router.replace("/jobs/all");
+  }, [authLoading, isAuthenticated, router]);
+
   const ready = data?.ready ?? [];
   const almost = data?.almost ?? [];
   const shown = ready.length + almost.length;
   const total = data ? data.readyTotal + data.almostTotal : undefined;
 
   const openJob = (id: string | number) => router.push(`/jobs/${id}`);
+
+  if (authLoading || !isAuthenticated) {
+    return (
+      <Layout activeSection={"jobs"}>
+        <div className="mx-auto w-full max-w-[1400px] px-4 py-6 text-white sm:px-6 sm:py-8 md:px-12">
+          <SmartMatchesSkeleton />
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout activeSection={"jobs"}>

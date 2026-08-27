@@ -664,11 +664,13 @@ export function JobsBrowseHeader({
         />
       </div>
 
-      {/* View tabs */}
-      <div className="flex items-center gap-2 sm:gap-0">
-        <TabButton active={activeTab === "smart-matches"} label="Smart Matches" onClick={() => router.push("/jobs/smart-matches")} />
-        <TabButton active={activeTab === "all"} label="All Jobs" onClick={() => router.push("/jobs/all")} />
-      </div>
+      {/* Smart Matches is account-only — guests stay on the public All Jobs list. */}
+      {isAuthenticated && (
+        <div className="flex items-center gap-2 sm:gap-0">
+          <TabButton active={activeTab === "smart-matches"} label="Smart Matches" onClick={() => router.push("/jobs/smart-matches")} />
+          <TabButton active={activeTab === "all"} label="All Jobs" onClick={() => router.push("/jobs/all")} />
+        </div>
+      )}
 
       {/* Filter pills */}
       <div className="flex flex-wrap items-center gap-2 sm:gap-3">
