@@ -228,7 +228,7 @@ export function JobDetail() {
   };
 
   return (
-    <div className="text-white">
+    <div className="overflow-x-hidden text-white">
       {/* Mobile header bar (Figma 721:264). Desktop keeps the breadcrumb below. */}
       <div className="flex h-16 items-center justify-between border-b border-white/[0.12] bg-white/[0.06] px-4 lg:hidden">
         <div className="flex items-center gap-3">
@@ -322,9 +322,10 @@ export function JobDetail() {
 
           <h1 className="text-2xl font-bold leading-8 text-white lg:text-[32px] lg:leading-10">{title}</h1>
 
-          <div className="flex gap-3">
+          {/* Four metrics overflow a phone in one row; wrap to 2×2 below lg. */}
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             {metrics.map((m) => (
-              <div key={m.label} className="flex min-w-0 flex-1 flex-col gap-1 rounded-xl border border-glass-border bg-white/[0.03] p-3 lg:gap-1.5 lg:rounded-2xl lg:p-4">
+              <div key={m.label} className="flex min-w-0 flex-col gap-1 rounded-xl border border-glass-border bg-white/[0.03] p-3 lg:gap-1.5 lg:rounded-2xl lg:p-4">
                 <span className="text-xs leading-tight text-white/45 lg:leading-4">{m.label}</span>
                 <span className="text-lg font-bold text-white lg:text-2xl">{m.value}</span>
               </div>

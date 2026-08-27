@@ -37,8 +37,8 @@ export function PublicNavbar() {
       <MobileTopBar onProfileClick={() => setIsProfilePanelOpen(true)} />
 
       {/* Instagram-style Bottom Navigation (Mobile) */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 glass-strong backdrop-blur-xl border-t border-glass-border">
-        <div className="grid grid-cols-4 gap-1 px-2 py-2 safe-area-bottom">
+      <nav className="mobile-tab-bar lg:hidden fixed inset-x-0 bottom-0 z-50">
+        <div className="mx-auto flex max-w-md items-stretch justify-around px-2 py-1">
           {publicNavbarItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeSection === item.id;
@@ -47,7 +47,7 @@ export function PublicNavbar() {
               <button
                 key={item.id}
                 onClick={() => router.push(item.path)}
-                className={`relative flex flex-col items-center gap-1 p-2 rounded-xl transition-all duration-300 hover:scale-110 ${isActive ? "text-neon-cyan" : "text-muted-foreground"}`}
+                className={`relative flex flex-1 flex-col items-center gap-1 p-2 rounded-xl transition-colors ${isActive ? "text-neon-cyan" : "text-muted-foreground"}`}
               >
                 <div className="relative">
                   <Icon className={`h-5 w-5 transition-all duration-300 ${isActive ? "text-neon-cyan scale-110" : "text-muted-foreground"}`} />
@@ -66,7 +66,7 @@ export function PublicNavbar() {
           {/* Profile Button */}
           <button
             onClick={() => setIsProfilePanelOpen(true)}
-            className={`relative flex flex-col items-center gap-1 p-2 rounded-xl transition-all duration-300 hover:scale-110 ${isProfilePanelOpen ? "text-neon-cyan" : "text-muted-foreground"}`}
+            className={`relative flex flex-1 flex-col items-center gap-1 p-2 rounded-xl transition-colors ${isProfilePanelOpen ? "text-neon-cyan" : "text-muted-foreground"}`}
           >
             <div className="relative">
               <div

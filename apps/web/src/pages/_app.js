@@ -4,11 +4,15 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ResumeDraftSync } from "@/components/onboarding/ResumeDraftSync";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/contexts/AuthContext";
+import Head from "next/head";
 import "../styles/globals.css";
 
 export default function App({ Component, pageProps }) {
   return (
     <ConvexClientProvider>
+      <Head>
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+      </Head>
       <AuthProvider>
         <RouteGuard>
           <ResumeDraftSync />
