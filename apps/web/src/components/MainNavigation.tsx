@@ -36,8 +36,8 @@ export function MainNavigation({ activeSection, onProfileClick }: MainNavigation
       <MobileTopBar onProfileClick={onProfileClick} />
 
       {/* Instagram-style Bottom Navigation (Mobile) */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 glass-strong backdrop-blur-xl border-t border-glass-border">
-        <div className="mx-auto flex max-w-md items-stretch justify-around px-2 py-1 safe-area-bottom">
+      <nav className="mobile-tab-bar lg:hidden fixed inset-x-0 bottom-0 z-50">
+        <div className="mx-auto flex max-w-md items-stretch justify-around px-2 py-1">
           {mainNavigationItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeSection === item.id;

@@ -42,7 +42,7 @@ const Layout = ({ activeSection, children }) => {
 
       {/* Clears the fixed mobile tab bar both navbars render, so the last thing
           on the page isn't sitting under it. */}
-      <div className="h-20 lg:hidden" aria-hidden="true" />
+      <div className="h-[calc(5rem+env(safe-area-inset-bottom,0px))] lg:hidden" aria-hidden="true" />
 
       {/* Job Filter Sidebar */}
       <JobFilterSidebar isOpen={showJobFilterSidebar} />
