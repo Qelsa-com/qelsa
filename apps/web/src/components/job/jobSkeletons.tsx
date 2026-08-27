@@ -229,17 +229,10 @@ export function AppliedJobCardSkeleton() {
           <Bone key={i} className="h-6 w-16 rounded-full" />
         ))}
       </div>
-      <div className="flex flex-col gap-3">
-        <Bone className="h-3 w-36" />
-        <div className="flex gap-4">
-          <Bone className="h-4 w-44" />
-          <Bone className="h-4 w-36" />
-        </div>
-      </div>
       <div className="h-px w-full bg-white/[0.08]" />
       <div className="flex items-center justify-between">
         <Bone className="h-4 w-48" />
-        <Bone className="h-9 w-36 rounded-full" />
+        <Bone className="h-4 w-28" />
       </div>
     </div>
   );

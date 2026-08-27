@@ -207,7 +207,8 @@ export default defineSchema({
     .index("by_user", ["user_id"])
     .index("by_job", ["job_id"])
     .index("by_job_and_user", ["job_id", "user_id"])
-    .index("by_user_and_status", ["user_id", "status"]),
+    .index("by_user_and_status", ["user_id", "status"])
+    .index("by_job_and_status", ["job_id", "status"]),
 
   job_application_answers: defineTable({
     job_id: v.id("jobs"),

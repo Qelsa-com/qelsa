@@ -1,11 +1,12 @@
 import { v } from "convex/values";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { R2 } from "@convex-dev/r2";
 import { components } from "./_generated/api";
 import { authedMutation, authedQuery } from "./lib/customFunctions";
 import { iso, withId } from "./lib/helpers";
 import { bumpJobCount } from "./lib/jobCounts";
 import { yearsFromExperiences } from "./lib/applicantSearch";
+import { isWithdrawn, WITHDRAWN_STATUS } from "./lib/applications";
 import { buildCompetencyFramework } from "./lib/skillMatch";
 import { signedFileUrl } from "./lib/r2";
 
@@ -17,12 +18,24 @@ export const listForJob = authedQuery({
   handler: async (ctx, args) => {
     const job = await ctx.db.get(args.jobId);
     if (!job || job.owner_id !== ctx.user._id) throw new Error("Unauthorized");
-    const apps = await ctx.db
-      .query("job_applications")
-      .withIndex("by_job", (q) => q.eq("job_id", args.jobId))
-      .order("desc")
-      .take(80);
-    const filtered = args.status ? apps.filter((app) => app.status === args.status) : apps;
+    if (args.status && isWithdrawn(args.status)) return [];
+
+    let filtered: Doc<"job_applications">[];
+    if (args.status) {
+      const status = args.status as Doc<"job_applications">["status"];
+      filtered = await ctx.db
+        .query("job_applications")
+        .withIndex("by_job_and_status", (q) => q.eq("job_id", args.jobId).eq("status", status))
+        .order("desc")
+        .take(80);
+    } else {
+      const apps = await ctx.db
+        .query("job_applications")
+        .withIndex("by_job", (q) => q.eq("job_id", args.jobId))
+        .order("desc")
+        .take(200);
+      filtered = apps.filter((app) => !isWithdrawn(app.status)).slice(0, 80);
+    }
 
     const skillRows = await ctx.db.query("job_skills").withIndex("by_job", (q) => q.eq("job_id", args.jobId)).take(40);
     const jobSkills = [];
@@ -79,7 +92,7 @@ export const getDetail = authedQuery({
     const job = await ctx.db.get(args.jobId);
     if (!job || job.owner_id !== ctx.user._id) throw new Error("Unauthorized");
     const app = await ctx.db.get(args.applicationId);
-    if (!app || app.job_id !== args.jobId) return null;
+    if (!app || app.job_id !== args.jobId || isWithdrawn(app.status)) return null;
     const user = await ctx.db.get(app.user_id);
     const resume = app.resume_id ? await ctx.db.get(app.resume_id) : null;
     const answers = await ctx.db
@@ -175,5 +188,44 @@ export const bulkUpdateStatus = authedMutation({
       updatedCount += 1;
     }
     return { updatedCount };
+  },
+});
+
+export const withdraw = authedMutation({
+  args: { applicationId: v.id("job_applications") },
+  returns: v.object({
+    id: v.id("job_applications"),
+    status: v.literal(WITHDRAWN_STATUS),
+    withdrawn_at: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const app = await ctx.db.get(args.applicationId);
+    if (!app) throw new Error("Application not found");
+    if (app.user_id !== ctx.user._id) throw new Error("Unauthorized");
+
+    if (isWithdrawn(app.status)) {
+      return {
+        id: app._id,
+        status: WITHDRAWN_STATUS,
+        withdrawn_at: app.withdrawn_at ?? Date.now(),
+      };
+    }
+
+    if (app.status === "rejected") {
+      throw new Error("This application can no longer be withdrawn");
+    }
+
+    const withdrawn_at = Date.now();
+    await ctx.db.patch(app._id, { status: WITHDRAWN_STATUS, withdrawn_at });
+    await ctx.db.insert("job_application_logs", {
+      job_id: app.job_id,
+      job_application_id: app._id,
+      created_by_id: ctx.user._id,
+      action_type: "status_changed",
+      old_status: app.status,
+      new_status: WITHDRAWN_STATUS,
+    });
+    await bumpJobCount(ctx, app.job_id, "application_count", -1);
+    return { id: app._id, status: WITHDRAWN_STATUS, withdrawn_at };
   },
 });

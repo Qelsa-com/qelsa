@@ -16,6 +16,7 @@ import {
   type ApplicantSearchDoc,
 } from "./lib/applicantSearch";
 import { buildCompetencyFramework, clipPlainText } from "./lib/skillMatch";
+import { isWithdrawn } from "./lib/applications";
 
 const MAX_APPS = 80;
 
@@ -65,11 +66,12 @@ export async function loadApplicantSearchDocs(
 ): Promise<ApplicantSearchDoc[]> {
   const includeText = options?.includeText ?? true;
   const jobContext = await loadJobSearchContext(ctx, jobId);
-  const apps = await ctx.db
+  const rows = await ctx.db
     .query("job_applications")
     .withIndex("by_job", (q) => q.eq("job_id", jobId))
     .order("desc")
-    .take(MAX_APPS);
+    .take(MAX_APPS * 2);
+  const apps = rows.filter((app) => !isWithdrawn(app.status)).slice(0, MAX_APPS);
 
   const docs = await Promise.all(
     apps.map(async (app) => {

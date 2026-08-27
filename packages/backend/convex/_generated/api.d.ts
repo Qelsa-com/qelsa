@@ -29,6 +29,7 @@ import type * as jobsGenerate from "../jobsGenerate.js";
 import type * as jobsScraper from "../jobsScraper.js";
 import type * as lib_ai from "../lib/ai.js";
 import type * as lib_applicantSearch from "../lib/applicantSearch.js";
+import type * as lib_applications from "../lib/applications.js";
 import type * as lib_atsJobReconcile from "../lib/atsJobReconcile.js";
 import type * as lib_atsSyncEnabled from "../lib/atsSyncEnabled.js";
 import type * as lib_atsSyncInterval from "../lib/atsSyncInterval.js";
@@ -83,6 +84,7 @@ declare const fullApi: ApiFromModules<{
   jobsScraper: typeof jobsScraper;
   "lib/ai": typeof lib_ai;
   "lib/applicantSearch": typeof lib_applicantSearch;
+  "lib/applications": typeof lib_applications;
   "lib/atsJobReconcile": typeof lib_atsJobReconcile;
   "lib/atsSyncEnabled": typeof lib_atsSyncEnabled;
   "lib/atsSyncInterval": typeof lib_atsSyncInterval;
