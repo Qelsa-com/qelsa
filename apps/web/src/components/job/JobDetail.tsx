@@ -194,9 +194,10 @@ export function JobDetail() {
   const overallMatch = matchSession?.analysis?.overall;
   const metrics = [
     // Readiness is the deterministic skill-vs-skill match; the composite
-    // (whole profile) is shown separately as Profile Fit.
+    // (whole profile) is shown separately as Profile Fit. Always render all
+    // four tiles so the mobile 2×2 grid stays balanced.
     { label: "Readiness Score", value: competency ? `${competency.readiness}%` : "—" },
-    ...(overallMatch != null ? [{ label: "Profile Fit", value: `${overallMatch}%` }] : []),
+    { label: "Profile Fit", value: overallMatch != null ? `${overallMatch}%` : "—" },
     { label: "Views", value: formatCount(job.view_count ?? 0) },
     { label: "Applications", value: `${job.application_count ?? job.applications?.length ?? 0}` },
   ];
