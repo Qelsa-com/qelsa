@@ -11,7 +11,7 @@ import Layout from "@/layout";
 export function JobTierListing({ tier }: { tier: MatchTierId }) {
   const router = useRouter();
   const meta = MATCH_TIER[tier];
-  const { searchInput, setSearchInput, filters, applyFilters, discoverArgs, cityFilter, setCityFilter } = useJobBrowseFilters(tier);
+  const { searchInput, setSearchInput, filters, applyFilters, discoverArgs, cityFilter, setCityFilter, commitSearch } = useJobBrowseFilters(tier);
   const { results, status, isLoading, loadMore } = usePaginatedJobsQuery(discoverArgs, JOBS_PAGE_SIZE);
   const { data: filteredTotal } = useCountJobsQuery(discoverArgs);
   const jobs = (results as Job[]) ?? [];
@@ -26,7 +26,7 @@ export function JobTierListing({ tier }: { tier: MatchTierId }) {
           activeTab="smart-matches"
           query={searchInput}
           setQuery={setSearchInput}
-          onSearch={() => undefined}
+          onSearch={commitSearch}
           filters={filters}
           onApplyFilters={applyFilters}
           cityFilter={cityFilter}

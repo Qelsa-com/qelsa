@@ -28,7 +28,7 @@ import { City } from "@/types/city";
 import { Job } from "@/types/job";
 import { Building2, Check, ChevronDown, MapPin, Search, Sparkles, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 /* --------------------------------- types ---------------------------------- */
 
@@ -277,12 +277,16 @@ export function useJobBrowseFilters(tier?: MatchTierId) {
     return () => clearTimeout(t);
   }, [searchInput]);
 
+  const commitSearch = useCallback(() => {
+    setQuery(searchInput);
+  }, [searchInput]);
+
   const discoverArgs = useMemo(() => toDiscoverArgs(filters, query), [filters, query]);
   const applyFilters = (partial: Partial<SearchFilters>) => {
     setFilters((prev) => ({ ...prev, ...partial }));
   };
 
-  return { searchInput, setSearchInput, query, filters, applyFilters, discoverArgs, cityFilter, setCityFilter };
+  return { searchInput, setSearchInput, query, filters, applyFilters, discoverArgs, cityFilter, setCityFilter, commitSearch };
 }
 
 /* ------------------------------ job card ---------------------------------- */

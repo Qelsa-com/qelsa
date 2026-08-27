@@ -10,6 +10,15 @@ export const BROWSE_SCAN = 160;
 export const SCORE_CAP = 48;
 /** Skill rows per job are enough for a stable readiness rank. */
 export const SCORE_SKILL_TAKE = 20;
+/** Title / company search hits. Each is one indexed search, not a table scan. */
+const SEARCH_TITLE_TAKE = 64;
+const SEARCH_COMPANY_TAKE = 48;
+const SEARCH_SKILL_TAKE = 8;
+const JOBS_PER_SKILL = 32;
+const SEARCH_PAGE_TAKE = 8;
+const JOBS_PER_PAGE = 24;
+/** Hard cap after merging title + company + skill + page hits. */
+const SEARCH_CANDIDATE_CAP = 160;
 
 export type BrowseCandidate = {
   job: Doc<"jobs">;
@@ -291,6 +300,84 @@ export async function findSimilarOpenJobs(ctx: QueryCtx, job: Doc<"jobs">, limit
     .filter((item) => item.similarity >= SIMILAR_MIN)
     .sort((a, b) => b.similarity - a.similarity)
     .slice(0, limit);
+}
+
+function addOpenJob(pool: Map<Id<"jobs">, Doc<"jobs">>, job: Doc<"jobs"> | null | undefined) {
+  if (!job || job.status !== "open" || pool.has(job._id)) return;
+  if (pool.size >= SEARCH_CANDIDATE_CAP) return;
+  pool.set(job._id, job);
+}
+
+/**
+ * Browse search: title, company (job.company_name or page name), and required
+ * skills. Each source is an indexed take — never a growing-table scan.
+ */
+export async function jobsMatchingBrowseSearch(ctx: QueryCtx, rawSearch: string): Promise<Doc<"jobs">[]> {
+  const search = rawSearch.trim();
+  if (!search) return [];
+
+  const pool = new Map<Id<"jobs">, Doc<"jobs">>();
+
+  const [byTitle, byCompany, skillHits, pageHits] = await Promise.all([
+    ctx.db
+      .query("jobs")
+      .withSearchIndex("search_title", (q) => q.search("title", search).eq("status", "open"))
+      .take(SEARCH_TITLE_TAKE),
+    ctx.db
+      .query("jobs")
+      .withSearchIndex("search_company", (q) => q.search("company_name", search).eq("status", "open"))
+      .take(SEARCH_COMPANY_TAKE),
+    ctx.db
+      .query("skills")
+      .withSearchIndex("search_name", (q) => q.search("name", search))
+      .take(SEARCH_SKILL_TAKE),
+    ctx.db
+      .query("pages")
+      .withSearchIndex("search_name", (q) => q.search("name", search))
+      .take(SEARCH_PAGE_TAKE),
+  ]);
+
+  for (const job of byTitle) addOpenJob(pool, job);
+  for (const job of byCompany) addOpenJob(pool, job);
+
+  const skillIds = new Set(skillHits.map((row) => row._id));
+  // Exact catalog lookup covers names search tokenization can miss (Node.js, AWS).
+  const exactNames = [...new Set([search, search.toLowerCase(), search.replace(/\b\w/g, (c) => c.toUpperCase())])].slice(0, 3);
+  const exactSkills = await Promise.all(
+    exactNames.map((name) =>
+      ctx.db
+        .query("skills")
+        .withIndex("by_name", (q) => q.eq("name", name))
+        .first(),
+    ),
+  );
+  for (const skill of exactSkills) {
+    if (skill) skillIds.add(skill._id);
+  }
+
+  const skillRows = await Promise.all(
+    [...skillIds].slice(0, SEARCH_SKILL_TAKE).map((skillId) =>
+      ctx.db
+        .query("job_skills")
+        .withIndex("by_skill", (q) => q.eq("skill_id", skillId))
+        .take(JOBS_PER_SKILL),
+    ),
+  );
+  const skillJobIds = [...new Set(skillRows.flat().map((row) => row.job_id))].slice(0, 80);
+  const skillJobs = await Promise.all(skillJobIds.map((id) => ctx.db.get(id)));
+  for (const job of skillJobs) addOpenJob(pool, job);
+
+  const pageJobs = await Promise.all(
+    pageHits.map((page) =>
+      ctx.db
+        .query("jobs")
+        .withIndex("by_page", (q) => q.eq("page_id", page._id))
+        .take(JOBS_PER_PAGE),
+    ),
+  );
+  for (const job of pageJobs.flat()) addOpenJob(pool, job);
+
+  return [...pool.values()];
 }
 
 /**
