@@ -21,6 +21,7 @@ import {
   type BrowseCandidate,
 } from "./lib/jobBrowse";
 import { bumpJobCount, bumpOpenJobCount, ensureJobStats, ensureOpenJobCount, getJobCounts, getOpenJobCount, openCountDelta } from "./lib/jobCounts";
+import { isWithdrawn } from "./lib/applications";
 import { resolveJobSalary } from "./lib/jobSalary";
 import { canExtractSkills, jobNeedsSkillEnrichment, markSkillsExtracted, skillContentHash } from "./lib/jobSkillExtraction";
 import {
@@ -676,11 +677,17 @@ export const listApplied = authedQuery({
   args: { status: v.optional(v.string()), search: v.optional(v.string()) },
   returns: v.any(),
   handler: async (ctx, args) => {
-    let apps = await ctx.db
+    if (args.status && isWithdrawn(args.status)) return [];
+
+    const rows = await ctx.db
       .query("job_applications")
       .withIndex("by_user", (q) => q.eq("user_id", ctx.user._id))
-      .collect();
+      .order("desc")
+      .take(200);
+    let apps = rows.filter((a) => !isWithdrawn(a.status));
     if (args.status) apps = apps.filter((a) => a.status === args.status);
+    apps.sort((a, b) => b.applied_at - a.applied_at);
+
     const hydration = await listHydration(ctx, ctx.user);
     const out = [];
     for (const app of apps) {
@@ -690,10 +697,14 @@ export const listApplied = authedQuery({
         const hay = `${job?.title ?? ""} ${job?.company_name ?? ""}`.toLowerCase();
         if (!hay.includes(q)) continue;
       }
-      const logs = await ctx.db
-        .query("job_application_logs")
-        .withIndex("by_application", (q) => q.eq("job_application_id", app._id))
-        .collect();
+      // Logs are only needed to detect "viewed" when status is still applied.
+      const logs =
+        app.status === "applied"
+          ? await ctx.db
+              .query("job_application_logs")
+              .withIndex("by_application", (q) => q.eq("job_application_id", app._id))
+              .take(20)
+          : [];
       out.push({
         ...withId(app),
         applied_at: iso(app.applied_at),

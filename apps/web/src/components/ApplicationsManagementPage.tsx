@@ -21,7 +21,6 @@ const statusMeta: Record<string, { label: string; className: string }> = {
   sorted: { label: "Shortlisted", className: "bg-neon-green/15 text-neon-green" },
   rejected: { label: "Rejected", className: "bg-red-500/15 text-red-500" },
   hold: { label: "On Hold", className: "bg-neon-yellow/15 text-neon-yellow" },
-  cancelled: { label: "Cancelled", className: "bg-white/8 text-white/50" },
 };
 
 const competencyTypeStyles: Record<string, string> = {
@@ -444,7 +443,7 @@ export function ApplicationsManagementPage() {
                   const isSelected = selectedApplicationId === application.id;
                   const readiness = application.readiness;
                   const tone = readinessStyles(readiness ?? 0);
-                  const meta = statusMeta[application.status] ?? statusMeta.cancelled;
+                  const meta = statusMeta[application.status] ?? { label: "Withdrawn", className: "bg-white/8 text-white/50" };
 
                   return (
                     <div
@@ -625,8 +624,8 @@ export function ApplicationsManagementPage() {
                   </div>
                   <div className="flex items-center justify-between">
                     <p className="text-[13px] text-white/50">Status</p>
-                    <span className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${(statusMeta[selectedApplication.status] ?? statusMeta.cancelled).className}`}>
-                      {(statusMeta[selectedApplication.status] ?? statusMeta.cancelled).label}
+                    <span className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${(statusMeta[selectedApplication.status] ?? { className: "bg-white/8 text-white/50" }).className}`}>
+                      {(statusMeta[selectedApplication.status] ?? { label: "Withdrawn" }).label}
                     </span>
                   </div>
                 </div>

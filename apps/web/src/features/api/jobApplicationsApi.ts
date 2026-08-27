@@ -83,3 +83,12 @@ export function useEditBulkStatusMutation() {
     }),
   );
 }
+
+export function useWithdrawApplicationMutation() {
+  return useConvexMutationHook(
+    api.jobApplications.withdraw,
+    (data: { applicationId: string | number }) => ({
+      applicationId: String(data.applicationId),
+    }),
+  );
+}
