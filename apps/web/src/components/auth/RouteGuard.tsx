@@ -6,7 +6,7 @@ import { needsOnboarding } from "@/lib/onboarding";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 
-const PUBLIC_ROUTES = ["/", "/start", "/login", "/register", "/auth", "/jobs/all", "/jobs", "/qelsa-ai", "/network", "/courses", "/blogs"];
+const PUBLIC_ROUTES = ["/", "/start", "/login", "/register", "/auth", "/jobs/all", "/jobs", "/blogs"];
 const ONBOARDING_EXEMPT = new Set(["/onboarding", "/auth", "/privacy", "/terms", "/cookies"]);
 const JOB_STATIC = new Set(["all", "posted", "smart-matches", "create-job", "match", "ready", "almost", "smart_matches"]);
 const PUBLIC_JOB = /^\/jobs\/([^/]+)$/;

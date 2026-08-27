@@ -1,32 +1,27 @@
+"use client";
+
 import { Briefcase, Rss, User } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { DesktopTopBar } from "./DesktopTopBar";
 import { MobileTopBar } from "./MobileTopBar";
 import { ProfilePanel } from "./ProfilePanel";
-import { Badge } from "./ui/badge";
 
 interface NavigationItem {
   id: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
-  badge?: number;
-  isMain?: boolean;
   path: string;
 }
 
-// Main navigation items (bottom nav)
 const publicNavbarItems: NavigationItem[] = [
-  { id: "jobs", label: "Jobs", icon: Briefcase, badge: 12, isMain: true, path: "/jobs" },
-  // { id: "qelsa-ai", label: "Qelsa AI", icon: Zap, isMain: true, path: "/qelsa-ai" },
-  // { id: "blog", label: "Blog", icon: Rss, isMain: true, path: "/blog" },
+  { id: "jobs", label: "Jobs", icon: Briefcase, path: "/jobs/all" },
+  { id: "blog", label: "Blog", icon: Rss, path: "/blogs" },
 ];
 
-export function PublicNavbar() {
+export function PublicNavbar({ activeSection }: { activeSection?: string }) {
   const router = useRouter();
   const [isProfilePanelOpen, setIsProfilePanelOpen] = useState(false);
-
-  const activeSection = publicNavbarItems.find((item) => item.path === location.pathname)?.id || "profile";
 
   return (
     <>
@@ -46,16 +41,14 @@ export function PublicNavbar() {
             return (
               <button
                 key={item.id}
+                type="button"
+                aria-label={item.label}
+                aria-current={isActive ? "page" : undefined}
                 onClick={() => router.push(item.path)}
                 className={`relative flex flex-1 flex-col items-center gap-1 p-2 rounded-xl transition-colors ${isActive ? "text-neon-cyan" : "text-muted-foreground"}`}
               >
                 <div className="relative">
                   <Icon className={`h-5 w-5 transition-all duration-300 ${isActive ? "text-neon-cyan scale-110" : "text-muted-foreground"}`} />
-                  {item.badge && (
-                    <Badge className="absolute -top-1 -right-1 h-3 min-w-[12px] text-[10px] bg-gradient-to-r from-neon-pink to-neon-purple text-white border-0 animate-pulse px-1">
-                      {item.badge > 9 ? "9+" : item.badge}
-                    </Badge>
-                  )}
                 </div>
                 <span className={`text-[10px] font-medium transition-all duration-300 leading-tight ${isActive ? "text-neon-cyan" : "text-muted-foreground"}`}>{item.label}</span>
                 {isActive && <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-4 h-0.5 bg-neon-cyan rounded-full glow-cyan"></div>}
