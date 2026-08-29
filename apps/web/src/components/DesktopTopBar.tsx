@@ -10,6 +10,7 @@
 
 import { useAuth } from "@/contexts/AuthContext";
 import { Bell, Search, User } from "lucide-react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 
 /**
@@ -28,8 +29,10 @@ const AUTHED_NAV_LINKS = [
 ];
 
 const GUEST_NAV_LINKS = [
+  { id: "for_candidates", label: "For Candidates", href: "/for_candidates" },
+  { id: "for_employers", label: "For Employers", href: "/for_employers" },
   { id: "jobs", label: "Jobs", href: "/jobs/all" },
-  { id: "blog", label: "Blog", href: "/blogs" },
+  { id: "blog", label: "Blogs", href: "/blogs" },
 ];
 
 export function DesktopTopBar({ activeSection, onProfileClick }: { activeSection?: string; onProfileClick?: () => void }) {
@@ -38,40 +41,48 @@ export function DesktopTopBar({ activeSection, onProfileClick }: { activeSection
   const links = isAuthenticated ? AUTHED_NAV_LINKS : GUEST_NAV_LINKS;
 
   return (
-    <header className="sticky top-0 z-50 hidden items-center justify-between border-b border-white/[0.08] bg-[#06060f] px-10 py-4 lg:flex">
-      <button type="button" onClick={() => router.push("/")} className="bg-gradient-to-r from-neon-cyan via-neon-purple to-neon-pink bg-clip-text text-[18px] font-bold leading-8 tracking-[-0.53px] text-transparent">
-        Qelsa
+    <header className="sticky top-0 z-50 hidden border-b border-white/[0.08] bg-[#06060f] lg:block">
+      <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-6 py-4">
+      <button type="button" onClick={() => router.push("/")} className="flex items-center">
+        <Image src="/qelsa-logo.svg" alt="Qelsa" width={91} height={29} priority unoptimized className="h-[26px] w-auto" />
       </button>
 
-      <nav className="flex items-center gap-7">
+      <nav className="flex items-center gap-9">
         {links.map((link) => {
           const active = link.id === activeSection;
           return (
             <button key={link.id} type="button" onClick={() => router.push(link.href)} className="relative flex items-center justify-center">
-              <span className={`text-sm font-semibold transition-colors ${active ? "text-neon-cyan" : "text-white/70 hover:text-white"}`}>{link.label}</span>
+              <span className={`text-[15px] font-semibold transition-colors ${active ? "text-sky-400" : "text-white/70 hover:text-white"}`}>{link.label}</span>
               {/* Sits on the header's bottom edge, clearing the 16px padding. */}
-              {active && <span className="absolute -bottom-4 left-0 h-0.5 w-full bg-neon-cyan" />}
+              {active && <span className="absolute -bottom-4 left-0 h-0.5 w-full bg-sky-400" />}
             </button>
           );
         })}
       </nav>
 
-      <div className="flex items-center gap-6">
-        <button type="button" aria-label="Search jobs" onClick={() => router.push("/jobs/all")} className="text-white/70 transition-colors hover:text-white">
-          <Search className="size-5" />
+      {!isAuthenticated ? (
+        <button type="button" onClick={() => router.push("/auth")} className="text-[15px] font-semibold text-white transition-colors hover:text-white/80">
+          Sign in
         </button>
-        {/* Inert until there's a notifications destination to route to. */}
-        <span aria-hidden="true" className="text-white/70">
-          <Bell className="size-5" />
-        </span>
-        <button type="button" aria-label="Open profile" onClick={onProfileClick} className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/[0.12] bg-white/[0.04]">
-          {user?.profile_image ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={user.profile_image} alt={user.name || "Profile"} className="size-full object-cover" />
-          ) : (
-            <User className="size-4 text-white/70" />
-          )}
-        </button>
+      ) : (
+        <div className="flex items-center gap-6">
+          <button type="button" aria-label="Search jobs" onClick={() => router.push("/jobs/all")} className="text-white/70 transition-colors hover:text-white">
+            <Search className="size-5" />
+          </button>
+          {/* Inert until there's a notifications destination to route to. */}
+          <span aria-hidden="true" className="text-white/70">
+            <Bell className="size-5" />
+          </span>
+          <button type="button" aria-label="Open profile" onClick={onProfileClick} className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/[0.12] bg-white/[0.04]">
+            {user?.profile_image ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={user.profile_image} alt={user.name || "Profile"} className="size-full object-cover" />
+            ) : (
+              <User className="size-4 text-white/70" />
+            )}
+          </button>
+        </div>
+      )}
       </div>
     </header>
   );
