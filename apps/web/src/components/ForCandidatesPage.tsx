@@ -5,30 +5,13 @@
  * four-step intelligence pipeline, the origin-to-action row, job matching,
  * skill gaps, the AI chat, resume/JD match, and the learning path.
  *
- * The page carries its own marketing header and footer rather than the app
- * shell (Layout/PublicNavbar), because the design's nav is a marketing nav
- * (For Candidates / For Employers / Jobs / Blogs + Sign in) and the footer
- * carries the brand and tagline the app footer does not.
+ * Body content only. The header comes from Layout -> PublicNavbar and the
+ * footer from MarketingFooter, both wired up in pages/candidates.tsx.
  */
 
 import { Check, ChevronRight, MoreHorizontal, Target } from "lucide-react";
-import Image from "next/image";
 import Link from "next/link";
 import { Fragment, type ReactNode } from "react";
-
-/** `href: null` renders a plain label — For Employers has no route yet. */
-const NAV_LINKS: { label: string; href: string | null; active?: boolean }[] = [
-  { label: "For Candidates", href: "/for_candidates", active: true },
-  { label: "For Employers", href: null },
-  { label: "Jobs", href: "/jobs/all" },
-  { label: "Blogs", href: "/blogs" },
-];
-
-const FOOTER_LINKS = [
-  { label: "Privacy Policy", href: "/privacy" },
-  { label: "Terms of Service", href: "/terms" },
-  { label: "Cookie Policy", href: "/cookies" },
-];
 
 const HERO = {
   eyebrow: "Career intelligence",
@@ -164,46 +147,10 @@ function Section({ children, className = "" }: { children: ReactNode; className?
 
 export function ForCandidatesPage() {
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#05050c] text-white">
+    <div className="relative overflow-hidden bg-[#05050c] text-white">
       {/* The blurred orbs bleeding off the hero corners in the design. */}
       <div aria-hidden="true" className="pointer-events-none absolute -right-40 -top-64 size-[560px] rounded-full bg-neon-cyan/[0.18] blur-[140px]" />
       <div aria-hidden="true" className="pointer-events-none absolute -left-56 top-[380px] size-[440px] rounded-full bg-neon-purple/[0.18] blur-[140px]" />
-
-      <header className="sticky top-0 z-50 border-b border-white/[0.08] bg-[#05050c]/85 backdrop-blur-md">
-        <div className="mx-auto flex w-full max-w-[1180px] items-center justify-between gap-6 px-6 py-4 lg:px-10">
-          <Link href="/" className="flex shrink-0 items-center gap-2" aria-label="Qelsa home">
-            <span className="gradient-primary flex size-6 items-center justify-center rounded-md text-[11px] font-bold leading-none text-white">q</span>
-            <Image src="/qelsa-logo.svg" alt="Qelsa" width={91} height={29} unoptimized className="h-[15px] w-auto" />
-          </Link>
-
-          <nav className="hidden items-center gap-8 md:flex">
-            {NAV_LINKS.map((link) => {
-              if (!link.href) {
-                return (
-                  <span key={link.label} title="Coming soon" className="cursor-default text-[13px] font-medium text-white/40">
-                    {link.label}
-                  </span>
-                );
-              }
-              return (
-                <Link
-                  key={link.label}
-                  href={link.href}
-                  aria-current={link.active ? "page" : undefined}
-                  className={`relative text-[13px] font-medium transition-colors ${link.active ? "text-neon-cyan" : "text-white/60 hover:text-white"}`}
-                >
-                  {link.label}
-                  {link.active && <span className="absolute -bottom-[17px] left-0 h-0.5 w-full bg-neon-cyan" />}
-                </Link>
-              );
-            })}
-          </nav>
-
-          <Link href="/auth" className="shrink-0 text-[13px] font-medium text-white/70 transition-colors hover:text-white">
-            Sign in
-          </Link>
-        </div>
-      </header>
 
       {/* Hero */}
       <Section className="lg:pb-28 lg:pt-24">
@@ -532,28 +479,6 @@ export function ForCandidatesPage() {
         </div>
       </Section>
 
-      <footer className="relative mx-auto w-full max-w-[1180px] px-6 pb-12 lg:px-10">
-        <div className="flex flex-col gap-6 border-t border-white/[0.08] pt-8">
-          <div className="flex flex-col items-start justify-between gap-5 sm:flex-row sm:items-center">
-            <Link href="/" className="flex items-center gap-2" aria-label="Qelsa home">
-              <span className="gradient-primary flex size-6 items-center justify-center rounded-md text-[11px] font-bold leading-none text-white">q</span>
-              <Image src="/qelsa-logo.svg" alt="Qelsa" width={91} height={29} unoptimized className="h-[15px] w-auto" />
-            </Link>
-            <div className="flex flex-wrap items-center gap-6">
-              {FOOTER_LINKS.map((link) => (
-                <Link key={link.label} href={link.href} className="text-[11px] text-white/45 transition-colors hover:text-white/70">
-                  {link.label}
-                </Link>
-              ))}
-            </div>
-          </div>
-          <div className="flex flex-col gap-2 text-[10px] text-white/35 sm:flex-row sm:items-center sm:justify-between">
-            {/* The design reads "© 2026"; the year stays dynamic so it cannot go stale. */}
-            <p>© {new Date().getFullYear()} Qelsa. All rights reserved.</p>
-            <p>Providing precise career direction.</p>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }

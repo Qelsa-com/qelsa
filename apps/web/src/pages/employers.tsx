@@ -1,5 +1,5 @@
+import { MarketingFooter } from "@/components/MarketingFooter";
 import { ArrowRight, Check, ChevronRight, CircleArrowUp, CircleCheck, TriangleAlert } from "lucide-react";
-import Image from "next/image";
 import Link from "next/link";
 import Layout from "../layout";
 
@@ -90,12 +90,6 @@ const CONFIDENCE_CARDS = [
   },
 ];
 
-const FOOTER_LINKS = [
-  { label: "Privacy Policy", href: "/privacy" },
-  { label: "Terms of Service", href: "/terms" },
-  { label: "Cookie Policy", href: "/cookies" },
-];
-
 function AtsPill({ name }: { name: string }) {
   return (
     <div className="inline-flex items-center gap-2.5 rounded-xl border border-white/[0.08] bg-[#0D0D16] px-5 py-3.5">
@@ -108,7 +102,7 @@ function AtsPill({ name }: { name: string }) {
 
 export default function ForEmployers() {
   return (
-    <Layout activeSection="for_employers">
+    <Layout activeSection="employers">
       {/* Hero */}
       <section className="bg-[linear-gradient(180deg,#06060F_0%,#0B1020_100%)] px-6 py-20 lg:py-23">
         <div className={`${CONTAINER} grid items-center gap-14 lg:grid-cols-[1fr_520px]`}>
@@ -346,26 +340,7 @@ export default function ForEmployers() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="px-6 pb-12 pt-20">
-        <div className={CONTAINER}>
-          <div className="flex flex-wrap items-center justify-between gap-6">
-            <Image src="/qelsa-logo.svg" alt="Qelsa" width={91} height={29} unoptimized className="h-[26px] w-auto" />
-            <nav className="flex flex-wrap items-center gap-8">
-              {FOOTER_LINKS.map((link) => (
-                <Link key={link.href} href={link.href} className="text-base text-white/60 transition-colors hover:text-white">
-                  {link.label}
-                </Link>
-              ))}
-            </nav>
-          </div>
-
-          <div className="mt-8 flex flex-wrap items-center justify-between gap-2 border-t border-white/[0.06] pt-8">
-            <p className="text-[15px] text-white/35">© 2026 Qelsa. All rights reserved.</p>
-            <p className="text-[15px] text-white/35">Providing precise hiring decision.</p>
-          </div>
-        </div>
-      </footer>
+      <MarketingFooter tagline="Providing precise hiring decision." />
     </Layout>
   );
 }
