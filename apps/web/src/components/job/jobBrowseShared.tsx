@@ -4,7 +4,7 @@
  * Shared building blocks for the job-browse pages (Smart Matches + All Jobs).
  *
  * Both pages share the same Figma header (title row, search, view tabs, filter
- * pills, profile-completion banner) and the same job card (company logo, match
+ * pills, goal-setup banner) and the same job card (company logo, match
  * ring, title/company/location, chip row, salary + posted). They live here so
  * the two pages stay visually identical.
  *
@@ -13,16 +13,12 @@
  * classes are the mobile frame, `sm:` restores the wide layout.
  */
 
+import { GoalSetupBanner } from "@/components/goals/GoalSetupBanner";
 import { Autocomplete } from "@/components/ui/autocomplete";
-import { ProfileCompletionBar } from "@/components/profile/ProfileCompletionBar";
-import { profileCompletion } from "@/components/profile/profileFormat";
 import { formatCity } from "@/constants/city";
 import { useAuth } from "@/contexts/AuthContext";
-import { useGetCertificationsQuery } from "@/features/api/certificationsApi";
-import { useGetEducationsQuery } from "@/features/api/educationsApi";
-import { useGetExperiencesQuery } from "@/features/api/experiencesApi";
 import { useLazySearchCitiesQuery } from "@/features/api/seedApi";
-import { useGetUserSkillsQuery } from "@/features/api/userSkillsApi";
+import { hasCareerGoal } from "@/lib/careerGoal";
 import { MATCH_TIER, matchRingColor, type MatchTierId } from "@/lib/matchTiers";
 import { City } from "@/types/city";
 import { Job } from "@/types/job";
@@ -548,18 +544,7 @@ export function JobsBrowseHeader({
 }: JobsBrowseHeaderProps) {
   const router = useRouter();
   const { user, isAuthenticated } = useAuth();
-  const skipCompletion = !isAuthenticated;
-  const { data: experiences } = useGetExperiencesQuery(undefined, { skip: skipCompletion });
-  const { data: educations } = useGetEducationsQuery(undefined, { skip: skipCompletion });
-  const { data: certifications } = useGetCertificationsQuery(undefined, { skip: skipCompletion });
-  const { data: skills } = useGetUserSkillsQuery(undefined, { skip: skipCompletion });
-  const completion = profileCompletion(user, {
-    experiences: experiences?.length ?? 0,
-    educations: educations?.length ?? 0,
-    certifications: certifications?.length ?? 0,
-    skills: skills?.length ?? 0,
-  });
-  const showCompletion = isAuthenticated && experiences !== undefined && educations !== undefined && certifications !== undefined && skills !== undefined && completion < 100;
+  const showGoalBanner = isAuthenticated && Boolean(user) && !hasCareerGoal(user?.career_goal);
   const [searchCities, { data: cityResults = [] }] = useLazySearchCitiesQuery();
   const isMobile = useIsMobile();
 
@@ -624,7 +609,11 @@ export function JobsBrowseHeader({
       <div className="flex flex-wrap items-start justify-between gap-5 sm:gap-4">
         <div className="flex flex-col gap-2 sm:gap-3">
           <h1 className="text-[30px] font-extrabold text-white sm:text-4xl md:text-5xl">Job opportunities.</h1>
-          <p className="text-sm text-white/70 sm:text-lg">Find your next career move with AI-powered matching.</p>
+          <p className="text-sm text-white/70 sm:text-lg">
+            {hasCareerGoal(user?.career_goal)
+              ? `Roles matched to your goal: ${user?.career_goal?.target_role}.`
+              : "Find your next career move with AI-powered matching."}
+          </p>
         </div>
         {/* Posting and tracking all need an account — hidden while signed out. */}
         {isAuthenticated && (
@@ -724,7 +713,7 @@ export function JobsBrowseHeader({
       {/* Applied filter chips */}
       <AppliedFilters chips={appliedChips} onClear={clearAll} />
 
-      {showCompletion && <ProfileCompletionBar percent={completion} onComplete={() => router.push("/profile/edit")} />}
+      {showGoalBanner && <GoalSetupBanner onSetGoal={() => router.push("/goals")} />}
     </div>
   );
 }

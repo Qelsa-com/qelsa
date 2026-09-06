@@ -17,21 +17,40 @@ export const me = optionalAuthQuery({
     // Returns null instead of throwing when the app user has not been
     // provisioned yet; the client calls auth.ensureCurrentAppUser to create it.
     if (!ctx.user) return null;
-    const city = ctx.user.city_id ? await ctx.db.get(ctx.user.city_id) : null;
+    const [city, culture, resumes, careerGoal] = await Promise.all([
+      ctx.user.city_id ? ctx.db.get(ctx.user.city_id) : Promise.resolve(null),
+      ctx.db
+        .query("culture_preferences")
+        .withIndex("by_user", (q) => q.eq("user_id", ctx.user._id))
+        .unique(),
+      ctx.db
+        .query("resumes")
+        .withIndex("by_user", (q) => q.eq("user_id", ctx.user._id))
+        .collect(),
+      ctx.db
+        .query("career_goals")
+        .withIndex("by_user", (q) => q.eq("user_id", ctx.user._id))
+        .unique(),
+    ]);
     const state = city ? await ctx.db.get(city.state_id) : null;
-    const culture = await ctx.db
-      .query("culture_preferences")
-      .withIndex("by_user", (q) => q.eq("user_id", ctx.user._id))
-      .unique();
-    const resumes = await ctx.db
-      .query("resumes")
-      .withIndex("by_user", (q) => q.eq("user_id", ctx.user._id))
-      .collect();
     return {
       ...asUserJson(ctx.user),
       profile_image: (await signedFileUrl(r2, ctx.user.profile_image_storage_id)) ?? ctx.user.profile_image,
       city: city ? { ...withId(city), state: state ? withId(state) : null } : null,
       culture_preference: culture ? withId(culture) : null,
+      career_goal: careerGoal
+        ? {
+            id: careerGoal._id,
+            description: careerGoal.description,
+            target_role: careerGoal.target_role,
+            dream_companies: careerGoal.dream_companies,
+            timeline: careerGoal.timeline,
+            experience_level: careerGoal.experience_level,
+            skills: careerGoal.skills,
+            primary_focus: careerGoal.primary_focus,
+            updated_at: careerGoal.updated_at,
+          }
+        : null,
       resumes: await Promise.all(
         resumes.map(async (r) => ({
           ...withId(r),

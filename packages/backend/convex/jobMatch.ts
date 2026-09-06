@@ -118,12 +118,13 @@ export const loadUserContext = internalQuery({
     if (!user) throw new Error("User not found");
 
     const city = user.city_id ? await ctx.db.get(user.city_id) : null;
-    const [skillRows, experienceRows, educationRows, certRows, resumeRows] = await Promise.all([
+    const [skillRows, experienceRows, educationRows, certRows, resumeRows, careerGoal] = await Promise.all([
       ctx.db.query("user_skills").withIndex("by_user", (q) => q.eq("user_id", user._id)).take(80),
       ctx.db.query("experiences").withIndex("by_user", (q) => q.eq("user_id", user._id)).take(20),
       ctx.db.query("educations").withIndex("by_user", (q) => q.eq("user_id", user._id)).take(12),
       ctx.db.query("user_certifications").withIndex("by_user", (q) => q.eq("user_id", user._id)).take(20),
       ctx.db.query("resumes").withIndex("by_user", (q) => q.eq("user_id", user._id)).take(8),
+      ctx.db.query("career_goals").withIndex("by_user", (q) => q.eq("user_id", user._id)).unique(),
     ]);
 
     const skills = [];
@@ -193,6 +194,7 @@ export const loadUserContext = internalQuery({
       educations.map((e) => `${e.degree ?? ""}:${e.college ?? ""}`).join(","),
       resumes.map((r) => r.storage_id ?? r.title).join(","),
       String((user.professional_summary ?? user.about ?? "").length),
+      careerGoal ? `${careerGoal.target_role}:${careerGoal.updated_at}` : "",
     ].join("|");
 
     return {
@@ -205,6 +207,16 @@ export const loadUserContext = internalQuery({
         professional_summary: clipPlainText(user.professional_summary, 700),
         city: city?.name,
         profile_type: user.profile_type,
+        career_goal: careerGoal
+          ? {
+              target_role: careerGoal.target_role,
+              timeline: careerGoal.timeline ?? null,
+              experience_level: careerGoal.experience_level ?? null,
+              primary_focus: careerGoal.primary_focus ?? null,
+              dream_companies: careerGoal.dream_companies.slice(0, 8),
+              skills: careerGoal.skills.slice(0, 12),
+            }
+          : null,
       },
       skills,
       experiences,

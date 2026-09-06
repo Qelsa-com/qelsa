@@ -1,6 +1,6 @@
 import { formatCity } from "@/constants/city";
 import { useAuth } from "@/contexts/AuthContext";
-import { ChevronRight, FileText, GraduationCap, LogOut, MapPin, Plug, Settings, User, Users, X } from "lucide-react";
+import { ChevronRight, FileText, GraduationCap, LogOut, MapPin, Plug, Settings, Target, User, Users, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -11,6 +11,7 @@ interface ProfileDrawerProps {
 
 const NAV_ITEMS = [
   { icon: User, label: "View Profile", path: "/profile", accent: "text-neon-cyan", bg: "bg-neon-cyan/15" },
+  { icon: Target, label: "Goals", path: "/goals", accent: "text-neon-pink", bg: "bg-neon-pink/15" },
   { icon: FileText, label: "My Resumes", path: "/profile/edit", accent: "text-neon-green", bg: "bg-neon-green/15" },
   { icon: Users, label: "Network", path: "/network", accent: "text-neon-cyan", bg: "bg-neon-cyan/15" },
   { icon: GraduationCap, label: "Courses", path: "/courses", accent: "text-neon-yellow", bg: "bg-neon-yellow/15" },

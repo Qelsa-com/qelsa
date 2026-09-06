@@ -2,6 +2,7 @@ import { JobGrid, JobsBrowseHeader, MatchEmptyState, MatchSection, SearchFilters
 import { SmartMatchesSkeleton } from "@/components/job/jobSkeletons";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMatchTiersQuery } from "@/features/api/jobsApi";
+import { hasCareerGoal } from "@/lib/careerGoal";
 import { MATCH_TIER } from "@/lib/matchTiers";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
@@ -12,7 +13,7 @@ export type { SearchFilters };
 
 const SmartMatches = () => {
   const router = useRouter();
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const { searchInput, setSearchInput, filters, applyFilters, discoverArgs, cityFilter, setCityFilter, commitSearch } = useJobBrowseFilters();
   const { data, isLoading } = useMatchTiersQuery(discoverArgs, { skip: !isAuthenticated });
 
@@ -25,6 +26,10 @@ const SmartMatches = () => {
   const almost = data?.almost ?? [];
   const shown = ready.length + almost.length;
   const total = data ? data.readyTotal + data.almostTotal : undefined;
+  const goalRole = user?.career_goal?.target_role?.trim();
+  const readySubtitle = hasCareerGoal(user?.career_goal)
+    ? `These roles match your goal: ${goalRole}.`
+    : MATCH_TIER.ready.subtitle;
 
   const openJob = (id: string | number) => router.push(`/jobs/${id}`);
 
@@ -61,7 +66,7 @@ const SmartMatches = () => {
               <MatchSection
                 dotColor={MATCH_TIER.ready.dotColor}
                 title={MATCH_TIER.ready.title}
-                subtitle={MATCH_TIER.ready.subtitle}
+                subtitle={readySubtitle}
                 viewAllHref={ready.length > 0 ? MATCH_TIER.ready.href : undefined}
               >
                 {ready.length > 0 ? (
@@ -69,9 +74,9 @@ const SmartMatches = () => {
                 ) : (
                   <MatchEmptyState
                     title="No ready matches yet."
-                    subtitle="Complete your profile and add more skills to unlock roles that match your experience."
-                    actionLabel="Complete Profile"
-                    onAction={() => router.push("/profile/edit")}
+                    subtitle="Set a career goal so we can match roles to where you're headed."
+                    actionLabel="Set Goal"
+                    onAction={() => router.push("/goals")}
                   />
                 )}
               </MatchSection>

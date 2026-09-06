@@ -123,6 +123,12 @@ export async function deleteAppUserData(ctx: MutationCtx, user: Doc<"users">) {
     .unique();
   if (culture) await ctx.db.delete(culture._id);
 
+  const careerGoal = await ctx.db
+    .query("career_goals")
+    .withIndex("by_user", (q) => q.eq("user_id", userId))
+    .unique();
+  if (careerGoal) await ctx.db.delete(careerGoal._id);
+
   const resumes = await ctx.db
     .query("resumes")
     .withIndex("by_user", (q) => q.eq("user_id", userId))

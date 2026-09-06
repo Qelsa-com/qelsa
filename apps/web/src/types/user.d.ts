@@ -1,3 +1,4 @@
+import { CareerGoal } from "./careerGoal";
 import { City } from "./city";
 import { Education } from "./education";
 import { Experience } from "./experience";
@@ -100,6 +101,7 @@ export type User = {
   educations?: Education[];
   experiences?: Experience[];
   culture_preference?: CulturePreference | null;
+  career_goal?: CareerGoal | null;
 
   // Extended UI fields
   avatar?: string | null;
