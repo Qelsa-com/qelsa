@@ -19,9 +19,11 @@ import { experienceMonths } from "@/components/profile/profileFormat";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGetEducationsQuery } from "@/features/api/educationsApi";
 import { useGetExperiencesQuery } from "@/features/api/experiencesApi";
+import { useCreateJobApplicationMutation } from "@/features/api/jobApplicationsApi";
 import { useGetJobByIdQuery, useGetMatchByJobQuery, useGetSimilarJobsQuery, useIsJobSavedQuery, useRecordJobViewMutation, useToggleSaveJobMutation } from "@/features/api/jobsApi";
 import { useGetMyResumesQuery } from "@/features/api/resumeApi";
 import { toastUnknownError } from "@/lib/errors";
+import { toast } from "sonner";
 import { jobDescriptionToHtml } from "@/lib/jobDescription";
 import { Job } from "@/types/job";
 import DOMPurify from "dompurify";
@@ -29,6 +31,7 @@ import { ArrowLeft, ArrowUpRight, Bookmark, BookmarkCheck, BookOpen, Briefcase, 
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { QuickApplyModal } from "../QuickApplyModal";
+import { ExternalApplyConfirmModal } from "./ExternalApplyConfirmModal";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
 import { CompetencyTable } from "./CompetencyMatch";
@@ -115,6 +118,9 @@ export function JobDetail() {
   const id = params?.id;
 
   const [showQuickApplyModal, setShowQuickApplyModal] = useState(false);
+  const [showExternalConfirmModal, setShowExternalConfirmModal] = useState(false);
+  const [justApplied, setJustApplied] = useState(false);
+  const [createJobApplication, { isLoading: isApplyingExternal }] = useCreateJobApplicationMutation();
   const [matchOpen, setMatchOpen] = useState(false);
 
   const { data: job, error, isLoading } = useGetJobByIdQuery(id!, { skip: !id });
@@ -172,7 +178,7 @@ export function JobDetail() {
   const locationLabel = displayLocation(job);
   const title = job.job_title?.name ?? job.title;
   const description = DOMPurify.sanitize(jobDescriptionToHtml(job.description || ""));
-  const applied = job.has_applied ?? job.applications?.some((a) => a.user_id === user?.id) ?? false;
+  const applied = Boolean(job.has_applied || (user?.id && job.applications?.some((a) => a.user_id === user.id)) || justApplied);
   const competency = job.competency;
 
   const dailySkills = (job.job_skills ?? []).map((s) => s.skill?.name ?? s.title).filter(Boolean);
@@ -207,10 +213,27 @@ export function JobDetail() {
   const handleApply = () => {
     if (job.application_url) {
       window.open(job.application_url, "_blank", "noopener,noreferrer");
+      setShowExternalConfirmModal(true);
       return;
     }
     if (isAuthenticated) setShowQuickApplyModal(true);
     else router.push(`/auth?actionType=profile&returnUrl=${encodeURIComponent(`/jobs/${id}`)}`);
+  };
+
+  const handleConfirmExternalApply = async () => {
+    if (!isAuthenticated) {
+      setShowExternalConfirmModal(false);
+      router.push(`/auth?actionType=profile&returnUrl=${encodeURIComponent(`/jobs/${id}`)}`);
+      return;
+    }
+    try {
+      await createJobApplication({ id: job.id }).unwrap();
+      setJustApplied(true);
+      setShowExternalConfirmModal(false);
+      toast.success("Application recorded!");
+    } catch (error: unknown) {
+      toastUnknownError(error, "Could not record application. Please try again.");
+    }
   };
 
   const shareUrl = typeof window !== "undefined" ? window.location.href : "";
@@ -536,6 +559,13 @@ export function JobDetail() {
         // which closes itself from its own CTAs.
         onSubmit={() => {}}
         resumes={myResumes ?? []}
+      />
+
+      <ExternalApplyConfirmModal
+        isOpen={showExternalConfirmModal}
+        onClose={() => setShowExternalConfirmModal(false)}
+        onConfirm={() => void handleConfirmExternalApply()}
+        isLoading={isApplyingExternal}
       />
     </div>
   );

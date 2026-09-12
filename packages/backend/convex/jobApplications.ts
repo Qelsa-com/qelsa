@@ -229,3 +229,27 @@ export const withdraw = authedMutation({
     return { id: app._id, status: WITHDRAWN_STATUS, withdrawn_at };
   },
 });
+
+export const markViewed = authedMutation({
+  args: { applicationId: v.id("job_applications") },
+  returns: v.object({ success: v.boolean(), status: v.string() }),
+  handler: async (ctx, args) => {
+    const app = await ctx.db.get(args.applicationId);
+    if (!app) return { success: false, status: "not_found" };
+    const job = await ctx.db.get(app.job_id);
+    if (!job || job.owner_id !== ctx.user._id) return { success: false, status: "unauthorized" };
+    if (app.status === "applied") {
+      await ctx.db.patch(app._id, { status: "viewed" });
+      await ctx.db.insert("job_application_logs", {
+        job_id: app.job_id,
+        job_application_id: app._id,
+        created_by_id: ctx.user._id,
+        action_type: "status_changed",
+        old_status: "applied",
+        new_status: "viewed",
+      });
+      return { success: true, status: "viewed" };
+    }
+    return { success: true, status: app.status };
+  },
+});

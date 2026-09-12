@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { DesktopTopBar } from "./DesktopTopBar";
 import { MobileTopBar } from "./MobileTopBar";
-import { ProfilePanel } from "./ProfilePanel";
+import { ProfileDrawer } from "./ProfileDrawer";
 
 interface NavigationItem {
   id: string;
@@ -21,17 +21,19 @@ const publicNavbarItems: NavigationItem[] = [
   { id: "blog", label: "Blog", icon: Rss, path: "/blogs" },
 ];
 
-export function PublicNavbar({ activeSection }: { activeSection?: string }) {
+export function PublicNavbar({ activeSection, onProfileClick }: { activeSection?: string; onProfileClick?: () => void }) {
   const router = useRouter();
-  const [isProfilePanelOpen, setIsProfilePanelOpen] = useState(false);
+  const [isProfileDrawerOpen, setIsProfileDrawerOpen] = useState(false);
+
+  const handleOpenProfile = onProfileClick ?? (() => setIsProfileDrawerOpen(true));
 
   return (
     <>
       {/* Desktop Header */}
-      <DesktopTopBar activeSection={activeSection} onProfileClick={() => setIsProfilePanelOpen(true)} />
+      <DesktopTopBar activeSection={activeSection} onProfileClick={handleOpenProfile} />
 
       {/* Mobile Header */}
-      <MobileTopBar onProfileClick={() => setIsProfilePanelOpen(true)} />
+      <MobileTopBar onProfileClick={handleOpenProfile} />
 
       {/* Instagram-style Bottom Navigation (Mobile) */}
       <nav className="mobile-tab-bar lg:hidden fixed inset-x-0 bottom-0 z-50">
@@ -60,20 +62,15 @@ export function PublicNavbar({ activeSection }: { activeSection?: string }) {
 
           {/* Profile Button */}
           <button
-            onClick={() => setIsProfilePanelOpen(true)}
-            className={`relative flex flex-1 flex-col items-center gap-1 p-2 rounded-xl transition-colors ${isProfilePanelOpen ? "text-neon-cyan" : "text-muted-foreground"}`}
+            onClick={handleOpenProfile}
+            className="relative flex flex-1 flex-col items-center gap-1 p-2 rounded-xl transition-colors text-muted-foreground hover:text-white"
           >
             <div className="relative">
-              <div
-                className={`w-6 h-6 rounded-full flex items-center justify-center transition-all duration-300 ${
-                  isProfilePanelOpen ? "glass-strong border-2 border-neon-cyan scale-110" : "glass border border-glass-border"
-                }`}
-              >
-                <User className={`h-3 w-3 transition-all duration-300 ${isProfilePanelOpen ? "text-neon-cyan" : "text-muted-foreground"}`} />
+              <div className="w-6 h-6 rounded-full flex items-center justify-center transition-all duration-300 glass border border-glass-border">
+                <User className="h-3 w-3 transition-all duration-300 text-muted-foreground" />
               </div>
             </div>
-            <span className={`text-[10px] font-medium transition-all duration-300 leading-tight ${isProfilePanelOpen ? "text-neon-cyan" : "text-muted-foreground"}`}>Profile</span>
-            {isProfilePanelOpen && <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-4 h-0.5 bg-neon-cyan rounded-full glow-cyan"></div>}
+            <span className="text-[10px] font-medium transition-all duration-300 leading-tight text-muted-foreground">Profile</span>
           </button>
         </div>
       </nav>
@@ -81,8 +78,10 @@ export function PublicNavbar({ activeSection }: { activeSection?: string }) {
       {/* The spacer that clears this fixed bar lives in Layout, after the page
           content — here it only pushed the page down by 80px. */}
 
-      {/* Profile Panel */}
-      <ProfilePanel isOpen={isProfilePanelOpen} onClose={() => setIsProfilePanelOpen(false)} />
+      {/* Profile Drawer (standalone fallback when onProfileClick is not provided) */}
+      {!onProfileClick && (
+        <ProfileDrawer isOpen={isProfileDrawerOpen} onClose={() => setIsProfileDrawerOpen(false)} />
+      )}
     </>
   );
 }

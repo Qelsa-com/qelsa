@@ -8,6 +8,7 @@ import { useLazySearchSkillsQuery } from "@/features/api/userSkillsApi";
 import { GOAL_EXPERIENCE_OPTIONS, GOAL_FOCUS_OPTIONS, GOAL_TIMELINE_OPTIONS, descriptionFingerprint, parseCareerGoalText } from "@/lib/careerGoal";
 import { toastUnknownError } from "@/lib/errors";
 import type { CareerGoal, CareerGoalExperienceLevel, CareerGoalFocus, CareerGoalTimeline, ExtractedCareerGoal } from "@/types/careerGoal";
+import { useAuth } from "@/contexts/AuthContext";
 import { Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -63,7 +64,8 @@ function applyExtract(current: GoalForm, extracted: ExtractedCareerGoal, overwri
 
 export function GoalSettingPage() {
   const router = useRouter();
-  const { data: savedGoal, isLoading } = useGetMyCareerGoalQuery();
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+  const { data: savedGoal, isLoading: goalLoading } = useGetMyCareerGoalQuery({ skip: !isAuthenticated });
   const [upsertGoal, { isLoading: saving }] = useUpsertCareerGoalMutation();
   const extractGoal = useExtractCareerGoalAction();
   const extractGoalRef = useRef(extractGoal);
@@ -77,10 +79,28 @@ export function GoalSettingPage() {
   const lastFingerprint = useRef("");
 
   useEffect(() => {
-    if (isLoading || hydrated) return;
-    setForm(formFromGoal(savedGoal ?? null));
+    if (authLoading || (isAuthenticated && goalLoading) || hydrated) return;
+    if (savedGoal) {
+      setForm(formFromGoal(savedGoal));
+      setHydrated(true);
+      return;
+    }
+    if (typeof window !== "undefined") {
+      try {
+        const raw = localStorage.getItem("qelsa_career_goal_draft");
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && typeof parsed === "object") {
+            setForm((current) => ({ ...current, ...parsed }));
+            setHydrated(true);
+            return;
+          }
+        }
+      } catch {}
+    }
+    setForm(EMPTY_FORM);
     setHydrated(true);
-  }, [isLoading, savedGoal, hydrated]);
+  }, [authLoading, isAuthenticated, goalLoading, savedGoal, hydrated]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -118,6 +138,16 @@ export function GoalSettingPage() {
       toast.error("What role are you aiming for is required");
       return;
     }
+    if (!isAuthenticated) {
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem("qelsa_career_goal_draft", JSON.stringify(form));
+        } catch {}
+      }
+      toast.info("Please sign in to save your career goal");
+      router.push("/auth?returnUrl=" + encodeURIComponent("/goals"));
+      return;
+    }
     try {
       await upsertGoal({
         description: form.description.trim() || undefined,
@@ -128,6 +158,11 @@ export function GoalSettingPage() {
         skills: form.skills,
         primary_focus: form.primary_focus,
       }).unwrap();
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.removeItem("qelsa_career_goal_draft");
+        } catch {}
+      }
       toast.success(savedGoal ? "Goal updated" : "Goal set");
       goBack();
     } catch (error) {
@@ -141,7 +176,7 @@ export function GoalSettingPage() {
   return (
     <div className="mx-auto w-full max-w-[720px] px-4 py-8 text-white sm:px-6 md:px-12">
       <h1 className="text-3xl font-extrabold tracking-tight sm:text-4xl">Set Your Career Goal</h1>
-      <p className="mt-2 text-sm text-white/50 sm:text-base">Tell us where you&apos;re headed so we can personalize jobs, matches, and recommendations.</p>
+      <p className="mt-2 text-sm text-white/50 sm:text-base">Define where you want to be - Qelsa will help you get there.</p>
 
       <div className="mt-8 flex flex-col gap-7">
         <div className="flex flex-col gap-2">
@@ -242,7 +277,7 @@ export function GoalSettingPage() {
           Cancel
         </GhostButton>
         <GradientButton onClick={handleSave} disabled={saving || !form.target_role.trim()}>
-          {saving ? "Saving…" : savedGoal ? "Update Goal" : "Set Goal"}
+          {saving ? "Saving…" : savedGoal ? "Update goal" : "Set goal"}
         </GradientButton>
       </div>
     </div>
