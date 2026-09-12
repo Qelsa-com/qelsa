@@ -841,8 +841,120 @@ export const update = authedMutation({
     delete jobFields.id;
     delete jobFields._id;
     delete jobFields.owner_id;
+    delete jobFields.skills;
+    if (typeof jobFields.status === "string" && jobFields.status !== job.status) {
+      const delta = openCountDelta(job.status, jobFields.status as string);
+      if (delta !== 0) await bumpOpenJobCount(ctx, delta);
+    }
     await ctx.db.patch(args.jobId, jobFields);
+
+    if (Array.isArray(data.skills)) {
+      const existingSkills = await ctx.db
+        .query("job_skills")
+        .withIndex("by_job", (q) => q.eq("job_id", args.jobId))
+        .collect();
+      for (const row of existingSkills) await ctx.db.delete(row._id);
+      for (const s of data.skills) {
+        if (s.id) {
+          await ctx.db.insert("job_skills", {
+            job_id: args.jobId,
+            skill_id: s.id,
+            type: s.type,
+            proficiency: s.proficiency,
+            weight: s.weight != null && s.weight !== "" ? Number(s.weight) : undefined,
+          });
+        }
+      }
+    }
+
     return withId((await ctx.db.get(args.jobId))!);
+  },
+});
+
+export const duplicate = authedMutation({
+  args: { jobId: v.id("jobs") },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    const job = await ctx.db.get(args.jobId);
+    if (!job || job.owner_id !== ctx.user._id) throw new Error("Job not found");
+
+    const now = Date.now();
+    const { _id, _creationTime, ...rest } = job;
+    const newJobId = await ctx.db.insert("jobs", {
+      ...rest,
+      title: `${job.title} (Copy)`,
+      published_date: now,
+      status: "open",
+      view_count: 0,
+      application_count: 0,
+    });
+
+    // Copy skills
+    const skills = await ctx.db
+      .query("job_skills")
+      .withIndex("by_job", (q) => q.eq("job_id", args.jobId))
+      .collect();
+    for (const skill of skills) {
+      await ctx.db.insert("job_skills", {
+        job_id: newJobId,
+        skill_id: skill.skill_id,
+        type: skill.type,
+        proficiency: skill.proficiency,
+        weight: skill.weight,
+      });
+    }
+
+    // Copy question sets and questions
+    const questionSets = await ctx.db
+      .query("question_sets")
+      .withIndex("by_job", (q) => q.eq("jobId", args.jobId))
+      .collect();
+    for (const set of questionSets) {
+      const newSetId = await ctx.db.insert("question_sets", {
+        title: set.title,
+        description: set.description,
+        jobId: newJobId,
+        ownerId: ctx.user._id,
+      });
+      const questions = await ctx.db
+        .query("questions")
+        .withIndex("by_set", (q) => q.eq("question_set_id", set._id))
+        .collect();
+      for (const q of questions) {
+        const newQId = await ctx.db.insert("questions", {
+          question_set_id: newSetId,
+          title: q.title,
+          type: q.type,
+          category: q.category,
+          is_knockout: q.is_knockout,
+          knockout_condition: q.knockout_condition,
+          knockout_value: q.knockout_value,
+          expected_answer: q.expected_answer,
+          weight: q.weight,
+          min_value: q.min_value,
+          max_value: q.max_value,
+          order: q.order,
+          required: q.required,
+        });
+        const options = await ctx.db
+          .query("options")
+          .withIndex("by_question", (o) => o.eq("question_id", q._id))
+          .collect();
+        for (const opt of options) {
+          await ctx.db.insert("options", {
+            question_id: newQId,
+            title: opt.title,
+            value: opt.value,
+            is_correct: opt.is_correct,
+            order: opt.order,
+          });
+        }
+      }
+    }
+
+    await bumpOpenJobCount(ctx, 1);
+    await ensureJobStats(ctx, newJobId);
+    return withId((await ctx.db.get(newJobId))!);
   },
 });
 

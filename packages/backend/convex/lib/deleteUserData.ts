@@ -19,6 +19,12 @@ async function deleteApplication(
     .collect();
   for (const row of logs) await ctx.db.delete(row._id);
 
+  const notes = await ctx.db
+    .query("job_application_notes")
+    .withIndex("by_application", (q) => q.eq("job_application_id", applicationId))
+    .collect();
+  for (const row of notes) await ctx.db.delete(row._id);
+
   const application = await ctx.db.get(applicationId);
   await ctx.db.delete(applicationId);
   if (adjustJobCount && application) {

@@ -1,10 +1,20 @@
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { PostedJobsSkeleton } from "@/components/job/jobSkeletons";
 import { formatCity } from "@/constants/city";
-import { useDeleteJobMutation, useEditJobMutation, useGetPostedJobsQuery } from "@/features/api/jobsApi";
+import { useDeleteJobMutation, useDuplicateJobMutation, useEditJobMutation, useGetPostedJobsQuery } from "@/features/api/jobsApi";
 import Layout from "@/layout";
 import { Briefcase, Calendar, Clock, Copy, FileText, MapPin, MoreVertical, PauseCircle, Pencil, PlayCircle, Plus, Search, Share2, Trash2, XCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { toast } from "sonner";
 import { Button } from "../../components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
 import { Input } from "../../components/ui/input";
@@ -40,11 +50,16 @@ export default function Posted() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<JobStatus>("open");
   const { data: postedJobs = [], isLoading } = useGetPostedJobsQuery();
-  const [deleteJob] = useDeleteJobMutation();
+  const [deleteJob, { isLoading: isDeleting }] = useDeleteJobMutation();
   const [editJob] = useEditJobMutation();
+  const [duplicateJob, { isLoading: isDuplicating }] = useDuplicateJobMutation();
+  const [jobToDelete, setJobToDelete] = useState<{ id: string | number; title: string } | null>(null);
+  const [jobToClose, setJobToClose] = useState<{ id: string | number; title: string } | null>(null);
 
   const filteredJobs = postedJobs.filter((job) => {
-    const matchesSearch = (job.job_title?.name ?? job.title).toLowerCase().includes(searchQuery.toLowerCase()) || job.job_skills.some((skill) => (skill.skill?.name ?? skill.title).toLowerCase().includes(searchQuery.toLowerCase()));
+    const matchesSearch =
+      (job.job_title?.name ?? job.title ?? "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (job.job_skills ?? []).some((skill) => (skill.skill?.name ?? skill.title ?? "").toLowerCase().includes(searchQuery.toLowerCase()));
     const matchesStatus = job.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -64,21 +79,55 @@ export default function Posted() {
   const handleChangeStatus = async (jobId: string | number, status: "open" | "paused" | "closed" | "draft") => {
     try {
       await editJob({ jobId, body: { status } }).unwrap();
+      const actionLabel = status === "open" ? "resumed" : status === "paused" ? "paused" : "closed";
+      toast.success(`Job ${actionLabel} successfully`);
     } catch (error) {
       console.error("Failed to update job:", error);
+      toast.error("Failed to update job status");
     }
   };
 
-  const handleDeleteJob = async (jobId: string | number) => {
+  const handleConfirmDelete = async () => {
+    if (!jobToDelete) return;
     try {
-      await deleteJob(jobId).unwrap();
+      await deleteJob(jobToDelete.id).unwrap();
+      toast.success("Job post deleted successfully");
+      setJobToDelete(null);
     } catch (error) {
       console.error("Failed to delete job:", error);
+      toast.error("Failed to delete job post");
     }
   };
 
-  const handleShareJobLink = (jobId: string | number) => {
-    navigator.clipboard?.writeText(`${window.location.origin}/jobs/${jobId}`);
+  const handleConfirmClose = async () => {
+    if (!jobToClose) return;
+    try {
+      await handleChangeStatus(jobToClose.id, "closed");
+      setJobToClose(null);
+    } catch (error) {
+      console.error("Failed to close job:", error);
+    }
+  };
+
+  const handleDuplicateJob = async (jobId: string | number) => {
+    try {
+      await duplicateJob(jobId).unwrap();
+      toast.success("Job post duplicated successfully");
+    } catch (error) {
+      console.error("Failed to duplicate job:", error);
+      toast.error("Failed to duplicate job post");
+    }
+  };
+
+  const handleShareJobLink = async (jobId: string | number) => {
+    try {
+      const url = `${window.location.origin}/jobs/${jobId}`;
+      await navigator.clipboard.writeText(url);
+      toast.success("Job link copied to clipboard");
+    } catch (error) {
+      console.error("Failed to copy link:", error);
+      toast.error("Failed to copy job link");
+    }
   };
 
   return (
@@ -174,42 +223,64 @@ export default function Posted() {
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-[220px] rounded-xl border-white/12 bg-[#1a1a24] p-2">
-                    <DropdownMenuItem className="cursor-pointer gap-3 rounded-md px-4 py-2.5 text-sm font-medium text-white/70">
+                    <DropdownMenuItem
+                      onClick={() => router.push(`/jobs/create-job?jobId=${job.id}`)}
+                      className="cursor-pointer gap-3 rounded-md px-4 py-2.5 text-sm font-medium text-white/70 hover:text-white"
+                    >
                       <Pencil className="w-4 h-4" />
                       Edit Job Post
                     </DropdownMenuItem>
-                    <DropdownMenuItem disabled className="gap-3 rounded-md px-4 py-2.5 text-sm font-medium text-white/70">
+                    <DropdownMenuItem
+                      onClick={() => handleDuplicateJob(job.id)}
+                      disabled={isDuplicating}
+                      className="cursor-pointer gap-3 rounded-md px-4 py-2.5 text-sm font-medium text-white/70 hover:text-white disabled:opacity-50"
+                    >
                       <Copy className="w-4 h-4" />
                       Duplicate Job
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => router.push(`/jobs/${job.id}/applications`)} className="cursor-pointer gap-3 rounded-md px-4 py-2.5 text-sm font-medium text-white/70">
+                    <DropdownMenuItem onClick={() => router.push(`/jobs/${job.id}/applications`)} className="cursor-pointer gap-3 rounded-md px-4 py-2.5 text-sm font-medium text-white/70 hover:text-white">
                       <FileText className="w-4 h-4" />
                       View Applications
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleShareJobLink(job.id)} className="cursor-pointer gap-3 rounded-md px-4 py-2.5 text-sm font-medium text-white/70">
+                    <DropdownMenuItem onClick={() => handleShareJobLink(job.id)} className="cursor-pointer gap-3 rounded-md px-4 py-2.5 text-sm font-medium text-white/70 hover:text-white">
                       <Share2 className="w-4 h-4" />
                       Share Job Link
                     </DropdownMenuItem>
                     <DropdownMenuSeparator className="bg-white/8" />
                     {job.status === "open" && (
-                      <DropdownMenuItem onClick={() => handleChangeStatus(job.id, "paused")} className="cursor-pointer gap-3 rounded-md px-4 py-2.5 text-sm font-medium text-neon-yellow">
+                      <DropdownMenuItem onClick={() => handleChangeStatus(job.id, "paused")} className="cursor-pointer gap-3 rounded-md px-4 py-2.5 text-sm font-medium text-neon-yellow hover:text-neon-yellow/80">
                         <PauseCircle className="w-4 h-4" />
                         Pause Job
                       </DropdownMenuItem>
                     )}
                     {job.status === "paused" && (
-                      <DropdownMenuItem onClick={() => handleChangeStatus(job.id, "open")} className="cursor-pointer gap-3 rounded-md px-4 py-2.5 text-sm font-medium text-neon-green">
+                      <DropdownMenuItem onClick={() => handleChangeStatus(job.id, "open")} className="cursor-pointer gap-3 rounded-md px-4 py-2.5 text-sm font-medium text-neon-green hover:text-neon-green/80">
                         <PlayCircle className="w-4 h-4" />
                         Resume Job
                       </DropdownMenuItem>
                     )}
                     {job.status !== "closed" && (
-                      <DropdownMenuItem onClick={() => handleChangeStatus(job.id, "closed")} className="cursor-pointer gap-3 rounded-md px-4 py-2.5 text-sm font-medium text-red-500">
+                      <DropdownMenuItem
+                        onClick={() => setJobToClose({ id: job.id, title: job.job_title?.name ?? job.title ?? "this job" })}
+                        className="cursor-pointer gap-3 rounded-md px-4 py-2.5 text-sm font-medium text-red-500 hover:text-red-400"
+                      >
                         <XCircle className="w-4 h-4" />
                         Close Job
                       </DropdownMenuItem>
                     )}
-                    <DropdownMenuItem onClick={() => handleDeleteJob(job.id)} className="cursor-pointer gap-3 rounded-md px-4 py-2.5 text-sm font-medium text-red-500">
+                    {job.status === "closed" && (
+                      <DropdownMenuItem
+                        onClick={() => handleChangeStatus(job.id, "open")}
+                        className="cursor-pointer gap-3 rounded-md px-4 py-2.5 text-sm font-medium text-neon-green hover:text-neon-green/80"
+                      >
+                        <PlayCircle className="w-4 h-4" />
+                        Reopen Job
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuItem
+                      onClick={() => setJobToDelete({ id: job.id, title: job.job_title?.name ?? job.title ?? "this job" })}
+                      className="cursor-pointer gap-3 rounded-md px-4 py-2.5 text-sm font-medium text-red-500 hover:text-red-400"
+                    >
                       <Trash2 className="w-4 h-4" />
                       Delete Job
                     </DropdownMenuItem>
@@ -304,6 +375,69 @@ export default function Posted() {
           </>
         )}
       </div>
+
+      {/* Delete Confirmation Alert Dialog */}
+      <AlertDialog
+        open={jobToDelete !== null}
+        onOpenChange={(open) => {
+          if (isDeleting) return;
+          if (!open) setJobToDelete(null);
+        }}
+      >
+        <AlertDialogContent className="rounded-2xl border border-white/12 bg-[#161622] p-6 text-white shadow-2xl sm:max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-xl font-bold text-white">Delete job post?</AlertDialogTitle>
+            <AlertDialogDescription className="text-sm text-white/70">
+              Are you sure you want to delete <span className="font-semibold text-white">{jobToDelete?.title ? `"${jobToDelete.title}"` : "this job post"}</span>? This will permanently delete the job posting, all candidate applications, and notes. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3">
+            <AlertDialogCancel
+              disabled={isDeleting}
+              className="rounded-full border border-white/15 bg-white/5 text-white hover:bg-white/10"
+            >
+              Cancel
+            </AlertDialogCancel>
+            <Button
+              variant="destructive"
+              className="rounded-full bg-red-600 font-semibold text-white hover:bg-red-700"
+              disabled={isDeleting}
+              onClick={handleConfirmDelete}
+            >
+              {isDeleting ? "Deleting..." : "Delete job"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Close Confirmation Alert Dialog */}
+      <AlertDialog
+        open={jobToClose !== null}
+        onOpenChange={(open) => {
+          if (!open) setJobToClose(null);
+        }}
+      >
+        <AlertDialogContent className="rounded-2xl border border-white/12 bg-[#161622] p-6 text-white shadow-2xl sm:max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-xl font-bold text-white">Close job post?</AlertDialogTitle>
+            <AlertDialogDescription className="text-sm text-white/70">
+              Are you sure you want to close <span className="font-semibold text-white">{jobToClose?.title ? `"${jobToClose.title}"` : "this job post"}</span>? Closed jobs no longer accept applications. You can reopen this job anytime from the action menu.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3">
+            <AlertDialogCancel className="rounded-full border border-white/15 bg-white/5 text-white hover:bg-white/10">
+              Cancel
+            </AlertDialogCancel>
+            <Button
+              variant="destructive"
+              className="rounded-full bg-red-600 font-semibold text-white hover:bg-red-700"
+              onClick={handleConfirmClose}
+            >
+              Close job
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Layout>
   );
 }

@@ -19,7 +19,7 @@
 import { Autocomplete } from "@/components/ui/autocomplete";
 import { formatCity } from "@/constants/city";
 import { JOB_SKILL_TYPES, JobSkillType, jobSkillTypeLabel, PROFICIENCY_LEVELS, ProficiencyLevel, proficiencyLabel } from "@/constants/skills";
-import { useCreateJobMutation, useGenerateJobDraftAction } from "@/features/api/jobsApi";
+import { useCreateJobMutation, useEditJobMutation, useGenerateJobDraftAction, useGetJobByIdQuery } from "@/features/api/jobsApi";
 import { useLazySearchJobTitlesQuery } from "@/features/api/jobTitlesApi";
 import { useLazyGetMyPagesQuery } from "@/features/api/pagesApi";
 import { useLazyGetSkillsQuery, useLazySearchCitiesQuery } from "@/features/api/seedApi";
@@ -47,8 +47,8 @@ import {
   Trash2,
   Wand2,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 /* -------------------------------- helpers --------------------------------- */
@@ -208,6 +208,49 @@ export function JobPostingPage() {
   // their own pages. A name that matches none of them is sent as `page_name` and
   // the backend creates the page in the same transaction as the job.
   const companyOptions: CompanyOption[] = pageResults.flatMap((p) => (p.id == null ? [] : [{ id: p.id, name: p.name }]));
+
+  const searchParams = useSearchParams();
+  const editJobId = searchParams.get("jobId") || searchParams.get("edit");
+  const { data: existingJob, isLoading: isLoadingExisting } = useGetJobByIdQuery(editJobId ?? undefined, { skip: !editJobId });
+  const [editJobMutation, { isLoading: isUpdatingJob }] = useEditJobMutation();
+
+  useEffect(() => {
+    if (!existingJob) return;
+    if (existingJob.job_title) {
+      setJobTitle({ id: existingJob.job_title.id, name: existingJob.job_title.name });
+    } else if (existingJob.title) {
+      setJobTitle({ id: existingJob.title, name: existingJob.title });
+    }
+    if (existingJob.page) {
+      setCompany({ id: existingJob.page.id, name: existingJob.page.name });
+      setCompanyName(existingJob.page.name);
+    } else if (existingJob.company_name) {
+      setCompanyName(existingJob.company_name);
+    }
+    if (existingJob.city) {
+      setCity(existingJob.city);
+    }
+    if (existingJob.work_type) setWorkType(existingJob.work_type);
+    if (existingJob.workplace_type) setWorkplaceType(existingJob.workplace_type);
+    if (existingJob.experience != null) setExperience(existingJob.experience);
+    if (existingJob.salary_min != null || existingJob.salary_max != null) {
+      const minL = existingJob.salary_min ? (existingJob.salary_min >= 100000 ? `${existingJob.salary_min / 100000}L` : String(existingJob.salary_min)) : "";
+      const maxL = existingJob.salary_max ? (existingJob.salary_max >= 100000 ? `${existingJob.salary_max / 100000}L` : String(existingJob.salary_max)) : "";
+      setSalaryRange(minL && maxL ? `${minL} - ${maxL}` : minL || maxL);
+    }
+    if (existingJob.description) setDescription(existingJob.description);
+    if (existingJob.job_skills?.length) {
+      setSkills(
+        existingJob.job_skills.map((js: any) => ({
+          id: js.skill?.id ?? js.skill_id ?? js.id,
+          name: js.skill?.name ?? js.name ?? "Skill",
+          type: js.type ?? "preferred",
+          proficiency: js.proficiency ?? "beginner",
+          weight: js.weight != null ? String(js.weight) : "",
+        }))
+      );
+    }
+  }, [existingJob]);
 
   /* ----------------------------- skills logic ---------------------------- */
   const [skillsEditMode, setSkillsEditMode] = useState(false);
@@ -377,6 +420,35 @@ export function JobPostingPage() {
     if (invalidCustom) return toast.error("Every custom question needs a title.");
 
     const { min: salaryMin, max: salaryMax } = parseSalaryRange(salaryRange);
+    if (editJobId) {
+      try {
+        await editJobMutation({
+          jobId: editJobId,
+          body: {
+            title: jobTitle.name,
+            job_title_id: typeof jobTitle.id === "string" && !jobTitle.id.includes(" ") ? jobTitle.id : undefined,
+            page_id: company?.id ? String(company.id) : undefined,
+            company_name: company?.name || companyName.trim(),
+            city_id: city?.id ? String(city.id) : undefined,
+            work_type: workType,
+            workplace_type: workplaceType,
+            experience,
+            salary_min: salaryMin,
+            salary_max: salaryMax,
+            description,
+            skills: buildSkillsPayload(),
+          },
+        }).unwrap();
+        toast.success("Job post updated successfully.");
+        router.push("/jobs/posted");
+        return;
+      } catch (err) {
+        console.error("Job update failed:", err);
+        toast.error("Could not update the job. Please try again.");
+        return;
+      }
+    }
+
     const payload = {
       job: {
         job_title: jobTitle,
@@ -415,10 +487,17 @@ export function JobPostingPage() {
   return (
     <div className="mx-auto w-full max-w-[1200px] px-6 pb-32 pt-6 text-white md:px-12">
       {/* Breadcrumb */}
-      <button onClick={() => router.push("/jobs/smart-matches")} className="mb-6 flex items-center gap-2 text-sm text-white/70 transition-colors hover:text-white">
+      <button onClick={() => router.push(editJobId ? "/jobs/posted" : "/jobs/smart-matches")} className="mb-6 flex items-center gap-2 text-sm text-white/70 transition-colors hover:text-white">
         <ArrowLeft className="size-4" />
-        Back to Jobs
+        {editJobId ? "Back to Posted Jobs" : "Back to Jobs"}
       </button>
+
+      {editJobId && (
+        <div className="mb-6">
+          <h1 className="text-3xl font-extrabold text-white">Edit job post</h1>
+          <p className="mt-1 text-sm text-white/60">Update and modify details of your job post</p>
+        </div>
+      )}
 
       <div className="flex flex-col gap-6">
         {/* Locked identity fields + generate */}
@@ -840,15 +919,18 @@ export function JobPostingPage() {
       {/* Action bar */}
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-glass-border bg-[#06060f]/90 backdrop-blur">
         <div className="mx-auto flex max-w-[1200px] items-center justify-between px-6 py-4 md:px-12">
-          <button onClick={() => toast.info("Draft saving is coming soon.")} className="rounded-full border border-white/20 px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-white/5">
-            Save draft
+          <button
+            onClick={() => router.push(editJobId ? "/jobs/posted" : "/jobs/smart-matches")}
+            className="rounded-full border border-white/20 px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-white/5"
+          >
+            {editJobId ? "Cancel" : "Save draft"}
           </button>
           <button
             onClick={handlePublish}
-            disabled={isLoading}
+            disabled={isLoading || isUpdatingJob || Boolean(editJobId && isLoadingExisting)}
             className={`flex items-center gap-2 rounded-full px-6 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50 ${GRADIENT}`}
           >
-            <Send className="size-4" /> {isLoading ? "Publishing..." : "Publish job"}
+            <Send className="size-4" /> {isUpdatingJob ? "Saving..." : isLoading ? "Publishing..." : editJobId ? "Save changes" : "Publish job"}
           </button>
         </div>
       </div>

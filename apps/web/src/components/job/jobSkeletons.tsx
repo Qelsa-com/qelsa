@@ -342,14 +342,19 @@ export function MatchSessionSkeleton() {
 
 export function CandidateRowSkeleton() {
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-white/12 bg-white/4 p-4">
-      <Bone className="size-4 rounded" />
+    <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-3.5 sm:p-4">
+      <Bone className="hidden lg:block size-4 rounded shrink-0" />
+      <Bone className="size-10 rounded-full shrink-0" />
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
         <div className="flex items-center justify-between gap-2">
           <Bone className="h-4 w-28" />
-          <Bone className="h-5 w-16 rounded" />
+          <Bone className="h-5 w-20 rounded-full shrink-0" />
         </div>
         <Bone className="h-3 w-40" />
+        <div className="flex items-center justify-between gap-2 pt-0.5">
+          <Bone className="h-3 w-28" />
+          <Bone className="h-4 w-16 rounded-full shrink-0" />
+        </div>
       </div>
     </div>
   );
