@@ -658,8 +658,12 @@ export function ApplicationsManagementPage() {
               <>
                 {/* Profile top */}
                 <div className="flex flex-col items-center text-center lg:flex-row lg:items-center lg:text-left gap-4">
-                  <div className="flex size-20 lg:size-16 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-neon-purple to-pink-500 lg:bg-neon-purple text-xl lg:text-lg font-bold text-white lg:text-[#06060f]">
-                    {initials(selectedApplication.user?.name)}
+                  <div className="flex size-20 lg:size-16 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-neon-purple to-pink-500 lg:bg-neon-purple text-xl lg:text-lg font-bold text-white lg:text-[#06060f] overflow-hidden">
+                    {selectedApplication.user?.profile_image ? (
+                      <img src={selectedApplication.user.profile_image} alt={selectedApplication.user.name || "Candidate"} className="size-full object-cover" />
+                    ) : (
+                      initials(selectedApplication.user?.name)
+                    )}
                   </div>
                   <div className="flex min-w-0 flex-1 flex-col items-center lg:items-start gap-1">
                     <p className="text-xl lg:text-lg font-bold text-white">{selectedApplication.user?.name}</p>
@@ -670,25 +674,39 @@ export function ApplicationsManagementPage() {
                       {candidateYears != null && <span>{candidateYears} yrs exp</span>}
                     </div>
                     <div className="block lg:hidden mt-1">
+                      {selectedApplication.user?.username || selectedApplication.user?.custom_profile_url || selectedApplication.user?.id || selectedApplication.user_id ? (
+                        <Link
+                          href={`/profile/${selectedApplication.user?.username || selectedApplication.user?.custom_profile_url || selectedApplication.user?.id || selectedApplication.user_id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-neon-cyan hover:underline"
+                        >
+                          View qelsa profile
+                          <ArrowRight className="size-3" />
+                        </Link>
+                      ) : null}
+                    </div>
+                  </div>
+                  <div className="hidden lg:block">
+                    {selectedApplication.user?.username || selectedApplication.user?.custom_profile_url || selectedApplication.user?.id || selectedApplication.user_id ? (
+                      <Link
+                        href={`/profile/${selectedApplication.user?.username || selectedApplication.user?.custom_profile_url || selectedApplication.user?.id || selectedApplication.user_id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 rounded-full gradient-primary px-4 py-2 text-xs font-semibold text-white shadow-md transition-opacity hover:opacity-90"
+                      >
+                        View qelsa profile
+                        <ArrowRight className="size-3" />
+                      </Link>
+                    ) : (
                       <button
                         disabled
-                        title="There is no public candidate profile route yet"
-                        className="flex cursor-not-allowed items-center gap-1 text-xs font-semibold text-neon-cyan opacity-90"
+                        className="flex cursor-not-allowed items-center gap-1.5 rounded-full gradient-primary px-4 py-2 text-xs font-medium text-white opacity-40"
                       >
                         View qelsa profile
                         <ArrowRight className="size-3" />
                       </button>
-                    </div>
-                  </div>
-                  <div className="hidden lg:block">
-                    <button
-                      disabled
-                      title="There is no public candidate profile route yet"
-                      className="flex cursor-not-allowed items-center gap-1.5 rounded-full gradient-primary px-4 py-2 text-xs font-medium text-white opacity-50"
-                    >
-                      View qelsa profile
-                      <ArrowRight className="size-3" />
-                    </button>
+                    )}
                   </div>
                 </div>
 

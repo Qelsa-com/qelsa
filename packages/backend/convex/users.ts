@@ -1,7 +1,7 @@
 import { R2 } from "@convex-dev/r2";
 import { v } from "convex/values";
 import { components } from "./_generated/api";
-import type { Doc } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { query, type MutationCtx } from "./_generated/server";
 import { authedMutation, optionalAuthQuery } from "./lib/customFunctions";
 import { deleteAppUserData } from "./lib/deleteUserData";
@@ -67,7 +67,7 @@ export const publicProfile = query({
   args: { username: v.string() },
   returns: v.any(),
   handler: async (ctx, args) => {
-    const user =
+    let user =
       (await ctx.db
         .query("users")
         .withIndex("by_username", (q) => q.eq("username", args.username))
@@ -76,6 +76,16 @@ export const publicProfile = query({
         .query("users")
         .withIndex("by_custom_profile_url", (q) => q.eq("custom_profile_url", args.username))
         .unique());
+
+    if (!user) {
+      try {
+        const byId = await ctx.db.get(args.username as Id<"users">);
+        if (byId) user = byId;
+      } catch {
+        // Not a valid Convex Id
+      }
+    }
+
     if (!user || !user.isActive || user.profile_visibility === "private") return null;
 
     const [experiences, educations, certifications, skills] = await Promise.all([
@@ -98,17 +108,107 @@ export const publicProfile = query({
     ]);
 
     const city = user.city_id ? await ctx.db.get(user.city_id) : null;
+    const state = city?.state_id ? await ctx.db.get(city.state_id) : null;
+
+    const [hydratedExperiences, hydratedEducations, hydratedCertifications, hydratedSkills] = await Promise.all([
+      Promise.all(
+        experiences.map(async (row) => {
+          const [company, job_title, expCity, links] = await Promise.all([
+            row.company_id ? ctx.db.get(row.company_id) : null,
+            row.job_title_id ? ctx.db.get(row.job_title_id) : null,
+            row.city_id ? ctx.db.get(row.city_id) : null,
+            ctx.db
+              .query("experience_skills")
+              .withIndex("by_experience", (q) => q.eq("experience_id", row._id))
+              .collect(),
+          ]);
+          const expSkills = await Promise.all(
+            links.map(async (l) => {
+              const s = await ctx.db.get(l.skill_id);
+              return s ? withId(s) : null;
+            })
+          );
+          return {
+            ...withId(row),
+            start_date: iso(row.start_date),
+            end_date: iso(row.end_date),
+            company: company ? withId(company) : null,
+            job_title: job_title ? withId(job_title) : null,
+            city: expCity ? withId(expCity) : null,
+            skills: expSkills.filter(Boolean),
+          };
+        })
+      ),
+      Promise.all(
+        educations.map(async (row) => {
+          const [degree, field, college, eduCity] = await Promise.all([
+            row.degree_id ? ctx.db.get(row.degree_id) : null,
+            row.field_of_study_id ? ctx.db.get(row.field_of_study_id) : null,
+            row.college_id ? ctx.db.get(row.college_id) : null,
+            row.city_id ? ctx.db.get(row.city_id) : null,
+          ]);
+          return {
+            ...withId(row),
+            degree: degree ? withId(degree) : null,
+            field_of_study: field ? withId(field) : null,
+            college: college ? withId(college) : null,
+            city: eduCity ? withId(eduCity) : null,
+          };
+        })
+      ),
+      Promise.all(
+        certifications.map(async (row) => {
+          const [certification, issuing_body, links] = await Promise.all([
+            row.certification_id ? ctx.db.get(row.certification_id) : null,
+            row.issuing_body_id ? ctx.db.get(row.issuing_body_id) : null,
+            ctx.db
+              .query("user_certification_skills")
+              .withIndex("by_certification", (q) => q.eq("user_certification_id", row._id))
+              .collect(),
+          ]);
+          const certSkills = await Promise.all(
+            links.map(async (l) => {
+              const s = await ctx.db.get(l.skill_id);
+              return s ? withId(s) : null;
+            })
+          );
+          return {
+            ...withId(row),
+            issue_date: iso(row.issue_date),
+            expiration_date: iso(row.expiration_date),
+            certification: certification ? withId(certification) : null,
+            issuing_body: issuing_body ? withId(issuing_body) : null,
+            skills: certSkills.filter(Boolean),
+          };
+        })
+      ),
+      Promise.all(
+        skills.map(async (row) => {
+          const skill = row.skill_id ? await ctx.db.get(row.skill_id) : null;
+          const category = row.category_id
+            ? await ctx.db.get(row.category_id)
+            : skill?.category_id
+            ? await ctx.db.get(skill.category_id)
+            : null;
+          return {
+            ...withId(row),
+            skill: skill ? withId(skill) : null,
+            category: category ? withId(category) : null,
+          };
+        })
+      ),
+    ]);
 
     return {
       user: {
         ...asUserJson(user),
         profile_image: (await signedFileUrl(r2, user.profile_image_storage_id)) ?? user.profile_image,
-        city: city ? withId(city) : null,
+        city: city ? { ...withId(city), state: state ? withId(state) : null } : null,
       },
-      experiences: experiences.map(withId),
-      educations: educations.map(withId),
-      certifications: certifications.map(withId),
-      skills: skills.map(withId),
+      experiences: hydratedExperiences.sort((a, b) => (Number(a.position) || 0) - (Number(b.position) || 0)),
+      educations: hydratedEducations.sort((a, b) => (Number(a.position) || 0) - (Number(b.position) || 0)),
+      certifications: hydratedCertifications,
+      skills: hydratedSkills,
     };
   },
 });
