@@ -1,8 +1,10 @@
+import { GoalSetupBanner } from "@/components/goals/GoalSetupBanner";
 import { useGetProfileQuery, useGetPublicProfileQuery } from "@/features/api/authApi";
 import { useGetCertificationsQuery } from "@/features/api/certificationsApi";
 import { useGetEducationsQuery } from "@/features/api/educationsApi";
 import { useGetExperiencesQuery } from "@/features/api/experiencesApi";
 import { useGetUserSkillsQuery } from "@/features/api/userSkillsApi";
+import { hasCareerGoal } from "@/lib/careerGoal";
 import { Certification } from "@/types/certification";
 import { Education } from "@/types/education";
 import { Experience } from "@/types/experience";
@@ -13,7 +15,6 @@ import { ProfilePageSkeleton } from "../pageSkeletons";
 import { CertificationsCard } from "./CertificationsCard";
 import { EducationCard } from "./EducationCard";
 import { InterestsCard, LanguagesCard } from "./ExtrasCards";
-import { ProfileCompletionBar } from "./ProfileCompletionBar";
 import { ProfileFooter } from "./ProfileFooter";
 import { ProfileHero } from "./ProfileHero";
 import { SkillsCard } from "./SkillsCard";
@@ -23,14 +24,13 @@ import { EducationModal } from "./modals/EducationModal";
 import { ExperienceModal } from "./modals/ExperienceModal";
 import { InterestsModal, LanguagesModal } from "./modals/ExtrasModals";
 import { SkillsModal } from "./modals/SkillsModal";
-import { profileCompletion } from "./profileFormat";
 
 type ProfileModal =
   { kind: "experience"; item: Experience | null } | { kind: "education"; item: Education | null } | { kind: "certification"; item: Certification | null } | { kind: "skills" } | { kind: "languages" } | { kind: "interests" };
 
 interface ProfilePageProps {
   /**
-   * The owner's own view adds the completion bar plus the Add/Edit affordances
+   * The owner's own view adds the goal-setup banner plus the Add/Edit affordances
    * on every card; a visitor gets the read-only view with Follow.
    */
   isOwner?: boolean;
@@ -66,13 +66,6 @@ export function ProfilePage({ isOwner = false, username }: ProfilePageProps) {
   const certificationList = (isOwner ? ownCertifications : publicProfile?.certifications) ?? [];
   const skillList = (isOwner ? ownSkills : publicProfile?.skills) ?? [];
 
-  const completion = profileCompletion(user, {
-    experiences: experienceList.length,
-    educations: educationList.length,
-    certifications: certificationList.length,
-    skills: skillList.length,
-  });
-
   const handleShare = useCallback(async () => {
     const handle = username || user?.username;
     const url = `${window.location.origin}${handle ? `/profile/${handle}` : "/profile"}`;
@@ -105,9 +98,9 @@ export function ProfilePage({ isOwner = false, username }: ProfilePageProps) {
     <div className="flex min-h-screen w-full flex-col bg-[#06060f]">
       <ProfileHero user={user} experiences={experienceList} isOwner={isOwner} isFollowing={isFollowing} onEdit={() => router.push("/profile/edit")} onFollow={handleFollow} onShare={handleShare} />
 
-      {isOwner && completion < 100 && (
+      {isOwner && !hasCareerGoal(user.career_goal) && (
         <div className="mx-auto w-full max-w-[1280px] px-6 pt-5 md:px-12 lg:px-20">
-          <ProfileCompletionBar percent={completion} onComplete={() => router.push("/profile/edit")} />
+          <GoalSetupBanner onSetGoal={() => router.push("/goals")} />
         </div>
       )}
 

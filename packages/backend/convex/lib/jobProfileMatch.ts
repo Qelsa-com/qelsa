@@ -119,10 +119,16 @@ export function scoreInRange(score: number | null, min?: number, max?: number): 
 }
 
 export async function loadUserRoleProfile(ctx: QueryCtx, user: Doc<"users">): Promise<UserRoleProfile> {
-  const rows = await ctx.db
-    .query("experiences")
-    .withIndex("by_user", (q) => q.eq("user_id", user._id))
-    .take(EXPERIENCE_TAKE);
+  const [rows, goal] = await Promise.all([
+    ctx.db
+      .query("experiences")
+      .withIndex("by_user", (q) => q.eq("user_id", user._id))
+      .take(EXPERIENCE_TAKE),
+    ctx.db
+      .query("career_goals")
+      .withIndex("by_user", (q) => q.eq("user_id", user._id))
+      .unique(),
+  ]);
 
   const titleIds = new Set<Id<"job_titles">>();
   const uniqueTitleIds = [...new Set(rows.map((row) => row.job_title_id).filter((id): id is Id<"job_titles"> => Boolean(id)))];
@@ -136,6 +142,11 @@ export async function loadUserRoleProfile(ctx: QueryCtx, user: Doc<"users">): Pr
 
   if (phrases.length === 0 && user.headline?.trim()) {
     phrases.push(user.headline.trim());
+  }
+
+  const targetRole = goal?.target_role?.trim();
+  if (targetRole && !phrases.some((phrase) => phrase.toLowerCase() === targetRole.toLowerCase())) {
+    phrases.unshift(targetRole);
   }
 
   return { titleIds, phrases };

@@ -531,6 +531,19 @@ export default defineSchema({
     .index("by_user_and_job", ["user_id", "job_id"])
     .index("by_thread", ["thread_id"]),
 
+  // One current career goal per user. Job matching reads target_role from here.
+  career_goals: defineTable({
+    user_id: v.id("users"),
+    description: v.optional(v.string()),
+    target_role: v.string(),
+    dream_companies: v.array(v.string()),
+    timeline: v.optional(v.union(v.literal("3_months"), v.literal("6_months"), v.literal("1_year"), v.literal("2_plus_years"))),
+    experience_level: v.optional(v.union(v.literal("entry"), v.literal("mid"), v.literal("senior"), v.literal("lead"))),
+    skills: v.array(v.string()),
+    primary_focus: v.optional(v.union(v.literal("switch_roles"), v.literal("get_promoted"), v.literal("switch_industries"), v.literal("upskill"))),
+    updated_at: v.number(),
+  }).index("by_user", ["user_id"]),
+
   ats_integrations: defineTable({
     user_id: v.id("users"),
     provider: v.union(v.literal("zoho_recruit"), v.literal("greenhouse"), v.literal("lever"), v.literal("keka"), v.literal("ashby"), v.literal("bamboohr"), v.literal("workday"), v.literal("darwinbox"), v.literal("icims")),
