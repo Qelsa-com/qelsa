@@ -201,6 +201,7 @@ export default defineSchema({
     user_id: v.id("users"),
     job_id: v.id("jobs"),
     resume_id: v.optional(v.id("resumes")),
+    cover_letter: v.optional(v.string()),
     status: applicationStatus,
     applied_at: v.number(),
     withdrawn_at: v.optional(v.number()),
@@ -230,6 +231,19 @@ export default defineSchema({
     old_status: applicationStatus,
     new_status: applicationStatus,
   }).index("by_application", ["job_application_id"]),
+
+  job_application_notes: defineTable({
+    job_id: v.id("jobs"),
+    job_application_id: v.id("job_applications"),
+    user_id: v.id("users"),
+    author_name: v.string(),
+    author_image: v.optional(v.string()),
+    text: v.string(),
+    visibility: v.optional(v.string()),
+    created_at: v.number(),
+  })
+    .index("by_application", ["job_application_id"])
+    .index("by_job", ["job_id"]),
 
   job_views: defineTable({
     job_id: v.id("jobs"),

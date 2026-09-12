@@ -17,6 +17,7 @@ export type JobApplicationListItem = {
   applicant_name: string;
   headline?: string;
   location?: string;
+  profile_image?: string;
   years_experience?: number | null;
   skills: { id: string | number; name: string; proficiency?: string }[];
   readiness: number;
@@ -39,10 +40,24 @@ export type JobApplication = {
   applied_days_ago?: number;
   screening_questions: ScreeningQuestion[];
   job_application_answers: JobApplicationAnswer[];
+  notes?: JobApplicationNote[];
   resume?: Resume;
   competency?: Competency;
+  cover_letter?: string | null;
   createdAt: string;
   updatedAt: string;
+};
+
+export type JobApplicationNote = {
+  id: string | number;
+  job_id: string | number;
+  job_application_id: string | number;
+  user_id: string | number;
+  author_name: string;
+  author_image?: string;
+  text: string;
+  visibility?: string;
+  created_at: number;
 };
 
 export type JobApplicationLog = {

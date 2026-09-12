@@ -70,6 +70,7 @@ export function useCreateJobApplicationMutation() {
       jobId: String(body.id),
       resume_id: body.applicationData?.resume_id ? String(body.applicationData.resume_id) : undefined,
       answers: body.applicationData?.answers,
+      cover_letter: body.applicationData?.cover_letter,
     }),
   );
 }
@@ -98,6 +99,17 @@ export function useMarkApplicationViewedMutation() {
     api.jobApplications.markViewed,
     (data: { applicationId: string | number }) => ({
       applicationId: String(data.applicationId),
+    }),
+  );
+}
+
+export function useAddApplicationNoteMutation() {
+  return useConvexMutationHook(
+    api.jobApplications.addNote,
+    (data: { applicationId: string | number; text: string; visibility?: string }) => ({
+      applicationId: String(data.applicationId),
+      text: data.text,
+      visibility: data.visibility,
     }),
   );
 }

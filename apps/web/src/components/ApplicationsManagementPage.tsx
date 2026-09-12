@@ -1,6 +1,7 @@
 import { formatCity } from "@/constants/city";
 import { jobSkillTypeLabel, proficiencyLabel } from "@/constants/skills";
 import {
+  useAddApplicationNoteMutation,
   useEditBulkStatusMutation,
   useGetJobApplicationDetailQuery,
   useGetJobApplicationsQuery,
@@ -24,7 +25,7 @@ import { Textarea } from "./ui/textarea";
 
 const statusMeta: Record<string, { label: string; className: string }> = {
   applied: { label: "New", className: "bg-neon-cyan/15 text-neon-cyan" },
-  viewed: { label: "Viewed", className: "bg-neon-purple/15 text-neon-purple" },
+  viewed: { label: "Under Review", className: "bg-amber-500/15 text-amber-400" },
   sorted: { label: "Shortlisted", className: "bg-neon-green/15 text-neon-green" },
   rejected: { label: "Rejected", className: "bg-red-500/15 text-red-500" },
   hold: { label: "On Hold", className: "bg-neon-yellow/15 text-neon-yellow" },
@@ -65,7 +66,7 @@ const initials = (name?: string) =>
     .map((part) => part[0]?.toUpperCase())
     .join("") || "?";
 
-const appliedAgo = (date?: string) => {
+const appliedAgo = (date?: string | Date) => {
   if (!date) return "—";
   const days = Math.floor((Date.now() - new Date(date).getTime()) / (1000 * 60 * 60 * 24));
   if (days <= 0) return "today";
@@ -74,16 +75,36 @@ const appliedAgo = (date?: string) => {
   return `${Math.floor(days / 30)}mo ago`;
 };
 
-const monthYear = (date?: Date) => (date ? new Date(date).toLocaleDateString(undefined, { month: "short", year: "numeric" }) : "");
+const formatRelativeTime = (timestamp?: number) => {
+  if (!timestamp) return "";
+  const diffMs = Date.now() - timestamp;
+  const diffSec = Math.floor(diffMs / 1000);
+  if (diffSec < 60) return "just now";
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHours = Math.floor(diffMin / 60);
+  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays === 1) return "Yesterday";
+  if (diffDays < 7) return `${diffDays}d ago`;
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
+  return `${Math.floor(diffDays / 30)}mo ago`;
+};
+
+const monthYear = (date?: string | number | Date) => (date ? new Date(date).toLocaleDateString(undefined, { month: "short", year: "numeric" }) : "");
 
 // Total experience spans the earliest start date to the latest end date (or now, if a role is current).
-const yearsOfExperience = (experiences?: { start_date: Date; end_date?: Date; is_current?: boolean }[]) => {
+const yearsOfExperience = (experiences?: { start_date?: string | number | Date; end_date?: string | number | Date; is_current?: boolean }[]) => {
   if (!experiences?.length) return null;
-  const starts = experiences.map((e) => new Date(e.start_date).getTime()).filter((t) => !Number.isNaN(t));
+  const starts = experiences
+    .map((e) => (e.start_date ? new Date(e.start_date).getTime() : NaN))
+    .filter((t) => !Number.isNaN(t));
   if (!starts.length) return null;
   const earliest = Math.min(...starts);
   const hasCurrent = experiences.some((e) => e.is_current || !e.end_date);
-  const ends = experiences.map((e) => (e.end_date ? new Date(e.end_date).getTime() : Date.now())).filter((t) => !Number.isNaN(t));
+  const ends = experiences
+    .map((e) => (e.end_date ? new Date(e.end_date).getTime() : Date.now()))
+    .filter((t) => !Number.isNaN(t));
   const latest = hasCurrent ? Date.now() : Math.max(...ends);
   const years = Math.floor((latest - earliest) / (1000 * 60 * 60 * 24 * 365));
   return years > 0 ? years : null;
@@ -117,6 +138,8 @@ export function ApplicationsManagementPage() {
   } | null>(null);
   const [showMessageComposer, setShowMessageComposer] = useState(false);
   const [showNoteComposer, setShowNoteComposer] = useState(false);
+  const [noteText, setNoteText] = useState("");
+  const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
   const [messageTemplate, setMessageTemplate] = useState("");
   const [messageText, setMessageText] = useState("");
 
@@ -124,6 +147,7 @@ export function ApplicationsManagementPage() {
   const { data: applicants, isLoading: isListLoading } = useGetJobApplicationsQuery({ jobId: id });
   const [editBulkStatus] = useEditBulkStatusMutation();
   const [markViewed] = useMarkApplicationViewedMutation();
+  const [addNote, { isLoading: isSavingNote }] = useAddApplicationNoteMutation();
   const [searchNatural, { isLoading: isNlLoading }] = useSearchJobApplicantsNatural();
 
   const handleSelectApplication = useCallback(
@@ -255,27 +279,57 @@ export function ApplicationsManagementPage() {
     }
   };
 
+  const handleSaveNote = useCallback(async () => {
+    if (!selectedApplicationId || !noteText.trim() || isSavingNote) return;
+    try {
+      await addNote({
+        applicationId: selectedApplicationId,
+        text: noteText.trim(),
+      }).unwrap();
+      setNoteText("");
+      setShowNoteComposer(false);
+    } catch (error) {
+      console.error("Failed to add note:", error);
+    }
+  }, [addNote, isSavingNote, noteText, selectedApplicationId]);
+
+  const currentIndex = useMemo(
+    () => sortedApplications.findIndex((a) => String(a.id) === String(selectedApplicationId)),
+    [sortedApplications, selectedApplicationId]
+  );
+  const totalCandidates = sortedApplications.length;
+  const hasPrev = currentIndex > 0;
+  const hasNext = currentIndex >= 0 && currentIndex < totalCandidates - 1;
+
+  const handlePrevCandidate = useCallback(() => {
+    if (hasPrev) {
+      const prevApp = sortedApplications[currentIndex - 1];
+      handleSelectApplication(prevApp.id, prevApp.status);
+    }
+  }, [hasPrev, sortedApplications, currentIndex, handleSelectApplication]);
+
+  const handleNextCandidate = useCallback(() => {
+    if (hasNext) {
+      const nextApp = sortedApplications[currentIndex + 1];
+      handleSelectApplication(nextApp.id, nextApp.status);
+    }
+  }, [hasNext, sortedApplications, currentIndex, handleSelectApplication]);
+
   const handleSendMessage = useCallback(() => {
     console.log("Sending message:", messageText);
     setShowMessageComposer(false);
     setMessageText("");
   }, [messageText]);
 
-  const handleDownloadResume = async () => {
+  const handleDownloadResume = () => {
     try {
       const path = selectedApplication?.resume?.file_url;
       if (!path) return;
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}${path}`);
-      if (!res.ok) throw new Error("Failed to download file");
-      const blob = await res.blob();
-      const blobUrl = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = blobUrl;
-      a.download = "resume.pdf";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(blobUrl);
+      const downloadUrl =
+        path.startsWith("http://") || path.startsWith("https://")
+          ? path
+          : `${process.env.NEXT_PUBLIC_API_BASE_URL || ""}${path}`;
+      window.open(downloadUrl, "_blank", "noopener,noreferrer");
     } catch (err) {
       console.error("Download error:", err);
     }
@@ -295,24 +349,25 @@ export function ApplicationsManagementPage() {
 
   return (
     <div className="min-h-screen">
-      <div className="flex flex-col gap-8 px-6 lg:px-20 pt-12 pb-20">
-        {/* Header */}
-        <div className="flex flex-col gap-8">
+      <div className="flex flex-col gap-8 px-4 sm:px-6 lg:px-20 pt-8 sm:pt-12 pb-20">
+        {/* Header, Stats & Filter bar - hidden on mobile when viewing candidate details */}
+        <div className={`${mobileDetailOpen ? "hidden lg:flex" : "flex"} flex-col gap-8`}>
+          {/* Header */}
           <button onClick={() => router.push("/jobs/posted")} className="flex w-fit items-center gap-2 text-sm text-white/70 hover:text-white transition-colors">
             <ArrowLeft className="w-4 h-4" />
             Back to job posts
           </button>
 
           <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex flex-col gap-3">
-              <h1 className="text-4xl lg:text-5xl font-extrabold text-white">Applications</h1>
-              <p className="text-base text-white/60">
+            <div className="flex flex-col gap-2 sm:gap-3">
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white">Applications</h1>
+              <p className="text-sm sm:text-base text-white/60">
                 {[jobTitle, currentJobPosting?.city && formatCity(currentJobPosting.city)].filter(Boolean).join(" · ")}
                 {applicants ? ` - ${applicants.length} applicants` : ""}
               </p>
             </div>
 
-            <div className="flex items-center gap-1 rounded-full border border-white/12 p-1">
+            <div className="hidden sm:flex items-center gap-1 rounded-full border border-white/12 p-1">
               <span className="rounded-full bg-neon-cyan/15 px-5 py-2.5 text-sm font-semibold text-neon-cyan">List View</span>
               <span className="flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold text-white/35" title="Table view is a PRO feature">
                 <Lock className="w-3.5 h-3.5" />
@@ -322,127 +377,132 @@ export function ApplicationsManagementPage() {
             </div>
           </div>
 
-          {/* Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            <div className="flex h-[92px] items-center rounded-2xl border border-white/12 bg-white/4 p-5">
-              <div className="flex flex-col gap-1">
-                <p className="text-[13px] text-white/50">Total Views</p>
-                <p className="text-[28px] font-semibold text-white">
+          {/* Stats - 3 columns */}
+          <div className="grid grid-cols-3 gap-3 sm:gap-5">
+            <div className="flex h-20 sm:h-[92px] items-center rounded-2xl border border-white/12 bg-white/4 p-3 sm:p-5">
+              <div className="flex flex-col gap-0.5 sm:gap-1">
+                <p className="text-xs sm:text-[13px] text-white/50">Total Views</p>
+                <p className="text-xl sm:text-[28px] font-semibold text-white">
                   {currentJobPosting?.view_count ?? "—"}
                 </p>
               </div>
             </div>
-            <div className="flex h-[92px] items-center rounded-2xl border border-white/12 bg-white/4 p-5">
-              <div className="flex flex-col gap-1">
-                <p className="text-[13px] text-white/50">Applications</p>
-                <p className="text-[28px] font-semibold text-white">{applicants?.length ?? 0}</p>
+            <div className="flex h-20 sm:h-[92px] items-center rounded-2xl border border-white/12 bg-white/4 p-3 sm:p-5">
+              <div className="flex flex-col gap-0.5 sm:gap-1">
+                <p className="text-xs sm:text-[13px] text-white/50">Applications</p>
+                <p className="text-xl sm:text-[28px] font-semibold text-white">{applicants?.length ?? 0}</p>
               </div>
             </div>
-            <div className="flex h-[92px] items-center rounded-2xl border border-white/12 bg-white/4 p-5">
-              <div className="flex flex-col gap-1">
-                <p className="text-[13px] text-white/50">Shortlisted</p>
-                <p className="text-[28px] font-semibold text-white">{shortlistedCount}</p>
+            <div className="flex h-20 sm:h-[92px] items-center rounded-2xl border border-white/12 bg-white/4 p-3 sm:p-5">
+              <div className="flex flex-col gap-0.5 sm:gap-1">
+                <p className="text-xs sm:text-[13px] text-white/50">Shortlisted</p>
+                <p className="text-xl sm:text-[28px] font-semibold text-white">{shortlistedCount}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Filter bar */}
+          <div className="flex flex-col gap-4">
+            <CandidateNLPSearch
+              query={searchQuery}
+              onQueryChange={setSearchQuery}
+              onSubmit={handleSearchSubmit}
+              onClear={handleClearSearch}
+              chips={searchChips}
+              isLoading={isNlLoading || Boolean(submittedQuery.trim() && isKeywordLoading)}
+              className="rounded-[28px] bg-white/4"
+              placeholder="Search applicants..."
+            />
+
+            <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="h-auto w-auto gap-1.5 rounded-full border-white/12 bg-transparent pl-4 sm:pl-5 pr-3 sm:pr-4 py-2 sm:py-3 text-xs sm:text-[13px] font-medium text-white/70">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent className="glass-strong border-glass-border">
+                    <SelectItem value="all">All statuses</SelectItem>
+                    {Object.entries(statusMeta).map(([value, meta]) => (
+                      <SelectItem key={value} value={value}>
+                        {meta.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select value={experienceFilter} onValueChange={setExperienceFilter}>
+                  <SelectTrigger className="h-auto w-auto gap-1.5 rounded-full border-white/12 bg-transparent pl-4 sm:pl-5 pr-3 sm:pr-4 py-2 sm:py-3 text-xs sm:text-[13px] font-medium text-white/70">
+                    <SelectValue placeholder="Experience" />
+                  </SelectTrigger>
+                  <SelectContent className="glass-strong border-glass-border">
+                    <SelectItem value="all">Any experience</SelectItem>
+                    <SelectItem value="1">1+ years</SelectItem>
+                    <SelectItem value="3">3+ years</SelectItem>
+                    <SelectItem value="5">5+ years</SelectItem>
+                    <SelectItem value="8">8+ years</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={readinessFilter} onValueChange={setReadinessFilter}>
+                  <SelectTrigger className="h-auto w-auto gap-1.5 rounded-full border-white/12 bg-transparent pl-4 sm:pl-5 pr-3 sm:pr-4 py-2 sm:py-3 text-xs sm:text-[13px] font-medium text-white/70">
+                    <SelectValue placeholder="Readiness score" />
+                  </SelectTrigger>
+                  <SelectContent className="glass-strong border-glass-border">
+                    <SelectItem value="all">Any readiness</SelectItem>
+                    <SelectItem value="90">90% and above</SelectItem>
+                    <SelectItem value="75">75% and above</SelectItem>
+                    <SelectItem value="50">50% and above</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="hidden sm:flex items-center gap-3">
+                <button className="flex items-center gap-2 rounded-full border border-white/20 px-5 py-3 text-sm font-bold text-white hover:bg-white/5 transition-colors">
+                  <Download className="w-[18px] h-[18px]" />
+                  Export CSV
+                </button>
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      disabled={selectedApplications.length === 0}
+                      className="flex items-center gap-2 rounded-full gradient-primary px-5 py-3 text-sm font-bold text-white transition-opacity disabled:opacity-40"
+                    >
+                      Bulk actions
+                      {selectedApplications.length > 0 && <span className="rounded-full bg-white/20 px-1.5 text-xs">{selectedApplications.length}</span>}
+                      <ChevronDown className="w-3.5 h-3.5" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="glass-strong border-glass-border">
+                    <DropdownMenuItem onClick={() => handleBulkAction("sorted")} className="cursor-pointer">
+                      <Star className="w-4 h-4 mr-2" />
+                      Shortlist
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleBulkAction("rejected")} className="cursor-pointer">
+                      <XCircle className="w-4 h-4 mr-2" />
+                      Reject
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleBulkAction("hold")} className="cursor-pointer">
+                      <Archive className="w-4 h-4 mr-2" />
+                      Put on hold
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Filter bar */}
-        <div className="flex flex-col gap-4">
-          <CandidateNLPSearch
-            query={searchQuery}
-            onQueryChange={setSearchQuery}
-            onSubmit={handleSearchSubmit}
-            onClear={handleClearSearch}
-            chips={searchChips}
-            isLoading={isNlLoading || Boolean(submittedQuery.trim() && isKeywordLoading)}
-            className="rounded-[28px] bg-white/4"
-            placeholder="Search applicants..."
-          />
-
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex flex-wrap items-center gap-3">
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="h-auto w-auto gap-1.5 rounded-full border-white/12 bg-transparent pl-5 pr-4 py-3 text-[13px] font-medium text-white/70">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent className="glass-strong border-glass-border">
-                  <SelectItem value="all">All statuses</SelectItem>
-                  {Object.entries(statusMeta).map(([value, meta]) => (
-                    <SelectItem key={value} value={value}>
-                      {meta.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select value={experienceFilter} onValueChange={setExperienceFilter}>
-                <SelectTrigger className="h-auto w-auto gap-1.5 rounded-full border-white/12 bg-transparent pl-5 pr-4 py-3 text-[13px] font-medium text-white/70">
-                  <SelectValue placeholder="Experience" />
-                </SelectTrigger>
-                <SelectContent className="glass-strong border-glass-border">
-                  <SelectItem value="all">Any experience</SelectItem>
-                  <SelectItem value="1">1+ years</SelectItem>
-                  <SelectItem value="3">3+ years</SelectItem>
-                  <SelectItem value="5">5+ years</SelectItem>
-                  <SelectItem value="8">8+ years</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select value={readinessFilter} onValueChange={setReadinessFilter}>
-                <SelectTrigger className="h-auto w-auto gap-1.5 rounded-full border-white/12 bg-transparent pl-5 pr-4 py-3 text-[13px] font-medium text-white/70">
-                  <SelectValue placeholder="Readiness score" />
-                </SelectTrigger>
-                <SelectContent className="glass-strong border-glass-border">
-                  <SelectItem value="all">Any readiness</SelectItem>
-                  <SelectItem value="90">90% and above</SelectItem>
-                  <SelectItem value="75">75% and above</SelectItem>
-                  <SelectItem value="50">50% and above</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <button className="flex items-center gap-2 rounded-full border border-white/20 px-5 py-3 text-sm font-bold text-white hover:bg-white/5 transition-colors">
-                <Download className="w-[18px] h-[18px]" />
-                Export CSV
-              </button>
-
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    disabled={selectedApplications.length === 0}
-                    className="flex items-center gap-2 rounded-full gradient-primary px-5 py-3 text-sm font-bold text-white transition-opacity disabled:opacity-40"
-                  >
-                    Bulk actions
-                    {selectedApplications.length > 0 && <span className="rounded-full bg-white/20 px-1.5 text-xs">{selectedApplications.length}</span>}
-                    <ChevronDown className="w-3.5 h-3.5" />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="glass-strong border-glass-border">
-                  <DropdownMenuItem onClick={() => handleBulkAction("sorted")} className="cursor-pointer">
-                    <Star className="w-4 h-4 mr-2" />
-                    Shortlist
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleBulkAction("rejected")} className="cursor-pointer">
-                    <XCircle className="w-4 h-4 mr-2" />
-                    Reject
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleBulkAction("hold")} className="cursor-pointer">
-                    <Archive className="w-4 h-4 mr-2" />
-                    Put on hold
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </div>
-        </div>
-
-        {/* Split panel */}
+        {/* Split panel on desktop, toggled view on mobile */}
         <div className="flex flex-col lg:flex-row gap-5 items-start">
-          {/* Left: candidates */}
-          <div className="flex w-full lg:w-[380px] shrink-0 flex-col gap-3 rounded-[20px] border border-white/12 bg-white/4 p-4 lg:max-h-[843px] lg:overflow-y-auto">
-            <p className="text-sm font-semibold text-white/80">Candidates</p>
+          {/* Left: candidates list (hidden on mobile when mobileDetailOpen is true) */}
+          <div className={`${mobileDetailOpen ? "hidden lg:flex" : "flex"} w-full lg:w-[410px] xl:w-[440px] shrink-0 flex-col gap-3 rounded-[20px] border border-white/12 bg-white/4 p-4 lg:max-h-[843px] lg:overflow-y-auto`}>
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold text-white/90">Candidates</p>
+              <span className="text-xs text-white/40">
+                {sortedApplications.length} {sortedApplications.length === 1 ? "applicant" : "applicants"}
+              </span>
+            </div>
 
             {isListLoading ? (
               <div className="flex flex-col gap-2.5" role="status" aria-label="Loading candidates">
@@ -456,7 +516,7 @@ export function ApplicationsManagementPage() {
                 <p className="text-sm text-white/60">{submittedQuery.trim() ? "No candidates match your search" : "No candidates match your filters"}</p>
               </div>
             ) : (
-              <div className="flex flex-col gap-2.5 rounded-2xl border border-white/12 bg-white/2 p-2">
+              <div className="flex flex-col gap-2.5">
                 {sortedApplications.map((application) => {
                   const isSelected = selectedApplicationId === application.id;
                   const readiness = application.readiness;
@@ -466,14 +526,20 @@ export function ApplicationsManagementPage() {
                   return (
                     <div
                       key={application.id}
-                      onClick={() => handleSelectApplication(application.id, application.status)}
-                      className={`relative flex cursor-pointer items-center gap-3 overflow-hidden rounded-xl border p-4 transition-all ${
-                        isSelected ? "border-white/12 bg-white/4 shadow-[0px_0px_12px_0px_rgba(14,165,233,0.15)]" : "border-white/12 bg-white/4 hover:bg-white/6"
+                      onClick={() => {
+                        handleSelectApplication(application.id, application.status);
+                        setMobileDetailOpen(true);
+                      }}
+                      className={`group relative flex cursor-pointer items-center gap-3 overflow-hidden rounded-xl border p-3.5 sm:p-4 transition-all ${
+                        isSelected
+                          ? "border-neon-cyan/40 bg-white/[0.07] shadow-[0px_0px_14px_0px_rgba(14,165,233,0.15)]"
+                          : "border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.06]"
                       }`}
                     >
                       {isSelected && <span className="absolute inset-y-0 left-0 w-1 bg-neon-cyan" />}
 
                       <Checkbox
+                        className="hidden lg:flex shrink-0 border-white/30 data-[state=checked]:bg-neon-cyan data-[state=checked]:text-black"
                         checked={selectedApplications.includes(application.id)}
                         onCheckedChange={(checked) => {
                           setSelectedApplications((prev) => (checked ? [...prev, application.id] : prev.filter((selectedId) => selectedId !== application.id)));
@@ -481,28 +547,41 @@ export function ApplicationsManagementPage() {
                         onClick={(e) => e.stopPropagation()}
                       />
 
-                      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                      {application.profile_image ? (
+                        <img
+                          src={application.profile_image}
+                          alt={application.applicant_name}
+                          className="size-10 shrink-0 rounded-full object-cover border border-white/10"
+                        />
+                      ) : (
+                        <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-neon-purple to-pink-500 text-xs font-bold text-white shadow-sm">
+                          {initials(application.applicant_name)}
+                        </div>
+                      )}
+
+                      <div className="flex min-w-0 flex-1 flex-col gap-1">
                         <div className="flex items-center justify-between gap-2">
-                          <p className="truncate text-base font-semibold text-white">{application.applicant_name}</p>
+                          <p className="truncate text-sm sm:text-[15px] font-semibold text-white">{application.applicant_name}</p>
                           {readiness != null && (
-                            <span className={`flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 ${tone.bg}`}>
-                              <span className={`text-[11px] font-semibold ${tone.text}`}>{readiness}%</span>
-                              <span className={`text-[10px] font-medium ${tone.muted}`}>readiness</span>
+                            <span className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap ${tone.bg} ${tone.text}`}>
+                              {readiness}% readiness
                             </span>
                           )}
                         </div>
                         {application.headline ? (
-                          <p className="truncate text-[13px] text-white/60">{application.headline}</p>
+                          <p className="truncate text-xs sm:text-[13px] text-white/60">{application.headline}</p>
                         ) : application.skills?.length > 0 ? (
-                          <p className="truncate text-[13px] text-white/60">{application.skills.map((s) => s.name).join(", ")}</p>
+                          <p className="truncate text-xs sm:text-[13px] text-white/60">{application.skills.map((s) => s.name).join(", ")}</p>
                         ) : null}
-                        <p className="text-xs text-white/35">
-                          Applied {appliedAgo(application.applied_at)}
-                          {application.years_experience != null ? ` · ${application.years_experience} yrs` : ""}
-                          {application.location ? ` · ${application.location}` : ""}
-                        </p>
-                        <div>
-                          <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${meta.className}`}>{meta.label}</span>
+                        <div className="flex items-center justify-between gap-2 pt-0.5">
+                          <p className="min-w-0 truncate text-xs text-white/40">
+                            Applied {appliedAgo(application.applied_at)}
+                            {application.years_experience != null ? ` · ${application.years_experience} yrs` : ""}
+                            {application.location ? ` · ${application.location}` : ""}
+                          </p>
+                          <span className={`inline-flex shrink-0 items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium whitespace-nowrap ${meta.className}`}>
+                            {meta.label}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -513,7 +592,42 @@ export function ApplicationsManagementPage() {
           </div>
 
           {/* Right: detail */}
-          <div className="flex min-w-0 flex-1 flex-col gap-4 rounded-[20px] border border-white/12 bg-white/4 p-5">
+          <div className={`${mobileDetailOpen ? "flex" : "hidden lg:flex"} min-w-0 flex-1 flex-col gap-4 rounded-[20px] border border-white/12 bg-white/4 p-4 sm:p-5 w-full`}>
+            {/* Mobile top bar navigation */}
+            <div className="flex flex-col gap-3 lg:hidden pb-2">
+              <button
+                onClick={() => setMobileDetailOpen(false)}
+                className="flex w-fit items-center gap-1.5 text-sm font-medium text-white/70 hover:text-white transition-colors"
+              >
+                <ChevronLeft className="size-4" />
+                Applications
+              </button>
+
+              {totalCandidates > 0 && (
+                <div className="flex items-center justify-between border-y border-white/10 py-2.5">
+                  <button
+                    onClick={handlePrevCandidate}
+                    disabled={!hasPrev}
+                    className="flex size-8 items-center justify-center rounded-full border border-white/12 bg-white/4 text-white hover:bg-white/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                    aria-label="Previous candidate"
+                  >
+                    <ChevronLeft className="size-4" />
+                  </button>
+                  <span className="text-xs sm:text-sm font-medium text-white/70">
+                    Candidate {currentIndex >= 0 ? currentIndex + 1 : 1} of {totalCandidates}
+                  </span>
+                  <button
+                    onClick={handleNextCandidate}
+                    disabled={!hasNext}
+                    className="flex size-8 items-center justify-center rounded-full border border-white/12 bg-white/4 text-white hover:bg-white/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                    aria-label="Next candidate"
+                  >
+                    <ChevronRight className="size-4" />
+                  </button>
+                </div>
+              )}
+            </div>
+
             {selectedApplicationId == null ? (
               <div className="flex flex-col items-center justify-center gap-3 py-24 text-center">
                 <Users className="w-16 h-16 text-white/30" />
@@ -543,25 +657,39 @@ export function ApplicationsManagementPage() {
             ) : (
               <>
                 {/* Profile top */}
-                <div className="flex flex-wrap items-center gap-4">
-                  <div className="flex size-16 shrink-0 items-center justify-center rounded-full bg-neon-purple text-lg font-bold text-[#06060f]">{initials(selectedApplication.user?.name)}</div>
-                  <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-                    <p className="text-lg font-semibold text-white">{selectedApplication.user?.name}</p>
-                    {selectedApplication.user?.headline && <p className="text-sm text-white/60">{selectedApplication.user.headline}</p>}
+                <div className="flex flex-col items-center text-center lg:flex-row lg:items-center lg:text-left gap-4">
+                  <div className="flex size-20 lg:size-16 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-neon-purple to-pink-500 lg:bg-neon-purple text-xl lg:text-lg font-bold text-white lg:text-[#06060f]">
+                    {initials(selectedApplication.user?.name)}
+                  </div>
+                  <div className="flex min-w-0 flex-1 flex-col items-center lg:items-start gap-1">
+                    <p className="text-xl lg:text-lg font-bold text-white">{selectedApplication.user?.name}</p>
+                    {selectedApplication.user?.headline && <p className="text-sm text-white/70">{selectedApplication.user.headline}</p>}
                     <div className="flex items-center gap-2 text-[13px] text-white/50">
                       {selectedApplication.user?.city && <span>{formatCity(selectedApplication.user.city)}</span>}
-                      {selectedApplication.user?.city && candidateYears != null && <span>•</span>}
-                      {candidateYears != null && <span>{candidateYears} yrs</span>}
+                      {selectedApplication.user?.city && candidateYears != null && <span>·</span>}
+                      {candidateYears != null && <span>{candidateYears} yrs exp</span>}
+                    </div>
+                    <div className="block lg:hidden mt-1">
+                      <button
+                        disabled
+                        title="There is no public candidate profile route yet"
+                        className="flex cursor-not-allowed items-center gap-1 text-xs font-semibold text-neon-cyan opacity-90"
+                      >
+                        View qelsa profile
+                        <ArrowRight className="size-3" />
+                      </button>
                     </div>
                   </div>
-                  <button
-                    disabled
-                    title="There is no public candidate profile route yet"
-                    className="flex cursor-not-allowed items-center gap-1.5 rounded-full gradient-primary px-4 py-2 text-xs font-medium text-white opacity-50"
-                  >
-                    View qelsa profile
-                    <ArrowRight className="w-3 h-3" />
-                  </button>
+                  <div className="hidden lg:block">
+                    <button
+                      disabled
+                      title="There is no public candidate profile route yet"
+                      className="flex cursor-not-allowed items-center gap-1.5 rounded-full gradient-primary px-4 py-2 text-xs font-medium text-white opacity-50"
+                    >
+                      View qelsa profile
+                      <ArrowRight className="size-3" />
+                    </button>
+                  </div>
                 </div>
 
                 {selectedHit?.explanation ? (
@@ -573,10 +701,10 @@ export function ApplicationsManagementPage() {
 
                 {/* Summary */}
                 {selectedApplication.user?.professional_summary && (
-                  <div className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-2.5">
                     <p className="text-[13px] font-semibold text-white/80">Summary</p>
-                    <div className="rounded-[10px] border border-white/8 bg-white/4 px-3.5 py-3">
-                      <p className="text-xs leading-[18px] text-white/65">{selectedApplication.user.professional_summary}</p>
+                    <div className="rounded-[10px] border border-white/8 border-l-2 border-l-neon-purple bg-white/4 px-4 py-3">
+                      <p className="text-xs leading-relaxed text-white/75">{selectedApplication.user.professional_summary}</p>
                     </div>
                   </div>
                 )}
@@ -642,9 +770,48 @@ export function ApplicationsManagementPage() {
                   </div>
                   <div className="flex items-center justify-between">
                     <p className="text-[13px] text-white/50">Status</p>
-                    <span className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${(statusMeta[selectedApplication.status] ?? { className: "bg-white/8 text-white/50" }).className}`}>
-                      {(statusMeta[selectedApplication.status] ?? { label: "Withdrawn" }).label}
-                    </span>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all hover:opacity-85 ${
+                            (statusMeta[selectedApplication.status] ?? { className: "bg-white/8 text-white/50" }).className
+                          }`}
+                        >
+                          <span>{(statusMeta[selectedApplication.status] ?? { label: "Withdrawn" }).label}</span>
+                          <ChevronDown className="size-3 opacity-60" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="glass-strong border-glass-border">
+                        <DropdownMenuItem
+                          onClick={() => handleApplicationStatus("viewed", selectedApplication.id)}
+                          className="cursor-pointer text-xs flex items-center gap-2"
+                        >
+                          <span className="size-2 rounded-full bg-amber-400" />
+                          Under review
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handleApplicationStatus("sorted", selectedApplication.id)}
+                          className="cursor-pointer text-xs flex items-center gap-2"
+                        >
+                          <span className="size-2 rounded-full bg-neon-green" />
+                          Shortlisted
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handleApplicationStatus("rejected", selectedApplication.id)}
+                          className="cursor-pointer text-xs flex items-center gap-2"
+                        >
+                          <span className="size-2 rounded-full bg-red-500" />
+                          Rejected
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handleApplicationStatus("hold", selectedApplication.id)}
+                          className="cursor-pointer text-xs flex items-center gap-2"
+                        >
+                          <span className="size-2 rounded-full bg-neon-yellow" />
+                          On hold
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </div>
 
@@ -657,7 +824,32 @@ export function ApplicationsManagementPage() {
                       <p className="text-[13px] font-semibold text-white/80">Competency framework</p>
                     </div>
 
-                    <div className="overflow-x-auto">
+                    {/* Mobile card layout */}
+                    <div className="flex flex-col gap-2.5 md:hidden">
+                      {selectedApplication.competency.competencies.map((competency) => {
+                        const isGap = competency.status === "gap" || !competency.matched;
+                        const matchLabel = competency.status === "exceeds" ? "↑ Exceeds" : competency.matched ? "✓ Match" : "× Gap";
+                        return (
+                          <div key={competency.skill_id} className="flex flex-col gap-2 rounded-xl border border-white/8 bg-white/3 p-3.5">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[13px] font-semibold text-white">{competency.skill_name}</span>
+                              <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold ${competencyTypeStyles[competency.type] ?? competencyTypeStyles.preferred}`}>
+                                {jobSkillTypeLabel(competency.type)}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-white/60">
+                                Req: <span className="font-medium text-white/80">{proficiencyLabel(competency.required_proficiency)}</span>
+                              </span>
+                              <span className={`font-semibold ${isGap ? "text-[#ef4444]" : "text-neon-green"}`}>{matchLabel}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Desktop table layout */}
+                    <div className="hidden md:block overflow-x-auto">
                       <div className="min-w-[560px]">
                         <div className="flex items-center border-y border-white/12 py-2 text-[11px] font-semibold uppercase text-white/45">
                           <p className="flex-1">Skill</p>
@@ -687,7 +879,7 @@ export function ApplicationsManagementPage() {
                       </div>
                     </div>
 
-                    <div className="flex items-start justify-between pt-2 text-xs">
+                    <div className="flex items-start justify-between pt-3 text-xs">
                       <p className="text-white/40">{selectedApplication.competency.totalCount} competencies</p>
                       <p className="font-semibold text-neon-green">
                         {selectedApplication.competency.matchedCount} of {selectedApplication.competency.totalCount} matched
@@ -696,11 +888,17 @@ export function ApplicationsManagementPage() {
                   </div>
                 )}
 
-                {/* Cover letter — no field on the API; shell only */}
+                {/* Cover letter */}
                 <div className="flex flex-col gap-2.5">
                   <p className="text-[13px] font-semibold text-white/80">Cover Letter</p>
                   <div className="rounded-xl border border-white/8 bg-white/4 p-4">
-                    <p className="text-[13px] text-white/40">No cover letter provided.</p>
+                    {selectedApplication.cover_letter ? (
+                      <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-white/80">
+                        {selectedApplication.cover_letter}
+                      </p>
+                    ) : (
+                      <p className="text-[13px] text-white/40">No cover letter provided.</p>
+                    )}
                   </div>
                 </div>
 
@@ -750,21 +948,21 @@ export function ApplicationsManagementPage() {
                       {selectedApplication.job_application_answers.map((answer, idx) => {
                         const { knockout, meets } = screeningEval(answer);
                         return (
-                          <div key={idx} className="flex flex-col gap-2 rounded-xl border border-white/8 bg-white/4 px-4 py-3">
-                            <div className="flex items-center gap-2">
-                              <p className="flex-1 text-[13px] font-medium text-white">{answer.question}</p>
+                          <div key={idx} className="flex flex-col gap-2 rounded-xl border border-white/8 bg-white/4 px-4 py-3.5">
+                            <div className="flex items-start justify-between gap-3">
+                              <p className="flex-1 text-[13px] font-semibold text-white leading-snug">{answer.question}</p>
                               {knockout && (
-                                <span className="flex shrink-0 items-center gap-1 rounded-full bg-red-500/15 px-2 py-0.5 text-[10px] font-semibold text-red-400">
-                                  <AlertTriangle className="size-3" />
+                                <span className="flex shrink-0 items-center gap-1 rounded bg-[#2a1720] border border-red-500/20 px-2 py-0.5 text-[11px] font-medium text-[#f87171]">
+                                  <AlertTriangle className="size-3 text-[#f87171]" />
                                   Knockout
                                 </span>
                               )}
                             </div>
-                            <p className="text-[13px] text-white/50">{answer.answer}</p>
+                            <p className="text-[13px] text-white/60">{answer.answer}</p>
                             {meets !== null && (
-                              <div className="flex items-center gap-1.5">
-                                <span className={`size-2 shrink-0 rounded-full ${meets ? "bg-neon-green" : "bg-red-400"}`} />
-                                <span className={`text-xs font-medium ${meets ? "text-neon-green" : "text-red-400"}`}>
+                              <div className="flex items-center gap-1.5 pt-0.5">
+                                <span className={`size-2 shrink-0 rounded-full ${meets ? "bg-neon-green" : "bg-[#ef4444]"}`} />
+                                <span className={`text-xs font-semibold ${meets ? "text-neon-green" : "text-[#ef4444]"}`}>
                                   {meets ? "Meets requirement" : "Does not meet requirement"}
                                 </span>
                               </div>
@@ -777,30 +975,67 @@ export function ApplicationsManagementPage() {
                   </>
                 )}
 
-                {/* Notes — no endpoint; shell only */}
+                {/* Notes */}
                 <div className="flex flex-col gap-3">
                   <div className="flex items-center gap-2">
                     <p className="text-[13px] font-semibold text-white/80">Notes</p>
-                    <span className="rounded-full bg-white/10 px-1.5 py-0.5 text-[11px] font-medium text-white/60">0</span>
+                    <span className="rounded-full bg-white/10 px-1.5 py-0.5 text-[11px] font-medium text-white/60">
+                      {selectedApplication.notes?.length ?? 0}
+                    </span>
                   </div>
 
-                  <div className="rounded-xl border border-white/8 bg-white/4 px-3.5 py-3">
-                    <p className="text-[13px] text-white/40">No notes yet.</p>
-                  </div>
+                  {(!selectedApplication.notes || selectedApplication.notes.length === 0) ? (
+                    <div className="rounded-xl border border-white/8 bg-white/4 px-3.5 py-3">
+                      <p className="text-[13px] text-white/40">No notes yet.</p>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-2.5">
+                      {selectedApplication.notes.map((note) => (
+                        <div key={note.id} className="flex flex-col gap-2 rounded-xl border border-white/8 bg-white/4 p-3.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2.5">
+                              <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-neon-cyan/20 text-xs font-bold text-neon-cyan">
+                                {initials(note.author_name)}
+                              </div>
+                              <span className="text-[13px] font-semibold text-white">{note.author_name}</span>
+                            </div>
+                            <span className="text-xs text-white/40">{formatRelativeTime(note.created_at)}</span>
+                          </div>
+                          <p className="text-[13px] leading-relaxed text-white/70 pl-9 whitespace-pre-wrap">{note.text}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
 
                   {showNoteComposer && (
                     <div className="flex flex-col gap-3 rounded-xl border border-neon-cyan/40 bg-white/5 p-4">
                       <p className="text-[13px] font-semibold text-white/80">Add a note</p>
-                      <Textarea disabled placeholder="Write your note about this candidate..." rows={3} className="resize-none border-white/10 bg-white/3 text-[13px]" />
+                      <Textarea
+                        value={noteText}
+                        onChange={(e) => setNoteText(e.target.value)}
+                        placeholder="Write your note about this candidate..."
+                        rows={3}
+                        className="resize-none border-white/10 bg-white/3 text-[13px] text-white placeholder:text-white/40"
+                      />
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="text-xs text-white/40">Visible to:</span>
                         <span className="rounded-full border border-white/10 bg-white/4 px-2.5 py-1 text-xs font-medium text-white/50">Team only</span>
                         <div className="flex-1" />
-                        <button onClick={() => setShowNoteComposer(false)} className="rounded-full border border-white/20 px-6 py-3 text-sm font-bold text-white/80 hover:bg-white/5 transition-colors">
+                        <button
+                          onClick={() => {
+                            setShowNoteComposer(false);
+                            setNoteText("");
+                          }}
+                          className="rounded-full border border-white/20 px-5 py-2 text-xs font-bold text-white/80 hover:bg-white/5 transition-colors"
+                        >
                           Cancel
                         </button>
-                        <button disabled title="Notes have no API endpoint yet" className="cursor-not-allowed rounded-full gradient-primary px-6 py-3 text-sm font-bold text-white opacity-50">
-                          Save Note
+                        <button
+                          onClick={handleSaveNote}
+                          disabled={!noteText.trim() || isSavingNote}
+                          className="rounded-full gradient-primary px-5 py-2 text-xs font-bold text-white transition-opacity disabled:opacity-50"
+                        >
+                          {isSavingNote ? "Saving..." : "Save Note"}
                         </button>
                       </div>
                     </div>
@@ -808,52 +1043,34 @@ export function ApplicationsManagementPage() {
                 </div>
 
                 {/* Actions */}
-                <div className="flex flex-wrap gap-2.5">
+                <div className="grid grid-cols-2 lg:flex lg:flex-row gap-2.5 pt-2">
                   <button
                     onClick={() => setShowNoteComposer((v) => !v)}
-                    className="flex h-11 flex-1 items-center justify-center gap-2 rounded-[10px] border border-white/12 bg-white/4 px-4 text-sm font-medium text-white hover:bg-white/8 transition-colors"
+                    className="flex h-11 items-center justify-center gap-2 rounded-[10px] lg:rounded-full border border-white/12 bg-white/4 px-4 text-xs lg:text-sm font-semibold text-white hover:bg-white/8 transition-colors"
                   >
-                    ✎ Add Notes
+                    ✎ {showNoteComposer ? "Close Notes" : "Add Notes"}
                   </button>
                   <button
                     onClick={() => setShowMessageComposer(true)}
-                    className="flex h-11 flex-1 items-center justify-center gap-2 rounded-full border border-white/12 bg-white/4 px-4 text-sm font-semibold text-white hover:bg-white/8 transition-colors"
+                    className="flex h-11 items-center justify-center gap-2 rounded-[10px] lg:rounded-full border border-white/12 bg-white/4 px-4 text-xs lg:text-sm font-semibold text-white hover:bg-white/8 transition-colors"
                   >
-                    <MessageCircle className="w-[18px] h-[18px]" />
+                    <MessageCircle className="size-4" />
                     Message
                   </button>
                   <button
                     onClick={handleDownloadResume}
                     disabled={!selectedApplication.resume?.file_url}
-                    className="flex h-11 flex-1 items-center justify-center gap-2 rounded-full border border-white/12 bg-white/4 px-4 text-sm font-semibold text-white hover:bg-white/8 transition-colors disabled:opacity-40"
+                    className="flex h-11 items-center justify-center gap-2 rounded-[10px] lg:rounded-full border border-white/12 bg-white/4 px-4 text-xs lg:text-sm font-semibold text-white hover:bg-white/8 transition-colors disabled:opacity-40"
                   >
-                    <Download className="w-[18px] h-[18px]" />
+                    <Download className="size-4" />
                     Resume
                   </button>
                   <button
                     onClick={() => navigator.clipboard?.writeText(window.location.href)}
-                    className="flex h-11 flex-1 items-center justify-center gap-2 rounded-full border border-white/12 bg-white/4 px-4 text-sm font-semibold text-white hover:bg-white/8 transition-colors"
+                    className="flex h-11 items-center justify-center gap-2 rounded-[10px] lg:rounded-full border border-white/12 bg-white/4 px-4 text-xs lg:text-sm font-semibold text-white hover:bg-white/8 transition-colors"
                   >
-                    <Share2 className="w-[18px] h-[18px]" />
+                    <Share2 className="size-4" />
                     Share
-                  </button>
-                </div>
-
-                {/* Status actions kept from the previous page — the design has no per-candidate shortlist/reject */}
-                <div className="flex flex-wrap gap-2.5">
-                  <button
-                    onClick={() => handleApplicationStatus("sorted", selectedApplication.id)}
-                    className="flex h-11 flex-1 items-center justify-center gap-2 rounded-full border border-neon-green/30 px-4 text-sm font-semibold text-neon-green hover:bg-neon-green/10 transition-colors"
-                  >
-                    <Star className="w-4 h-4" />
-                    Shortlist
-                  </button>
-                  <button
-                    onClick={() => handleApplicationStatus("rejected", selectedApplication.id)}
-                    className="flex h-11 flex-1 items-center justify-center gap-2 rounded-full border border-red-500/30 px-4 text-sm font-semibold text-red-500 hover:bg-red-500/10 transition-colors"
-                  >
-                    <XCircle className="w-4 h-4" />
-                    Reject
                   </button>
                 </div>
               </>
@@ -862,7 +1079,7 @@ export function ApplicationsManagementPage() {
         </div>
 
         {/* Pagination — the API returns the full list, so paging is a shell */}
-        <div className="flex items-center justify-between pt-5">
+        <div className={`${mobileDetailOpen ? "hidden lg:flex" : "flex"} items-center justify-between pt-5`}>
           <p className="text-sm text-white/50">
             Showing {sortedApplications.length} of {applicants?.length ?? 0} applicants
           </p>
