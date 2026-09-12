@@ -6,7 +6,7 @@ import { Page } from "./page";
 
 export type Job = {
   id: string | number;
-  external_id: string;
+  external_id?: string | null;
   description?: string | null;
   application_url?: string | null;
   experience_level?: string | null;
@@ -24,9 +24,9 @@ export type Job = {
   screening_questions?: ScreeningQuestion[];
   status?: "open" | "paused" | "closed" | "draft";
   workplace_type?: "on-site" | "remote" | "hybrid" | null;
-  page_id?: number | null;
+  page_id?: number | string | null;
   resource?: string | null;
-  job_title?: { id: number; name: string } | null;
+  job_title?: { id: number | string; name: string } | null;
 
   // Company fields
   company_name?: string | null;
@@ -55,8 +55,8 @@ export type Job = {
   } | null;
   skillsGap?: string[];
 
-  createdAt?: Date;
-  updatedAt?: Date;
+  createdAt?: Date | string | number;
+  updatedAt?: Date | string | number;
 
   page?: Page;
   is_bookmarked: boolean;

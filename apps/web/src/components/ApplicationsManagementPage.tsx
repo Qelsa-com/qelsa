@@ -1,6 +1,13 @@
 import { formatCity } from "@/constants/city";
 import { jobSkillTypeLabel, proficiencyLabel } from "@/constants/skills";
-import { useEditBulkStatusMutation, useGetJobApplicationDetailQuery, useGetJobApplicationsQuery, useSearchJobApplicantsNatural, useSearchJobApplicantsQuery } from "@/features/api/jobApplicationsApi";
+import {
+  useEditBulkStatusMutation,
+  useGetJobApplicationDetailQuery,
+  useGetJobApplicationsQuery,
+  useMarkApplicationViewedMutation,
+  useSearchJobApplicantsNatural,
+  useSearchJobApplicantsQuery,
+} from "@/features/api/jobApplicationsApi";
 import { useGetJobByIdQuery } from "@/features/api/jobsApi";
 import { AlertTriangle, Archive, ArrowLeft, ArrowRight, ChevronDown, ChevronLeft, ChevronRight, Download, Lock, Mail, MessageCircle, Phone, Send, Share2, Star, Users, XCircle } from "lucide-react";
 import { JobApplicationAnswer } from "@/types/jobApplicationAnswers";
@@ -116,7 +123,18 @@ export function ApplicationsManagementPage() {
   const { data: currentJobPosting } = useGetJobByIdQuery(id);
   const { data: applicants, isLoading: isListLoading } = useGetJobApplicationsQuery({ jobId: id });
   const [editBulkStatus] = useEditBulkStatusMutation();
+  const [markViewed] = useMarkApplicationViewedMutation();
   const [searchNatural, { isLoading: isNlLoading }] = useSearchJobApplicantsNatural();
+
+  const handleSelectApplication = useCallback(
+    (appId: string | number, currentStatus?: string) => {
+      setSelectedApplicationId(appId);
+      if (currentStatus === "applied") {
+        void markViewed({ applicationId: appId });
+      }
+    },
+    [markViewed],
+  );
 
   const minYears = experienceFilter === "all" ? undefined : Number(experienceFilter);
   const minReadiness = readinessFilter === "all" ? undefined : Number(readinessFilter);
@@ -309,8 +327,8 @@ export function ApplicationsManagementPage() {
             <div className="flex h-[92px] items-center rounded-2xl border border-white/12 bg-white/4 p-5">
               <div className="flex flex-col gap-1">
                 <p className="text-[13px] text-white/50">Total Views</p>
-                <p className="text-[28px] font-semibold text-white/40" title="Views are not returned by the API yet">
-                  —
+                <p className="text-[28px] font-semibold text-white">
+                  {currentJobPosting?.view_count ?? "—"}
                 </p>
               </div>
             </div>
@@ -448,7 +466,7 @@ export function ApplicationsManagementPage() {
                   return (
                     <div
                       key={application.id}
-                      onClick={() => setSelectedApplicationId(application.id)}
+                      onClick={() => handleSelectApplication(application.id, application.status)}
                       className={`relative flex cursor-pointer items-center gap-3 overflow-hidden rounded-xl border p-4 transition-all ${
                         isSelected ? "border-white/12 bg-white/4 shadow-[0px_0px_12px_0px_rgba(14,165,233,0.15)]" : "border-white/12 bg-white/4 hover:bg-white/6"
                       }`}

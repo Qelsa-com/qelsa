@@ -9,7 +9,7 @@ export type CompanySize = {
 };
 
 export type Page = {
-  id?: number;
+  id?: number | string;
   name: string;
   type?: string;
   industry?: string;

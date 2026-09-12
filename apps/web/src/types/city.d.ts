@@ -1,11 +1,11 @@
 export type State = {
-  id: number;
+  id: number | string;
   name: string;
 };
 
 export type City = {
-  id: number;
+  id: number | string;
   name: string;
-  state_id?: number;
+  state_id?: number | string;
   state?: State;
 };

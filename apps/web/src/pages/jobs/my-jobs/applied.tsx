@@ -26,7 +26,7 @@ import { useGetAppliedJobsQuery } from "@/features/api/jobsApi";
 import { toastUnknownError } from "@/lib/errors";
 import Layout from "@/layout";
 import { JobApplication, JobApplicationStatus } from "@/types/jobApplication";
-import { ExternalLink, FileText, MoreVertical, Undo2 } from "lucide-react";
+import { Check, ExternalLink, FileText, MoreVertical, Undo2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -155,6 +155,7 @@ function AppliedCard({ application, onOpen, onWithdraw }: { application: JobAppl
   const score = application.competency?.readiness != null ? Math.round(application.competency.readiness) : null;
   const status = STATUS_META[application.status] ?? STATUS_META.applied;
   const appliedAgo = application.applied_days_ago != null ? `${application.applied_days_ago}d ago` : timeAgo(application.applied_at ?? application.appliedAt);
+  const isViewed = wasViewed(application);
 
   return (
     <JobCardShell>
@@ -190,6 +191,32 @@ function AppliedCard({ application, onOpen, onWithdraw }: { application: JobAppl
 
       <SkillChips job={job} />
 
+      {/* Application Timeline */}
+      <div className="flex flex-col gap-3 pt-1">
+        <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/50">Application Timeline</p>
+        <div className="flex items-center gap-4 sm:gap-6">
+          <div className="flex items-center gap-2">
+            <span className="flex size-4.5 items-center justify-center rounded-full bg-emerald-400 text-black">
+              <Check className="size-3 stroke-[3]" />
+            </span>
+            <span className="text-[13px] font-bold text-white">Application Submitted</span>
+          </div>
+          <div className={`h-px w-16 sm:w-28 transition-colors ${isViewed ? "bg-emerald-400/60" : "bg-white/[0.15]"}`} />
+          <div className="flex items-center gap-2">
+            {isViewed ? (
+              <span className="flex size-4.5 items-center justify-center rounded-full bg-emerald-400 text-black">
+                <Check className="size-3 stroke-[3]" />
+              </span>
+            ) : (
+              <span className="size-4.5 rounded-full border border-white/30" />
+            )}
+            <span className={`text-[13px] font-bold transition-colors ${isViewed ? "text-white" : "text-white/40"}`}>
+              Application Viewed
+            </span>
+          </div>
+        </div>
+      </div>
+
       <div className="h-px w-full bg-white/[0.12]" />
 
       {/* Terms + actions */}
@@ -204,7 +231,10 @@ function AppliedCard({ application, onOpen, onWithdraw }: { application: JobAppl
 
         <div className="flex items-center gap-4">
           {appliedAgo && <span className="text-[13px] text-white/45">Applied {appliedAgo}</span>}
-          <button onClick={onOpen} className="text-[13px] font-semibold text-neon-cyan transition-colors hover:text-neon-cyan/80">
+          <button
+            onClick={onOpen}
+            className="gradient-primary rounded-full px-5 py-2 text-[13px] font-semibold text-white transition-opacity hover:opacity-90"
+          >
             View Application
           </button>
         </div>

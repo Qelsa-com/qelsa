@@ -202,7 +202,7 @@ export function salaryText(job: Job): string | null {
   return null;
 }
 
-export function timeAgo(raw?: string | Date | null): string | null {
+export function timeAgo(raw?: string | Date | number | null): string | null {
   if (!raw) return null;
   const date = new Date(raw);
   if (Number.isNaN(date.getTime())) return null;

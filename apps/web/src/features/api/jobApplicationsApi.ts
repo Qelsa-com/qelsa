@@ -42,7 +42,7 @@ export function useSearchJobApplicantsNatural() {
   const trigger = (input: { jobId: string; query: string; status?: string; min_years?: number; min_readiness?: number }) => {
     setIsLoading(true);
     return withUnwrap(
-      searchNatural(input)
+      searchNatural(input as never)
         .catch((err) => {
           throw err;
         })
@@ -92,3 +92,13 @@ export function useWithdrawApplicationMutation() {
     }),
   );
 }
+
+export function useMarkApplicationViewedMutation() {
+  return useConvexMutationHook(
+    api.jobApplications.markViewed,
+    (data: { applicationId: string | number }) => ({
+      applicationId: String(data.applicationId),
+    }),
+  );
+}
+
