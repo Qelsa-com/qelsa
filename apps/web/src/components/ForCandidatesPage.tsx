@@ -16,13 +16,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { Fragment, type ReactNode } from "react";
 
-/** `href: null` renders a plain label — For Employers has no route yet. */
-const NAV_LINKS: { label: string; href: string | null; active?: boolean }[] = [
-  { label: "For Candidates", href: "/for_candidates", active: true },
-  { label: "For Employers", href: null },
-  { label: "Jobs", href: "/jobs/all" },
-  { label: "Blogs", href: "/blogs" },
-];
 
 const FOOTER_LINKS = [
   { label: "Privacy Policy", href: "/privacy" },
@@ -158,7 +151,7 @@ function SectionHeading({ eyebrow, title, sub }: { eyebrow?: string; title: stri
 /** Every band shares the content column and vertical rhythm. */
 function Section({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
-    <section className={`relative mx-auto w-full max-w-[1180px] px-6 py-14 lg:px-10 lg:py-24 ${className}`}>{children}</section>
+    <section className={`relative mx-auto w-full max-w-7xl px-6 py-14 lg:py-20 ${className}`}>{children}</section>
   );
 }
 
@@ -168,42 +161,6 @@ export function ForCandidatesPage() {
       {/* The blurred orbs bleeding off the hero corners in the design. */}
       <div aria-hidden="true" className="pointer-events-none absolute -right-40 -top-64 size-[560px] rounded-full bg-neon-cyan/[0.18] blur-[140px]" />
       <div aria-hidden="true" className="pointer-events-none absolute -left-56 top-[380px] size-[440px] rounded-full bg-neon-purple/[0.18] blur-[140px]" />
-
-      <header className="sticky top-0 z-50 border-b border-white/[0.08] bg-[#05050c]/85 backdrop-blur-md">
-        <div className="mx-auto flex w-full max-w-[1180px] items-center justify-between gap-6 px-6 py-4 lg:px-10">
-          <Link href="/" className="flex shrink-0 items-center gap-2" aria-label="Qelsa home">
-            <span className="gradient-primary flex size-6 items-center justify-center rounded-md text-[11px] font-bold leading-none text-white">q</span>
-            <Image src="/qelsa-logo.svg" alt="Qelsa" width={91} height={29} unoptimized className="h-[15px] w-auto" />
-          </Link>
-
-          <nav className="hidden items-center gap-8 md:flex">
-            {NAV_LINKS.map((link) => {
-              if (!link.href) {
-                return (
-                  <span key={link.label} title="Coming soon" className="cursor-default text-[13px] font-medium text-white/40">
-                    {link.label}
-                  </span>
-                );
-              }
-              return (
-                <Link
-                  key={link.label}
-                  href={link.href}
-                  aria-current={link.active ? "page" : undefined}
-                  className={`relative text-[13px] font-medium transition-colors ${link.active ? "text-neon-cyan" : "text-white/60 hover:text-white"}`}
-                >
-                  {link.label}
-                  {link.active && <span className="absolute -bottom-[17px] left-0 h-0.5 w-full bg-neon-cyan" />}
-                </Link>
-              );
-            })}
-          </nav>
-
-          <Link href="/auth" className="shrink-0 text-[13px] font-medium text-white/70 transition-colors hover:text-white">
-            Sign in
-          </Link>
-        </div>
-      </header>
 
       {/* Hero */}
       <Section className="lg:pb-28 lg:pt-24">
@@ -234,7 +191,7 @@ export function ForCandidatesPage() {
             {PIPELINE.map((step, i) => (
               <Fragment key={step.label}>
                 {i > 0 && (
-                  <span aria-hidden="true" className="pl-4 text-xs leading-none text-white/25">
+                  <span aria-hidden="true" className="pl-6 text-sm leading-none text-white/30">
                     ↓
                   </span>
                 )}
@@ -244,7 +201,9 @@ export function ForCandidatesPage() {
 
                   {step.person && (
                     <div className="mt-3 flex items-center gap-2.5">
-                      <span className="size-7 shrink-0 rounded-full border border-white/[0.1] bg-white/[0.06]" />
+                      <span className="flex size-7 shrink-0 items-center justify-center rounded-full border border-white/[0.1] bg-white/[0.08] text-[10px] font-semibold text-white">
+                        JD
+                      </span>
                       <div>
                         <p className="text-xs font-medium text-white/85">{step.person.name}</p>
                         <p className="text-[10px] text-white/40">{step.person.role}</p>
@@ -532,12 +491,11 @@ export function ForCandidatesPage() {
         </div>
       </Section>
 
-      <footer className="relative mx-auto w-full max-w-[1180px] px-6 pb-12 lg:px-10">
+      <footer className="relative mx-auto w-full max-w-7xl px-6 pb-12 pt-8">
         <div className="flex flex-col gap-6 border-t border-white/[0.08] pt-8">
           <div className="flex flex-col items-start justify-between gap-5 sm:flex-row sm:items-center">
-            <Link href="/" className="flex items-center gap-2" aria-label="Qelsa home">
-              <span className="gradient-primary flex size-6 items-center justify-center rounded-md text-[11px] font-bold leading-none text-white">q</span>
-              <Image src="/qelsa-logo.svg" alt="Qelsa" width={91} height={29} unoptimized className="h-[15px] w-auto" />
+            <Link href="/" className="flex items-center" aria-label="Qelsa home">
+              <Image src="/qelsa-logo.svg" alt="Qelsa" width={91} height={29} unoptimized className="h-[22px] w-auto" />
             </Link>
             <div className="flex flex-wrap items-center gap-6">
               {FOOTER_LINKS.map((link) => (

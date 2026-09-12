@@ -1,6 +1,6 @@
 "use client";
 
-import { Briefcase, Rss, User } from "lucide-react";
+import { Briefcase, Building2, Rss, User, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { DesktopTopBar } from "./DesktopTopBar";
@@ -15,6 +15,8 @@ interface NavigationItem {
 }
 
 const publicNavbarItems: NavigationItem[] = [
+  { id: "candidates", label: "Candidates", icon: Users, path: "/candidates" },
+  { id: "employers", label: "Employers", icon: Building2, path: "/employers" },
   { id: "jobs", label: "Jobs", icon: Briefcase, path: "/jobs/all" },
   { id: "blog", label: "Blog", icon: Rss, path: "/blogs" },
 ];
