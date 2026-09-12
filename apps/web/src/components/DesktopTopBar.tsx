@@ -29,8 +29,8 @@ const AUTHED_NAV_LINKS = [
 ];
 
 const GUEST_NAV_LINKS = [
-  { id: "for_candidates", label: "For Candidates", href: "/for_candidates" },
-  { id: "for_employers", label: "For Employers", href: "/for_employers" },
+  { id: "candidates", label: "For Candidates", href: "/candidates" },
+  { id: "employers", label: "For Employers", href: "/employers" },
   { id: "jobs", label: "Jobs", href: "/jobs/all" },
   { id: "blog", label: "Blogs", href: "/blogs" },
 ];

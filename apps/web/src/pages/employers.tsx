@@ -6,8 +6,8 @@ import Layout from "../layout";
 // Employers marketing page. Everything here is presentational; the only live
 // behaviour is the two CTAs, which send guests to /auth.
 
-const SECTION = "border-t border-white/[0.06] px-6 py-20 lg:py-25";
-const CONTAINER = "mx-auto w-full max-w-7xl";
+const SECTION = "border-t border-white/[0.06] py-20 lg:py-25";
+const CONTAINER = "mx-auto w-full max-w-7xl px-6";
 const H2 = "text-center text-3xl font-bold tracking-[-0.01em] text-white lg:text-[44px] lg:leading-[1.15]";
 const SUB = "mx-auto mt-4 max-w-2xl text-center text-base leading-relaxed text-white/50 lg:text-lg";
 const EYEBROW = "text-[13px] font-bold uppercase tracking-[0.18em] text-sky-400";
@@ -37,7 +37,7 @@ const WORKFLOW_STEPS = [
     body: "See candidates based on relevant skills and experience.",
     visual: (
       <div className="flex items-center gap-3">
-        <span className="size-7 shrink-0 rounded-full bg-white/[0.12]" />
+        <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-white/[0.12] text-[10px] font-bold text-white">AK</span>
         <div>
           <p className="text-[15px] font-bold text-white">Alex K.</p>
           <p className="text-[13px] text-emerald-400">96% Skills Match</p>
@@ -106,11 +106,11 @@ function AtsPill({ name }: { name: string }) {
   );
 }
 
-export default function ForEmployers() {
+export default function Employers() {
   return (
-    <Layout activeSection="for_employers">
+    <Layout activeSection="employers">
       {/* Hero */}
-      <section className="bg-[linear-gradient(180deg,#06060F_0%,#0B1020_100%)] px-6 py-20 lg:py-23">
+      <section className="bg-[linear-gradient(180deg,#06060F_0%,#0B1020_100%)] py-20 lg:py-23">
         <div className={`${CONTAINER} grid items-center gap-14 lg:grid-cols-[1fr_520px]`}>
           <div>
             <p className={EYEBROW}>For Employers</p>
@@ -347,7 +347,7 @@ export default function ForEmployers() {
       </section>
 
       {/* Footer */}
-      <footer className="px-6 pb-12 pt-20">
+      <footer className="pb-12 pt-20">
         <div className={CONTAINER}>
           <div className="flex flex-wrap items-center justify-between gap-6">
             <Image src="/qelsa-logo.svg" alt="Qelsa" width={91} height={29} unoptimized className="h-[26px] w-auto" />
