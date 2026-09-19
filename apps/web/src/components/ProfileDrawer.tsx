@@ -116,8 +116,6 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                 </div>
               </div>
 
-              {user.headline && <p className="mt-3 line-clamp-2 text-sm leading-relaxed text-white/60">{user.headline}</p>}
-
               {user.city && (
                 <div className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
                   <MapPin className="h-3.5 w-3.5" />
