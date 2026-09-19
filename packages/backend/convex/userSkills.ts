@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { authedMutation, authedQuery } from "./lib/customFunctions";
 import { withId } from "./lib/helpers";
+import { MAX_USER_SKILLS } from "./lib/skillLimits";
 
 async function hydrate(ctx: { db: { get: Function } }, row: { _id: string } & Record<string, unknown>) {
   const skill = row.skill_id ? await ctx.db.get(row.skill_id) : null;
@@ -30,6 +31,13 @@ export const create = authedMutation({
     const data = args.data as Record<string, unknown>;
     const skillId = (data.skill as { id?: Id<"skills"> } | undefined)?.id ?? (data.skill_id as Id<"skills"> | undefined);
     if (!skillId) throw new Error("Skill is required");
+    const existing = await ctx.db
+      .query("user_skills")
+      .withIndex("by_user", (q) => q.eq("user_id", ctx.user._id))
+      .collect();
+    if (existing.length >= MAX_USER_SKILLS) {
+      throw new Error(`You can add up to ${MAX_USER_SKILLS} skills`);
+    }
     const id = await ctx.db.insert("user_skills", {
       user_id: ctx.user._id,
       skill_id: skillId,
@@ -89,6 +97,9 @@ export const bulkModify = authedMutation({
   returns: v.any(),
   handler: async (ctx, args) => {
     const incoming = args.skills as Array<Record<string, unknown>>;
+    if (incoming.length > MAX_USER_SKILLS) {
+      throw new Error(`You can add up to ${MAX_USER_SKILLS} skills`);
+    }
     const existing = await ctx.db
       .query("user_skills")
       .withIndex("by_user", (q) => q.eq("user_id", ctx.user._id))

@@ -1,6 +1,6 @@
 "use client";
 
-import { PROFICIENCY_LEVELS, ProficiencyLevel, proficiencyLabel } from "@/constants/skills";
+import { MAX_USER_SKILLS, PROFICIENCY_LEVELS, ProficiencyLevel, proficiencyLabel } from "@/constants/skills";
 import { useBulkModifyUserSkillsMutation, useGetUserSkillsQuery } from "@/features/api/userSkillsApi";
 import { toastUnknownError } from "@/lib/errors";
 import { Star, X } from "lucide-react";
@@ -67,6 +67,7 @@ export function SkillsModal({ open, onClose }: SkillsModalProps) {
   if (!open) return null;
 
   const topCount = drafts.filter((d) => d.is_top_skill).length;
+  const atLimit = drafts.length >= MAX_USER_SKILLS;
 
   const toggleTop = (index: number) => {
     const target = drafts[index];
@@ -88,6 +89,10 @@ export function SkillsModal({ open, onClose }: SkillsModalProps) {
     const added = skills[skills.length - 1];
     setPickerSelection(skills);
     if (added && skills.length > 0) {
+      if (drafts.length >= MAX_USER_SKILLS) {
+        setPickerSelection([]);
+        return toast.error(`You can add up to ${MAX_USER_SKILLS} skills`);
+      }
       const exists = drafts.some((d) => String(d.skill.id) === String(added.id));
       if (!exists) setDrafts([...drafts, { skill: added, proficiency: "", is_top_skill: false }]);
       setPickerSelection([]);
@@ -132,7 +137,8 @@ export function SkillsModal({ open, onClose }: SkillsModalProps) {
     >
       <div className="flex flex-col gap-5">
         {/* Search first — adding a skill is the primary action in this modal. */}
-        <SkillPicker selected={pickerSelection} onChange={stageSkill} excludeSelected={false} />
+        <SkillPicker selected={pickerSelection} onChange={stageSkill} excludeSelected={false} disabled={atLimit} />
+        {atLimit && <p className="text-xs text-white/45">You can add up to {MAX_USER_SKILLS} skills.</p>}
 
         {drafts.length === 0 && <p className="py-8 text-center text-sm text-white/40">No skills added yet</p>}
 
@@ -184,10 +190,15 @@ export function SkillsModal({ open, onClose }: SkillsModalProps) {
         </div>
 
         {drafts.length > 0 && (
-          <p className="flex items-center gap-1.5 text-xs font-medium text-neon-yellow">
-            <Star className="size-3.5 fill-neon-yellow" />
-            {topCount}/{MAX_TOP_SKILLS} top skills selected
-          </p>
+          <div className="flex flex-col gap-1.5">
+            <p className="flex items-center gap-1.5 text-xs font-medium text-neon-yellow">
+              <Star className="size-3.5 fill-neon-yellow" />
+              {topCount}/{MAX_TOP_SKILLS} top skills selected
+            </p>
+            <p className="text-xs text-white/40">
+              {drafts.length}/{MAX_USER_SKILLS} skills
+            </p>
+          </div>
         )}
       </div>
     </ModalShell>

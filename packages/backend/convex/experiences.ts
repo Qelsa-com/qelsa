@@ -95,13 +95,20 @@ export const update = authedMutation({
     const row = await ctx.db.get(args.id);
     if (!row || row.user_id !== ctx.user._id) throw new Error("Experience not found");
     const data = args.data as Record<string, unknown>;
+    const isCurrent = data.is_current != null ? Boolean(data.is_current) : row.is_current;
+    const endDate = isCurrent
+      ? undefined
+      : data.end_date !== undefined
+        ? data.end_date ? new Date(data.end_date as string).getTime() : undefined
+        : row.end_date;
+
     await ctx.db.patch(args.id, {
       company_id: data.company !== undefined ? await resolveNamedRef(ctx, "companies", data.company as NamedRefInput) : row.company_id,
       job_title_id: data.job_title !== undefined ? await resolveNamedRef(ctx, "job_titles", data.job_title as NamedRefInput) : row.job_title_id,
-      city_id: (data.city as { id?: Id<"cities"> } | undefined)?.id ?? row.city_id,
+      city_id: data.city !== undefined ? (data.city as { id?: Id<"cities"> } | null)?.id : row.city_id,
       start_date: data.start_date ? new Date(data.start_date as string).getTime() : row.start_date,
-      end_date: data.end_date ? new Date(data.end_date as string).getTime() : row.end_date,
-      is_current: data.is_current != null ? Boolean(data.is_current) : row.is_current,
+      end_date: endDate,
+      is_current: isCurrent,
       employment_type: (data.employment_type as string | undefined) ?? row.employment_type,
       work_type: (data.work_type as string | undefined) ?? row.work_type,
       description: (data.description as string | undefined) ?? row.description,

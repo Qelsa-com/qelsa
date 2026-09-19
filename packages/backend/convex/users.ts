@@ -279,6 +279,9 @@ function profileUpdates(raw: Record<string, unknown>) {
   if (updates.profile_image_storage_id && typeof updates.profile_image === "string" && updates.profile_image.includes("X-Amz-")) {
     delete updates.profile_image;
   }
+  if (updates.professional_summary !== undefined && updates.about === undefined) {
+    updates.about = updates.professional_summary;
+  }
   const next: Record<string, unknown> = {};
   for (const key of USER_PATCH_KEYS) {
     const value = updates[key];

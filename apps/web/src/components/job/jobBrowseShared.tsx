@@ -520,7 +520,7 @@ function useIsMobile(): boolean {
 }
 
 interface JobsBrowseHeaderProps {
-  activeTab: "smart-matches" | "all";
+  activeTab: "smart-matches" | "all" | "my-jobs";
   query: string;
   setQuery: (v: string) => void;
   onSearch: () => void;
@@ -615,20 +615,14 @@ export function JobsBrowseHeader({
               : "Find your next career move with AI-powered matching."}
           </p>
         </div>
-        {/* Posting and tracking all need an account — hidden while signed out. */}
-        {isAuthenticated && (
+        {/* Posting and managing are recruiter-only — hidden for candidates and while signed out. */}
+        {isAuthenticated && user?.account_type === "recruiter" && (
           <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <button
               onClick={() => router.push("/jobs/create-job")}
               className="rounded-full gradient-primary px-4 py-2.5 text-[13px] font-bold text-white transition-opacity hover:opacity-90 sm:px-6 sm:py-3 sm:text-sm"
             >
               Post job
-            </button>
-            <button
-              onClick={() => router.push("/jobs/my-jobs/applied")}
-              className="rounded-full border border-white/20 px-4 py-2.5 text-[13px] font-bold text-white transition-colors hover:bg-white/5 sm:px-6 sm:py-3 sm:text-sm"
-            >
-              Track jobs
             </button>
             <button
               onClick={() => router.push("/jobs/posted")}
@@ -653,11 +647,12 @@ export function JobsBrowseHeader({
         />
       </div>
 
-      {/* Smart Matches is account-only — guests stay on the public All Jobs list. */}
+      {/* Smart Matches and My Jobs are account-only — guests stay on the public All Jobs list. */}
       {isAuthenticated && (
         <div className="flex items-center gap-2 sm:gap-0">
           <TabButton active={activeTab === "smart-matches"} label="Smart Matches" onClick={() => router.push("/jobs/smart-matches")} />
           <TabButton active={activeTab === "all"} label="All Jobs" onClick={() => router.push("/jobs/all")} />
+          <TabButton active={activeTab === "my-jobs"} label="My Jobs" onClick={() => router.push("/jobs/my-jobs/saved")} />
         </div>
       )}
 
@@ -718,11 +713,11 @@ export function JobsBrowseHeader({
   );
 }
 
-function TabButton({ active, label, onClick }: { active: boolean; label: string; onClick: () => void }) {
+export function TabButton({ active, label, onClick }: { active: boolean; label: string; onClick: () => void }) {
   return (
     <button onClick={onClick} className="flex flex-col items-center justify-center px-3 py-2 sm:px-5 sm:py-2.5">
       <span className={`text-sm font-semibold transition-colors sm:text-[15px] ${active ? "text-white" : "text-white/50 hover:text-white/80"}`}>{label}</span>
-      <span className={`mt-1 h-0.5 w-full rounded-full ${active ? "bg-neon-cyan" : "bg-transparent"}`} />
+      <span className={`mt-1 h-0.5 w-full rounded-full ${active ? "bg-white" : "bg-transparent"}`} />
     </button>
   );
 }

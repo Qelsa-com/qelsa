@@ -41,6 +41,13 @@ export const create = authedMutation({
   returns: v.any(),
   handler: async (ctx, args) => {
     const data = args.data as Record<string, unknown>;
+    const currentYear = new Date().getFullYear();
+    const startYear = Number(data.start_year);
+    if (startYear > currentYear + 1) throw new Error("Start year cannot be more than 1 year in the future");
+    const endYear = data.end_year ? Number(data.end_year) : undefined;
+    if (endYear && endYear > currentYear + 10) throw new Error("End year cannot exceed 10 years in the future");
+    if (endYear && endYear < startYear) throw new Error("End year cannot be before start year");
+
     const existing = await ctx.db
       .query("educations")
       .withIndex("by_user", (q) => q.eq("user_id", ctx.user._id))
@@ -51,8 +58,8 @@ export const create = authedMutation({
       field_of_study_id: await resolveNamedRef(ctx, "fields_of_study", data.field_of_study as NamedRefInput),
       college_id: await resolveNamedRef(ctx, "colleges", data.college as NamedRefInput),
       city_id: (data.city as { id?: Id<"cities"> } | undefined)?.id,
-      start_year: Number(data.start_year),
-      end_year: data.end_year ? Number(data.end_year) : undefined,
+      start_year: startYear,
+      end_year: endYear,
       grade: data.grade as string | undefined,
       description: data.description as string | undefined,
       position: existing.length,
@@ -70,15 +77,27 @@ export const update = authedMutation({
     const row = await ctx.db.get(args.id);
     if (!row || row.user_id !== ctx.user._id) throw new Error("Education not found");
     const data = args.data as Record<string, unknown>;
+
+    const currentYear = new Date().getFullYear();
+    const startYear = data.start_year != null ? Number(data.start_year) : row.start_year;
+    if (startYear > currentYear + 1) throw new Error("Start year cannot be more than 1 year in the future");
+
+    let endYear: number | undefined = row.end_year;
+    if ("end_year" in data) {
+      endYear = data.end_year ? Number(data.end_year) : undefined;
+    }
+    if (endYear && endYear > currentYear + 10) throw new Error("End year cannot exceed 10 years in the future");
+    if (endYear && endYear < startYear) throw new Error("End year cannot be before start year");
+
     await ctx.db.patch(args.id, {
-      degree_id: data.degree !== undefined ? await resolveNamedRef(ctx, "degree_names", data.degree as NamedRefInput) : row.degree_id,
-      field_of_study_id: data.field_of_study !== undefined ? await resolveNamedRef(ctx, "fields_of_study", data.field_of_study as NamedRefInput) : row.field_of_study_id,
-      college_id: data.college !== undefined ? await resolveNamedRef(ctx, "colleges", data.college as NamedRefInput) : row.college_id,
-      city_id: (data.city as { id?: Id<"cities"> } | undefined)?.id ?? row.city_id,
-      start_year: data.start_year != null ? Number(data.start_year) : row.start_year,
-      end_year: data.end_year != null ? Number(data.end_year) : row.end_year,
-      grade: (data.grade as string | undefined) ?? row.grade,
-      description: (data.description as string | undefined) ?? row.description,
+      degree_id: data.degree !== undefined ? (data.degree ? await resolveNamedRef(ctx, "degree_names", data.degree as NamedRefInput) : undefined) : row.degree_id,
+      field_of_study_id: data.field_of_study !== undefined ? (data.field_of_study ? await resolveNamedRef(ctx, "fields_of_study", data.field_of_study as NamedRefInput) : undefined) : row.field_of_study_id,
+      college_id: data.college !== undefined ? (data.college ? await resolveNamedRef(ctx, "colleges", data.college as NamedRefInput) : undefined) : row.college_id,
+      city_id: "city" in data ? ((data.city as { id?: Id<"cities"> } | null)?.id ?? undefined) : row.city_id,
+      start_year: startYear,
+      end_year: endYear,
+      grade: data.grade !== undefined ? ((data.grade as string | undefined)?.trim() || undefined) : row.grade,
+      description: data.description !== undefined ? ((data.description as string | undefined)?.trim() || undefined) : row.description,
       projects: data.projects !== undefined ? titledList(data.projects) : row.projects,
       achievements: data.achievements !== undefined ? titledList(data.achievements) : row.achievements,
     });

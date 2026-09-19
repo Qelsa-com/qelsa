@@ -10,7 +10,7 @@
 import { MyJobsHeader, TrackedJobCard } from "@/components/job/myJobsShared";
 import { TrackedJobsListSkeleton } from "@/components/job/jobSkeletons";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { useLazyGetSavedJobsQuery, useToggleSaveJobMutation } from "@/features/api/jobsApi";
+import { useGetSavedJobsQuery, useToggleSaveJobMutation } from "@/features/api/jobsApi";
 import Layout from "@/layout";
 import { Job } from "@/types/job";
 import { Archive, Eye, MoreVertical, Share2, Trash2 } from "lucide-react";
@@ -21,24 +21,16 @@ const Saved = () => {
   const router = useRouter();
   const [toggleSaveJob] = useToggleSaveJobMutation();
 
-  const [jobs, setJobs] = useState<Job[]>([]);
   const [query, setQuery] = useState("");
+  const [search, setSearch] = useState("");
 
-  const [triggerGetJobs, { isLoading }] = useLazyGetSavedJobsQuery();
-
-  const runSearch = async (nextQuery: string) => {
-    try {
-      const result = await triggerGetJobs({ search: nextQuery }, false).unwrap();
-      setJobs(result ?? []);
-    } catch {
-      setJobs([]);
-    }
-  };
+  const { data = [], isLoading } = useGetSavedJobsQuery(search ? { search } : {});
+  const jobs: Job[] = data ?? [];
 
   useEffect(() => {
-    runSearch(query);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    const timer = setTimeout(() => setSearch(query.trim()), 350);
+    return () => clearTimeout(timer);
+  }, [query]);
 
   const openJob = (id: string | number) => router.push(`/jobs/${id}`);
 
@@ -47,13 +39,10 @@ const Saved = () => {
       <div className="mx-auto w-full max-w-[1400px] px-6 py-8 text-white md:px-12">
         <MyJobsHeader
           activeTab="saved"
-          subtitle="Monitor your job applications and stay on top of your career moves"
           query={query}
           setQuery={setQuery}
-          onSearch={() => runSearch(query)}
-          searchPlaceholder="Search applications by company or role..."
-          stats={[{ label: "Saved Jobs", value: jobs.length }]}
-          counts={{ saved: jobs.length }}
+          onSearch={() => setSearch(query.trim())}
+          searchPlaceholder="Search jobs by title, skill, or company..."
         />
 
         <div className="flex flex-col gap-5 pt-6 pb-24">

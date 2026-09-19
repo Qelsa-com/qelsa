@@ -73,10 +73,17 @@ export function educationDegree(education: Education): string {
   return degree || field || "Education";
 }
 
-/** "2015 - 2019 • Mumbai, India"; a single-year course collapses to just "2020". */
+/** "2015 - 2019 • Mumbai, India"; ongoing course shows "2022 - Present"; a single-year course collapses to just "2020". */
 export function educationMeta(education: Education): string {
   const { start_year: start, end_year: end } = education;
-  const years = start && end && start !== end ? `${start} - ${end}` : String(start || end || "");
+  let years = "";
+  if (start && end) {
+    years = start === end ? String(start) : `${start} - ${end}`;
+  } else if (start) {
+    years = `${start} - Present`;
+  } else if (end) {
+    years = String(end);
+  }
   return [years, formatCity(education.city)].filter(Boolean).join(" • ");
 }
 

@@ -60,6 +60,7 @@ export type Job = {
 
   page?: Page;
   is_bookmarked: boolean;
+  saved_at?: number | string | Date;
 
   job_skills?: JobSkill[];
   applications?: JobApplication[];

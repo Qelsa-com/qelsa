@@ -1,3 +1,5 @@
+"use client";
+
 import { GoalSetupBanner } from "@/components/goals/GoalSetupBanner";
 import { useGetProfileQuery, useGetPublicProfileQuery } from "@/features/api/authApi";
 import { useGetCertificationsQuery } from "@/features/api/certificationsApi";
@@ -8,8 +10,8 @@ import { hasCareerGoal } from "@/lib/careerGoal";
 import { Certification } from "@/types/certification";
 import { Education } from "@/types/education";
 import { Experience } from "@/types/experience";
-import { useRouter } from "next/navigation";
-import { useCallback, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { ProfilePageSkeleton } from "../pageSkeletons";
 import { CertificationsCard } from "./CertificationsCard";
@@ -40,9 +42,21 @@ interface ProfilePageProps {
 
 export function ProfilePage({ isOwner = false, username }: ProfilePageProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isFollowing, setIsFollowing] = useState(false);
   const [modal, setModal] = useState<ProfileModal | null>(null);
-  const closeModal = useCallback(() => setModal(null), []);
+  const closeModal = useCallback(() => {
+    setModal(null);
+    if (isOwner && searchParams.get("edit") === "skills") {
+      router.replace("/profile");
+    }
+  }, [isOwner, router, searchParams]);
+
+  useEffect(() => {
+    if (isOwner && searchParams.get("edit") === "skills") {
+      setModal({ kind: "skills" });
+    }
+  }, [isOwner, searchParams]);
 
   // Two ways into the same page. The owner reads the authenticated endpoints,
   // which is what the editors invalidate after a save; a visitor reads the
@@ -110,14 +124,12 @@ export function ProfilePage({ isOwner = false, username }: ProfilePageProps) {
             experiences={experienceList}
             isOwner={isOwner}
             onAdd={() => setModal({ kind: "experience", item: null })}
-            onEdit={() => setModal({ kind: "experience", item: experienceList[0] ?? null })}
             onEditItem={(experience) => setModal({ kind: "experience", item: experience })}
           />
           <CertificationsCard
             certifications={certificationList}
             isOwner={isOwner}
             onAdd={() => setModal({ kind: "certification", item: null })}
-            onEdit={() => setModal({ kind: "certification", item: certificationList[0] ?? null })}
             onEditItem={(certification) => setModal({ kind: "certification", item: certification })}
           />
         </div>
@@ -128,7 +140,6 @@ export function ProfilePage({ isOwner = false, username }: ProfilePageProps) {
             educations={educationList}
             isOwner={isOwner}
             onAdd={() => setModal({ kind: "education", item: null })}
-            onEdit={() => setModal({ kind: "education", item: educationList[0] ?? null })}
             onEditItem={(education) => setModal({ kind: "education", item: education })}
           />
           <LanguagesCard languages={user?.languages ?? []} isOwner={isOwner} onAdd={() => setModal({ kind: "languages" })} onEdit={() => setModal({ kind: "languages" })} />

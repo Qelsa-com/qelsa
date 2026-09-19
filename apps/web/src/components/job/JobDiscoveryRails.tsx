@@ -1,6 +1,8 @@
 import { formatCity } from "@/constants/city";
+import { skillRoleSubtitle } from "@/constants/skills";
 import { Job } from "@/types/job";
 import { Award, Bookmark, BookmarkCheck, Briefcase, ChevronLeft, ChevronRight, Clock, EyeOff, MapPin, MoreVertical, Pin, Sparkles, Star } from "lucide-react";
+import { SkillOverflowTags } from "../skills/SkillOverflowTags";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Badge } from "../ui/badge";
@@ -301,19 +303,11 @@ function JobRailCard({ job, onToggleCompare, isCompared, onToggleBookmark, is_bo
           {job.salary && <div className="text-sm text-neon-green font-medium">{job.salary}</div>}
         </div>
 
-        {/* Skills */}
-        <div className="flex flex-wrap gap-1.5">
-          {job.job_skills.slice(0, 3).map((skill, index) => (
-            <Badge key={index} variant="secondary" className="text-xs bg-white/5 hover:bg-white/10 border-white/10">
-              {skill.skill?.name ?? skill.title}
-            </Badge>
-          ))}
-          {job.job_skills.length > 3 && (
-            <Badge variant="secondary" className="text-xs bg-white/5 border-white/10">
-              +{job.job_skills.length - 3}
-            </Badge>
-          )}
-        </div>
+        <SkillOverflowTags
+          skills={(job.job_skills ?? []).map((skill) => skill.skill?.name ?? skill.title).filter((name): name is string => Boolean(name))}
+          subtitle={skillRoleSubtitle(job.job_title?.name ?? job.title, job.company_name || job.page?.name)}
+          sectionLabel="Skills used"
+        />
 
         {/* Footer */}
         <div className="flex items-center justify-between pt-2 border-t border-white/5">

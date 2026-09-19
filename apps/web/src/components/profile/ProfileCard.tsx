@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { MouseEvent, ReactNode } from "react";
 import { cn } from "../ui/utils";
 
 interface ProfileCardProps {
@@ -54,7 +54,17 @@ export function ProfileTag({ children, size = "md" }: { children: ReactNode; siz
   return <span className={cn("inline-flex items-center rounded-full border border-white/12 bg-white/10 font-medium text-white/70", size === "sm" ? "px-2 py-[3px] text-[11px]" : "px-2.5 py-1 text-xs")}>{children}</span>;
 }
 
-/** "+2" counter that follows a truncated list of tags. */
-export function ProfileOverflowTag({ count }: { count: number }) {
-  return <span className="inline-flex items-center rounded-full bg-neon-cyan/6 px-2 py-[3px] text-[11px] font-medium text-neon-cyan">+{count}</span>;
+/** "+2" counter that follows a truncated list of tags. Clickable when `onClick` is set. */
+export function ProfileOverflowTag({ count, onClick }: { count: number; onClick?: (event: MouseEvent<HTMLButtonElement>) => void }) {
+  const className = cn("inline-flex items-center rounded-full bg-neon-cyan/6 px-2 py-[3px] text-[11px] font-medium text-neon-cyan", onClick && "cursor-pointer transition-colors hover:bg-neon-cyan/15");
+
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} className={className} aria-label={`View ${count} more skills`}>
+        +{count}
+      </button>
+    );
+  }
+
+  return <span className={className}>+{count}</span>;
 }

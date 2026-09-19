@@ -1,11 +1,12 @@
 import { JobGrid, JobsBrowseHeader, MatchEmptyState, MatchSection, SearchFilters, useJobBrowseFilters } from "@/components/job/jobBrowseShared";
 import { SmartMatchesSkeleton } from "@/components/job/jobSkeletons";
+import { SkillsModal } from "@/components/profile/modals/SkillsModal";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMatchTiersQuery } from "@/features/api/jobsApi";
 import { hasCareerGoal } from "@/lib/careerGoal";
 import { MATCH_TIER } from "@/lib/matchTiers";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Layout from "../../layout";
 
 // Re-exported so other jobs pages can keep importing the type from this route.
@@ -16,6 +17,7 @@ const SmartMatches = () => {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const { searchInput, setSearchInput, filters, applyFilters, discoverArgs, cityFilter, setCityFilter, commitSearch } = useJobBrowseFilters();
   const { data, isLoading } = useMatchTiersQuery(discoverArgs, { skip: !isAuthenticated });
+  const [skillsOpen, setSkillsOpen] = useState(false);
 
   useEffect(() => {
     if (authLoading || isAuthenticated) return;
@@ -94,7 +96,7 @@ const SmartMatches = () => {
                     title="No close matches yet."
                     subtitle="Add more skills and experience to surface roles where you're almost there."
                     actionLabel="Update Skills"
-                    onAction={() => router.push("/profile/skills")}
+                    onAction={() => setSkillsOpen(true)}
                   />
                 )}
               </MatchSection>
@@ -102,6 +104,7 @@ const SmartMatches = () => {
           )}
         </div>
       </div>
+      <SkillsModal open={skillsOpen} onClose={() => setSkillsOpen(false)} />
     </Layout>
   );
 };

@@ -1,13 +1,24 @@
 "use client";
 
-import { useCreateExperienceMutation, useUpdateExperienceMutation } from "@/features/api/experiencesApi";
+import { useCreateExperienceMutation, useDeleteExperienceMutation, useUpdateExperienceMutation } from "@/features/api/experiencesApi";
 import { useLazySearchCitiesQuery, useLazySearchCompaniesQuery, useLazySearchJobTitlesQuery } from "@/features/api/seedApi";
 import { toastUnknownError } from "@/lib/errors";
 import { City } from "@/types/city";
 import { Experience } from "@/types/experience";
+import { Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../../ui/alert-dialog";
 import { Autocomplete, AutocompleteOption } from "../../ui/autocomplete";
+import { Button } from "../../ui/button";
 import { CheckboxRow, Field, MonthYearSelect, Select, inputClass, monthValueToIso, toMonthValue } from "./fields";
 import { GhostButton, GradientButton, ModalShell } from "./ModalShell";
 import { PickedSkill, SkillPicker } from "./SkillPicker";
@@ -37,7 +48,12 @@ function descriptionFromExperience(experience?: Experience | null) {
 }
 
 export function ExperienceModal({ open, onClose, experience }: ExperienceModalProps) {
-  const isEdit = Boolean(experience?.id);
+  const isEdit = Boolean(experience?.id || (experience as unknown as { _id?: string })?._id);
+  const experienceId = (experience?.id ?? (experience as unknown as { _id?: string })?._id) as string | undefined;
+
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteExperience] = useDeleteExperienceMutation();
 
   const [jobTitle, setJobTitle] = useState<AutocompleteOption | null>(null);
   const [jobTitleText, setJobTitleText] = useState("");
@@ -102,7 +118,7 @@ export function ExperienceModal({ open, onClose, experience }: ExperienceModalPr
     setSaving(true);
     try {
       if (isEdit) {
-        await updateExperience({ id: experience!.id!, data: payload }).unwrap();
+        await updateExperience({ id: experienceId!, data: payload }).unwrap();
         toast.success("Experience updated");
       } else {
         await createExperience(payload).unwrap();
@@ -116,21 +132,48 @@ export function ExperienceModal({ open, onClose, experience }: ExperienceModalPr
     }
   };
 
+  const handleDelete = async () => {
+    if (!experienceId) return;
+    setIsDeleting(true);
+    try {
+      await deleteExperience(experienceId).unwrap();
+      toast.success("Work experience deleted");
+      setShowDeleteConfirm(false);
+      onClose();
+    } catch (error) {
+      toastUnknownError(error, "Failed to delete work experience. Please try again.");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
-    <ModalShell
-      title={isEdit ? "Edit work experience" : "Add work experience"}
-      onClose={onClose}
-      footer={
-        <>
-          <GhostButton onClick={onClose} disabled={saving}>
-            Cancel
-          </GhostButton>
-          <GradientButton onClick={handleSubmit} disabled={saving}>
-            {saving ? "Saving…" : isEdit ? "Save changes" : "Add experience"}
-          </GradientButton>
-        </>
-      }
-    >
+    <>
+      <ModalShell
+        title={isEdit ? "Edit work experience" : "Add work experience"}
+        onClose={onClose}
+        footer={
+          <>
+            {isEdit && (
+              <button
+                type="button"
+                disabled={saving || isDeleting}
+                onClick={() => setShowDeleteConfirm(true)}
+                className="mr-auto inline-flex items-center gap-1.5 text-xs font-medium text-red-400 transition-colors hover:text-red-300 disabled:opacity-50"
+              >
+                <Trash2 className="size-3.5" />
+                Delete experience
+              </button>
+            )}
+            <GhostButton onClick={onClose} disabled={saving || isDeleting}>
+              Cancel
+            </GhostButton>
+            <GradientButton onClick={handleSubmit} disabled={saving || isDeleting}>
+              {saving ? "Saving…" : isEdit ? "Save changes" : "Add experience"}
+            </GradientButton>
+          </>
+        }
+      >
       <div className="flex flex-col gap-5">
         <Field label="Job Title" required>
           <Autocomplete
@@ -222,5 +265,39 @@ export function ExperienceModal({ open, onClose, experience }: ExperienceModalPr
         </Field>
       </div>
     </ModalShell>
+
+    <AlertDialog
+      open={showDeleteConfirm}
+      onOpenChange={(open) => {
+        if (isDeleting) return;
+        setShowDeleteConfirm(open);
+      }}
+    >
+      <AlertDialogContent className="rounded-2xl border border-white/12 bg-[#161622] p-6 text-white shadow-2xl sm:max-w-md">
+        <AlertDialogHeader>
+          <AlertDialogTitle className="text-xl font-bold text-white">Delete work experience?</AlertDialogTitle>
+          <AlertDialogDescription className="text-sm text-white/70">
+            Are you sure you want to delete this work experience? This action cannot be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3">
+          <AlertDialogCancel
+            disabled={isDeleting}
+            className="rounded-full border border-white/15 bg-white/5 text-white hover:bg-white/10"
+          >
+            Cancel
+          </AlertDialogCancel>
+          <Button
+            variant="destructive"
+            className="rounded-full bg-red-600 font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+            disabled={isDeleting}
+            onClick={handleDelete}
+          >
+            {isDeleting ? "Deleting..." : "Delete experience"}
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  </>
   );
 }

@@ -683,7 +683,11 @@ export const listSaved = authedQuery({
       const job = await ctx.db.get(row.job_id);
       if (!job) continue;
       if (args.search && !`${job.title ?? ""}`.toLowerCase().includes(args.search.toLowerCase())) continue;
-      out.push(await enrichJob(ctx, job, ctx.user, hydration));
+      const enriched = await enrichJob(ctx, job, ctx.user, hydration);
+      out.push({
+        ...enriched,
+        saved_at: (row as any)._creationTime ?? (row as any).created_at,
+      });
     }
     return out;
   },

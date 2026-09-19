@@ -410,7 +410,7 @@ export const degreeNames = query({
     const rows = await ctx.db.query("degree_names").collect();
     const out = [];
     for (const row of searchName(rows, args.search)) {
-      const level = await ctx.db.get(row.level_id);
+      const level = row.level_id ? await ctx.db.get(row.level_id) : null;
       out.push({ ...withId(row), degree_level: level ? withId(level) : null });
     }
     return out;
@@ -508,7 +508,7 @@ export const cities = query({
       .take(20);
     const out = [];
     for (const row of rows) {
-      const state = await ctx.db.get(row.state_id);
+      const state = row.state_id ? await ctx.db.get(row.state_id) : null;
       out.push({ ...withId(row), state: state ? withId(state) : null });
     }
     return out;

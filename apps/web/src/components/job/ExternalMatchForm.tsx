@@ -5,8 +5,9 @@ import { api } from "@/lib/convexApi";
 import { toastUnknownError } from "@/lib/errors";
 import { uploadFileToR2 } from "@/lib/r2Upload";
 import { useMutation } from "convex/react";
-import { Link as LinkIcon, Sparkles, Upload } from "lucide-react";
+import { ArrowLeft, Link as LinkIcon, Sparkles, Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { goBackJobs } from "@/lib/jobNavigation";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -71,6 +72,12 @@ export function ExternalMatchForm() {
 
   return (
     <div className="mx-auto flex w-full max-w-[760px] flex-col gap-6 px-4 py-8 text-white sm:px-6">
+      {/* Breadcrumb */}
+      <button onClick={() => goBackJobs(router)} className="flex w-fit items-center gap-2 text-sm text-white/70 transition-colors hover:text-white">
+        <ArrowLeft className="size-4" />
+        Back to jobs
+      </button>
+
       <div>
         <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-neon-purple">
           <Sparkles className="size-3.5" />

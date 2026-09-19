@@ -1,12 +1,13 @@
-import { SkillsEditorPage } from "@/components/SkillsEditorPage";
-import Layout from "@/layout";
+import type { GetServerSideProps } from "next";
 
-const EditSkills = () => {
-  return (
-    <Layout activeSection={"profile"}>
-      <SkillsEditorPage />
-    </Layout>
-  );
-};
+/** Old skills editor route — send people to the profile edit-skills modal. */
+export const getServerSideProps: GetServerSideProps = async () => ({
+  redirect: {
+    destination: "/profile?edit=skills",
+    permanent: false,
+  },
+});
 
-export default EditSkills;
+export default function EditSkills() {
+  return null;
+}

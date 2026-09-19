@@ -1,3 +1,5 @@
+import { SkillOverflowTags } from "@/components/skills/SkillOverflowTags";
+import { skillRoleSubtitle } from "@/constants/skills";
 import { CompanyPageSkeleton } from "./pageSkeletons";
 import { formatCity } from "@/constants/city";
 import { useAuth } from "@/contexts/AuthContext";
@@ -357,18 +359,11 @@ export function CompanyPage() {
                                 <span>Posted {new Date(job.createdAt).toLocaleDateString()}</span>
                               </div>
                             </div>
-                            <div className="flex flex-wrap gap-1.5">
-                              {job.job_skills?.slice(0, 4).map((skill, index) => (
-                                <Badge key={index} variant="secondary" className="text-xs bg-white/5">
-                                  {skill.skill.name}
-                                </Badge>
-                              ))}
-                              {job.job_skills?.length > 4 && (
-                                <Badge variant="secondary" className="text-xs bg-white/5">
-                                  +{job.job_skills.length - 4}
-                                </Badge>
-                              )}
-                            </div>
+                            <SkillOverflowTags
+                              skills={(job.job_skills ?? []).map((skill) => skill.skill?.name ?? skill.title).filter((name): name is string => Boolean(name))}
+                              subtitle={skillRoleSubtitle(job.job_title?.name ?? job.title, job.company_name || job.page?.name || pageData.name)}
+                              sectionLabel="Skills used"
+                            />
                           </div>
                         </div>
                       </Card>

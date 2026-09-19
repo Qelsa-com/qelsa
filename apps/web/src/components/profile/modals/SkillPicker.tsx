@@ -15,13 +15,15 @@ interface SkillPickerProps {
   placeholder?: string;
   /** Hides already-selected skills from the dropdown. */
   excludeSelected?: boolean;
+  /** When true, the search field does not accept new skills. */
+  disabled?: boolean;
 }
 
 /**
  * Skill search box with a dropdown of catalog matches plus an
  * "Add as new skill" row that get-or-creates the catalog entry on submit.
  */
-export function SkillPicker({ selected, onChange, placeholder = "Add a skill...", excludeSelected = true }: SkillPickerProps) {
+export function SkillPicker({ selected, onChange, placeholder = "Add a skill...", excludeSelected = true, disabled = false }: SkillPickerProps) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [searchSkills, { data: results = [] }] = useLazySearchSkillsQuery();
@@ -59,6 +61,7 @@ export function SkillPicker({ selected, onChange, placeholder = "Add a skill..."
   const exactMatch = options.some((o) => o.name.toLowerCase() === trimmed.toLowerCase()) || selected.some((s) => s.name.toLowerCase() === trimmed.toLowerCase());
 
   const add = (skill: PickedSkill) => {
+    if (disabled) return;
     if (selectedIds.has(String(skill.id))) return;
     onChange([...selected, skill]);
     setQuery("");
@@ -87,12 +90,13 @@ export function SkillPicker({ selected, onChange, placeholder = "Add a skill..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => trimmed && setOpen(true)}
-          placeholder={selected.length === 0 ? placeholder : "Add a skill..."}
-          className="min-w-[120px] flex-1 bg-transparent text-sm text-white placeholder:text-white/35 focus:outline-none"
+          placeholder={disabled ? "Skill limit reached" : selected.length === 0 ? placeholder : "Add a skill..."}
+          disabled={disabled}
+          className="min-w-[120px] flex-1 bg-transparent text-sm text-white placeholder:text-white/35 focus:outline-none disabled:cursor-not-allowed"
         />
       </div>
 
-      {open && (options.length > 0 || (trimmed && !exactMatch)) && (
+      {open && !disabled && (options.length > 0 || (trimmed && !exactMatch)) && (
         <ul className="absolute left-0 right-0 top-full z-20 mt-1 max-h-52 overflow-y-auto rounded-xl border border-white/10 bg-[#15152b] shadow-xl">
           {options.map((option) => (
             <li key={String(option.id)}>

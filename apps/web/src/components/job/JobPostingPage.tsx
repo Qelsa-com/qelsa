@@ -48,6 +48,7 @@ import {
   Wand2,
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { goBackJobs } from "@/lib/jobNavigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -474,11 +475,15 @@ export function JobPostingPage() {
       const result = await createJob(payload).unwrap();
       toast.success("Job published successfully.");
       const newId = (result as { id?: number })?.id;
-      router.push(newId ? `/jobs/${newId}` : "/jobs/smart-matches");
+      router.push(newId ? `/jobs/${newId}` : "/jobs/posted");
     } catch (err) {
       console.error("Job creation failed:", err);
       toast.error("Could not publish the job. Please try again.");
     }
+  };
+
+  const handleBack = () => {
+    goBackJobs(router, editJobId ? "/jobs/posted" : undefined);
   };
 
   const grouped = CATEGORY_ORDER.filter((c) => categoriesPresent.has(c)).map((c) => ({ category: c, items: questions.filter((q) => q.category === c) }));
@@ -487,7 +492,7 @@ export function JobPostingPage() {
   return (
     <div className="mx-auto w-full max-w-[1200px] px-6 pb-32 pt-6 text-white md:px-12">
       {/* Breadcrumb */}
-      <button onClick={() => router.push(editJobId ? "/jobs/posted" : "/jobs/smart-matches")} className="mb-6 flex items-center gap-2 text-sm text-white/70 transition-colors hover:text-white">
+      <button onClick={handleBack} className="mb-6 flex items-center gap-2 text-sm text-white/70 transition-colors hover:text-white">
         <ArrowLeft className="size-4" />
         {editJobId ? "Back to Posted Jobs" : "Back to Jobs"}
       </button>
@@ -920,7 +925,7 @@ export function JobPostingPage() {
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-glass-border bg-[#06060f]/90 backdrop-blur">
         <div className="mx-auto flex max-w-[1200px] items-center justify-between px-6 py-4 md:px-12">
           <button
-            onClick={() => router.push(editJobId ? "/jobs/posted" : "/jobs/smart-matches")}
+            onClick={handleBack}
             className="rounded-full border border-white/20 px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-white/5"
           >
             {editJobId ? "Cancel" : "Save draft"}

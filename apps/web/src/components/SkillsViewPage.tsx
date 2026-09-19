@@ -1,3 +1,4 @@
+import { SkillsModal } from "./profile/modals/SkillsModal";
 import { useGetUserSkillsQuery } from "@/features/api/userSkillsApi";
 import { UserSkill } from "@/types/userSkill";
 import { ProficiencyLevel, proficiencyLabel } from "@/constants/skills";
@@ -11,6 +12,7 @@ import { Card } from "./ui/card";
 export function SkillsViewPage() {
   const router = useRouter();
   const [skills, setSkills] = useState<UserSkill[]>([]);
+  const [editorOpen, setEditorOpen] = useState(false);
   const { data: userSkills, error, isLoading } = useGetUserSkillsQuery();
 
   // Sync skills state with fetched data
@@ -21,7 +23,7 @@ export function SkillsViewPage() {
   }, [userSkills]);
 
   const handleEdit = () => {
-    router.push("/profile/skills/edit");
+    setEditorOpen(true);
   };
 
   function getProficiencyBadgeClass(proficiency?: ProficiencyLevel | "" | null) {
@@ -237,6 +239,7 @@ export function SkillsViewPage() {
           </Card>
         )}
       </div>
+      <SkillsModal open={editorOpen} onClose={() => setEditorOpen(false)} />
     </div>
   );
 }

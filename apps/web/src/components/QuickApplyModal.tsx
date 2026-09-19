@@ -6,6 +6,7 @@ import { ScreeningQuestion } from "@/types/question";
 import { Resume } from "@/types/resume";
 import { Check, CheckCircle2, FileText, Plus, X } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { getLastJobsPage } from "@/lib/jobNavigation";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -197,7 +198,7 @@ export function QuickApplyModal({ isOpen, onClose, job, companyName, screeningQu
             }}
             onBrowseJobs={() => {
               onClose();
-              router.push("/jobs/smart-matches");
+              router.push(getLastJobsPage() || "/jobs/all");
             }}
           />
         ) : (

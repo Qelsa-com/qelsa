@@ -21,11 +21,11 @@ interface ProfileHeroProps {
 
 export function ProfileHero({ user, experiences, isOwner, isFollowing, mutualLabel, followers, following, onEdit, onFollow, onShare }: ProfileHeroProps) {
   const latest = currentExperience(experiences);
-  const roleTitle = latest?.job_title?.name || user.headline || user.title || "";
+  const currentRole = latest?.job_title?.name || user.title || "";
   const companyName = latest?.company?.name || "";
   const location = formatCity(user.city) || user.relocate_location || "";
   const tenure = totalExperienceSummary(experiences);
-  const bio = user.about || user.professional_summary || "";
+  const bio = user.professional_summary || user.about || "";
   const avatarUrl = user.profile_image || user.avatar || undefined;
 
   return (
@@ -46,16 +46,21 @@ export function ProfileHero({ user, experiences, isOwner, isFollowing, mutualLab
               {mutualLabel && <span className="rounded-full border border-neon-green/50 bg-neon-green/15 px-2.5 py-[3px] text-xs font-medium uppercase text-neon-green">{mutualLabel}</span>}
             </div>
             {user.username && <p className="text-xl text-[#00d4ff]">@{user.username}</p>}
+            {user.headline && (
+              <p className="mt-1 text-base font-medium text-white/90 sm:text-lg">
+                {user.headline}
+              </p>
+            )}
           </div>
 
-          {(roleTitle || companyName) && (
+          {(currentRole || companyName) && (
             <div className="flex items-center gap-2 text-base text-white/70">
               <Briefcase className="size-[18px] shrink-0" />
               <p>
-                {roleTitle}
+                {currentRole}
                 {companyName && (
                   <>
-                    {roleTitle ? " at " : ""}
+                    {currentRole ? " at " : ""}
                     <span className="font-semibold text-white">{companyName}</span>
                   </>
                 )}

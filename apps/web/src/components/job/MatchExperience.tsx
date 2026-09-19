@@ -1,6 +1,7 @@
 "use client";
 
 import { MatchChatThread } from "@/components/job/MatchChatThread";
+import { goBackJobs } from "@/lib/jobNavigation";
 import { ArrowLeft, Check, Minus, Sparkles, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -114,9 +115,10 @@ export function MatchExperience({ session }: { session: MatchSession }) {
   return (
     <div className="mx-auto flex w-full max-w-[1200px] flex-col gap-5 px-4 pb-28 pt-6 text-white sm:px-6 lg:px-10">
       <button
-        onClick={() =>
-          router.push(session.source === "qelsa" && session.job_id ? `/jobs/${session.job_id}` : "/jobs/match")
-        }
+        onClick={() => {
+          const fallback = session.source === "qelsa" && session.job_id ? `/jobs/${session.job_id}` : "/jobs/all";
+          goBackJobs(router, fallback);
+        }}
         className="flex w-fit items-center gap-2 text-sm text-white/70 hover:text-white"
       >
         <ArrowLeft className="size-4" />

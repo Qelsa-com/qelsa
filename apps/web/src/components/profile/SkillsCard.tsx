@@ -1,6 +1,11 @@
+"use client";
+
+import { SkillOverflowTags } from "@/components/skills/SkillOverflowTags";
+import { ViewSkillsModal } from "@/components/skills/ViewSkillsModal";
 import { ProficiencyLevel, proficiencyLabel } from "@/constants/skills";
 import { UserSkill } from "@/types/userSkill";
-import { ProfileCard, ProfileCardEmpty, ProfileTag } from "./ProfileCard";
+import { useState } from "react";
+import { ProfileCard, ProfileCardEmpty } from "./ProfileCard";
 
 interface SkillsCardProps {
   skills: UserSkill[];
@@ -30,43 +35,55 @@ function SectionLabel({ children }: { children: string }) {
 }
 
 export function SkillsCard({ skills, isOwner, onAdd, onEdit }: SkillsCardProps) {
+  const [open, setOpen] = useState(false);
   const topSkills = skills.filter((skill) => skill.is_top_skill);
   const otherSkills = skills.filter((skill) => !skill.is_top_skill);
+  const otherNames = otherSkills.map((skill) => skill.skill?.name).filter((name): name is string => Boolean(name));
+  const allNames = skills.map((skill) => skill.skill?.name).filter((name): name is string => Boolean(name));
+  const modalTopSkills = topSkills
+    .map((skill) => ({ name: skill.skill?.name ?? "", proficiency: skill.proficiency }))
+    .filter((skill) => skill.name);
 
   return (
     <ProfileCard title="Skills & Expertise" onAdd={isOwner ? onAdd : undefined} onEdit={isOwner ? onEdit : undefined}>
       {skills.length === 0 ? (
         <ProfileCardEmpty message={isOwner ? "Add skills so recruiters can match you to roles." : "No skills added yet."} />
       ) : (
-        <div className="flex flex-col gap-6">
-          {topSkills.length > 0 && (
-            <div className="flex flex-col gap-3">
-              <SectionLabel>Top Skills</SectionLabel>
-              <div className="flex flex-col gap-2">
-                {topSkills.map((skill) => (
-                  <div key={skill.id} className="flex items-center justify-between gap-3 rounded-[12px] border border-white/8 bg-white/2 p-3">
-                    <p className="min-w-0 text-sm font-medium text-white">{skill.skill?.name}</p>
-                    <span className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-semibold uppercase ${proficiencyClass(skill.proficiency)}`}>
-                      {proficiencyLabel(skill.proficiency)}
-                    </span>
-                  </div>
-                ))}
+        <>
+          <div className="flex flex-col gap-6 text-left">
+            {topSkills.length > 0 && (
+              <div className="flex flex-col gap-3">
+                <SectionLabel>Top Skills</SectionLabel>
+                <div className="flex flex-col gap-2">
+                  {topSkills.map((skill) => (
+                    <div key={skill.id} className="flex items-center justify-between gap-3 rounded-[12px] border border-white/8 bg-white/2 p-3">
+                      <p className="min-w-0 text-sm font-medium text-white">{skill.skill?.name}</p>
+                      <span className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-semibold uppercase ${proficiencyClass(skill.proficiency)}`}>
+                        {proficiencyLabel(skill.proficiency)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {otherSkills.length > 0 && (
-            <div className="flex flex-col gap-3">
-              {topSkills.length > 0 && <div className="h-px w-full bg-white/8" />}
-              <SectionLabel>Skills</SectionLabel>
-              <div className="flex flex-wrap items-start gap-2">
-                {otherSkills.map((skill) => (
-                  <ProfileTag key={skill.id}>{skill.skill?.name}</ProfileTag>
-                ))}
+            {otherSkills.length > 0 && (
+              <div className="flex flex-col gap-3">
+                {topSkills.length > 0 && <div className="h-px w-full bg-white/8" />}
+                <SectionLabel>Skills</SectionLabel>
+                <SkillOverflowTags
+                  skills={otherNames}
+                  modalSkills={allNames}
+                  topSkills={modalTopSkills}
+                  sectionLabel="Skills"
+                  onOverflowClick={() => setOpen(true)}
+                  hideModal
+                />
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+          <ViewSkillsModal open={open} onClose={() => setOpen(false)} skills={allNames} sectionLabel="Skills" topSkills={modalTopSkills} />
+        </>
       )}
     </ProfileCard>
   );

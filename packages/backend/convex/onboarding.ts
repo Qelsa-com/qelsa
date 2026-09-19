@@ -7,6 +7,7 @@ import { components } from "./_generated/api";
 import { authedMutation } from "./lib/customFunctions";
 import { parsedProfileValidator } from "./lib/parsedProfile";
 import { signedFileUrl } from "./lib/r2";
+import { MAX_USER_SKILLS } from "./lib/skillLimits";
 
 const r2 = new R2(components.r2);
 
@@ -256,7 +257,7 @@ export const applyParsedProfile = authedMutation({
       const skillNames = uniqueNames([
         ...profile.skills,
         ...profile.experiences.flatMap((row) => row.tools ?? []),
-      ]);
+      ]).slice(0, MAX_USER_SKILLS);
       for (const skillName of skillNames) {
         const skill_id = await findOrCreateNamed(ctx, "skills", skillName);
         if (!skill_id) continue;

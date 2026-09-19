@@ -29,6 +29,7 @@ import { Job } from "@/types/job";
 import DOMPurify from "dompurify";
 import { ArrowLeft, ArrowUpRight, Bookmark, BookmarkCheck, BookOpen, Briefcase, Building2, CheckCircle2, FileText, HelpCircle, Info, Linkedin, Link as LinkIcon, MessageCircle, Share2, Twitter } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
+import { goBackJobs } from "@/lib/jobNavigation";
 import { useEffect, useRef, useState } from "react";
 import { QuickApplyModal } from "../QuickApplyModal";
 import { ExternalApplyConfirmModal } from "./ExternalApplyConfirmModal";
@@ -256,7 +257,7 @@ export function JobDetail() {
       {/* Mobile header bar (Figma 721:264). Desktop keeps the breadcrumb below. */}
       <div className="flex h-16 items-center justify-between border-b border-white/[0.12] bg-white/[0.06] px-4 lg:hidden">
         <div className="flex items-center gap-3">
-          <button onClick={() => router.back()} aria-label="Back" className="flex size-10 shrink-0 items-center justify-center rounded-full border border-white/[0.12] bg-white/[0.03]">
+          <button onClick={() => goBackJobs(router)} aria-label="Back" className="flex size-10 shrink-0 items-center justify-center rounded-full border border-white/[0.12] bg-white/[0.03]">
             <ArrowLeft className="size-5" />
           </button>
           <span className="text-lg font-bold text-white">Job Detail</span>
@@ -273,7 +274,7 @@ export function JobDetail() {
         {/* Breadcrumb + share sit on one row above the card. Desktop only —
             the mobile frame uses the header bar above instead. */}
         <div className="hidden w-full items-center justify-between lg:flex">
-          <button onClick={() => router.push(isAuthenticated ? "/jobs/smart-matches" : "/jobs/all")} className="flex w-fit items-center gap-2 text-sm text-white/70 transition-colors hover:text-neon-cyan">
+          <button onClick={() => goBackJobs(router)} className="flex w-fit items-center gap-2 text-sm text-white/70 transition-colors hover:text-neon-cyan">
             <ArrowLeft className="size-4" />
             Back to jobs
           </button>

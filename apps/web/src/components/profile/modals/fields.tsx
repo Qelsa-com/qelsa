@@ -3,11 +3,73 @@
 import { ChevronDown, X } from "lucide-react";
 import { ReactNode } from "react";
 
+import {
+  Select as RadixSelect,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../../ui/select";
+import { cn } from "../../ui/utils";
+
 /* Shared form styling + primitives for the profile modals and editor pages. */
 
 export const inputClass = "w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white placeholder:text-white/35 focus:border-neon-cyan/60 focus:outline-none transition-colors";
 
 export const selectClass = `${inputClass} appearance-none pr-10 cursor-pointer`;
+
+export interface PopoverSelectOption {
+  value: string;
+  label: string;
+}
+
+/** Sleek scrollable custom select with bounded height matching the dark inputs. */
+export function PopoverSelect({
+  value,
+  onChange,
+  options,
+  placeholder = "Select",
+  disabled,
+}: {
+  value?: string | null;
+  onChange: (value: string) => void;
+  options: PopoverSelectOption[];
+  placeholder?: string;
+  disabled?: boolean;
+}) {
+  return (
+    <RadixSelect
+      value={value || undefined}
+      onValueChange={(val) => onChange(val)}
+      disabled={disabled}
+    >
+      <SelectTrigger
+        className={cn(
+          "w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white h-auto transition-colors",
+          "focus-visible:border-neon-cyan/60 focus-visible:ring-0 outline-none",
+          "disabled:opacity-50 disabled:cursor-not-allowed",
+          !value && "text-white/35"
+        )}
+      >
+        <SelectValue placeholder={placeholder} />
+      </SelectTrigger>
+      <SelectContent
+        position="popper"
+        className="max-h-56 overflow-y-auto rounded-xl border border-white/12 bg-[#12122a] text-white shadow-2xl z-[99999]"
+      >
+        {options.map((opt) => (
+          <SelectItem
+            key={opt.value}
+            value={opt.value}
+            className="cursor-pointer rounded-lg px-3 py-2 text-sm text-white/80 transition-colors hover:bg-white/10 hover:text-white focus:bg-neon-cyan/20 focus:text-white"
+          >
+            {opt.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </RadixSelect>
+  );
+}
 
 export function Field({ label, required, children, hint }: { label: string; required?: boolean; children: ReactNode; hint?: string }) {
   return (
@@ -39,50 +101,102 @@ export function Select({ value, onChange, children, placeholder = "Select", disa
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
-export function yearOptions(from = 1970): number[] {
-  const current = new Date().getFullYear() + 6;
+export function yearOptions(from = 1970, to?: number): number[] {
+  const current = to ?? new Date().getFullYear();
   const years: number[] = [];
   for (let y = current; y >= from; y--) years.push(y);
   return years;
 }
 
 /** "January 2023" style month+year pair, stored as a "YYYY-MM" string. */
-export function MonthYearSelect({ value, onChange, placeholder = "Select", disabled }: { value?: string | null; onChange: (value: string | null) => void; placeholder?: string; disabled?: boolean }) {
+export function MonthYearSelect({
+  value,
+  onChange,
+  placeholder = "Select",
+  disabled,
+  allowFuture = false,
+  maxYear,
+  minYear = 1970,
+}: {
+  value?: string | null;
+  onChange: (value: string | null) => void;
+  placeholder?: string;
+  disabled?: boolean;
+  allowFuture?: boolean;
+  maxYear?: number;
+  minYear?: number;
+}) {
   const [year = "", month = ""] = (value ?? "").split("-");
   const set = (y: string, m: string) => {
     if (!y && !m) return onChange(null);
     onChange(`${y || new Date().getFullYear()}-${(m || "01").padStart(2, "0")}`);
   };
+
+  const currentYear = new Date().getFullYear();
+  const effectiveMaxYear = maxYear ?? (allowFuture ? currentYear + 10 : currentYear);
+  const effectiveMinYear = Math.min(minYear, effectiveMaxYear);
+
+  const monthOptions: PopoverSelectOption[] = MONTHS.map((name, i) => ({
+    value: String(i + 1).padStart(2, "0"),
+    label: name,
+  }));
+
+  const yearOptionsList: PopoverSelectOption[] = [];
+  for (let y = effectiveMaxYear; y >= effectiveMinYear; y--) {
+    yearOptionsList.push({ value: String(y), label: String(y) });
+  }
+
   return (
     <div className="grid grid-cols-2 gap-2">
-      <Select value={month} onChange={(m) => set(year, m)} placeholder={placeholder} disabled={disabled}>
-        {MONTHS.map((name, i) => (
-          <option key={name} value={String(i + 1).padStart(2, "0")} className="bg-[#12122a]">
-            {name}
-          </option>
-        ))}
-      </Select>
-      <Select value={year} onChange={(y) => set(y, month)} placeholder="Year" disabled={disabled}>
-        {yearOptions().map((y) => (
-          <option key={y} value={String(y)} className="bg-[#12122a]">
-            {y}
-          </option>
-        ))}
-      </Select>
+      <PopoverSelect
+        value={month}
+        onChange={(m) => set(year, m)}
+        options={monthOptions}
+        placeholder={placeholder}
+        disabled={disabled}
+      />
+      <PopoverSelect
+        value={year}
+        onChange={(y) => set(y, month)}
+        options={yearOptionsList}
+        placeholder="Year"
+        disabled={disabled}
+      />
     </div>
   );
 }
 
-/** Year-only picker for education start/end years. */
-export function YearSelect({ value, onChange, disabled }: { value?: number | null; onChange: (year: number | null) => void; disabled?: boolean }) {
+/** Year-only picker for education start/end years with compact scrollable dropdown. */
+export function YearSelect({
+  value,
+  onChange,
+  disabled,
+  minYear = 1970,
+  maxYear,
+}: {
+  value?: number | null;
+  onChange: (year: number | null) => void;
+  disabled?: boolean;
+  minYear?: number;
+  maxYear?: number;
+}) {
+  const currentYear = new Date().getFullYear();
+  const effectiveMaxYear = maxYear ?? currentYear;
+  const effectiveMinYear = Math.min(minYear, effectiveMaxYear);
+
+  const options: PopoverSelectOption[] = [];
+  for (let y = effectiveMaxYear; y >= effectiveMinYear; y--) {
+    options.push({ value: String(y), label: String(y) });
+  }
+
   return (
-    <Select value={value ? String(value) : ""} onChange={(v) => onChange(v ? Number(v) : null)} placeholder="Select" disabled={disabled}>
-      {yearOptions().map((y) => (
-        <option key={y} value={String(y)} className="bg-[#12122a]">
-          {y}
-        </option>
-      ))}
-    </Select>
+    <PopoverSelect
+      value={value ? String(value) : ""}
+      onChange={(v) => onChange(v ? Number(v) : null)}
+      options={options}
+      placeholder="Select"
+      disabled={disabled}
+    />
   );
 }
 

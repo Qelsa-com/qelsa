@@ -11,10 +11,12 @@ interface ModalShellProps {
   /** Footer row — typically Cancel on the left and the gradient submit on the right. */
   footer?: ReactNode;
   maxWidth?: string;
+  /** Hairline under the title. View-only skill modals omit it to match Figma. */
+  headerBorder?: boolean;
 }
 
 /** Dark glass dialog shell shared by every profile add/edit modal. */
-export function ModalShell({ title, subtitle, onClose, children, footer, maxWidth = "max-w-[560px]" }: ModalShellProps) {
+export function ModalShell({ title, subtitle, onClose, children, footer, maxWidth = "max-w-[560px]", headerBorder = true }: ModalShellProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className={`relative flex max-h-[90vh] w-full ${maxWidth} flex-col overflow-hidden rounded-[24px] border border-white/10 bg-[#0c0c1a] text-white shadow-2xl`}>
@@ -27,12 +29,12 @@ export function ModalShell({ title, subtitle, onClose, children, footer, maxWidt
           <X className="size-4" />
         </button>
 
-        <div className="border-b border-white/8 px-7 pb-5 pt-6">
+        <div className={`px-7 pb-5 pt-6 ${headerBorder ? "border-b border-white/8" : "pr-16"}`}>
           <h2 className="text-xl font-bold text-white">{title}</h2>
           {subtitle && <p className="mt-1 text-sm text-white/50">{subtitle}</p>}
         </div>
 
-        <div className="flex-1 overflow-y-auto px-7 py-6">{children}</div>
+        <div className={`flex-1 overflow-y-auto px-7 ${headerBorder ? "py-6" : "pb-7 pt-1"}`}>{children}</div>
 
         {footer && <div className="flex items-center justify-between gap-3 border-t border-white/8 px-7 py-4">{footer}</div>}
       </div>

@@ -14,6 +14,7 @@ import { AlertTriangle, Archive, ArrowLeft, ArrowRight, ChevronDown, ChevronLeft
 import { JobApplicationAnswer } from "@/types/jobApplicationAnswers";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
+import { goBackJobs } from "@/lib/jobNavigation";
 import { useCallback, useMemo, useState } from "react";
 import { CandidateNLPSearch } from "./CandidateNLPSearch";
 import { ApplicantDetailSkeleton, CandidateRowSkeleton } from "./job/jobSkeletons";
@@ -353,7 +354,7 @@ export function ApplicationsManagementPage() {
         {/* Header, Stats & Filter bar - hidden on mobile when viewing candidate details */}
         <div className={`${mobileDetailOpen ? "hidden lg:flex" : "flex"} flex-col gap-8`}>
           {/* Header */}
-          <button onClick={() => router.push("/jobs/posted")} className="flex w-fit items-center gap-2 text-sm text-white/70 hover:text-white transition-colors">
+          <button onClick={() => goBackJobs(router, "/jobs/posted")} className="flex w-fit items-center gap-2 text-sm text-white/70 hover:text-white transition-colors">
             <ArrowLeft className="w-4 h-4" />
             Back to job posts
           </button>

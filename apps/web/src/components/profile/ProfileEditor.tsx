@@ -120,7 +120,12 @@ export function ProfileEditor() {
   const [photoUploading, setPhotoUploading] = useState(false);
 
   useEffect(() => {
-    if (user && !profile) setProfile(user);
+    if (user && !profile) {
+      setProfile({
+        ...user,
+        professional_summary: user.professional_summary || user.about || "",
+      });
+    }
   }, [user, profile]);
 
   const workplaceTypes = useMemo(
@@ -252,7 +257,6 @@ export function ProfileEditor() {
   };
 
   const section = SECTIONS.find((s) => s.id === activeSection)!;
-  const currentRoles = (experiences ?? []).filter((exp) => exp.is_current);
 
   return (
     <div className="min-h-screen bg-[#06060f] text-white">
@@ -358,25 +362,6 @@ export function ProfileEditor() {
                       <input value={profile.username ?? ""} onChange={(e) => patch({ username: e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, "") })} placeholder="username" className={`${inputClass} pl-9`} />
                     </div>
                   </Field>
-
-                  <Field label="Current Position">
-                    <Select
-                      value=""
-                      onChange={(value) => {
-                        if (value) patch({ headline: value });
-                      }}
-                      placeholder={profile.headline || "Select from your current positions"}
-                    >
-                      {currentRoles.map((exp) => {
-                        const label = `${exp.job_title?.name ?? "Role"} at ${exp.company?.name ?? "Company"}`;
-                        return (
-                          <option key={String(exp.id)} value={label} className="bg-[#12122a]">
-                            {label}
-                          </option>
-                        );
-                      })}
-                    </Select>
-                  </Field>
                 </div>
               </CardSection>
             )}
@@ -390,14 +375,11 @@ export function ProfileEditor() {
                   <Field label="Professional Summary">
                     <textarea
                       value={profile.professional_summary ?? ""}
-                      onChange={(e) => patch({ professional_summary: e.target.value })}
+                      onChange={(e) => patch({ professional_summary: e.target.value, about: e.target.value })}
                       placeholder="Summarize your experience, strengths and what you're looking for…"
                       rows={5}
                       className={`${inputClass} resize-none`}
                     />
-                  </Field>
-                  <Field label="About">
-                    <textarea value={profile.about ?? ""} onChange={(e) => patch({ about: e.target.value })} placeholder="Anything else you want people to know…" rows={4} className={`${inputClass} resize-none`} />
                   </Field>
                 </div>
               </CardSection>

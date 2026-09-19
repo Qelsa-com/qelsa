@@ -1,3 +1,6 @@
+import { PostedJobsSkeleton } from "@/components/job/jobSkeletons";
+import { SkillOverflowTags } from "@/components/skills/SkillOverflowTags";
+import { skillRoleSubtitle } from "@/constants/skills";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -7,7 +10,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { PostedJobsSkeleton } from "@/components/job/jobSkeletons";
 import { formatCity } from "@/constants/city";
 import { useDeleteJobMutation, useDuplicateJobMutation, useEditJobMutation, useGetPostedJobsQuery } from "@/features/api/jobsApi";
 import Layout from "@/layout";
@@ -322,13 +324,11 @@ export default function Posted() {
               </div>
 
               {/* Skills */}
-              <div className="flex flex-wrap gap-2">
-                {job.job_skills?.map((skill, index) => (
-                  <span key={index} className="rounded-full border border-white/12 px-2.5 py-1 text-[13px] text-white/60">
-                    {skill.skill?.name ?? skill.title}
-                  </span>
-                ))}
-              </div>
+              <SkillOverflowTags
+                skills={(job.job_skills ?? []).map((skill) => skill.skill?.name ?? skill.title).filter((name): name is string => Boolean(name))}
+                subtitle={skillRoleSubtitle(job.job_title?.name ?? job.title, job.company_name || job.page?.name)}
+                sectionLabel="Skills used"
+              />
 
               <div className="h-px w-full bg-white/12" />
 

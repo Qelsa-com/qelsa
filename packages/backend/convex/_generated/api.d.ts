@@ -49,6 +49,7 @@ import type * as lib_parsedProfile from "../lib/parsedProfile.js";
 import type * as lib_profileFields from "../lib/profileFields.js";
 import type * as lib_r2 from "../lib/r2.js";
 import type * as lib_resolve from "../lib/resolve.js";
+import type * as lib_skillLimits from "../lib/skillLimits.js";
 import type * as lib_skillMatch from "../lib/skillMatch.js";
 import type * as onboarding from "../onboarding.js";
 import type * as pages from "../pages.js";
@@ -107,6 +108,7 @@ declare const fullApi: ApiFromModules<{
   "lib/profileFields": typeof lib_profileFields;
   "lib/r2": typeof lib_r2;
   "lib/resolve": typeof lib_resolve;
+  "lib/skillLimits": typeof lib_skillLimits;
   "lib/skillMatch": typeof lib_skillMatch;
   onboarding: typeof onboarding;
   pages: typeof pages;

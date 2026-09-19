@@ -9,7 +9,7 @@
 
 import { timeAgo } from "@/components/job/jobBrowseShared";
 import { TrackedJobsListSkeleton } from "@/components/job/jobSkeletons";
-import { JobCardHeading, JobCardShell, MyJobsHeader, SkillChips, TermChips } from "@/components/job/myJobsShared";
+import { JobCardHeading, JobCardShell, MyJobsHeader, SkillChips, TermChips, wasViewed } from "@/components/job/myJobsShared";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -41,14 +41,6 @@ const STATUS_META: Record<JobApplicationStatus, { label: string; className: stri
   rejected: { label: "Not Selected", className: "bg-destructive/15 text-destructive" },
   cancelled: { label: "Withdrawn", className: "bg-white/10 text-white/60" },
 };
-
-/** Statuses that can only be reached after a recruiter opened the application. */
-const SEEN_STATUSES: JobApplicationStatus[] = ["viewed", "sorted", "hold", "rejected"];
-
-function wasViewed(application: JobApplication): boolean {
-  if (SEEN_STATUSES.includes(application.status)) return true;
-  return (application.jobApplicationLogs ?? []).some((log) => SEEN_STATUSES.includes(log.new_status));
-}
 
 function canWithdraw(status: JobApplicationStatus) {
   return status !== "cancelled" && status !== "rejected";
@@ -86,10 +78,10 @@ const Applied = () => {
       <div className="mx-auto w-full max-w-[1400px] px-6 py-8 text-white md:px-12">
         <MyJobsHeader
           activeTab="applied"
-          subtitle="Monitor your job applications and stay on top of your career moves"
           query={query}
           setQuery={setQuery}
           onSearch={() => setSearch(query.trim())}
+          searchPlaceholder="Search jobs by title, skill, or company..."
           stats={[
             { label: "Total Applied", value: applications.length },
             { label: "Viewed", value: viewedCount },
