@@ -1,6 +1,7 @@
+import { AccountBadge, formatHiringRole } from "@/components/AccountBadge";
 import { formatCity } from "@/constants/city";
 import { useAuth } from "@/contexts/AuthContext";
-import { ChevronRight, FileText, GraduationCap, LogOut, MapPin, Plug, Settings, Target, User, Users, X } from "lucide-react";
+import { Briefcase, ChevronRight, FileText, GraduationCap, LogOut, MapPin, Plug, Settings, Target, User, Users, X } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -8,16 +9,6 @@ interface ProfileDrawerProps {
   isOpen: boolean;
   onClose: () => void;
 }
-
-const NAV_ITEMS = [
-  { icon: User, label: "View Profile", path: "/profile", accent: "text-neon-cyan", bg: "bg-neon-cyan/15" },
-  { icon: Target, label: "Goals", path: "/goals", accent: "text-neon-pink", bg: "bg-neon-pink/15" },
-  { icon: FileText, label: "My Resumes", path: "/profile/edit", accent: "text-neon-green", bg: "bg-neon-green/15" },
-  { icon: Users, label: "Network", path: "/network", accent: "text-neon-cyan", bg: "bg-neon-cyan/15" },
-  { icon: GraduationCap, label: "Courses", path: "/courses", accent: "text-neon-yellow", bg: "bg-neon-yellow/15" },
-  { icon: Plug, label: "Integrations", path: "/settings/integrations", accent: "text-neon-purple", bg: "bg-neon-purple/15" },
-  { icon: Settings, label: "Settings", path: "/settings", accent: "text-muted-foreground", bg: "bg-white/10" },
-];
 
 function initials(name?: string) {
   if (!name) return "?";
@@ -65,6 +56,19 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
   };
 
   const avatarUrl = (user as { profile_image?: string; avatar?: string } | null)?.profile_image;
+  const isRecruiter = user?.account_type === "recruiter";
+
+  const navItems = [
+    { icon: User, label: "View Profile", path: "/profile", accent: "text-neon-cyan", bg: "bg-neon-cyan/15" },
+    { icon: Target, label: "Goals", path: "/goals", accent: "text-neon-pink", bg: "bg-neon-pink/15" },
+    ...(isRecruiter
+      ? [{ icon: Briefcase, label: "Manage Jobs", path: "/jobs/posted", accent: "text-[#f27bb8]", bg: "bg-[#d73e9d]/15" }]
+      : [{ icon: FileText, label: "My Resumes", path: "/profile/edit", accent: "text-neon-green", bg: "bg-neon-green/15" }]),
+    { icon: Users, label: "Network", path: "/network", accent: "text-neon-cyan", bg: "bg-neon-cyan/15" },
+    { icon: GraduationCap, label: "Courses", path: "/courses", accent: "text-neon-yellow", bg: "bg-neon-yellow/15" },
+    { icon: Plug, label: "Integrations", path: "/settings/integrations", accent: "text-neon-purple", bg: "bg-neon-purple/15" },
+    { icon: Settings, label: "Settings", path: "/settings", accent: "text-muted-foreground", bg: "bg-white/10" },
+  ];
 
   return (
     <>
@@ -97,9 +101,18 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                   </div>
                   <span className="absolute -right-0.5 -bottom-0.5 h-3.5 w-3.5 rounded-full border-2 border-[#0b0b14] bg-neon-green" />
                 </div>
-                <div className="min-w-0">
-                  <p className="truncate text-base font-bold text-white">{user.name ?? "User"}</p>
-                  {user.username && <p className="truncate text-sm text-neon-cyan">@{user.username}</p>}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="truncate text-base font-bold text-white">{user.name || (user.username ? `@${user.username}` : "User")}</p>
+                    {user.role === "admin" && <AccountBadge role="admin" size="sm" />}
+                  </div>
+                  <div className="mt-1 flex flex-wrap items-center gap-2">
+                    {user.name && user.username && <p className="truncate text-sm text-neon-cyan">@{user.username}</p>}
+                    <AccountBadge accountType={user.account_type} hiringRole={user.hiring_role} size="sm" />
+                  </div>
+                  {user.account_type === "recruiter" && user.hiring_role && (
+                    <p className="mt-1 text-xs text-white/50">{formatHiringRole(user.hiring_role)}</p>
+                  )}
                 </div>
               </div>
 
@@ -132,7 +145,7 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
           <nav className="px-3 pb-4">
             <p className="px-2 pt-2 pb-2 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">Menu</p>
             <ul className="space-y-0.5">
-              {NAV_ITEMS.map((item) => {
+              {navItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = pathname === item.path;
                 return (

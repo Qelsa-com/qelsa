@@ -1,10 +1,12 @@
 "use client";
 
+import { AccountBadge, formatHiringRole } from "@/components/AccountBadge";
+import { useAuth } from "@/contexts/AuthContext";
 import { useDeleteAccountMutation } from "@/features/api/authApi";
 import { authClient } from "@/lib/auth-client";
 import { toastUnknownError } from "@/lib/errors";
 import { clearResumeDraft } from "@/lib/resumeDraft";
-import { AlertTriangle, ChevronRight, Plug, Settings as SettingsIcon } from "lucide-react";
+import { AlertTriangle, ChevronRight, Plug, Settings as SettingsIcon, User as UserIcon } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../components/ui/alert-dialog";
@@ -16,6 +18,7 @@ import Layout from "../layout";
 const DELETE_CONFIRMATION = "DELETE";
 
 const Settings = () => {
+  const { user } = useAuth();
   const [deleteAccount, { isLoading }] = useDeleteAccountMutation();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmText, setConfirmText] = useState("");
@@ -44,6 +47,68 @@ const Settings = () => {
             <p className="text-sm text-muted-foreground">Account preferences and data controls.</p>
           </div>
         </div>
+
+        {/* Account Details Card */}
+        {user && (
+          <div className="mb-8 rounded-2xl border border-glass-border glass p-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-4">
+                <div className="relative shrink-0">
+                  <div className="rounded-full bg-gradient-to-br from-neon-cyan via-neon-purple to-neon-pink p-[2px]">
+                    {user.profile_image ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={user.profile_image} alt={user.name ?? "Profile"} className="h-14 w-14 rounded-full border-2 border-[#0b0b14] object-cover" />
+                    ) : (
+                      <div className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-[#0b0b14] bg-white/10 text-base font-bold text-white">
+                        {user.name ? user.name[0]?.toUpperCase() : <UserIcon className="h-6 w-6 text-muted-foreground" />}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-lg font-bold text-white truncate">{user.name || (user.username ? `@${user.username}` : "User")}</h2>
+                    {user.role === "admin" && <AccountBadge role="admin" size="sm" />}
+                  </div>
+                  {user.name && user.username && <p className="text-sm text-neon-cyan">@{user.username}</p>}
+                  <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                </div>
+              </div>
+              <Link
+                href="/profile/edit"
+                className="self-start rounded-full border border-glass-border bg-white/5 px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-white/10 sm:self-center"
+              >
+                Edit Profile
+              </Link>
+            </div>
+
+            <div className="mt-6 border-t border-glass-border/60 pt-5">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Account Type</p>
+                  <p className="mt-1 text-sm text-white/80">
+                    {user.account_type === "recruiter"
+                      ? "Hiring Partner: Post jobs, discover talent, and manage candidate pipelines."
+                      : "Candidate: Explore opportunities, track applications, and showcase skills."}
+                  </p>
+                  {user.account_type === "recruiter" && user.hiring_role && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Role: <span className="text-white font-medium">{formatHiringRole(user.hiring_role)}</span>
+                    </p>
+                  )}
+                </div>
+                <div className="mt-1 sm:mt-0 sm:shrink-0">
+                  <AccountBadge
+                    accountType={user.account_type}
+                    hiringRole={user.hiring_role}
+                    size="md"
+                    showRoleDetail
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         <Link href="/settings/integrations" className="mb-8 flex items-center justify-between rounded-2xl border border-glass-border glass p-6 transition-colors hover:bg-white/5">
           <div className="flex items-start gap-4">

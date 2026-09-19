@@ -538,3 +538,24 @@ export const jobTitles = query({
     return rows.map(withId);
   },
 });
+
+export const setUserRole = mutation({
+  args: {
+    email: v.string(),
+    account_type: v.union(v.literal("seeker"), v.literal("recruiter")),
+    hiring_role: v.optional(v.union(v.literal("founder_cxo"), v.literal("hr_ta"), v.literal("hiring_manager"), v.literal("recruitment_agency"))),
+  },
+  returns: v.object({ ok: v.boolean() }),
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q) => q.eq("email", args.email))
+      .first();
+    if (!user) throw new Error("User not found");
+    await ctx.db.patch(user._id, {
+      account_type: args.account_type,
+      hiring_role: args.hiring_role,
+    });
+    return { ok: true };
+  },
+});

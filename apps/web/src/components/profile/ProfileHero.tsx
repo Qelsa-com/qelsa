@@ -1,3 +1,4 @@
+import { AccountBadge } from "@/components/AccountBadge";
 import { Experience } from "@/types/experience";
 import { User } from "@/types/user";
 import { Briefcase, Clock, MapPin } from "lucide-react";
@@ -42,10 +43,18 @@ export function ProfileHero({ user, experiences, isOwner, isFollowing, mutualLab
         <div className="flex min-w-0 flex-1 flex-col items-center gap-4 text-center sm:items-start sm:text-left">
           <div className="flex flex-col gap-1">
             <div className="flex flex-wrap items-center justify-center gap-3 sm:justify-start">
-              <h1 className="text-4xl font-extrabold text-white lg:text-5xl">{user.name}</h1>
+              <h1 className="text-4xl font-extrabold text-white lg:text-5xl">
+                {user.name || (user.username ? `@${user.username}` : "User")}
+              </h1>
+              {isOwner && (
+                <>
+                  <AccountBadge accountType={user.account_type} hiringRole={user.hiring_role} size="md" showRoleDetail />
+                  {user.role === "admin" && <AccountBadge role="admin" size="md" />}
+                </>
+              )}
               {mutualLabel && <span className="rounded-full border border-neon-green/50 bg-neon-green/15 px-2.5 py-[3px] text-xs font-medium uppercase text-neon-green">{mutualLabel}</span>}
             </div>
-            {user.username && <p className="text-xl text-[#00d4ff]">@{user.username}</p>}
+            {user.name && user.username && <p className="text-xl text-[#00d4ff]">@{user.username}</p>}
             {user.headline && (
               <p className="mt-1 text-base font-medium text-white/90 sm:text-lg">
                 {user.headline}
