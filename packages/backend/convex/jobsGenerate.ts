@@ -467,6 +467,9 @@ export const summarizeJob = action({
     why_this_role: v.string(),
   }),
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
     const openRouterClient = requireOpenRouter();
     const source = await ctx.runQuery(internal.jobs.loadSummarySource, { jobId: args.jobId });
     if (source.ai_summary) return source.ai_summary;
