@@ -58,4 +58,7 @@ export type Page = {
   culture_statement?: string | null;
   culture_tags?: string[] | null;
   specialties?: string[] | null;
+  followers_count?: number;
+  is_following?: boolean;
+  recent_followers?: Array<{ id: string; name?: string; image?: string }>;
 };

@@ -54,7 +54,11 @@ export const listMine = authedQuery({
         .withIndex("by_page", (q) => q.eq("page_id", page._id))
         .collect();
       const hydrated = await hydratePage(ctx, page);
-      rows.push({ ...hydrated, jobs: jobs.map(withId) });
+      const followers = await ctx.db
+        .query("page_followers")
+        .withIndex("by_page", (q) => q.eq("page_id", page._id))
+        .collect();
+      rows.push({ ...hydrated, jobs: jobs.map(withId), followers_count: followers.length });
     }
     return rows;
   },
@@ -68,7 +72,12 @@ export const listDiscover = authedQuery({
     const rows = [];
     for (const page of pages) {
       if (page.ownerId === ctx.user._id) continue;
-      rows.push(await hydratePage(ctx, page));
+      const hydrated = await hydratePage(ctx, page);
+      const followers = await ctx.db
+        .query("page_followers")
+        .withIndex("by_page", (q) => q.eq("page_id", page._id))
+        .collect();
+      rows.push({ ...hydrated, followers_count: followers.length });
     }
     return rows;
   },
@@ -85,7 +94,67 @@ export const getById = authedQuery({
       .withIndex("by_page", (q) => q.eq("page_id", page._id))
       .collect();
     const hydrated = await hydratePage(ctx, page);
-    return { ...hydrated, jobs: jobs.map(withId), can_manage: page.ownerId === ctx.user._id };
+
+    const followers = await ctx.db
+      .query("page_followers")
+      .withIndex("by_page", (q) => q.eq("page_id", page._id))
+      .collect();
+
+    const isFollowing = followers.some((f) => f.user_id === ctx.user._id);
+
+    const recentFollowers = [];
+    for (const f of followers.slice(0, 3)) {
+      const u = await ctx.db.get(f.user_id);
+      if (u) {
+        recentFollowers.push({
+          id: u._id,
+          name: u.name,
+          image: u.profile_image,
+        });
+      }
+    }
+
+    return {
+      ...hydrated,
+      jobs: jobs.map(withId),
+      can_manage: page.ownerId === ctx.user._id,
+      followers_count: followers.length,
+      is_following: isFollowing,
+      recent_followers: recentFollowers,
+    };
+  },
+});
+
+export const toggleFollow = authedMutation({
+  args: { pageId: v.id("pages") },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("page_followers")
+      .withIndex("by_page_and_user", (q) =>
+        q.eq("page_id", args.pageId).eq("user_id", ctx.user._id)
+      )
+      .first();
+
+    if (existing) {
+      await ctx.db.delete(existing._id);
+      const remaining = await ctx.db
+        .query("page_followers")
+        .withIndex("by_page", (q) => q.eq("page_id", args.pageId))
+        .collect();
+      return { following: false, count: remaining.length };
+    } else {
+      await ctx.db.insert("page_followers", {
+        page_id: args.pageId,
+        user_id: ctx.user._id,
+        followed_at: Date.now(),
+      });
+      const remaining = await ctx.db
+        .query("page_followers")
+        .withIndex("by_page", (q) => q.eq("page_id", args.pageId))
+        .collect();
+      return { following: true, count: remaining.length };
+    }
   },
 });
 

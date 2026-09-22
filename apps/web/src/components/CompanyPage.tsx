@@ -6,7 +6,7 @@ import { skillRoleSubtitle } from "@/constants/skills";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGetJobsQuery } from "@/features/api/jobsApi";
 import { useGetCompanySizesQuery } from "@/features/api/onboardingApi";
-import { useGetPageByIdQuery, useUpdatePageMutation } from "@/features/api/pagesApi";
+import { useGetPageByIdQuery, useToggleFollowPageMutation, useUpdatePageMutation } from "@/features/api/pagesApi";
 import { toastUnknownError } from "@/lib/errors";
 import { Job } from "@/types/job";
 import {
@@ -73,10 +73,10 @@ export function CompanyPage() {
   const id = Array.isArray(params?.id) ? params.id[0] : params?.id;
   const { user } = useAuth();
 
-  const [isFollowing, setIsFollowing] = useState(false);
   const [activeTab, setActiveTab] = useState<"overview" | "jobs">("overview");
   const [showShareModal, setShowShareModal] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [toggleFollowMutation, { isLoading: isTogglingFollow }] = useToggleFollowPageMutation();
 
   useEffect(() => {
     const tab = new URLSearchParams(window.location.search).get("tab");
@@ -122,6 +122,9 @@ export function CompanyPage() {
 
   const jobs: Job[] = (pageJobs?.length ? pageJobs : pageData.jobs) ?? [];
   const isOwner = Boolean(pageData.can_manage || pageData.owner?.id == user?.id);
+  const isFollowing = Boolean(pageData.is_following);
+  const followersCount = pageData.followers_count ?? 0;
+  const recentFollowers = pageData.recent_followers ?? [];
 
   const shareUrl = typeof window !== "undefined" ? window.location.href : "";
 
@@ -136,9 +139,15 @@ export function CompanyPage() {
     }
   };
 
-  const handleFollowCompany = () => {
-    setIsFollowing((prev) => !prev);
-    toast.success(isFollowing ? "Unfollowed company" : "Following company");
+  const handleFollowCompany = async () => {
+    try {
+      const pageId = pageData.id || (pageData as { _id?: string })._id;
+      if (!pageId) return;
+      const res = await toggleFollowMutation(String(pageId));
+      toast.success(res?.following ? "Following company" : "Unfollowed company");
+    } catch (err) {
+      toastUnknownError(err, "Failed to update follow status");
+    }
   };
 
   const hasAboutOrCulture =
@@ -199,12 +208,31 @@ export function CompanyPage() {
                 {/* Follower Avatars + Open Roles Badge */}
                 <div className="mt-4 flex flex-wrap items-center justify-center sm:justify-start gap-3 text-sm">
                   <div className="flex items-center gap-2">
-                    <div className="flex -space-x-2 overflow-hidden">
-                      <div className="size-6 rounded-full border-2 border-[#06060f] bg-gradient-to-br from-neon-cyan to-neon-purple" />
-                      <div className="size-6 rounded-full border-2 border-[#06060f] bg-gradient-to-br from-neon-purple to-neon-pink" />
-                      <div className="size-6 rounded-full border-2 border-[#06060f] bg-gradient-to-br from-neon-pink to-neon-cyan" />
-                    </div>
-                    <span className="font-medium text-white/80">1.2k Followers</span>
+                    {followersCount > 0 && recentFollowers.length > 0 && (
+                      <div className="flex -space-x-2 overflow-hidden">
+                        {recentFollowers.map((f, i) =>
+                          f.image ? (
+                            /* eslint-disable-next-line @next/next/no-img-element */
+                            <img
+                              key={f.id || i}
+                              src={f.image}
+                              alt={f.name || "Follower"}
+                              className="size-6 rounded-full border-2 border-[#06060f] object-cover"
+                            />
+                          ) : (
+                            <div
+                              key={f.id || i}
+                              className="flex size-6 items-center justify-center rounded-full border-2 border-[#06060f] bg-gradient-to-br from-neon-purple to-neon-pink text-[10px] font-bold text-white"
+                            >
+                              {f.name?.charAt(0).toUpperCase() || "U"}
+                            </div>
+                          )
+                        )}
+                      </div>
+                    )}
+                    <span className="font-medium text-white/80">
+                      {followersCount === 1 ? "1 Follower" : `${followersCount.toLocaleString()} Followers`}
+                    </span>
                   </div>
 
                   <span className="text-white/30">•</span>
@@ -252,6 +280,7 @@ export function CompanyPage() {
                   <button
                     type="button"
                     onClick={handleFollowCompany}
+                    disabled={isTogglingFollow}
                     className={`flex h-10 items-center gap-2 rounded-full px-5 text-sm font-medium transition-all ${
                       isFollowing
                         ? "border border-white/20 bg-white/10 text-white"
