@@ -39,12 +39,11 @@ const INDUSTRIES = [
   "Transportation & Logistics",
 ];
 
-type Step = "company" | "seat" | "about" | "ready";
+type Step = "company" | "seat" | "about";
 
 export function HrOnboarding({ onBack, onComplete }: { onBack: () => void; onComplete: () => void }) {
   const router = useRouter();
   const [step, setStep] = useState<Step>("company");
-  const [pageId, setPageId] = useState<string | null>(null);
   const [companyName, setCompanyName] = useState("");
   const [catalogCompanyId, setCatalogCompanyId] = useState<string | undefined>();
   const [hiringRole, setHiringRole] = useState<HiringRole | null>(null);
@@ -53,6 +52,8 @@ export function HrOnboarding({ onBack, onComplete }: { onBack: () => void; onCom
   const [industryOpen, setIndustryOpen] = useState(false);
   const [sizeId, setSizeId] = useState("");
   const [sizeOpen, setSizeOpen] = useState(false);
+  const [website, setWebsite] = useState("");
+  const [headquarters, setHeadquarters] = useState("");
 
   const { data: sizes = [] } = useGetCompanySizesQuery();
   const { data: companies = [] } = useSearchOnboardingCompaniesQuery(companyName, {
@@ -86,11 +87,12 @@ export function HrOnboarding({ onBack, onComplete }: { onBack: () => void; onCom
         hiring_role: hiringRole,
         industry: resolvedIndustry,
         size_id: sizeId,
+        website: website.trim() || undefined,
+        headquarters: headquarters.trim() || undefined,
       }).unwrap();
       onComplete();
-      setPageId(result.page_id);
-      setCompanyName(result.company_name);
-      setStep("ready");
+      const destination = result.page_id ? `/pages/${result.page_id}` : "/pages";
+      router.push(destination);
     } catch (err) {
       toastUnknownError(err, "Could not finish setup. Please try again.");
     }
@@ -105,7 +107,7 @@ export function HrOnboarding({ onBack, onComplete }: { onBack: () => void; onCom
         };
 
   return (
-    <OnboardingShell onBack={step === "ready" ? undefined : backForStep}>
+    <OnboardingShell onBack={backForStep}>
       <AnimatePresence mode="wait">
       {step === "company" && (
         <motion.div
@@ -116,7 +118,7 @@ export function HrOnboarding({ onBack, onComplete }: { onBack: () => void; onCom
           transition={{ duration: 0.25 }}
           className={ONBOARDING_CARD}
         >
-          <StepProgress current={1} total={4} />
+          <StepProgress current={1} total={3} />
           <h2 className="mt-6 text-3xl font-bold text-white">Which company are you hiring for?</h2>
           <div className="mt-4 rounded-xl bg-white/[0.04] px-4 py-3 text-sm leading-relaxed text-muted-foreground">
             Search by name. If it&apos;s not listed, add it — no verification needed yet.
@@ -192,7 +194,7 @@ export function HrOnboarding({ onBack, onComplete }: { onBack: () => void; onCom
           transition={{ duration: 0.25 }}
           className={ONBOARDING_CARD}
         >
-          <StepProgress current={2} total={4} />
+          <StepProgress current={2} total={3} />
           <h2 className="mt-6 text-3xl font-bold text-white">How do you fit into hiring?</h2>
           <p className="mt-2 text-[15px] text-muted-foreground">This shapes what you see — shortlists, upstream signal, or full pipeline.</p>
 
@@ -236,7 +238,7 @@ export function HrOnboarding({ onBack, onComplete }: { onBack: () => void; onCom
           transition={{ duration: 0.25 }}
           className={ONBOARDING_CARD}
         >
-          <StepProgress current={3} total={4} />
+          <StepProgress current={3} total={3} />
           <h2 className="mt-6 text-3xl font-bold text-white">Tell us about the company.</h2>
           <p className="mt-2 text-[15px] text-muted-foreground">Candidates use this to assess fit before they apply.</p>
 
@@ -310,49 +312,46 @@ export function HrOnboarding({ onBack, onComplete }: { onBack: () => void; onCom
             </ul>
           )}
 
-          <button type="button" onClick={handleFinish} disabled={!(industry.trim() || industryQuery.trim()) || !sizeId || isLoading} className={`mt-6 ${PRIMARY_BTN}`}>
-            {isLoading ? "Saving…" : "Continue"}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-5">
+            <div>
+              <label htmlFor="website" className="block text-sm text-muted-foreground">
+                Website <span className="text-xs text-muted-foreground/60">(optional)</span>
+              </label>
+              <input
+                id="website"
+                type="url"
+                value={website}
+                placeholder="e.g. https://acme.com"
+                onChange={(event) => setWebsite(event.target.value)}
+                className="mt-2 h-14 w-full rounded-full border border-white/12 bg-white/[0.04] px-5 text-[15px] text-white outline-none placeholder:text-muted-foreground focus:border-neon-purple"
+              />
+            </div>
+            <div>
+              <label htmlFor="headquarters" className="block text-sm text-muted-foreground">
+                Headquarters <span className="text-xs text-muted-foreground/60">(optional)</span>
+              </label>
+              <input
+                id="headquarters"
+                value={headquarters}
+                placeholder="e.g. San Francisco, CA"
+                onChange={(event) => setHeadquarters(event.target.value)}
+                className="mt-2 h-14 w-full rounded-full border border-white/12 bg-white/[0.04] px-5 text-[15px] text-white outline-none placeholder:text-muted-foreground focus:border-neon-purple"
+              />
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleFinish}
+            disabled={!(industry.trim() || industryQuery.trim()) || !sizeId || isLoading}
+            className={`mt-6 ${PRIMARY_BTN}`}
+          >
+            {isLoading ? "Creating company page…" : "Complete & View Company Page"}
             {!isLoading ? <ArrowRightIcon /> : null}
           </button>
         </motion.div>
       )}
-
-      {step === "ready" && (
-        <motion.div
-          key="ready"
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -12 }}
-          transition={{ duration: 0.25 }}
-          className={`${ONBOARDING_CARD} text-center`}
-        >
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full gradient-primary">
-            <CheckIcon />
-          </div>
-          <h2 className="mt-6 text-3xl font-bold text-white">You&apos;re ready to hire.</h2>
-          <p className="mt-3 text-[15px] leading-relaxed text-muted-foreground">
-            Your pipeline for <span className="font-medium text-white">{companyName}</span> is live. Shortlists start appearing as candidates match your open roles.
-          </p>
-          <button
-            type="button"
-            onClick={() => router.push(pageId ? `/pages/${pageId}?tab=jobs` : "/pages")}
-            className={`mt-8 ${PRIMARY_BTN}`}
-          >
-            See my dashboard
-            <SparkleIcon />
-          </button>
-          <p className="mt-5 text-sm text-muted-foreground">Account created. Check your email for a copy of your setup.</p>
-        </motion.div>
-      )}
       </AnimatePresence>
     </OnboardingShell>
-  );
-}
-
-function SparkleIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-      <path d="M12 2.5 13.4 8l5.6 1.4L13.4 10.8 12 16.5l-1.4-5.7L5 9.4 10.6 8 12 2.5Zm7 11 0.8 3.1 3.2.8-3.2.8-.8 3.1-.8-3.1-3.2-.8 3.2-.8.8-3.1Z" />
-    </svg>
   );
 }

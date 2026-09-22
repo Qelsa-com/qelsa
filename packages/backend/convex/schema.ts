@@ -114,6 +114,10 @@ export default defineSchema({
     facebook_url: v.optional(v.string()),
     instagram_url: v.optional(v.string()),
     youtube_url: v.optional(v.string()),
+    glassdoor_url: v.optional(v.string()),
+    culture_statement: v.optional(v.string()),
+    culture_tags: v.optional(v.array(v.string())),
+    specialties: v.optional(v.array(v.string())),
     ownerId: v.id("users"),
   })
     .index("by_owner", ["ownerId"])
