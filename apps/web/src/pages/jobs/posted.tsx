@@ -135,84 +135,85 @@ export default function Posted() {
   return (
     <Layout activeSection={"jobs"}>
       <div className="min-h-screen">
-        {/* Page header */}
-        <div className="flex flex-col gap-8 px-6 lg:px-20 pt-12 pb-8">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex flex-col gap-3">
-              <h1 className="text-4xl lg:text-5xl font-extrabold text-white">Job posts</h1>
-              <p className="text-lg text-white/70">Manage and track your job postings</p>
+        <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 pt-8 sm:pt-10 pb-20 flex flex-col gap-8">
+          {/* Page header */}
+          <div className="flex flex-col gap-8">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex flex-col gap-3">
+                <h1 className="text-4xl lg:text-5xl font-extrabold text-white">Job posts</h1>
+                <p className="text-lg text-white/70">Manage and track your job postings</p>
+              </div>
+
+              <Button
+                onClick={() => router.push("/jobs/create-job")}
+                className="rounded-full gradient-primary px-6 py-3 h-auto text-sm font-bold text-white border-0 shadow-lg hover:shadow-xl hover:shadow-neon-purple/30 transition-all duration-300"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Post job
+              </Button>
             </div>
 
-            <Button
-              onClick={() => router.push("/jobs/create-job")}
-              className="rounded-full gradient-primary px-6 py-3 h-auto text-sm font-bold text-white border-0 shadow-lg hover:shadow-xl hover:shadow-neon-purple/30 transition-all duration-300"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Post job
-            </Button>
+            {isLoading ? (
+              <PostedJobsSkeleton />
+            ) : (
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="flex flex-col gap-1.5 rounded-2xl border border-white/12 bg-white/3 p-4">
+                  <p className="text-xs text-white/45">Active jobs</p>
+                  <p className="text-2xl font-bold text-white">{openJobs.length}</p>
+                </div>
+                <div className="flex flex-col gap-1.5 rounded-2xl border border-white/12 bg-white/3 p-4">
+                  <p className="text-xs text-white/45">Paused</p>
+                  <p className="text-2xl font-bold text-white">{pausedJobs.length}</p>
+                </div>
+                <div className="flex flex-col gap-1.5 rounded-2xl border border-white/12 bg-white/3 p-4">
+                  <p className="text-xs text-white/45">Applications</p>
+                  <p className="text-2xl font-bold text-white">{totalApplications}</p>
+                </div>
+                <div className="flex flex-col gap-1.5 rounded-2xl border border-white/12 bg-white/3 p-4">
+                  <p className="text-xs text-white/45">Closed</p>
+                  <p className="text-2xl font-bold text-white">{closedJobs.length}</p>
+                </div>
+              </div>
+            )}
           </div>
 
-          {isLoading ? (
-            <PostedJobsSkeleton />
-          ) : (
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-              <div className="flex flex-col gap-1.5 rounded-2xl border border-white/12 bg-white/3 p-4">
-                <p className="text-xs text-white/45">Active jobs</p>
-                <p className="text-2xl font-bold text-white">{openJobs.length}</p>
-              </div>
-              <div className="flex flex-col gap-1.5 rounded-2xl border border-white/12 bg-white/3 p-4">
-                <p className="text-xs text-white/45">Paused</p>
-                <p className="text-2xl font-bold text-white">{pausedJobs.length}</p>
-              </div>
-              <div className="flex flex-col gap-1.5 rounded-2xl border border-white/12 bg-white/3 p-4">
-                <p className="text-xs text-white/45">Applications</p>
-                <p className="text-2xl font-bold text-white">{totalApplications}</p>
-              </div>
-              <div className="flex flex-col gap-1.5 rounded-2xl border border-white/12 bg-white/3 p-4">
-                <p className="text-xs text-white/45">Closed</p>
-                <p className="text-2xl font-bold text-white">{closedJobs.length}</p>
-              </div>
-            </div>
-          )}
-        </div>
+          {!isLoading && (
+            <>
+              <div className="flex flex-col lg:flex-row lg:items-center gap-6 py-1">
+                <div className="relative w-full lg:w-[577px]">
+                  <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-white/45" />
+                  <Input
+                    type="text"
+                    placeholder="Search posted jobs..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="h-12 rounded-3xl border-white/12 bg-transparent pl-12 text-sm placeholder:text-white/45 focus-visible:border-neon-cyan"
+                  />
+                </div>
 
-        {!isLoading && (
-          <>
-            <div className="flex flex-col lg:flex-row lg:items-center gap-6 px-6 lg:px-20 py-3">
-              <div className="relative w-full lg:w-[577px]">
-                <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-white/45" />
-                <Input
-                  type="text"
-                  placeholder="Search posted jobs..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="h-12 rounded-3xl border-white/12 bg-transparent pl-12 text-sm placeholder:text-white/45 focus-visible:border-neon-cyan"
-                />
-              </div>
-
-              <div className="flex items-center gap-3">
-                {(Object.keys(statusLabels) as JobStatus[]).map((status) => (
-                  <button
-                    key={status}
-                    onClick={() => setStatusFilter(status)}
-                    className={`rounded-full px-5 py-2.5 text-sm transition-colors ${
-                      statusFilter === status ? "bg-neon-cyan/15 font-semibold text-neon-cyan" : "border border-white/12 font-medium text-white/70 hover:bg-white/5"
-                    }`}
-                  >
-                    {statusLabels[status]} ({statusCounts[status]})
-                  </button>
-                ))}
-              </div>
-            </div>
-
-        {/* Job listings */}
-        <div className="flex flex-col gap-5 px-6 lg:px-20 pt-6 pb-20">
-          {filteredJobs.map((job) => (
-            <div key={job.id} className="flex flex-col gap-4 rounded-[20px] border border-white/12 bg-white/4 px-7 py-6 transition-colors hover:border-neon-cyan/30">
-              {/* Title row */}
-              <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <h3 className="text-lg font-semibold text-white">{job.job_title?.name ?? job.title}</h3>
+                  {(Object.keys(statusLabels) as JobStatus[]).map((status) => (
+                    <button
+                      key={status}
+                      onClick={() => setStatusFilter(status)}
+                      className={`rounded-full px-5 py-2.5 text-sm transition-colors ${
+                        statusFilter === status ? "bg-neon-cyan/15 font-semibold text-neon-cyan" : "border border-white/12 font-medium text-white/70 hover:bg-white/5"
+                      }`}
+                    >
+                      {statusLabels[status]} ({statusCounts[status]})
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Job listings */}
+              <div className="flex flex-col gap-5 pt-2">
+                {filteredJobs.map((job) => (
+                  <div key={job.id} className="flex flex-col gap-4 rounded-[20px] border border-white/12 bg-white/4 px-7 py-6 transition-colors hover:border-neon-cyan/30">
+                    {/* Title row */}
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <h3 className="text-lg font-semibold text-white">{job.job_title?.name ?? job.title}</h3>
                   <span className={`rounded-md px-2 py-[3px] text-[11px] font-semibold ${statusBadgeStyles[job.status as JobStatus] ?? statusBadgeStyles.closed}`}>
                     {statusLabels[job.status as JobStatus] ?? job.status}
                   </span>
@@ -374,6 +375,7 @@ export default function Posted() {
         </div>
           </>
         )}
+        </div>
       </div>
 
       {/* Delete Confirmation Alert Dialog */}

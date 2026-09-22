@@ -74,4 +74,6 @@ export type Job = {
   /** Denormalized applicant count; prefer this over hydrating `applications`. */
   application_count?: number;
   has_applied?: boolean;
+  is_owner?: boolean;
+  owner_id?: string | null;
 };

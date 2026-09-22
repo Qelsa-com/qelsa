@@ -20,14 +20,14 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useGetEducationsQuery } from "@/features/api/educationsApi";
 import { useGetExperiencesQuery } from "@/features/api/experiencesApi";
 import { useCreateJobApplicationMutation } from "@/features/api/jobApplicationsApi";
-import { useGetJobByIdQuery, useGetMatchByJobQuery, useGetSimilarJobsQuery, useIsJobSavedQuery, useRecordJobViewMutation, useToggleSaveJobMutation } from "@/features/api/jobsApi";
+import { RESERVED_JOB_SLUGS, useGetJobByIdQuery, useGetMatchByJobQuery, useGetSimilarJobsQuery, useIsJobSavedQuery, useRecordJobViewMutation, useToggleSaveJobMutation } from "@/features/api/jobsApi";
 import { useGetMyResumesQuery } from "@/features/api/resumeApi";
 import { toastUnknownError } from "@/lib/errors";
 import { toast } from "sonner";
 import { jobDescriptionToHtml } from "@/lib/jobDescription";
 import { Job } from "@/types/job";
 import DOMPurify from "dompurify";
-import { ArrowLeft, ArrowUpRight, Bookmark, BookmarkCheck, BookOpen, Briefcase, Building2, CheckCircle2, FileText, HelpCircle, Info, Linkedin, Link as LinkIcon, MessageCircle, Share2, Twitter } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, Bookmark, BookmarkCheck, BookOpen, Briefcase, Building2, CheckCircle2, FileText, HelpCircle, Info, Linkedin, Link as LinkIcon, MessageCircle, Pencil, Share2, Twitter, Users } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { goBackJobs } from "@/lib/jobNavigation";
 import { useEffect, useRef, useState } from "react";
@@ -107,6 +107,8 @@ function heroBadgesFor(job: Job): string[] {
 }
 
 const interviewQuestions = [
+  "What is the difference between useMemo and useCallback in React?",
+  "How does the virtual DOM work in React, and why is it useful?",
   "Explain the difference between controlled and uncontrolled components in React.",
   "How would you optimize a React application's performance?",
   "Describe your experience with state management libraries like Redux or Zustand.",
@@ -117,6 +119,7 @@ export function JobDetail() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
   const id = params?.id;
+  const isReserved = Boolean(id && RESERVED_JOB_SLUGS.has(id));
 
   const [showQuickApplyModal, setShowQuickApplyModal] = useState(false);
   const [showExternalConfirmModal, setShowExternalConfirmModal] = useState(false);
@@ -124,14 +127,21 @@ export function JobDetail() {
   const [createJobApplication, { isLoading: isApplyingExternal }] = useCreateJobApplicationMutation();
   const [matchOpen, setMatchOpen] = useState(false);
 
-  const { data: job, error, isLoading } = useGetJobByIdQuery(id!, { skip: !id });
-  const { data: similarJobs, isLoading: isSimilarLoading } = useGetSimilarJobsQuery(id!, { skip: !id });
-  const { data: myResumes } = useGetMyResumesQuery(undefined, { skip: !isAuthenticated });
-  const { data: experiences } = useGetExperiencesQuery(undefined, { skip: !isAuthenticated });
-  const { data: educations } = useGetEducationsQuery(undefined, { skip: !isAuthenticated });
-  const { data: matchSession } = useGetMatchByJobQuery(id, { skip: !isAuthenticated || !id });
+  const { data: job, error, isLoading } = useGetJobByIdQuery(isReserved ? undefined : id!, { skip: !id || isReserved });
+  const isOwner = Boolean(
+    job?.is_owner ||
+    (user?.id && job?.owner_id && String(job.owner_id) === String(user.id)) ||
+    (user?.active_page_id && job?.page_id && String(job.page_id) === String(user.active_page_id)) ||
+    (user?.account_type === "recruiter" && job?.owner_id && String(job.owner_id) === String(user.id))
+  );
+
+  const { data: similarJobs, isLoading: isSimilarLoading } = useGetSimilarJobsQuery(isReserved ? undefined : id!, { skip: !id || isReserved || isOwner });
+  const { data: myResumes } = useGetMyResumesQuery(undefined, { skip: !isAuthenticated || isOwner });
+  const { data: experiences } = useGetExperiencesQuery(undefined, { skip: !isAuthenticated || isOwner });
+  const { data: educations } = useGetEducationsQuery(undefined, { skip: !isAuthenticated || isOwner });
+  const { data: matchSession } = useGetMatchByJobQuery(isReserved ? undefined : id, { skip: !isAuthenticated || !id || isReserved || isOwner });
   const [toggleSaveJob] = useToggleSaveJobMutation();
-  const { data: savedFromServer } = useIsJobSavedQuery(id, { skip: !isAuthenticated || !id });
+  const { data: savedFromServer } = useIsJobSavedQuery(isReserved ? undefined : id, { skip: !isAuthenticated || !id || isReserved || isOwner });
   const [optimisticSaved, setOptimisticSaved] = useState<boolean | null>(null);
   const saved = optimisticSaved ?? savedFromServer ?? false;
 
@@ -183,7 +193,11 @@ export function JobDetail() {
   const competency = job.competency;
 
   const dailySkills = (job.job_skills ?? []).map((s) => s.skill?.name ?? s.title).filter(Boolean);
-  const skillsSubtitle = competency ? `You match ${competency.matchedCount} of ${competency.totalCount} skills listed here.` : "The skills this role uses day to day.";
+  const skillsSubtitle = isOwner
+    ? "The skills this role uses day to day."
+    : competency
+    ? `You match ${competency.matchedCount} of ${competency.totalCount} skills listed here.`
+    : "The skills this role uses day to day.";
 
   const userYears = (experiences ?? []).reduce((sum, exp) => sum + experienceMonths(exp), 0) / 12;
   const experienceMatch = job.experience != null ? (userYears >= job.experience ? Math.min(100, 75 + Math.round((userYears - job.experience) * 4)) : Math.round((userYears / Math.max(job.experience, 0.5)) * 100)) : userYears > 0 ? 72 : null;
@@ -199,15 +213,45 @@ export function JobDetail() {
     .filter(Boolean);
 
   const overallMatch = matchSession?.analysis?.overall;
-  const metrics = [
-    // Readiness is the deterministic skill-vs-skill match; the composite
-    // (whole profile) is shown separately as Profile Fit. Always render all
-    // four tiles so the mobile 2×2 grid stays balanced.
-    { label: "Readiness Score", value: competency ? `${competency.readiness}%` : "—" },
-    { label: "Profile Fit", value: overallMatch != null ? `${overallMatch}%` : "—" },
-    { label: "Views", value: formatCount(job.view_count ?? 0) },
-    { label: "Applications", value: `${job.application_count ?? job.applications?.length ?? 0}` },
-  ];
+  const metrics: { label: string; value: React.ReactNode }[] = isOwner
+    ? [
+        {
+          label: "Job Status",
+          value: (
+            <span className="inline-flex items-center gap-1.5 capitalize">
+              <span
+                className={`size-2 rounded-full ${
+                  job.status === "paused"
+                    ? "bg-amber-400"
+                    : job.status === "closed"
+                    ? "bg-red-400"
+                    : "bg-neon-green"
+                }`}
+              />
+              {job.status === "paused" ? "Paused" : job.status === "closed" ? "Closed" : "Active"}
+            </span>
+          ),
+        },
+        {
+          label: "Workplace",
+          value: job.workplace_type
+            ? job.workplace_type.charAt(0).toUpperCase() + job.workplace_type.slice(1)
+            : job.has_remote
+            ? "Remote"
+            : "On-site",
+        },
+        { label: "Views", value: formatCount(job.view_count ?? 0) },
+        { label: "Applications", value: `${job.application_count ?? job.applications?.length ?? 0}` },
+      ]
+    : [
+        // Readiness is the deterministic skill-vs-skill match; the composite
+        // (whole profile) is shown separately as Profile Fit. Always render all
+        // four tiles so the mobile 2×2 grid stays balanced.
+        { label: "Readiness Score", value: competency ? `${competency.readiness}%` : "—" },
+        { label: "Profile Fit", value: overallMatch != null ? `${overallMatch}%` : "—" },
+        { label: "Views", value: formatCount(job.view_count ?? 0) },
+        { label: "Applications", value: `${job.application_count ?? job.applications?.length ?? 0}` },
+      ];
 
   const isExternalApply = Boolean(job.application_url);
 
@@ -257,10 +301,14 @@ export function JobDetail() {
       {/* Mobile header bar (Figma 721:264). Desktop keeps the breadcrumb below. */}
       <div className="flex h-16 items-center justify-between border-b border-white/[0.12] bg-white/[0.06] px-4 lg:hidden">
         <div className="flex items-center gap-3">
-          <button onClick={() => goBackJobs(router)} aria-label="Back" className="flex size-10 shrink-0 items-center justify-center rounded-full border border-white/[0.12] bg-white/[0.03]">
+          <button
+            onClick={() => (isOwner ? router.push("/jobs/posted") : goBackJobs(router))}
+            aria-label="Back"
+            className="flex size-10 shrink-0 items-center justify-center rounded-full border border-white/[0.12] bg-white/[0.03]"
+          >
             <ArrowLeft className="size-5" />
           </button>
-          <span className="text-lg font-bold text-white">Job Detail</span>
+          <span className="text-lg font-bold text-white">{isOwner ? "Manage Job" : "Job Detail"}</span>
         </div>
         <button onClick={handleMobileShare} aria-label="Share job" className="flex size-10 shrink-0 items-center justify-center rounded-full border border-white/[0.12] bg-white/[0.03]">
           <Share2 className="size-5" />
@@ -270,16 +318,23 @@ export function JobDetail() {
       {/* Content. Tighter padding on a phone; the lg values are the desktop
           layout unchanged. Clearance for the fixed mobile tab bar comes from
           Layout, so there's no extra bottom padding to add here. */}
-      <div className="mx-auto flex max-w-[1280px] flex-col gap-4 px-4 pb-8 pt-4 sm:px-6 lg:gap-6 lg:px-20 lg:pb-12 lg:pt-8">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 pb-8 pt-4 sm:px-6 lg:gap-6 lg:px-8 lg:pb-12 lg:pt-8">
         {/* Breadcrumb + share sit on one row above the card. Desktop only —
             the mobile frame uses the header bar above instead. */}
         <div className="hidden w-full items-center justify-between lg:flex">
-          <button onClick={() => goBackJobs(router)} className="flex w-fit items-center gap-2 text-sm text-white/70 transition-colors hover:text-neon-cyan">
-            <ArrowLeft className="size-4" />
-            Back to jobs
-          </button>
+          {isOwner ? (
+            <button onClick={() => router.push("/jobs/posted")} className="flex w-fit items-center gap-2 text-sm text-white/70 transition-colors hover:text-neon-cyan">
+              <ArrowLeft className="size-4" />
+              Back to Manage Jobs
+            </button>
+          ) : (
+            <button onClick={() => goBackJobs(router)} className="flex w-fit items-center gap-2 text-sm text-white/70 transition-colors hover:text-neon-cyan">
+              <ArrowLeft className="size-4" />
+              Back to jobs
+            </button>
+          )}
           <div className="glass-strong flex w-fit items-center gap-2 rounded-full p-2">
-            {isAuthenticated && (
+            {!isOwner && isAuthenticated && (
               <ShareButton onClick={handleSave} active={saved}>
                 {saved ? <BookmarkCheck className="size-[18px]" /> : <Bookmark className="size-[18px]" />}
               </ShareButton>
@@ -325,22 +380,46 @@ export function JobDetail() {
             {/* Desktop keeps these in the hero; the mobile frame moves them to a
                 full-width row at the end of the page (Figma 721:285). */}
             <div className="hidden w-full items-center gap-3 lg:flex lg:w-auto">
-              {/* Saving a job needs an account — hidden while signed out. */}
-              {isAuthenticated && (
-                <Button type="button" variant="outline" onClick={handleSave} className="h-auto flex-1 rounded-full border-[1.5px] border-white/20 bg-transparent px-4 py-3 text-sm text-white hover:bg-white/5 lg:flex-none lg:px-6 lg:py-3.5">
-                  {saved ? "Saved" : "Save job"}
-                </Button>
-              )}
-              {applied ? (
-                <span className="flex-1 rounded-full border border-neon-green/30 bg-neon-green/10 px-4 py-3 text-center text-sm font-semibold text-neon-green lg:flex-none lg:px-6 lg:py-3.5 lg:text-base">Applied</span>
+              {isOwner ? (
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => router.push(`/jobs/create-job?jobId=${job.id}`)}
+                    className="h-auto flex-1 rounded-full border-[1.5px] border-white/20 bg-transparent px-4 py-3 text-sm text-white hover:bg-white/5 lg:flex-none lg:px-6 lg:py-3.5"
+                  >
+                    <Pencil className="mr-2 size-4" />
+                    Edit job
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => router.push(`/jobs/${job.id}/applications`)}
+                    className={`h-auto flex-1 rounded-full px-4 py-3 text-sm font-semibold text-white lg:flex-none lg:px-6 lg:py-3.5 lg:text-base ${GRADIENT} hover:opacity-90`}
+                  >
+                    <Users className="mr-2 size-4" />
+                    View applications ({job.application_count ?? job.applications?.length ?? 0})
+                  </Button>
+                </>
               ) : (
-                <Button
-                  onClick={handleApply}
-                  aria-label={isExternalApply ? "Apply now (opens in a new tab)" : undefined}
-                  className={`h-auto flex-1 rounded-full px-4 py-3 text-sm font-semibold text-white lg:flex-none lg:px-6 lg:py-3.5 lg:text-base ${GRADIENT} hover:opacity-90`}
-                >
-                  <ApplyNowLabel external={isExternalApply} />
-                </Button>
+                <>
+                  {/* Saving a job needs an account — hidden while signed out. */}
+                  {isAuthenticated && (
+                    <Button type="button" variant="outline" onClick={handleSave} className="h-auto flex-1 rounded-full border-[1.5px] border-white/20 bg-transparent px-4 py-3 text-sm text-white hover:bg-white/5 lg:flex-none lg:px-6 lg:py-3.5">
+                      {saved ? "Saved" : "Save job"}
+                    </Button>
+                  )}
+                  {applied ? (
+                    <span className="flex-1 rounded-full border border-neon-green/30 bg-neon-green/10 px-4 py-3 text-center text-sm font-semibold text-neon-green lg:flex-none lg:px-6 lg:py-3.5 lg:text-base">Applied</span>
+                  ) : (
+                    <Button
+                      onClick={handleApply}
+                      aria-label={isExternalApply ? "Apply now (opens in a new tab)" : undefined}
+                      className={`h-auto flex-1 rounded-full px-4 py-3 text-sm font-semibold text-white lg:flex-none lg:px-6 lg:py-3.5 lg:text-base ${GRADIENT} hover:opacity-90`}
+                    >
+                      <ApplyNowLabel external={isExternalApply} />
+                    </Button>
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -372,18 +451,20 @@ export function JobDetail() {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-6">
           {/* Left */}
           <div className="flex min-w-0 flex-1 flex-col gap-4 lg:gap-6">
-            <Card className="flex-col items-start gap-3 rounded-[20px] border-neon-cyan/40 bg-white/[0.03] p-4 lg:flex-row lg:items-center lg:gap-4 lg:p-5">
-              <div className="flex size-10 shrink-0 items-center justify-center rounded-[20px] border border-glass-border bg-white/[0.04]">
-                <FileText className="size-5 text-neon-cyan" />
-              </div>
-              <div className="flex w-full flex-1 flex-col gap-1 lg:w-auto">
-                <span className="text-sm font-semibold text-white">Profile & Resume Match Intelligence</span>
-                <span className="text-sm leading-5 text-white/70">See how your profile and resume align with this role, where the gaps are, and what to do next.</span>
-              </div>
-              <Button variant="outline" onClick={() => setMatchOpen(true)} className="h-auto w-full shrink-0 rounded-full border-neon-cyan/50 bg-transparent px-4 py-2.5 text-sm font-semibold text-neon-cyan hover:bg-neon-cyan/10 lg:w-auto">
-                Check Match Details
-              </Button>
-            </Card>
+            {!isOwner && (
+              <Card className="flex-col items-start gap-3 rounded-[20px] border-neon-cyan/40 bg-white/[0.03] p-4 lg:flex-row lg:items-center lg:gap-4 lg:p-5">
+                <div className="flex size-10 shrink-0 items-center justify-center rounded-[20px] border border-glass-border bg-white/[0.04]">
+                  <FileText className="size-5 text-neon-cyan" />
+                </div>
+                <div className="flex w-full flex-1 flex-col gap-1 lg:w-auto">
+                  <span className="text-sm font-semibold text-white">Profile & Resume Match Intelligence</span>
+                  <span className="text-sm leading-5 text-white/70">See how your profile and resume align with this role, where the gaps are, and what to do next.</span>
+                </div>
+                <Button variant="outline" onClick={() => setMatchOpen(true)} className="h-auto w-full shrink-0 rounded-full border-neon-cyan/50 bg-transparent px-4 py-2.5 text-sm font-semibold text-neon-cyan hover:bg-neon-cyan/10 lg:w-auto">
+                  Check Match Details
+                </Button>
+              </Card>
+            )}
 
             <JobAiSummary jobId={String(job.id)} summary={job.ai_summary} />
 
@@ -414,7 +495,7 @@ export function JobDetail() {
             {/* How you fit this role — reuses the data-wired competency panel.
                 The ring shows the skill-based readiness; the composite stays
                 in the Profile Fit metric so the two scores don't conflate. */}
-            {competency && <CompetencyTable competency={competency} experienceMatch={matchSession?.analysis?.experience_match ?? experienceMatch} educationMatch={matchSession?.analysis?.education_match ?? educationMatch} />}
+            {!isOwner && competency && <CompetencyTable competency={competency} experienceMatch={matchSession?.analysis?.experience_match ?? experienceMatch} educationMatch={matchSession?.analysis?.education_match ?? educationMatch} />}
 
             {/* About the Company */}
             <SectionCard icon={<BookOpen className="size-5 text-neon-purple" />} title="About the Company">
@@ -474,7 +555,7 @@ export function JobDetail() {
               <span className={`${CHIP} w-fit px-4 py-2.5 text-sm font-semibold text-neon-purple`}>View All Questions (5)</span>
             </SectionCard>
 
-            {gapSkillNames.length > 0 && (
+            {!isOwner && gapSkillNames.length > 0 && (
               <SectionCard icon={<Info className="size-5 text-neon-pink" />} title="Insider Intel: Hiring Insights">
                 <p className="text-sm leading-[22px] text-white/70">
                   This hiring team is prioritizing {gapSkillNames.slice(0, 3).join(", ")}
@@ -486,63 +567,149 @@ export function JobDetail() {
 
           {/* Right */}
           <div className="w-full lg:w-80 lg:shrink-0">
-            <SectionCard title="Similar Jobs" titleSize="text-base lg:text-lg">
-              {isSimilarLoading ? (
-                <div className="flex flex-col gap-3">
-                  {Array.from({ length: 4 }, (_, i) => (
-                    <SimilarJobCardSkeleton key={i} />
-                  ))}
-                </div>
-              ) : !similarJobs || similarJobs.length === 0 ? (
-                <p className="text-sm text-white/45">No similar jobs found.</p>
-              ) : (
-                <div className="flex flex-col gap-3">
-                  {similarJobs.slice(0, 4).map((j) => {
-                    const sName = j.page?.name || j.company_name;
-                    const salary = salaryText(j);
-                    const match = similarMatch(j);
-                    return (
-                      <div key={j.id} onClick={() => router.push(`/jobs/${j.id}`)} className="flex cursor-pointer items-center gap-3 rounded-2xl border border-glass-border bg-white/[0.03] p-4 transition-colors hover:border-neon-cyan/30">
-                        <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white/[0.04]">
-                          {j.company_logo ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={j.company_logo} alt={sName ?? "Company"} className="size-full object-cover" />
-                          ) : (
-                            <Briefcase className="size-5 text-white/70" />
-                          )}
-                        </div>
-                        <div className="flex min-w-0 flex-1 flex-col gap-1">
-                          <span className="text-sm font-semibold leading-tight text-white">{j.job_title?.name ?? j.title}</span>
-                          <span className="text-xs leading-snug text-white/45">
-                            {sName}
-                            {sName && j.city ? " • " : ""}
-                            {displayLocation(j)}
-                          </span>
-                          <span className="text-xs text-white/45">{salary ?? "Salary not disclosed"}</span>
-                        </div>
-                        {match != null && <span className="shrink-0 text-sm font-semibold text-neon-cyan">{match}% match</span>}
+            {isOwner ? (
+              <SectionCard title="Applicant Pipeline" titleSize="text-base lg:text-lg">
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-3 rounded-2xl border border-glass-border bg-white/[0.03] p-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-white/45">Total Applicants</span>
+                      <span className="text-base font-bold text-white">{job.application_count ?? job.applications?.length ?? 0}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-white/45">Total Views</span>
+                      <span className="text-base font-bold text-white">{formatCount(job.view_count ?? 0)}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-white/45">Job Status</span>
+                      <span className="inline-flex items-center gap-1.5 text-xs font-semibold capitalize text-white">
+                        <span
+                          className={`size-2 rounded-full ${
+                            job.status === "paused"
+                              ? "bg-amber-400"
+                              : job.status === "closed"
+                              ? "bg-red-400"
+                              : "bg-neon-green"
+                          }`}
+                        />
+                        {job.status === "paused" ? "Paused" : job.status === "closed" ? "Closed" : "Active"}
+                      </span>
+                    </div>
+                    {job.published_date && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-white/45">Posted On</span>
+                        <span className="text-xs text-white/70">
+                          {new Date(job.published_date).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          })}
+                        </span>
                       </div>
-                    );
-                  })}
+                    )}
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    <Button
+                      onClick={() => router.push(`/jobs/${job.id}/applications`)}
+                      className={`h-auto w-full rounded-full px-4 py-3 text-sm font-semibold text-white ${GRADIENT} hover:opacity-90`}
+                    >
+                      <Users className="mr-2 size-4" />
+                      Review Applications
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => router.push(`/jobs/create-job?jobId=${job.id}`)}
+                      className="h-auto w-full rounded-full border-[1.5px] border-white/20 bg-transparent px-4 py-3 text-sm text-white hover:bg-white/5"
+                    >
+                      <Pencil className="mr-2 size-4" />
+                      Edit Job Details
+                    </Button>
+                  </div>
                 </div>
-              )}
-            </SectionCard>
+              </SectionCard>
+            ) : (
+              <SectionCard title="Similar Jobs" titleSize="text-base lg:text-lg">
+                {isSimilarLoading ? (
+                  <div className="flex flex-col gap-3">
+                    {Array.from({ length: 4 }, (_, i) => (
+                      <SimilarJobCardSkeleton key={i} />
+                    ))}
+                  </div>
+                ) : !similarJobs || similarJobs.length === 0 ? (
+                  <p className="text-sm text-white/45">No similar jobs found.</p>
+                ) : (
+                  <div className="flex flex-col gap-3">
+                    {similarJobs.slice(0, 4).map((j) => {
+                      const sName = j.page?.name || j.company_name;
+                      const salary = salaryText(j);
+                      const match = similarMatch(j);
+                      return (
+                        <div key={j.id} onClick={() => router.push(`/jobs/${j.id}`)} className="flex cursor-pointer items-center gap-3 rounded-2xl border border-glass-border bg-white/[0.03] p-4 transition-colors hover:border-neon-cyan/30">
+                          <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white/[0.04]">
+                            {j.company_logo ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={j.company_logo} alt={sName ?? "Company"} className="size-full object-cover" />
+                            ) : (
+                              <Briefcase className="size-5 text-white/70" />
+                            )}
+                          </div>
+                          <div className="flex min-w-0 flex-1 flex-col gap-1">
+                            <span className="text-sm font-semibold leading-tight text-white">{j.job_title?.name ?? j.title}</span>
+                            <span className="text-xs leading-snug text-white/45">
+                              {sName}
+                              {sName && j.city ? " • " : ""}
+                              {displayLocation(j)}
+                            </span>
+                            <span className="text-xs text-white/45">{salary ?? "Salary not disclosed"}</span>
+                          </div>
+                          {match != null && <span className="shrink-0 text-sm font-semibold text-neon-cyan">{match}% match</span>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </SectionCard>
+            )}
           </div>
         </div>
 
         <div className="flex flex-col gap-3 lg:hidden">
           <div className="flex items-center gap-3">
-            {isAuthenticated && (
-              <Button type="button" variant="outline" onClick={handleSave} className="h-auto flex-1 rounded-full border-[1.5px] border-white/20 bg-transparent px-6 py-3.5 text-sm text-white hover:bg-white/5">
-                {saved ? "Saved" : "Save job"}
-              </Button>
-            )}
-            {applied ? (
-              <span className="flex-1 rounded-full border border-neon-green/30 bg-neon-green/10 px-6 py-3.5 text-center text-base font-semibold text-neon-green">Applied</span>
+            {isOwner ? (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => router.push(`/jobs/create-job?jobId=${job.id}`)}
+                  className="h-auto flex-1 rounded-full border-[1.5px] border-white/20 bg-transparent px-6 py-3.5 text-sm text-white hover:bg-white/5"
+                >
+                  <Pencil className="mr-2 size-4" />
+                  Edit job
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => router.push(`/jobs/${job.id}/applications`)}
+                  className={`h-auto flex-1 rounded-full px-6 py-3.5 text-base font-semibold text-white ${GRADIENT} hover:opacity-90`}
+                >
+                  <Users className="mr-2 size-4" />
+                  Applications ({job.application_count ?? job.applications?.length ?? 0})
+                </Button>
+              </>
             ) : (
-              <Button onClick={handleApply} aria-label={isExternalApply ? "Apply now (opens in a new tab)" : undefined} className={`h-auto flex-1 rounded-full px-6 py-3.5 text-base font-semibold text-white ${GRADIENT} hover:opacity-90`}>
-                <ApplyNowLabel external={isExternalApply} />
-              </Button>
+              <>
+                {isAuthenticated && (
+                  <Button type="button" variant="outline" onClick={handleSave} className="h-auto flex-1 rounded-full border-[1.5px] border-white/20 bg-transparent px-6 py-3.5 text-sm text-white hover:bg-white/5">
+                    {saved ? "Saved" : "Save job"}
+                  </Button>
+                )}
+                {applied ? (
+                  <span className="flex-1 rounded-full border border-neon-green/30 bg-neon-green/10 px-6 py-3.5 text-center text-base font-semibold text-neon-green">Applied</span>
+                ) : (
+                  <Button onClick={handleApply} aria-label={isExternalApply ? "Apply now (opens in a new tab)" : undefined} className={`h-auto flex-1 rounded-full px-6 py-3.5 text-base font-semibold text-white ${GRADIENT} hover:opacity-90`}>
+                    <ApplyNowLabel external={isExternalApply} />
+                  </Button>
+                )}
+              </>
             )}
           </div>
         </div>

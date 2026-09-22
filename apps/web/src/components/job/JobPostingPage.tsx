@@ -490,7 +490,7 @@ export function JobPostingPage() {
 
   /* -------------------------------- render ------------------------------- */
   return (
-    <div className="mx-auto w-full max-w-[1200px] px-6 pb-32 pt-6 text-white md:px-12">
+    <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 pb-32 pt-8 sm:pt-10 text-white">
       {/* Breadcrumb */}
       <button onClick={handleBack} className="mb-6 flex items-center gap-2 text-sm text-white/70 transition-colors hover:text-white">
         <ArrowLeft className="size-4" />
@@ -923,7 +923,7 @@ export function JobPostingPage() {
 
       {/* Action bar */}
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-glass-border bg-[#06060f]/90 backdrop-blur">
-        <div className="mx-auto flex max-w-[1200px] items-center justify-between px-6 py-4 md:px-12">
+        <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8 py-4">
           <button
             onClick={handleBack}
             className="rounded-full border border-white/20 px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-white/5"
