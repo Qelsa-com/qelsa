@@ -265,8 +265,8 @@ export function CompanyPageEditor() {
   };
 
   return (
-    <div className="min-h-screen pb-20 pt-8">
-      <div className="mx-auto max-w-5xl px-6">
+    <div className="min-h-screen pb-20 pt-8 sm:pt-10">
+      <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
         {/* Back Link */}
         <button
           type="button"

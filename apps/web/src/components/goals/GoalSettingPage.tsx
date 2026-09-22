@@ -174,9 +174,10 @@ export function GoalSettingPage() {
   const skillNames = (skillResults as Array<{ name?: string }>).map((row) => row.name).filter((name): name is string => Boolean(name));
 
   return (
-    <div className="mx-auto w-full max-w-[720px] px-4 py-8 text-white sm:px-6 md:px-12">
-      <h1 className="text-3xl font-extrabold tracking-tight sm:text-4xl">Set Your Career Goal</h1>
-      <p className="mt-2 text-sm text-white/50 sm:text-base">Define where you want to be - Qelsa will help you get there.</p>
+    <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-8 sm:py-10 text-white">
+      <div className="max-w-2xl">
+        <h1 className="text-3xl font-extrabold tracking-tight sm:text-4xl">Set Your Career Goal</h1>
+        <p className="mt-2 text-sm text-white/50 sm:text-base">Define where you want to be - Qelsa will help you get there.</p>
 
       <div className="mt-8 flex flex-col gap-7">
         <div className="flex flex-col gap-2">
@@ -279,6 +280,7 @@ export function GoalSettingPage() {
         <GradientButton onClick={handleSave} disabled={saving || !form.target_role.trim()}>
           {saving ? "Saving…" : savedGoal ? "Update goal" : "Set goal"}
         </GradientButton>
+      </div>
       </div>
     </div>
   );

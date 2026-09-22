@@ -625,6 +625,7 @@ export const getById = optionalAuthQuery({
     const size = sizeId ? await ctx.db.get(sizeId) : null;
     return {
       ...base,
+      is_owner: Boolean(isOwner),
       questionSets,
       page: base.page ? { ...base.page, company_size: size ? withId(size) : null } : null,
     };
@@ -850,6 +851,11 @@ export const update = authedMutation({
       const delta = openCountDelta(job.status, jobFields.status as string);
       if (delta !== 0) await bumpOpenJobCount(ctx, delta);
     }
+    for (const key of Object.keys(jobFields)) {
+      if (jobFields[key] === null) {
+        delete jobFields[key];
+      }
+    }
     await ctx.db.patch(args.jobId, jobFields);
 
     if (Array.isArray(data.skills)) {
@@ -977,20 +983,20 @@ export const createWithQuestions = authedMutation({
     const jobTitleId = (jobIn.job_title as { id?: Id<"job_titles"> } | undefined)?.id;
     const [page, jobTitle] = await Promise.all([pageId ? ctx.db.get(pageId) : null, jobTitleId ? ctx.db.get(jobTitleId) : null]);
     const jobId = await ctx.db.insert("jobs", {
-      title: (jobIn.title as string | undefined) ?? jobTitle?.name,
-      description: jobIn.description as string | undefined,
-      page_id: pageId,
-      city_id: (jobIn.city_id as Id<"cities"> | undefined) ?? (jobIn.city as { id?: Id<"cities"> } | undefined)?.id,
-      job_title_id: jobTitleId,
-      workplace_type: jobIn.workplace_type as "on-site" | "hybrid" | "remote" | undefined,
-      work_type: jobIn.work_type as string | undefined,
-      salary: jobIn.salary as number | undefined,
-      salary_min: jobIn.salary_min as number | undefined,
-      salary_max: jobIn.salary_max as number | undefined,
+      title: ((jobIn.title as string | undefined) ?? jobTitle?.name) || undefined,
+      description: (jobIn.description as string | undefined) || undefined,
+      page_id: pageId || undefined,
+      city_id: ((jobIn.city_id as Id<"cities"> | undefined) ?? (jobIn.city as { id?: Id<"cities"> } | undefined)?.id) || undefined,
+      job_title_id: jobTitleId || undefined,
+      workplace_type: (jobIn.workplace_type as "on-site" | "hybrid" | "remote" | undefined) || undefined,
+      work_type: (jobIn.work_type as string | undefined) || undefined,
+      salary: jobIn.salary != null && jobIn.salary !== "" ? Number(jobIn.salary) : undefined,
+      salary_min: jobIn.salary_min != null && jobIn.salary_min !== "" ? Number(jobIn.salary_min) : undefined,
+      salary_max: jobIn.salary_max != null && jobIn.salary_max !== "" ? Number(jobIn.salary_max) : undefined,
       salary_currency: (jobIn.salary_currency as string | undefined) ?? "INR",
-      experience: jobIn.experience as number | undefined,
-      company_name: (jobIn.company_name as string | undefined) ?? page?.name,
-      company_logo: (jobIn.company_logo as string | undefined) ?? page?.logo,
+      experience: jobIn.experience != null && jobIn.experience !== "" ? Number(jobIn.experience) : undefined,
+      company_name: ((jobIn.company_name as string | undefined) ?? page?.name) || undefined,
+      company_logo: ((jobIn.company_logo as string | undefined) ?? page?.logo) || undefined,
       status: "open",
       resource: "qelsa",
       owner_id: ctx.user._id,

@@ -106,14 +106,30 @@ export function useLazyGetSavedJobsQuery() {
   const run = (filters?: Record<string, string>, preferCacheValue?: boolean) => trigger({ search: filters?.search } as never, preferCacheValue);
   return [run, state] as const;
 }
+export const RESERVED_JOB_SLUGS = new Set([
+  "applications",
+  "posted",
+  "create-job",
+  "all",
+  "almost",
+  "ready",
+  "smart-matches",
+  "smart_matches",
+  "match",
+  "my-jobs",
+]);
+
 export function useGetJobByIdQuery(id?: string, options?: { skip?: boolean }) {
-  return useConvexQueryHook(api.jobs.getById, id ? { id } : undefined, { skip: options?.skip || !id });
+  const isInvalid = !id || RESERVED_JOB_SLUGS.has(id);
+  return useConvexQueryHook(api.jobs.getById, !isInvalid ? { id: id! } : undefined, { skip: options?.skip || isInvalid });
 }
 export function useIsJobSavedQuery(jobId?: string, options?: { skip?: boolean }) {
-  return useConvexQueryHook(api.jobs.isSaved, jobId ? { jobId } : undefined, { skip: options?.skip || !jobId });
+  const isInvalid = !jobId || RESERVED_JOB_SLUGS.has(jobId);
+  return useConvexQueryHook(api.jobs.isSaved, !isInvalid ? { jobId: jobId! } : undefined, { skip: options?.skip || isInvalid });
 }
 export function useGetSimilarJobsQuery(id?: string, options?: { skip?: boolean }) {
-  return useConvexQueryHook(api.jobs.listSimilar, id ? { id } : undefined, { skip: options?.skip || !id });
+  const isInvalid = !id || RESERVED_JOB_SLUGS.has(id);
+  return useConvexQueryHook(api.jobs.listSimilar, !isInvalid ? { id: id! } : undefined, { skip: options?.skip || isInvalid });
 }
 export function useGetCitiesQuery() {
   return useConvexQueryHook(api.jobs.listJobCities, {});

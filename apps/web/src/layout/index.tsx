@@ -11,6 +11,8 @@ import { JobFilterSidebar } from "../components/job/JobFilterSidebar";
 import { MainNavigation } from "../components/MainNavigation";
 import { ProfileDrawer } from "../components/ProfileDrawer";
 
+import { useEmployerSidebar } from "@/lib/employerSidebarState";
+
 interface LayoutProps {
   activeSection?: string;
   children: React.ReactNode;
@@ -19,24 +21,9 @@ interface LayoutProps {
 const Layout = ({ activeSection, children }: LayoutProps) => {
   const [showJobFilterSidebar, setShowJobFilterSidebar] = useState(false);
   const [showProfileDrawer, setShowProfileDrawer] = useState(false);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const { isCollapsed: isSidebarCollapsed, toggle: handleToggleSidebar } = useEmployerSidebar();
   const { user, isAuthenticated } = useAuth();
-
-  useEffect(() => {
-    const saved = localStorage.getItem("qelsa_employer_sidebar_collapsed");
-    if (saved !== null) {
-      setIsSidebarCollapsed(saved === "true");
-    }
-  }, []);
-
-  const handleToggleSidebar = useCallback(() => {
-    setIsSidebarCollapsed((prev) => {
-      const next = !prev;
-      localStorage.setItem("qelsa_employer_sidebar_collapsed", String(next));
-      return next;
-    });
-  }, []);
 
   const handleProfileClick = useCallback(() => {
     setShowProfileDrawer(true);

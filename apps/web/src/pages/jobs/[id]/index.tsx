@@ -2,9 +2,12 @@ import JobDetail from "@/components/job/JobDetail";
 import type { GetServerSideProps } from "next";
 import Layout from "../../../layout";
 
-/** Deleted slug — do not treat it as a job id. */
+import { RESERVED_JOB_SLUGS } from "@/features/api/jobsApi";
+
+/** Reserved slugs — do not treat them as a job id. */
 export const getServerSideProps: GetServerSideProps = async (ctx) => {
-  if (ctx.params?.id === "smart_matches") {
+  const id = ctx.params?.id;
+  if (typeof id === "string" && RESERVED_JOB_SLUGS.has(id)) {
     return { notFound: true };
   }
   return { props: {} };

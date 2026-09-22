@@ -13,8 +13,10 @@ import {
   Target,
 } from "lucide-react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
+import { toast } from "sonner";
+
+import { useEmployerSidebar } from "@/lib/employerSidebarState";
 
 interface EmployerSidebarProps {
   collapsed?: boolean;
@@ -31,32 +33,13 @@ export function EmployerSidebar({
 }: EmployerSidebarProps) {
   const { user } = useAuth();
   const pathname = usePathname();
-  const router = useRouter();
 
-  // Local state if not controlled
-  const [internalCollapsed, setInternalCollapsed] = useState(false);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-    const saved = localStorage.getItem("qelsa_employer_sidebar_collapsed");
-    if (saved !== null) {
-      setInternalCollapsed(saved === "true");
-    }
-  }, []);
+  const { isCollapsed: hookCollapsed, toggle: hookToggle } = useEmployerSidebar();
 
   const isCollapsed =
-    controlledCollapsed !== undefined ? controlledCollapsed : internalCollapsed;
+    controlledCollapsed !== undefined ? controlledCollapsed : hookCollapsed;
 
-  const handleToggle = () => {
-    if (onToggleCollapse) {
-      onToggleCollapse();
-    } else {
-      const next = !internalCollapsed;
-      setInternalCollapsed(next);
-      localStorage.setItem("qelsa_employer_sidebar_collapsed", String(next));
-    }
-  };
+  const handleToggle = onToggleCollapse || hookToggle;
 
   const activePageId = user?.active_page_id;
   const mySpaceUrl = activePageId ? `/pages/${activePageId}` : "/pages";
@@ -118,8 +101,8 @@ export function EmployerSidebar({
       <div className="flex flex-col">
         {/* Brand Header */}
         <div
-          className={`flex h-20 items-center px-5 ${
-            collapsedState ? "justify-center" : "gap-3"
+          className={`flex h-20 items-center ${
+            collapsedState ? "justify-center px-0" : "gap-3 px-5"
           }`}
         >
           <Link
@@ -127,7 +110,7 @@ export function EmployerSidebar({
             onClick={() => isMobile && onCloseMobile?.()}
             className="flex items-center gap-3 transition-opacity hover:opacity-90"
           >
-            <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-neon-purple to-neon-pink shadow-md">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-neon-purple to-neon-pink shadow-md">
               <span className="text-base font-extrabold text-white">Q</span>
             </div>
             {!collapsedState && (
@@ -139,26 +122,32 @@ export function EmployerSidebar({
         </div>
 
         {/* Navigation Items */}
-        <nav className="mt-4 flex flex-col gap-1.5 px-3">
+        <nav
+          className={`mt-4 flex flex-col gap-2 ${
+            collapsedState ? "items-center px-2" : "px-3"
+          }`}
+        >
           {navItems.map((item) => {
             const Icon = item.icon;
             const active = item.isActive;
 
             return (
-              <button
+              <Link
                 key={item.id}
-                type="button"
+                href={item.href}
                 onClick={() => {
-                  router.push(item.href);
                   if (isMobile) onCloseMobile?.();
                 }}
                 title={collapsedState ? item.label : undefined}
-                className={`group flex h-12 w-full items-center rounded-xl transition-colors ${
-                  collapsedState ? "justify-center px-0" : "gap-3.5 px-4"
+                aria-label={item.label}
+                className={`group flex items-center transition-all ${
+                  collapsedState
+                    ? "size-11 shrink-0 justify-center rounded-full aspect-square"
+                    : "h-11 w-full gap-3.5 px-4 rounded-xl"
                 } ${
                   active
-                    ? "border border-neon-cyan/30 bg-neon-cyan/10 text-neon-cyan font-medium"
-                    : "text-white/70 hover:bg-white/[0.04] hover:text-white"
+                    ? "border border-neon-cyan/40 bg-neon-cyan/10 text-neon-cyan font-medium shadow-[0_0_15px_rgba(0,242,254,0.15)]"
+                    : "text-white/70 hover:bg-white/[0.06] hover:text-white"
                 }`}
               >
                 <Icon
@@ -169,43 +158,48 @@ export function EmployerSidebar({
                 {!collapsedState && (
                   <span className="truncate text-[15px]">{item.label}</span>
                 )}
-              </button>
+              </Link>
             );
           })}
         </nav>
       </div>
 
-      {/* Bottom Section: Collapse Toggle + Notification Bell */}
-      <div className="flex flex-col items-center gap-4 px-3 pb-6">
+      {/* Bottom Section: Collapse Toggle + Notification Bell at bottom */}
+      <div
+        className={`flex flex-col gap-3 pb-6 ${
+          collapsedState ? "items-center px-2" : "items-start px-3"
+        }`}
+      >
         {!isMobile && (
-          <>
+          <button
+            type="button"
+            onClick={handleToggle}
+            aria-label={collapsedState ? "Expand sidebar" : "Collapse sidebar"}
+            title={collapsedState ? "Expand sidebar" : "Collapse sidebar"}
+            className={`flex items-center transition-colors ${
+              collapsedState
+                ? "size-10 justify-center rounded-full border border-white/10 bg-white/[0.03] text-white/70 hover:bg-white/[0.08] hover:text-white"
+                : "h-11 w-full justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm font-medium text-white/80 hover:bg-white/[0.08] hover:text-white"
+            }`}
+          >
             {collapsedState ? (
-              <button
-                type="button"
-                onClick={handleToggle}
-                aria-label="Expand sidebar"
-                className="flex size-10 items-center justify-center rounded-xl border border-white/10 bg-white/[0.03] text-white/70 transition-colors hover:bg-white/[0.08] hover:text-white"
-              >
-                <ChevronsRight className="size-4" />
-              </button>
+              <ChevronsRight className="size-4" />
             ) : (
-              <button
-                type="button"
-                onClick={handleToggle}
-                className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm font-medium text-white/80 transition-colors hover:bg-white/[0.08] hover:text-white"
-              >
+              <>
                 <ChevronsLeft className="size-4" />
                 <span>Collapse</span>
-              </button>
+              </>
             )}
-          </>
+          </button>
         )}
 
-        {/* Circular Notification Bell */}
+        {/* Circular Notification Bell at bottom, aligned to left on expand */}
         <button
           type="button"
+          onClick={() => toast.info("No new notifications")}
           aria-label="Notifications"
-          className="flex size-11 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-white/70 transition-colors hover:bg-white/[0.08] hover:text-white"
+          title="Notifications"
+          className="flex size-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-white/70 transition-colors hover:bg-white/[0.08] hover:text-white"
         >
           <Bell className="size-4" />
         </button>

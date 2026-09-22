@@ -153,7 +153,7 @@ export function CompanyPage() {
         {/* Cyan Radial Glow Background */}
         <div className="pointer-events-none absolute -top-24 left-1/2 h-[340px] w-[640px] -translate-x-1/2 rounded-full bg-neon-cyan/[0.12] blur-[120px]" />
 
-        <div className="relative mx-auto max-w-6xl px-6">
+        <div className="relative mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
             {/* Identity Cluster */}
             <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-start text-center sm:text-left">
@@ -307,7 +307,7 @@ export function CompanyPage() {
       </div>
 
       {/* Main Content Area */}
-      <div className="mx-auto max-w-6xl px-6 pt-8">
+      <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 pt-8">
         {activeTab === "overview" && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Left Column (2 Cols) */}

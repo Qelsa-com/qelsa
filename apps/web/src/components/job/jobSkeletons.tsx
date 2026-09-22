@@ -104,7 +104,7 @@ export function JobDetailSkeleton() {
   return (
     <div className="text-white" role="status" aria-label="Loading job">
       <span className="sr-only">Loading job</span>
-      <div className="relative mx-auto flex max-w-[1280px] flex-col gap-4 px-4 pb-8 pt-4 sm:px-6 lg:gap-6 lg:px-20 lg:pb-12 lg:pt-8">
+      <div className="relative mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 pb-8 pt-4 sm:px-6 lg:gap-6 lg:px-8 lg:pb-12 lg:pt-8">
         <Bone className="hidden h-4 w-28 lg:block" />
 
         <div className="rounded-xl border border-glass-border bg-white/[0.03] p-4 lg:rounded-[20px] lg:p-8">

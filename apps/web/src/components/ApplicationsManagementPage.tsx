@@ -9,11 +9,11 @@ import {
   useSearchJobApplicantsNatural,
   useSearchJobApplicantsQuery,
 } from "@/features/api/jobApplicationsApi";
-import { useGetJobByIdQuery } from "@/features/api/jobsApi";
-import { AlertTriangle, Archive, ArrowLeft, ArrowRight, ChevronDown, ChevronLeft, ChevronRight, Download, Lock, Mail, MessageCircle, Phone, Send, Share2, Star, Users, XCircle } from "lucide-react";
+import { useGetJobByIdQuery, useGetPostedJobsQuery } from "@/features/api/jobsApi";
+import { AlertTriangle, Archive, ArrowLeft, ArrowRight, Briefcase, ChevronDown, ChevronLeft, ChevronRight, Download, Lock, Mail, MessageCircle, Phone, Plus, Send, Share2, Star, Users, XCircle } from "lucide-react";
 import { JobApplicationAnswer } from "@/types/jobApplicationAnswers";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { goBackJobs } from "@/lib/jobNavigation";
 import { useCallback, useMemo, useState } from "react";
 import { CandidateNLPSearch } from "./CandidateNLPSearch";
@@ -122,8 +122,20 @@ const looksLikeNl = (query: string) => {
 
 export function ApplicationsManagementPage() {
   const router = useRouter();
-  const params = useParams<{ id: string }>();
-  const id = params?.id;
+  const params = useParams<{ id?: string }>();
+  const searchParams = useSearchParams();
+  const queryJobId = searchParams?.get("jobId");
+
+  const { data: postedJobs = [], isLoading: isJobsLoading } = useGetPostedJobsQuery();
+
+  const rawId = params?.id;
+  const validParamId = rawId && rawId !== "applications" ? rawId : undefined;
+  const effectiveJobId =
+    validParamId ||
+    queryJobId ||
+    (postedJobs.find((j) => j.status === "open")?.id ? String(postedJobs.find((j) => j.status === "open")?.id) : postedJobs[0]?.id ? String(postedJobs[0]?.id) : undefined);
+
+  const id = effectiveJobId;
 
   const [selectedApplicationId, setSelectedApplicationId] = useState<string | number | null>(null);
   const [selectedApplications, setSelectedApplications] = useState<Array<string | number>>([]);
@@ -348,9 +360,38 @@ export function ApplicationsManagementPage() {
   const candidateYears = yearsOfExperience(selectedApplication?.user?.experiences) ?? selectedListRow?.years_experience ?? null;
   const selectedHit = selectedApplicationId != null ? hitById.get(String(selectedApplicationId)) : undefined;
 
+  if (!isJobsLoading && postedJobs.length === 0 && !id) {
+    return (
+      <div className="min-h-screen">
+        <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 pt-8 sm:pt-10 pb-20">
+          <div className="flex flex-col gap-3 mb-10">
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white">Applications</h1>
+            <p className="text-white/60">Review and manage candidate applications across your job postings</p>
+          </div>
+          <div className="flex flex-col items-center justify-center py-20 px-6 rounded-2xl border border-white/12 bg-white/4 text-center">
+            <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-white/5 border border-white/10">
+              <Users className="h-10 w-10 text-white/40" />
+            </div>
+            <h2 className="text-2xl font-bold text-white mb-2">No job applications yet</h2>
+            <p className="text-white/60 max-w-md mb-6 text-sm sm:text-base">
+              Post a job to start receiving candidate applications and evaluating them with AI match scores.
+            </p>
+            <Button
+              onClick={() => router.push("/jobs/create-job")}
+              className="rounded-full gradient-primary px-6 py-3 font-bold text-white border-0 shadow-lg hover:shadow-neon-purple/20 transition-all"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Post a job
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen">
-      <div className="flex flex-col gap-8 px-4 sm:px-6 lg:px-20 pt-8 sm:pt-12 pb-20">
+      <div className="mx-auto w-full max-w-7xl flex flex-col gap-8 px-4 sm:px-6 lg:px-8 pt-8 sm:pt-10 pb-20">
         {/* Header, Stats & Filter bar - hidden on mobile when viewing candidate details */}
         <div className={`${mobileDetailOpen ? "hidden lg:flex" : "flex"} flex-col gap-8`}>
           {/* Header */}
@@ -361,7 +402,29 @@ export function ApplicationsManagementPage() {
 
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex flex-col gap-2 sm:gap-3">
-              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white">Applications</h1>
+              <div className="flex flex-wrap items-center gap-3">
+                <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white">Applications</h1>
+                {postedJobs.length > 1 && (
+                  <Select
+                    value={String(id ?? "")}
+                    onValueChange={(val) => {
+                      router.push(`/jobs/applications?jobId=${val}`);
+                    }}
+                  >
+                    <SelectTrigger className="h-9 w-auto gap-2 rounded-full border-white/15 bg-white/5 px-4 text-xs sm:text-sm font-semibold text-white hover:bg-white/10">
+                      <Briefcase className="w-3.5 h-3.5 text-neon-cyan" />
+                      <SelectValue placeholder="Switch Job" />
+                    </SelectTrigger>
+                    <SelectContent className="glass-strong border-glass-border">
+                      {postedJobs.map((j) => (
+                        <SelectItem key={j.id} value={String(j.id)}>
+                          {j.job_title?.name ?? j.title} ({j.application_count ?? j.applications?.length ?? 0} applicants)
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
               <p className="text-sm sm:text-base text-white/60">
                 {[jobTitle, currentJobPosting?.city && formatCity(currentJobPosting.city)].filter(Boolean).join(" · ")}
                 {applicants ? ` - ${applicants.length} applicants` : ""}
