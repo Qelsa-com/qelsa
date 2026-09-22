@@ -38,6 +38,8 @@ export function useCompleteHrOnboardingMutation() {
       hiring_role: HiringRole;
       industry: string;
       size_id: string;
+      website?: string;
+      headquarters?: string;
     }) => input,
   );
 }

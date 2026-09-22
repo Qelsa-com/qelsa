@@ -1,1687 +1,708 @@
-import React, { useState, useRef, useEffect } from 'react';
+"use client";
+
+import { useAuth } from "@/contexts/AuthContext";
+import { useGetCompanySizesQuery } from "@/features/api/onboardingApi";
+import { useGetPageByIdQuery, useUpdatePageMutation } from "@/features/api/pagesApi";
+import { toastUnknownError } from "@/lib/errors";
 import {
   ArrowLeft,
-  Building,
-  Users,
-  User,
-  Heart,
-  Shield,
-  Camera,
-  Upload,
-  X,
-  Check,
-  Sparkles,
-  MapPin,
+  Award,
+  BarChart2,
+  BookOpen,
+  Briefcase,
+  Building2,
+  CheckSquare,
   Globe,
-  Linkedin,
-  Twitter,
-  Mail,
-  Phone,
-  Calendar,
-  Eye,
-  EyeOff,
-  Save,
-  Clock,
-  AlertCircle,
-  Lock,
-  Unlock,
-  ChevronDown,
-  Loader2,
-  CheckCircle,
-  XCircle,
-  Edit3,
-  Trash2,
-  Plus,
-  Zap,
-  AlertTriangle,
-  Send,
-  UserPlus,
-  Crown,
-  ShieldCheck,
-  FileEdit,
-  UserCheck,
-  MoreVertical,
-  Copy,
-  ExternalLink,
-  History,
+  Heart,
+  HeartHandshake,
   Image as ImageIcon,
-  Video,
-  Tag,
-  Link as LinkIcon,
   Info,
-} from 'lucide-react';
-import { Button } from './ui/button';
-import { Input } from './ui/input';
-import { Label } from './ui/label';
-import { Textarea } from './ui/textarea';
-import { Card } from './ui/card';
-import { Badge } from './ui/badge';
-import { Separator } from './ui/separator';
-import { toast } from 'sonner';
-import { useRouter, useParams } from 'next/navigation';
-import { useGetPageByIdQuery, useUpdatePageMutation } from '@/features/api/pagesApi';
-import { useLazyGetCompanySizesQuery } from '@/features/api/seedApi';
-import { toastUnknownError } from '@/lib/errors';
-import { Page } from '@/types/page';
-import { CulturePanel } from './CulturePanel';
-import { SearchSelect } from './ui/search-select';
-import { CompanyPageSkeleton } from './pageSkeletons';
+  Layers,
+  Linkedin,
+  Loader2,
+  Shield,
+  Sliders,
+  TrendingUp,
+  Trash2,
+  Twitter,
+  Upload,
+  Users,
+  X,
+  Zap,
+} from "lucide-react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import React, { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
+import { CompanyPageSkeleton } from "./pageSkeletons";
 
-/*
-  Local interfaces & mock data replaced by the shared `Page` type + pagesApi.
-  Kept (commented) for reference — see @/types/page and @/features/api/pagesApi.
-
-export interface CompanyPageData {
-  // Basic Info
-  id: string;
-  name: string;
-  slug: string;
-  pageType?: 'company' | 'institution'; // Page type for culture attributes
-  logo: string;
-  heroImage: string;
-
-  // About
-  aboutShort: string; // max 280 chars
-  aboutRich: string; // rich text
-  tags: string[]; // focus areas
-  primaryIndustry: string;
-
-  // Company Details
-  website: string;
-  industry: string;
-  companySize: string;
-  headquarters: string;
-  foundedYear: number;
-  contactEmail: string;
-  contactPhone: string;
-  socials: {
-    linkedin: string;
-    twitter: string;
-    glassdoor: string;
-  };
-
-  // Culture
-  culture: {
-    tagline: string;
-    values: Array<{
-      id: string;
-      title: string;
-      description: string; // max 100 chars
-    }>;
-    benefits: string[]; // tags
-    highlights: Array<{
-      id: string;
-      image: string;
-      title: string;
-      text: string; // max 200 chars
-    }>;
-    videoUrl: string;
-    diversityStatement: string;
-    // Culture Attributes from CulturePanel
-    attributes: string[]; // e.g., ['collaborative', 'remote_first', 'mission_driven']
-    cultureStatement: string; // max 140 chars
-    jobMatchingImportance: number; // 0-100
-  };
-
-  // Metadata
-  createdBy: string;
-  createdAt: string;
-  updatedBy: string;
-  updatedAt: string;
-}
-
-export interface RegisteredUser {
-  id: string;
-  username: string;
-  name: string;
-  email: string;
-  avatar?: string;
-  title?: string;
-  isVerified?: boolean;
-}
-
-export interface PageUser {
-  id: string;
-  userId?: string;
-  email: string;
-  name: string;
-  avatar: string;
-  role: 'owner' | 'admin' | 'editor' | 'moderator' | 'viewer';
-  invitedBy: string;
-  invitedAt: string;
-  acceptedAt?: string;
-  lastActiveAt?: string;
-  status: 'active' | 'pending' | 'inactive';
-}
-
-// Mock registered Qelsa users
-const REGISTERED_QELSA_USERS: RegisteredUser[] = [
-  {
-    id: 'user_1',
-    username: '@sarah_chen',
-    name: 'Sarah Chen',
-    email: 'sarah.chen@example.com',
-    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop',
-    title: 'Senior Product Manager',
-    isVerified: true,
-  },
-  {
-    id: 'user_2',
-    username: '@michael_torres',
-    name: 'Michael Torres',
-    email: 'michael.torres@example.com',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop',
-    title: 'Software Engineer',
-    isVerified: true,
-  },
-  {
-    id: 'user_3',
-    username: '@emily_watson',
-    name: 'Emily Watson',
-    email: 'emily.watson@example.com',
-    avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop',
-    title: 'UX Designer',
-    isVerified: false,
-  },
-  {
-    id: 'user_4',
-    username: '@david_kim',
-    name: 'David Kim',
-    email: 'david.kim@example.com',
-    avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop',
-    title: 'Marketing Director',
-    isVerified: true,
-  },
-  {
-    id: 'user_5',
-    username: '@jessica_rodriguez',
-    name: 'Jessica Rodriguez',
-    email: 'jessica.rodriguez@example.com',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop',
-    title: 'Data Analyst',
-    isVerified: true,
-  },
-  {
-    id: 'user_6',
-    username: '@james_anderson',
-    name: 'James Anderson',
-    email: 'james.anderson@example.com',
-    avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=100&h=100&fit=crop',
-    title: 'DevOps Engineer',
-    isVerified: false,
-  },
-  {
-    id: 'user_7',
-    username: '@olivia_martinez',
-    name: 'Olivia Martinez',
-    email: 'olivia.martinez@example.com',
-    avatar: 'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=100&h=100&fit=crop',
-    title: 'Content Strategist',
-    isVerified: true,
-  },
-  {
-    id: 'user_8',
-    username: '@ryan_thompson',
-    name: 'Ryan Thompson',
-    email: 'ryan.thompson@example.com',
-    avatar: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=100&h=100&fit=crop',
-    title: 'Full Stack Developer',
-    isVerified: true,
-  },
-  {
-    id: 'user_9',
-    username: '@sophia_lee',
-    name: 'Sophia Lee',
-    email: 'sophia.lee@example.com',
-    avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop',
-    title: 'HR Manager',
-    isVerified: false,
-  },
-  {
-    id: 'user_10',
-    username: '@alex_brown',
-    name: 'Alex Brown',
-    email: 'alex.brown@example.com',
-    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop',
-    title: 'Sales Lead',
-    isVerified: true,
-  },
-];
-
-// Default page data used to seed the editor (self-contained — no props).
-const DEFAULT_COMPANY_PAGE_DATA: CompanyPageData = {
-  id: 'page-1',
-  name: 'Acme Corporation',
-  slug: 'acme-corporation',
-  pageType: 'company',
-  logo: '',
-  heroImage: '',
-  aboutShort: '',
-  aboutRich: '',
-  tags: [],
-  primaryIndustry: 'Technology',
-  website: '',
-  industry: 'Technology',
-  companySize: '11-50 employees',
-  headquarters: '',
-  foundedYear: 2020,
-  contactEmail: '',
-  contactPhone: '',
-  socials: { linkedin: '', twitter: '', glassdoor: '' },
-  culture: {
-    tagline: '',
-    values: [],
-    benefits: [],
-    highlights: [],
-    videoUrl: '',
-    diversityStatement: '',
-    attributes: [],
-    cultureStatement: '',
-    jobMatchingImportance: 50,
-  },
-  createdBy: 'user-1',
-  createdAt: '2024-01-01T00:00:00.000Z',
-  updatedBy: 'user-1',
-  updatedAt: '2024-01-01T00:00:00.000Z',
+const CULTURE_PRESETS: Record<string, string[]> = {
+  Startup: [
+    "Fast-paced / Rapid iteration",
+    "Autonomous / High ownership",
+    "Flat / Low hierarchy",
+    "Mission-driven / Impact-first",
+  ],
+  Enterprise: [
+    "Structured / Process-oriented",
+    "Clear career paths",
+    "Collaborative / Team-first",
+    "Data-driven / Metrics-first",
+  ],
+  "Remote-first": [
+    "Remote-first / Distributed",
+    "Autonomous / High ownership",
+    "Work-life balance",
+  ],
+  Hybrid: [
+    "Collaborative / Team-first",
+    "Autonomous / High ownership",
+    "Work-life balance",
+  ],
+  "Mission-driven": [
+    "Mission-driven / Impact-first",
+    "Collaborative / Team-first",
+    "Diversity & Inclusion emphasis",
+  ],
+  "Work-life balanced": [
+    "Work-life balance",
+    "Learning-focused / Mentorship",
+    "Flat / Low hierarchy",
+  ],
 };
 
-const DEFAULT_PAGE_USERS: PageUser[] = [
-  {
-    id: 'pu_1',
-    userId: 'user-1',
-    email: 'owner@acme.com',
-    name: 'You (Owner)',
-    avatar: '',
-    role: 'owner',
-    invitedBy: 'user-1',
-    invitedAt: '2024-01-01T00:00:00.000Z',
-    acceptedAt: '2024-01-01T00:00:00.000Z',
-    status: 'active',
-  },
+const CULTURE_ATTRIBUTES_LIST = [
+  { key: "Collaborative / Team-first", icon: Users },
+  { key: "Autonomous / High ownership", icon: Shield },
+  { key: "Fast-paced / Rapid iteration", icon: Zap },
+  { key: "Structured / Process-oriented", icon: CheckSquare },
+  { key: "Remote-first / Distributed", icon: Globe },
+  { key: "Office-first / In-person", icon: Building2 },
+  { key: "Flat / Low hierarchy", icon: Layers },
+  { key: "Mission-driven / Impact-first", icon: TrendingUp },
+  { key: "Work-life balance", icon: Heart },
+  { key: "Learning-focused / Mentorship", icon: BookOpen },
+  { key: "Data-driven / Metrics-first", icon: BarChart2 },
+  { key: "Design-driven / UX-first", icon: Sliders },
+  { key: "Diversity & Inclusion emphasis", icon: HeartHandshake },
+  { key: "Clear career paths", icon: Award },
 ];
-*/
-
-const INDUSTRIES = [
-  'Technology',
-  'Software Development',
-  'Artificial Intelligence',
-  'Cloud Computing',
-  'Financial Services',
-  'Healthcare',
-  'E-commerce',
-  'Education',
-  'Marketing',
-  'Consulting',
-  'Manufacturing',
-  'Retail',
-  'Other',
-];
-
-const ROLE_PERMISSIONS = {
-  owner: { edit: true, publish: true, manageUsers: true, transferOwnership: true },
-  admin: { edit: true, publish: true, manageUsers: true, transferOwnership: false },
-  editor: { edit: true, publish: false, manageUsers: false, transferOwnership: false },
-  moderator: { edit: true, publish: false, manageUsers: false, transferOwnership: false },
-  viewer: { edit: false, publish: false, manageUsers: false, transferOwnership: false },
-};
 
 export function CompanyPageEditor() {
   const router = useRouter();
+  const params = useParams();
+  const searchParams = useSearchParams();
+  const id = Array.isArray(params?.id) ? params.id[0] : params?.id;
+  const { user } = useAuth();
 
-  const params = useParams<{ id: string }>();
-  const id = params?.id;
+  const [activeTab, setActiveTab] = useState<"about" | "details" | "culture">("about");
+  const [isSaving, setIsSaving] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { data: fetchedPage, isLoading } = useGetPageByIdQuery(id!, { skip: !id });
+  // Form states
+  const [logo, setLogo] = useState("");
+  const [tagline, setTagline] = useState("");
+  const [detailedDescription, setDetailedDescription] = useState("");
+  const [specialties, setSpecialties] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState("");
+
+  const [website, setWebsite] = useState("");
+  const [industry, setIndustry] = useState("");
+  const [sizeId, setSizeId] = useState("");
+  const [headquarters, setHeadquarters] = useState("");
+  const [foundedYear, setFoundedYear] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
+  const [contactPhone, setContactPhone] = useState("");
+  const [linkedinUrl, setLinkedinUrl] = useState("");
+  const [twitterUrl, setTwitterUrl] = useState("");
+  const [glassdoorUrl, setGlassdoorUrl] = useState("");
+
+  const [selectedCultureTags, setSelectedCultureTags] = useState<string[]>([]);
+  const [cultureStatement, setCultureStatement] = useState("");
+
+  const { data: pageData, isLoading, error } = useGetPageByIdQuery(id ?? "", {
+    skip: !id,
+  });
+  const { data: sizes = [] } = useGetCompanySizesQuery();
   const [updatePage] = useUpdatePageMutation();
-  const [triggerCompanySizeSearch, { data: companySizeOptions = [] }] = useLazyGetCompanySizesQuery();
 
-  // TODO: derive the real role from page.can_manage / auth once a members API exists.
-  const currentUser: { id: string; role: 'owner' | 'admin' | 'editor' | 'moderator' | 'viewer' } = { id: 'user-1', role: 'owner' };
-
-  const onClose = () => {
-    router.push('/pages');
-  };
-
-  const [page, setPage] = useState<Page | null>(null);
-  const [activeSection, setActiveSection] = useState<string>('about');
-  const [isDraft, setIsDraft] = useState(false);
-  const [lastSaved, setLastSaved] = useState<Date | null>(null);
-  const [aiLoading, setAiLoading] = useState(false);
-  const [showPreview, setShowPreview] = useState(false);
-
-  // Sync the fetched page into local editable state. `Page` fields are optional,
-  // so default the collections the editor iterates/spreads to avoid runtime crashes.
+  // Set initial tab from query param
   useEffect(() => {
-    if (fetchedPage) {
-      setPage({
-        ...fetchedPage,
-        tags: fetchedPage.tags ?? [],
-        socials: fetchedPage.socials ?? {},
-        culture: fetchedPage.culture ?? {},
-      });
-    }
-  }, [fetchedPage]);
+    const tabParam = searchParams?.get("tab");
+    if (tabParam === "details") setActiveTab("details");
+    else if (tabParam === "culture") setActiveTab("culture");
+    else if (tabParam === "about") setActiveTab("about");
+  }, [searchParams]);
 
-  // --- User Management (members) state — commented out until a members API exists ---
-  // const [showInviteModal, setShowInviteModal] = useState(false);
-  // const [showTransferModal, setShowTransferModal] = useState(false);
-  // const [searchQuery, setSearchQuery] = useState('');
-  // const [selectedUser, setSelectedUser] = useState<RegisteredUser | null>(null);
-  // const [inviteRole, setInviteRole] = useState<PageUser['role']>('editor');
-  // const [inviteMessage, setInviteMessage] = useState('');
-  // const [transferConfirmText, setTransferConfirmText] = useState('');
-  // const [selectedUserForTransfer, setSelectedUserForTransfer] = useState<string>('');
-  // const [users, setUsers] = useState<PageUser[]>(pageUsers);
-
-  // const [aboutShortChars, setAboutShortChars] = useState(0); // aboutShort not in Page type
-
-  const permissions = ROLE_PERMISSIONS[currentUser.role];
-
-  // Auto-save functionality
+  // Populate form values when pageData loads
   useEffect(() => {
-    const autoSaveTimer = setTimeout(() => {
-      if (isDraft && permissions.edit) {
-        handleAutoSave();
-      }
-    }, 10000); // 10 seconds
-
-    return () => clearTimeout(autoSaveTimer);
-  }, [page, isDraft]);
-
-  const handleAutoSave = () => {
-    setLastSaved(new Date());
-    toast.success('Draft saved', {
-      description: 'Your changes have been automatically saved',
-    });
-  };
-
-  const validatePage = (): boolean => {
-    if (!page) return false;
-    if (page.founded_year != null && String(page.founded_year) !== '') {
-      const year = Number(page.founded_year);
-      const currentYear = new Date().getFullYear();
-      if (!Number.isInteger(year) || year < 1800 || year > currentYear) {
-        toast.error(`Founded year must be an integer between 1800 and ${currentYear}`);
-        return false;
-      }
+    if (pageData) {
+      setLogo(pageData.logo || "");
+      setTagline(pageData.tagline || "");
+      setDetailedDescription(pageData.detailed_description || pageData.description || "");
+      setSpecialties(pageData.specialties || []);
+      setWebsite(pageData.website || "");
+      setIndustry(pageData.industry || "");
+      setSizeId(pageData.size_id || "");
+      setHeadquarters(pageData.headquarters || "");
+      setFoundedYear(pageData.founded_year ? String(pageData.founded_year) : "");
+      setContactEmail(pageData.contact_email || "");
+      setContactPhone(pageData.contact_phone || "");
+      setLinkedinUrl(pageData.linkedin_url || "");
+      setTwitterUrl(pageData.twitter_url || "");
+      setGlassdoorUrl(pageData.glassdoor_url || "");
+      setSelectedCultureTags(pageData.culture_tags || []);
+      setCultureStatement(pageData.culture_statement || "");
     }
-    if (page.contact_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(page.contact_email)) {
-      toast.error('Please enter a valid contact email');
-      return false;
-    }
-    return true;
-  };
+  }, [pageData]);
 
-  const handleSaveDraft = async () => {
-    if (!page || !page.id) return;
-    if (!validatePage()) return;
-    try {
-      await updatePage({ id: page.id, data: page }).unwrap();
-      setIsDraft(false);
-      setLastSaved(new Date());
-      toast.success('Draft saved!');
-    } catch (error: unknown) {
-      toastUnknownError(error, 'Could not save the draft. Please try again.');
-    }
-  };
+  if (isLoading) return <CompanyPageSkeleton />;
 
-  const handlePublish = async () => {
-    if (!permissions.publish) {
-      toast.error('Permission denied', {
-        description: 'You need admin or owner permissions to publish changes',
-      });
-      return;
-    }
-
-    if (!page || !page.id) return;
-    if (!validatePage()) return;
-    try {
-      await updatePage({ id: page.id, data: page }).unwrap();
-      setIsDraft(false);
-      toast.success('Page published successfully!', {
-        description: 'Your changes are now live',
-      });
-    } catch (error: unknown) {
-      toastUnknownError(error, 'Could not publish the page. Please try again.');
-    }
-  };
-
-  /*
-  Members management & AI/culture-list handlers — reference commented-out
-  interfaces (PageUser/RegisteredUser), the members state, or fields not present
-  on the shared `Page` type (aboutShort, culture.highlights image/title). Kept
-  for reference until a members API + those fields exist.
-
-  const handleInviteUsers = () => {
-    if (!selectedUser) {
-      toast.error('Please select a user');
-      return;
-    }
-
-    // Check if user is already added
-    const isAlreadyAdded = users.some(u => u.userId === selectedUser.id);
-    if (isAlreadyAdded) {
-      toast.error('User is already a member of this page');
-      return;
-    }
-
-    // Add the selected user as a new page member
-    const newUser: PageUser = {
-      id: `user_${Date.now()}`,
-      userId: selectedUser.id,
-      email: selectedUser.email,
-      name: selectedUser.name,
-      avatar: selectedUser.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${selectedUser.username}`,
-      role: inviteRole,
-      invitedBy: currentUser.id,
-      invitedAt: new Date().toISOString(),
-      acceptedAt: new Date().toISOString(), // Auto-accepted since they're existing users
-      status: 'active' as const,
-    };
-
-    setUsers([...users, newUser]);
-    setSearchQuery('');
-    setSelectedUser(null);
-    setInviteMessage('');
-    setShowInviteModal(false);
-
-    toast.success('User added successfully', {
-      description: `${selectedUser.name} has been added as ${inviteRole}`,
-    });
-  };
-
-  const handleChangeUserRole = (userId: string, newRole: PageUser['role']) => {
-    if (newRole === 'owner') {
-      setSelectedUserForTransfer(userId);
-      setShowTransferModal(true);
-      return;
-    }
-
-    setUsers(users.map(u => u.id === userId ? { ...u, role: newRole } : u));
-    toast.success('Role updated');
-  };
-
-  const handleRemoveUser = (userId: string) => {
-    setUsers(users.filter(u => u.id !== userId));
-    toast.success('User removed from page');
-  };
-
-  const handleTransferOwnership = () => {
-    if (transferConfirmText !== page.slug) {
-      toast.error('Confirmation text does not match');
-      return;
-    }
-
-    // Transfer ownership
-    setUsers(users.map(u => {
-      if (u.id === selectedUserForTransfer) return { ...u, role: 'owner' as const };
-      if (u.userId === currentUser.id) return { ...u, role: 'admin' as const };
-      return u;
-    }));
-
-    setShowTransferModal(false);
-    setTransferConfirmText('');
-    setSelectedUserForTransfer('');
-
-    toast.success('Ownership transferred', {
-      description: 'Page ownership has been transferred successfully',
-    });
-  };
-
-  const handleAddValue = () => {
-    const newValue = {
-      id: `value-${Date.now()}`,
-      title: '',
-      description: '',
-    };
-    setPage({
-      ...page,
-      culture: {
-        ...page.culture,
-        values: [...page.culture.values, newValue],
-      },
-    });
-    setIsDraft(true);
-  };
-
-  const handleRemoveValue = (valueId: string) => {
-    setPage({
-      ...page,
-      culture: {
-        ...page.culture,
-        values: page.culture.values.filter(v => v.id !== valueId),
-      },
-    });
-    setIsDraft(true);
-  };
-
-  const handleAddHighlight = () => {
-    const newHighlight = {
-      id: `highlight-${Date.now()}`,
-      image: '',
-      title: '',
-      text: '',
-    };
-    setPage({
-      ...page,
-      culture: {
-        ...page.culture,
-        highlights: [...page.culture.highlights, newHighlight],
-      },
-    });
-    setIsDraft(true);
-  };
-
-  const handleRemoveHighlight = (highlightId: string) => {
-    setPage({
-      ...page,
-      culture: {
-        ...page.culture,
-        highlights: page.culture.highlights.filter(h => h.id !== highlightId),
-      },
-    });
-    setIsDraft(true);
-  };
-
-  const handleAIEnhanceAbout = async () => {
-    setAiLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
-    // Mock AI enhancement
-    const enhanced = page.aboutShort
-      ? page.aboutShort + ' We are innovating at the intersection of technology and impact.'
-      : 'We are a leading company innovating at the intersection of technology and impact.';
-
-    setPage({ ...page, aboutShort: enhanced.substring(0, 280) });
-    setAboutShortChars(enhanced.substring(0, 280).length);
-    setIsDraft(true);
-    setAiLoading(false);
-    toast.success('Description enhanced by AI');
-  };
-  */
-
-  const sections = [
-    { id: 'about', label: 'About', icon: Building },
-    // { id: 'details', label: page.pageType === 'institution' ? 'Institution Details' : 'Company Details', icon: MapPin },
-    { id: 'details', label: 'Company Details', icon: MapPin },
-    { id: 'culture', label: 'Culture & Values', icon: Heart },
-    // { id: 'users', label: 'User Management', icon: Users }, // members tab commented out
-  ];
-
-  if (isLoading || !page) {
-    return <CompanyPageSkeleton />;
-  }
-
-  if (!permissions.edit && activeSection !== 'users') {
+  if (error || !pageData) {
     return (
-      <div className="min-h-screen p-6">
-        <Card className="glass p-8 max-w-2xl mx-auto text-center">
-          <Lock className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-white mb-2">Access Restricted</h2>
-          <p className="text-muted-foreground mb-6">
-            You don&apos;t have permission to edit this company page.
-          </p>
-          <Button onClick={onClose}>Go Back</Button>
-        </Card>
+      <div className="flex min-h-[50vh] flex-col items-center justify-center p-8 text-center">
+        <h2 className="text-xl font-bold text-white">Company page not found</h2>
+        <p className="mt-2 text-sm text-muted-foreground">Could not load editor for this page.</p>
+        <button
+          type="button"
+          onClick={() => router.push("/pages")}
+          className="mt-4 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-white hover:bg-white/[0.08]"
+        >
+          Back to Pages
+        </button>
       </div>
     );
   }
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error("File is too large. Maximum size is 5MB.");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === "string") {
+          setLogo(reader.result);
+          toast.success("Logo preview updated");
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleAddSpecialty = () => {
+    const val = tagInput.trim();
+    if (val && !specialties.includes(val)) {
+      setSpecialties([...specialties, val]);
+      setTagInput("");
+    }
+  };
+
+  const handleRemoveSpecialty = (tag: string) => {
+    setSpecialties(specialties.filter((t) => t !== tag));
+  };
+
+  const handleTagKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" || e.key === ",") {
+      e.preventDefault();
+      handleAddSpecialty();
+    }
+  };
+
+  const handleToggleCultureTag = (tag: string) => {
+    if (selectedCultureTags.includes(tag)) {
+      setSelectedCultureTags(selectedCultureTags.filter((t) => t !== tag));
+    } else {
+      setSelectedCultureTags([...selectedCultureTags, tag]);
+    }
+  };
+
+  const handleApplyPreset = (presetName: string) => {
+    const presetTags = CULTURE_PRESETS[presetName];
+    if (presetTags) {
+      const merged = Array.from(new Set([...selectedCultureTags, ...presetTags]));
+      setSelectedCultureTags(merged);
+      toast.success(`Applied ${presetName} preset attributes`);
+    }
+  };
+
+  const handlePublish = async () => {
+    if (!pageData?.id) return;
+    try {
+      setIsSaving(true);
+      await updatePage({
+        id: pageData.id,
+        data: {
+          logo: logo || undefined,
+          tagline: tagline.trim() || undefined,
+          detailed_description: detailedDescription.trim() || undefined,
+          description: detailedDescription.trim() || tagline.trim() || undefined,
+          specialties: specialties,
+          website: website.trim() || undefined,
+          industry: industry.trim() || undefined,
+          size_id: sizeId || undefined,
+          headquarters: headquarters.trim() || undefined,
+          founded_year: foundedYear ? parseInt(foundedYear, 10) : undefined,
+          contact_email: contactEmail.trim() || undefined,
+          contact_phone: contactPhone.trim() || undefined,
+          linkedin_url: linkedinUrl.trim() || undefined,
+          twitter_url: twitterUrl.trim() || undefined,
+          glassdoor_url: glassdoorUrl.trim() || undefined,
+          culture_tags: selectedCultureTags,
+          culture_statement: cultureStatement.trim() || undefined,
+        },
+      }).unwrap();
+      toast.success("Page published successfully!", {
+        description: "Your changes are now live.",
+      });
+      router.push(`/pages/${pageData.id}`);
+    } catch (err) {
+      toastUnknownError(err, "Failed to publish changes");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
-    <div className="min-h-screen">
-      {/* Header */}
-      <div className="glass border-b border-glass-border sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <button
-                onClick={onClose}
-                className="p-2 hover:glass-strong rounded-lg transition-all"
-              >
-                <ArrowLeft className="h-5 w-5 text-white" />
-              </button>
+    <div className="min-h-screen pb-20 pt-8">
+      <div className="mx-auto max-w-5xl px-6">
+        {/* Back Link */}
+        <button
+          type="button"
+          onClick={() => router.push(`/pages/${id}`)}
+          className="flex items-center gap-2 text-sm text-white/70 hover:text-white transition-colors"
+        >
+          <ArrowLeft className="size-4" />
+          <span>Back to profile</span>
+        </button>
+
+        {/* Tab Navigation */}
+        <div className="mt-5 flex items-center gap-8 border-b border-white/[0.08]">
+          <button
+            type="button"
+            onClick={() => setActiveTab("about")}
+            className={`flex items-center gap-2 pb-3.5 text-sm font-semibold transition-colors relative ${
+              activeTab === "about" ? "text-neon-cyan" : "text-white/60 hover:text-white"
+            }`}
+          >
+            <Info className="size-4" />
+            <span>About</span>
+            {activeTab === "about" && (
+              <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full bg-neon-cyan" />
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("details")}
+            className={`flex items-center gap-2 pb-3.5 text-sm font-semibold transition-colors relative ${
+              activeTab === "details" ? "text-neon-cyan" : "text-white/60 hover:text-white"
+            }`}
+          >
+            <Briefcase className="size-4" />
+            <span>Company Details</span>
+            {activeTab === "details" && (
+              <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full bg-neon-cyan" />
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("culture")}
+            className={`flex items-center gap-2 pb-3.5 text-sm font-semibold transition-colors relative ${
+              activeTab === "culture" ? "text-neon-cyan" : "text-white/60 hover:text-white"
+            }`}
+          >
+            <Heart className="size-4" />
+            <span>Culture</span>
+            {activeTab === "culture" && (
+              <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full bg-neon-cyan" />
+            )}
+          </button>
+        </div>
+
+        {/* Title & Publish Header */}
+        <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
+              Edit Page - {pageData.name}
+            </h1>
+            <p className="mt-1 text-sm text-white/60">
+              {activeTab === "about" && "Manage your company's about page content"}
+              {activeTab === "details" && "Manage your company details"}
+              {activeTab === "culture" && "Define your work culture for better candidate matching"}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={handlePublish}
+            disabled={isSaving}
+            className="flex items-center justify-center gap-2 rounded-full gradient-primary px-7 py-2.5 text-sm font-semibold text-white shadow-lg transition-all hover:opacity-95 disabled:opacity-50"
+          >
+            {isSaving ? (
+              <>
+                <Loader2 className="size-4 animate-spin" />
+                <span>Publishing…</span>
+              </>
+            ) : (
+              <span>Publish</span>
+            )}
+          </button>
+        </div>
+
+        {/* Form Container Card */}
+        <div className="mt-6 rounded-2xl border border-white/[0.08] bg-[#070712] p-8 shadow-xl">
+          {/* TAB 1: ABOUT */}
+          {activeTab === "about" && (
+            <div className="space-y-8">
+              {/* Media Section */}
               <div>
-                <h1 className="text-xl font-bold text-white">Edit Page — {page.name}</h1>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  {isDraft && (
-                    <>
-                      <Clock className="h-3 w-3" />
-                      <span>Unsaved changes</span>
-                    </>
-                  )}
-                  {lastSaved && !isDraft && (
-                    <>
-                      <CheckCircle className="h-3 w-3 text-neon-green" />
-                      <span>Saved {lastSaved.toLocaleTimeString()}</span>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
+                <h3 className="text-base font-bold text-white mb-4">Media</h3>
+                <div>
+                  <h4 className="text-sm font-medium text-white/90">Company Logo</h4>
+                  <p className="text-xs text-white/50 mt-0.5 mb-4">
+                    JPG, PNG or GIF. Max 5MB. 1:1 ratio recommended.
+                  </p>
 
-            <div className="flex items-center gap-3">
-              {permissions.edit && (
-                <>
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowPreview(!showPreview)}
-                    className="border-glass-border"
-                  >
-                    <Eye className="h-4 w-4 mr-2" />
-                    Preview
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={handleSaveDraft}
-                    disabled={!isDraft}
-                    className="border-glass-border"
-                  >
-                    <Save className="h-4 w-4 mr-2" />
-                    Save Draft
-                  </Button>
-                </>
-              )}
-              {permissions.publish && (
-                <Button
-                  onClick={handlePublish}
-                  className="bg-neon-cyan text-black hover:bg-neon-cyan/90"
-                >
-                  <Check className="h-4 w-4 mr-2" />
-                  Publish
-                </Button>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Section Navigation */}
-      <div className="glass border-b border-glass-border sticky top-[73px] z-40">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="flex gap-1 overflow-x-auto">
-            {sections.map((section) => {
-              const Icon = section.icon;
-              const isActive = activeSection === section.id;
-
-              // Only show users tab if has permission
-              if (section.id === 'users' && !permissions.manageUsers && currentUser.role !== 'viewer') {
-                return null;
-              }
-
-              return (
-                <button
-                  key={section.id}
-                  onClick={() => setActiveSection(section.id)}
-                  className={`flex items-center gap-2 px-6 py-4 border-b-2 transition-all whitespace-nowrap ${isActive
-                      ? 'border-neon-cyan text-neon-cyan'
-                      : 'border-transparent text-muted-foreground hover:text-white'
-                    }`}
-                >
-                  <Icon className="h-4 w-4" />
-                  {section.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Editor Form */}
-          <div className="lg:col-span-2">
-            {/* Section 1: About */}
-            {activeSection === 'about' && (
-              <Card className="glass p-8 rounded-2xl border border-glass-border">
-                <div className="space-y-8">
-                  <div>
-                    <h2 className="text-2xl font-bold text-white mb-2">About</h2>
-                    <p className="text-muted-foreground">Tell the world about your company</p>
-                  </div>
-
-                  {/* Logo & Hero Image */}
-                  <div className="grid grid-cols-2 gap-6">
-                    <div className="space-y-3">
-                      <Label className="text-white">Company Logo</Label>
-                      <div className="relative aspect-square glass-strong rounded-xl border-2 border-dashed border-glass-border hover:border-neon-cyan transition-all group cursor-pointer overflow-hidden">
-                        {page.logo ? (
-                          <>
-                            <img src={page.logo} alt="Logo" className="w-full h-full object-cover" />
-                            <button
-                              onClick={() => {
-                                setPage({ ...page, logo: '' });
-                                setIsDraft(true);
-                              }}
-                              className="absolute top-2 right-2 p-1 bg-red-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                            >
-                              <X className="h-4 w-4 text-white" />
-                            </button>
-                          </>
-                        ) : (
-                          <div className="flex flex-col items-center justify-center h-full">
-                            <Camera className="h-8 w-8 text-muted-foreground mb-2" />
-                            <p className="text-sm text-muted-foreground">Upload logo</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="space-y-3">
-                      <Label className="text-white">Hero Image</Label>
-                      <div className="relative aspect-square glass-strong rounded-xl border-2 border-dashed border-glass-border hover:border-neon-cyan transition-all group cursor-pointer overflow-hidden">
-                        {page.hero_image ? (
-                          <>
-                            <img src={page.hero_image} alt="Hero" className="w-full h-full object-cover" />
-                            <button
-                              onClick={() => {
-                                setPage({ ...page, hero_image: '' });
-                                setIsDraft(true);
-                              }}
-                              className="absolute top-2 right-2 p-1 bg-red-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                            >
-                              <X className="h-4 w-4 text-white" />
-                            </button>
-                          </>
-                        ) : (
-                          <div className="flex flex-col items-center justify-center h-full">
-                            <ImageIcon className="h-8 w-8 text-muted-foreground mb-2" />
-                            <p className="text-sm text-muted-foreground">Upload hero</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  <Separator className="bg-glass-border" />
-
-                  {/* aboutShort / aboutRich are not on the shared Page type — commented out until added
-                  Short Description
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-white">
-                        Short Description <span className="text-destructive">*</span>
-                      </Label>
-                      <span className="text-xs text-muted-foreground">{aboutShortChars}/280</span>
-                    </div>
-                    <Textarea
-                      value={page.aboutShort}
-                      onChange={(e) => {
-                        const value = e.target.value.substring(0, 280);
-                        setPage({ ...page, aboutShort: value });
-                        setAboutShortChars(value.length);
-                        setIsDraft(true);
-                      }}
-                      placeholder="A brief overview of what your company does..."
-                      maxLength={280}
-                      rows={3}
-                      className="glass border-glass-border focus:border-neon-cyan resize-none"
-                    />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleAIEnhanceAbout}
-                      disabled={aiLoading}
-                      className="border-neon-purple/30 text-neon-purple hover:bg-neon-purple/10"
-                    >
-                      {aiLoading ? (
-                        Loader2 spinner Enhancing...
+                  <div className="flex items-center gap-5">
+                    <div className="relative size-24 shrink-0 rounded-full border-2 border-dashed border-white/20 bg-white/[0.02] flex items-center justify-center overflow-hidden">
+                      {logo ? (
+                        /* eslint-disable-next-line @next/next/no-img-element */
+                        <img src={logo} alt="Company Logo" className="size-full object-cover" />
                       ) : (
-                        Sparkles AI Enhance
+                        <ImageIcon className="size-7 text-white/30" />
                       )}
-                    </Button>
-                  </div>
-
-                  Long Description
-                  <div className="space-y-3">
-                    <Label className="text-white">Detailed Description</Label>
-                    <Textarea
-                      value={page.aboutRich}
-                      onChange={(e) => {
-                        setPage({ ...page, aboutRich: e.target.value });
-                        setIsDraft(true);
-                      }}
-                      placeholder="Tell your company's story... (supports rich text)"
-                      rows={8}
-                      className="glass border-glass-border focus:border-neon-cyan resize-none"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Supports bold, italic, bullets, and links
-                    </p>
-                  </div>
-                  */}
-
-                  {/* Description */}
-                  <div className="space-y-3">
-                    <Label className="text-white">Description</Label>
-                    <Textarea
-                      value={page.description || ''}
-                      onChange={(e) => {
-                        setPage({ ...page, description: e.target.value });
-                        setIsDraft(true);
-                      }}
-                      placeholder="A brief overview of what your company does..."
-                      rows={3}
-                      className="glass border-glass-border focus:border-neon-cyan resize-none"
-                    />
-                  </div>
-
-                  {/* Detailed Description */}
-                  <div className="space-y-3">
-                    <Label className="text-white">Detailed Description</Label>
-                    <Textarea
-                      value={page.detailed_description || ''}
-                      onChange={(e) => {
-                        setPage({ ...page, detailed_description: e.target.value });
-                        setIsDraft(true);
-                      }}
-                      placeholder="Tell your company's story..."
-                      rows={8}
-                      className="glass border-glass-border focus:border-neon-cyan resize-none"
-                    />
-                  </div>
-
-                  {/* Tags */}
-                  <div className="space-y-3">
-                    <Label className="text-white">Focus Areas / Tags</Label>
-                    <div className="flex flex-wrap gap-2 mb-3">
-                      {page.tags.map((tag, index) => (
-                        <Badge
-                          key={index}
-                          variant="outline"
-                          className="border-neon-cyan/30 text-neon-cyan bg-neon-cyan/10 pr-1"
-                        >
-                          {tag}
-                          <button
-                            onClick={() => {
-                              setPage({
-                                ...page,
-                                tags: page.tags.filter((_, i) => i !== index),
-                              });
-                              setIsDraft(true);
-                            }}
-                            className="ml-2 hover:text-white"
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                        </Badge>
-                      ))}
-                    </div>
-                    <Input
-                      placeholder="Type a tag and press Enter"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && e.currentTarget.value) {
-                          setPage({
-                            ...page,
-                            tags: [...page.tags, e.currentTarget.value],
-                          });
-                          e.currentTarget.value = '';
-                          setIsDraft(true);
-                        }
-                      }}
-                      className="glass border-glass-border focus:border-neon-cyan"
-                    />
-                  </div>
-
-                  {/* Primary Industry */}
-                  <div className="space-y-3">
-                    <Label className="text-white">Primary Industry</Label>
-                    <select
-                      value={page.primaryIndustry || ''}
-                      onChange={(e) => {
-                        setPage({ ...page, primaryIndustry: e.target.value });
-                        setIsDraft(true);
-                      }}
-                      className="w-full glass border border-glass-border rounded-lg px-3 py-2 focus:border-neon-cyan focus:outline-none bg-transparent text-white"
-                    >
-                      {INDUSTRIES.map((industry) => (
-                        <option key={industry} value={industry} className="bg-gray-900">
-                          {industry}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              </Card>
-            )}
-
-            {/* Section 2: Company Details */}
-            {activeSection === 'details' && (
-              <Card className="glass p-8 rounded-2xl border border-glass-border">
-                <div className="space-y-8">
-                  <div>
-                    {/* pageType not on Page type — defaulting to company copy */}
-                    <h2 className="text-2xl font-bold text-white mb-2">Company Details</h2>
-                    <p className="text-muted-foreground">Structured information about your company</p>
-                  </div>
-
-                  {/* Website */}
-                  <div className="space-y-2">
-                    <Label htmlFor="website" className="text-white">
-                      Website <span className="text-destructive">*</span>
-                    </Label>
-                    <Input
-                      id="website"
-                      type="url"
-                      value={page.website || ''}
-                      onChange={(e) => {
-                        setPage({ ...page, website: e.target.value });
-                        setIsDraft(true);
-                      }}
-                      placeholder="https://company.com"
-                      className="glass border-glass-border focus:border-neon-cyan"
-                    />
-                  </div>
-
-                  {/* Industry & Company Size */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <Label className="text-white">Industry</Label>
-                      <select
-                        value={page.industry || ''}
-                        onChange={(e) => {
-                          setPage({ ...page, industry: e.target.value });
-                          setIsDraft(true);
-                        }}
-                        className="w-full glass border border-glass-border rounded-lg px-3 py-2 focus:border-neon-cyan focus:outline-none bg-transparent text-white"
-                      >
-                        {INDUSTRIES.map((industry) => (
-                          <option key={industry} value={industry} className="bg-gray-900">
-                            {industry}
-                          </option>
-                        ))}
-                      </select>
                     </div>
 
-                    <div className="space-y-2">
-                      <Label className="text-white">Company Size</Label>
-                      <SearchSelect
-                        value={page.company_size ? { id: page.company_size.id, name: page.company_size.label } : null}
-                        onChange={(opt) => {
-                          setPage({
-                            ...page,
-                            size_id: opt ? opt.id : null,
-                            company_size: opt ? { id: opt.id, label: opt.name } : null,
-                          });
-                          setIsDraft(true);
-                        }}
-                        onSearch={(q) => triggerCompanySizeSearch({ search: q })}
-                        options={companySizeOptions.map((s) => ({ id: s.id, name: s.label }))}
-                        placeholder="Select company size..."
-                        searchPlaceholder="Search sizes (e.g. 51-200)..."
-                      />
-                    </div>
-                  </div>
-
-                  <Separator className="bg-glass-border" />
-
-                  {/* Headquarters & Founded Year */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="headquarters" className="text-white">Headquarters</Label>
-                      <Input
-                        id="headquarters"
-                        value={page.headquarters || ''}
-                        onChange={(e) => {
-                          setPage({ ...page, headquarters: e.target.value });
-                          setIsDraft(true);
-                        }}
-                        placeholder="San Francisco, CA"
-                        className="glass border-glass-border focus:border-neon-cyan"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="founded" className="text-white">Founded Year</Label>
-                      <Input
-                        id="founded"
-                        type="number"
-                        value={page.founded_year || ''}
-                        onChange={(e) => {
-                          setPage({ ...page, founded_year: e.target.value ? parseInt(e.target.value) : null });
-                          setIsDraft(true);
-                        }}
-                        placeholder="2020"
-                        min="1800"
-                        max={new Date().getFullYear()}
-                        className="glass border-glass-border focus:border-neon-cyan"
-                      />
-                    </div>
-                  </div>
-
-                  <Separator className="bg-glass-border" />
-
-                  {/* Contact Info */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <Label htmlFor="contact-email" className="text-white">Contact Email</Label>
-                      <Input
-                        id="contact-email"
-                        type="email"
-                        value={page.contact_email || ''}
-                        onChange={(e) => {
-                          setPage({ ...page, contact_email: e.target.value });
-                          setIsDraft(true);
-                        }}
-                        placeholder="contact@company.com"
-                        className="glass border-glass-border focus:border-neon-cyan"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="contact-phone" className="text-white">Contact Phone (Optional)</Label>
-                      <Input
-                        id="contact-phone"
-                        type="tel"
-                        value={page.contact_phone || ''}
-                        onChange={(e) => {
-                          setPage({ ...page, contact_phone: e.target.value });
-                          setIsDraft(true);
-                        }}
-                        placeholder="+1 (555) 000-0000"
-                        className="glass border-glass-border focus:border-neon-cyan"
-                      />
-                    </div>
-                  </div>
-
-                  <Separator className="bg-glass-border" />
-
-                  {/* Social Links */}
-                  <div className="space-y-4">
-                    <Label className="text-white">Social Links</Label>
-
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-                        <Linkedin className="h-4 w-4" />
-                        <span>LinkedIn</span>
-                      </div>
-                      <Input
-                        value={page.socials?.linkedin || ''}
-                        onChange={(e) => {
-                          setPage({
-                            ...page,
-                            socials: { ...page.socials, linkedin: e.target.value },
-                          });
-                          setIsDraft(true);
-                        }}
-                        placeholder="https://linkedin.com/company/..."
-                        className="glass border-glass-border focus:border-neon-cyan"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-                        <Twitter className="h-4 w-4" />
-                        <span>Twitter</span>
-                      </div>
-                      <Input
-                        value={page.socials?.twitter || ''}
-                        onChange={(e) => {
-                          setPage({
-                            ...page,
-                            socials: { ...page.socials, twitter: e.target.value },
-                          });
-                          setIsDraft(true);
-                        }}
-                        placeholder="https://twitter.com/..."
-                        className="glass border-glass-border focus:border-neon-cyan"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-                        <Globe className="h-4 w-4" />
-                        <span>Glassdoor</span>
-                      </div>
-                      <Input
-                        value={page.socials?.glassdoor || ''}
-                        onChange={(e) => {
-                          setPage({
-                            ...page,
-                            socials: { ...page.socials, glassdoor: e.target.value },
-                          });
-                          setIsDraft(true);
-                        }}
-                        placeholder="https://glassdoor.com/..."
-                        className="glass border-glass-border focus:border-neon-cyan"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </Card>
-            )}
-
-            {/* Section 3: Culture */}
-            {activeSection === 'culture' && (
-              <Card className="glass p-8 rounded-2xl border border-glass-border">
-                <div className="space-y-8">
-                  <div>
-                    <h2 className="text-2xl font-bold text-white mb-2">Culture & Values</h2>
-                    <p className="text-muted-foreground">Define your work culture for better candidate matching</p>
-                  </div>
-
-                  <Separator className="bg-glass-border" />
-
-                  <CulturePanel
-                    data={{
-                      attributes: page.culture?.attributes ?? [],
-                      cultureStatement: page.culture?.cultureStatement ?? '',
-                      // Page.culture.jobMatchingImportance is stored as a string
-                      jobMatchingImportance: Number(page.culture?.jobMatchingImportance) || 50,
-                    }}
-                    // pageType={page.pageType || 'company'} // pageType not on Page type
-                    onChange={(cultureData) => {
-                      setPage({
-                        ...page,
-                        culture: {
-                          ...(page.culture ?? {}),
-                          attributes: cultureData.attributes,
-                          cultureStatement: cultureData.cultureStatement,
-                          jobMatchingImportance: String(cultureData.jobMatchingImportance),
-                        },
-                      });
-                    }}
-                    onDraftChange={() => setIsDraft(true)}
-                  />
-                </div>
-              </Card>
-            )}
-
-            {/* Section 4: User Management — members tab commented out until a members API/type exists
-            {activeSection === 'users' && (
-              <Card className="glass p-8 rounded-2xl border border-glass-border">
-                <div className="space-y-8">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h2 className="text-2xl font-bold text-white mb-2">User Management</h2>
-                      <p className="text-muted-foreground">Manage who can access and edit this page</p>
-                    </div>
-                    {permissions.manageUsers && (
-                      <Button
-                        onClick={() => setShowInviteModal(true)}
-                        className="bg-neon-cyan text-black hover:bg-neon-cyan/90"
-                      >
-                        <UserPlus className="h-4 w-4 mr-2" />
-                        Invite User
-                      </Button>
-                    )}
-                  </div>
-
-                  Users List
-                  <div className="space-y-3">
-                    {users.map((user) => {
-                      const RoleIcon = ROLE_ICONS[user.role];
-
-                      return (
-                        <div key={user.id} className="p-4 glass-strong rounded-xl border border-glass-border">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-full glass-strong flex items-center justify-center">
-                                {user.avatar ? (
-                                  <img src={user.avatar} alt={user.name} className="w-full h-full rounded-full object-cover" />
-                                ) : (
-                                  <User className="h-5 w-5 text-muted-foreground" />
-                                )}
-                              </div>
-                              <div>
-                                <div className="flex items-center gap-2">
-                                  <p className="font-medium text-white">{user.name}</p>
-                                  {user.status === 'pending' && (
-                                    <Badge variant="outline" className="border-neon-yellow/30 text-neon-yellow bg-neon-yellow/10 text-xs">
-                                      Pending
-                                    </Badge>
-                                  )}
-                                </div>
-                                <p className="text-sm text-muted-foreground">{user.email}</p>
-                              </div>
-                            </div>
-
-                            <div className="flex items-center gap-3">
-                              <Badge
-                                variant="outline"
-                                className={`${user.role === 'owner'
-                                    ? 'border-neon-cyan/30 text-neon-cyan bg-neon-cyan/10'
-                                    : user.role === 'admin'
-                                      ? 'border-neon-purple/30 text-neon-purple bg-neon-purple/10'
-                                      : 'border-glass-border text-muted-foreground'
-                                  }`}
-                              >
-                                <RoleIcon className="h-3 w-3 mr-1" />
-                                {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
-                              </Badge>
-
-                              {permissions.manageUsers && user.role !== 'owner' && (
-                                <div className="relative group">
-                                  <button className="p-2 hover:glass-strong rounded-lg transition-all">
-                                    <MoreVertical className="h-4 w-4 text-muted-foreground" />
-                                  </button>
-                                  <div className="absolute right-0 top-full mt-2 w-48 glass border border-glass-border rounded-xl p-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
-                                    <select
-                                      onChange={(e) => {
-                                        handleChangeUserRole(user.id, e.target.value as PageUser['role']);
-                                        e.target.value = user.role;
-                                      }}
-                                      className="w-full glass border border-glass-border rounded-lg px-3 py-2 mb-2 focus:border-neon-cyan focus:outline-none bg-transparent text-white text-sm"
-                                    >
-                                      <option value="" disabled className="bg-gray-900">Change role...</option>
-                                      <option value="admin" className="bg-gray-900">Admin</option>
-                                      <option value="editor" className="bg-gray-900">Editor</option>
-                                      <option value="moderator" className="bg-gray-900">Moderator</option>
-                                      <option value="viewer" className="bg-gray-900">Viewer</option>
-                                      {currentUser.role === 'owner' && (
-                                        <option value="owner" className="bg-gray-900">Transfer Ownership</option>
-                                      )}
-                                    </select>
-                                    <button
-                                      onClick={() => handleRemoveUser(user.id)}
-                                      className="w-full px-3 py-2 text-left text-sm text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"
-                                    >
-                                      <Trash2 className="h-4 w-4 inline mr-2" />
-                                      Remove
-                                    </button>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-
-                          {user.lastActiveAt && (
-                            <p className="text-xs text-muted-foreground mt-2 ml-13">
-                              Last active: {new Date(user.lastActiveAt).toLocaleDateString()}
-                            </p>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  Role Descriptions
-                  <div className="p-4 glass-strong rounded-xl border border-glass-border">
-                    <h3 className="text-sm font-semibold text-white mb-3">Role Permissions</h3>
-                    <div className="space-y-2 text-xs text-muted-foreground">
-                      <div className="flex items-start gap-2">
-                        <Crown className="h-4 w-4 text-neon-cyan flex-shrink-0 mt-0.5" />
-                        <div>
-                          <span className="text-neon-cyan font-medium">Owner</span> — Full access to all features, can transfer ownership
-                        </div>
-                      </div>
-                      <div className="flex items-start gap-2">
-                        <ShieldCheck className="h-4 w-4 text-neon-purple flex-shrink-0 mt-0.5" />
-                        <div>
-                          <span className="text-neon-purple font-medium">Admin</span> — Edit and publish content, manage users (except ownership transfer)
-                        </div>
-                      </div>
-                      <div className="flex items-start gap-2">
-                        <FileEdit className="h-4 w-4 text-white flex-shrink-0 mt-0.5" />
-                        <div>
-                          <span className="text-white font-medium">Editor</span> — Edit content and save drafts, changes require approval
-                        </div>
-                      </div>
-                      <div className="flex items-start gap-2">
-                        <UserCheck className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
-                        <div>
-                          <span className="font-medium">Moderator</span> — Limited editing, changes require approval
-                        </div>
-                      </div>
-                      <div className="flex items-start gap-2">
-                        <Eye className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
-                        <div>
-                          <span className="font-medium">Viewer</span> — View-only access, cannot edit
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </Card>
-            )}
-            */}
-          </div>
-
-          {/* Preview Sidebar */}
-          <div className="hidden lg:block">
-            <div className="sticky top-32">
-              <Card className="glass p-6 rounded-2xl border border-glass-border">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-semibold text-white">Preview</h3>
-                  <Badge variant="outline" className="border-neon-cyan/30 text-neon-cyan bg-neon-cyan/10 text-xs">
-                    Live
-                  </Badge>
-                </div>
-
-                {activeSection === 'about' && (
-                  <div className="space-y-4">
-                    {page.logo && (
-                      <div className="w-16 h-16 rounded-xl overflow-hidden">
-                        <img src={page.logo} alt="Logo" className="w-full h-full object-cover" />
-                      </div>
-                    )}
-                    <div>
-                      <h4 className="font-bold text-white mb-2">{page.name}</h4>
-                      {/* aboutShort not on Page type — using description */}
-                      <p className="text-sm text-muted-foreground">{page.description || 'No description yet...'}</p>
-                    </div>
-                    {page.tags.length > 0 && (
-                      <div className="flex flex-wrap gap-2">
-                        {page.tags.slice(0, 3).map((tag, i) => (
-                          <Badge key={i} variant="outline" className="text-xs border-neon-cyan/30 text-neon-cyan">
-                            {tag}
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {activeSection === 'details' && (
-                  <div className="space-y-3 text-sm">
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Globe className="h-4 w-4" />
-                      <span>{page.website || 'No website'}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Building className="h-4 w-4" />
-                      <span>{page.industry || 'No industry'}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Users className="h-4 w-4" />
-                      <span>{page.company_size?.label || 'No size'}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <MapPin className="h-4 w-4" />
-                      <span>
-                        {page.headquarters || 'No location'}
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {activeSection === 'culture' && (
-                  <div className="space-y-4">
-                    {page.culture?.tagline && (
-                      <p className="text-sm italic text-muted-foreground">&quot;{page.culture.tagline}&quot;</p>
-                    )}
-                    {(page.culture?.values?.length ?? 0) > 0 && (
-                      <div>
-                        <h5 className="text-xs font-semibold text-white mb-2">Core Values</h5>
-                        <div className="space-y-2">
-                          {page.culture!.values!.slice(0, 3).map((value) => (
-                            <div key={value.id} className="text-xs">
-                              <p className="font-medium text-neon-purple">{value.title || 'Untitled'}</p>
-                              <p className="text-muted-foreground">{value.description || 'No description'}</p>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Users preview — members tab commented out until a members API exists
-                {activeSection === 'users' && (
-                  <div className="space-y-3">
-                    <div className="text-sm text-muted-foreground">
-                      <p className="mb-2">Total users: <span className="text-white font-semibold">{users.length}</span></p>
-                      <div className="space-y-1">
-                        <p>Owners: {users.filter(u => u.role === 'owner').length}</p>
-                        <p>Admins: {users.filter(u => u.role === 'admin').length}</p>
-                        <p>Editors: {users.filter(u => u.role === 'editor').length}</p>
-                        <p>Pending: {users.filter(u => u.status === 'pending').length}</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                */}
-              </Card>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Members modals — commented out until a members API/type exists
-      Invite Modal
-      {showInviteModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <Card className="glass p-6 rounded-2xl border border-glass-border max-w-md w-full">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-bold text-white">Invite Users</h3>
-              <button
-                onClick={() => setShowInviteModal(false)}
-                className="p-2 hover:glass-strong rounded-lg transition-all"
-              >
-                <X className="h-5 w-5 text-white" />
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label className="text-white">Search Qelsa Users</Label>
-                <div className="relative">
-                  <Input
-                    value={searchQuery}
-                    onChange={(e) => {
-                      setSearchQuery(e.target.value);
-                      setSelectedUser(null);
-                    }}
-                    placeholder="Search by username or name..."
-                    className="glass border-glass-border focus:border-neon-cyan"
-                  />
-                  {searchQuery && (
-                    <button
-                      onClick={() => {
-                        setSearchQuery('');
-                        setSelectedUser(null);
-                      }}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-white"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  )}
-                </div>
-
-                User Search Results
-                {searchQuery && (
-                  <div className="max-h-64 overflow-y-auto space-y-1 glass-strong p-2 rounded-lg border border-glass-border">
-                    {REGISTERED_QELSA_USERS
-                      .filter(user =>
-                        user.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                        user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                        user.email.toLowerCase().includes(searchQuery.toLowerCase())
-                      )
-                      .map(user => (
-                        <button
-                          key={user.id}
-                          onClick={() => {
-                            setSelectedUser(user);
-                            setSearchQuery(user.username);
-                          }}
-                          className={`w-full p-3 rounded-lg text-left transition-all ${selectedUser?.id === user.id
-                              ? 'bg-neon-cyan/20 border border-neon-cyan/30'
-                              : 'hover:bg-white/5'
-                            }`}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0">
-                              {user.avatar ? (
-                                <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
-                              ) : (
-                                <div className="w-full h-fullcyanpurple flex items-center justify-center text-white font-semibold">
-                                  {user.name.charAt(0)}
-                                </div>
-                              )}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                <p className="font-medium text-white truncate">{user.name}</p>
-                                {user.isVerified && (
-                                  <CheckCircle className="h-4 w-4 text-neon-cyan flex-shrink-0" />
-                                )}
-                              </div>
-                              <p className="text-xs text-neon-cyan">{user.username}</p>
-                              {user.title && (
-                                <p className="text-xs text-muted-foreground truncate">{user.title}</p>
-                              )}
-                            </div>
-                          </div>
-                        </button>
-                      ))}
-                    {REGISTERED_QELSA_USERS.filter(user =>
-                      user.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                      user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                      user.email.toLowerCase().includes(searchQuery.toLowerCase())
-                    ).length === 0 && (
-                        <div className="p-4 text-center text-muted-foreground">
-                          <User className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                          <p className="text-sm">No users found</p>
-                        </div>
-                      )}
-                  </div>
-                )}
-
-                Selected User Preview
-                {selectedUser && !searchQuery.includes(' ') && (
-                  <div className="p-3 glass-strong rounded-lg border border-neon-cyan/30">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0">
-                        {selectedUser.avatar ? (
-                          <img src={selectedUser.avatar} alt={selectedUser.name} className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-fullcyanpurple flex items-center justify-center text-white font-semibold">
-                            {selectedUser.name.charAt(0)}
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <p className="font-medium text-white">{selectedUser.name}</p>
-                          {selectedUser.isVerified && (
-                            <CheckCircle className="h-4 w-4 text-neon-cyan" />
-                          )}
-                        </div>
-                        <p className="text-xs text-neon-cyan">{selectedUser.username}</p>
-                      </div>
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleFileChange}
+                        accept="image/*"
+                        className="hidden"
+                      />
                       <button
-                        onClick={() => {
-                          setSelectedUser(null);
-                          setSearchQuery('');
-                        }}
-                        className="text-muted-foreground hover:text-white"
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-white/[0.08]"
                       >
-                        <X className="h-4 w-4" />
+                        <Upload className="size-4 text-white/70" />
+                        <span>Upload Logo</span>
                       </button>
+                      {logo && (
+                        <button
+                          type="button"
+                          onClick={() => setLogo("")}
+                          className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-white/[0.08]"
+                        >
+                          <Trash2 className="size-4 text-white/70" />
+                          <span>Remove</span>
+                        </button>
+                      )}
                     </div>
                   </div>
+                </div>
+              </div>
+
+              {/* Description Section */}
+              <div className="pt-8 border-t border-white/[0.06]">
+                <h3 className="text-base font-bold text-white mb-4">Description</h3>
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-sm font-medium text-white/90">
+                      Tagline <span className="text-pink-500">*</span>
+                    </label>
+                  </div>
+                  <input
+                    value={tagline}
+                    maxLength={200}
+                    onChange={(e) => setTagline(e.target.value)}
+                    placeholder="A brief overview of what your company does..."
+                    className="h-12 w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm text-white outline-none placeholder:text-white/30 focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan/40"
+                  />
+                  <div className="mt-1 text-right text-xs text-white/40">
+                    {tagline.length}/200
+                  </div>
+                </div>
+
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-white/90 mb-1.5">
+                    Detailed Description
+                  </label>
+                  <textarea
+                    rows={6}
+                    value={detailedDescription}
+                    onChange={(e) => setDetailedDescription(e.target.value)}
+                    placeholder="Tell your company's story... (supports rich text)"
+                    className="w-full rounded-xl border border-white/10 bg-white/[0.03] p-4 text-sm text-white outline-none placeholder:text-white/30 focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan/40 leading-relaxed"
+                  />
+                  <p className="mt-1.5 text-xs text-white/40">
+                    Supports bold, italic, bullets, and links
+                  </p>
+                </div>
+              </div>
+
+              {/* Tags & Industry Section */}
+              <div className="pt-8 border-t border-white/[0.06]">
+                <h3 className="text-base font-bold text-white mb-4">Tags & Industry</h3>
+                <label className="block text-sm font-medium text-white/90 mb-2">
+                  Focus Areas / Tags
+                </label>
+                {specialties.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {specialties.map((tag) => (
+                      <span
+                        key={tag}
+                        className="flex items-center gap-1.5 rounded-full border border-neon-cyan/40 bg-neon-cyan/15 px-3 py-1 text-xs font-medium text-neon-cyan"
+                      >
+                        <span>{tag}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveSpecialty(tag)}
+                          className="text-neon-cyan/60 hover:text-neon-cyan"
+                        >
+                          <X className="size-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
                 )}
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-white">Role</Label>
-                <select
-                  value={inviteRole}
-                  onChange={(e) => setInviteRole(e.target.value as PageUser['role'])}
-                  className="w-full glass border border-glass-border rounded-lg px-3 py-2 focus:border-neon-cyan focus:outline-none bg-transparent text-white"
-                >
-                  <option value="editor" className="bg-gray-900">Editor</option>
-                  <option value="moderator" className="bg-gray-900">Moderator</option>
-                  <option value="viewer" className="bg-gray-900">Viewer</option>
-                  {currentUser.role === 'owner' && (
-                    <option value="admin" className="bg-gray-900">Admin</option>
-                  )}
-                </select>
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setShowInviteModal(false);
-                    setSearchQuery('');
-                    setSelectedUser(null);
-                  }}
-                  className="flex-1 border-glass-border"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleInviteUsers}
-                  disabled={!selectedUser}
-                  className="flex-1 bg-neon-cyan text-black hover:bg-neon-cyan/90 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <UserPlus className="h-4 w-4 mr-2" />
-                  Add User
-                </Button>
+                <input
+                  value={tagInput}
+                  onChange={(e) => setTagInput(e.target.value)}
+                  onKeyDown={handleTagKeyDown}
+                  placeholder="Type a tag and press Enter"
+                  className="h-12 w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm text-white outline-none placeholder:text-white/30 focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan/40"
+                />
               </div>
             </div>
-          </Card>
-        </div>
-      )}
+          )}
 
-      Transfer Ownership Modal
-      {showTransferModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <Card className="glass p-6 rounded-2xl border border-red-500/30 max-w-md w-full">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5 text-red-400" />
-                <h3 className="text-xl font-bold text-white">Transfer Ownership</h3>
-              </div>
-              <button
-                onClick={() => {
-                  setShowTransferModal(false);
-                  setTransferConfirmText('');
-                }}
-                className="p-2 hover:glass-strong rounded-lg transition-all"
-              >
-                <X className="h-5 w-5 text-white" />
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl">
-                <p className="text-sm text-muted-foreground">
-                  You are about to transfer ownership of this page. You will become an Admin and lose the ability to:
-                </p>
-                <ul className="text-sm text-muted-foreground mt-2 space-y-1 list-disc list-inside">
-                  <li>Transfer ownership again</li>
-                  <li>Remove the new owner</li>
-                  <li>Access certain privileged settings</li>
-                </ul>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-white">
-                  Type <span className="text-neon-cyan font-mono">{page.slug}</span> to confirm
-                </Label>
-                <Input
-                  value={transferConfirmText}
-                  onChange={(e) => setTransferConfirmText(e.target.value)}
-                  placeholder={page.slug}
-                  className="glass border-glass-border focus:border-red-500"
+          {/* TAB 2: COMPANY DETAILS */}
+          {activeTab === "details" && (
+            <div className="space-y-6">
+              {/* Website */}
+              <div>
+                <label className="block text-sm font-medium text-white/90 mb-1.5">
+                  Website <span className="text-pink-500">*</span>
+                </label>
+                <input
+                  type="url"
+                  value={website}
+                  onChange={(e) => setWebsite(e.target.value)}
+                  placeholder="https://techcorp-solutions.com"
+                  className="h-12 w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm text-white outline-none placeholder:text-white/30 focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan/40"
                 />
               </div>
 
-              <div className="flex gap-3 pt-4">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setShowTransferModal(false);
-                    setTransferConfirmText('');
-                  }}
-                  className="flex-1 border-glass-border"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleTransferOwnership}
-                  disabled={transferConfirmText !== page.slug}
-                  className="flex-1 bg-red-500 text-white hover:bg-red-600"
-                >
-                  Transfer Ownership
-                </Button>
+              {/* Industry & Company Size */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div>
+                  <label className="block text-sm font-medium text-white/90 mb-1.5">
+                    Industry
+                  </label>
+                  <input
+                    value={industry}
+                    onChange={(e) => setIndustry(e.target.value)}
+                    placeholder="Select an industry"
+                    className="h-12 w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm text-white outline-none placeholder:text-white/30 focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan/40"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-white/90 mb-1.5">
+                    Company Size
+                  </label>
+                  <select
+                    value={sizeId}
+                    onChange={(e) => setSizeId(e.target.value)}
+                    className="h-12 w-full rounded-xl border border-white/10 bg-[#0e0e1a] px-4 text-sm text-white outline-none focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan/40"
+                  >
+                    <option value="" className="bg-[#0e0e1a] text-white/40">Select a company size</option>
+                    {sizes.map((s: { id: string; label: string }) => (
+                      <option key={s.id} value={s.id} className="bg-[#0e0e1a] text-white">
+                        {s.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Headquarters & Founded Year */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div>
+                  <label className="block text-sm font-medium text-white/90 mb-1.5">
+                    Headquarters
+                  </label>
+                  <input
+                    value={headquarters}
+                    onChange={(e) => setHeadquarters(e.target.value)}
+                    placeholder="San Francisco, CA"
+                    className="h-12 w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm text-white outline-none placeholder:text-white/30 focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan/40"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-white/90 mb-1.5">
+                    Founded Year
+                  </label>
+                  <input
+                    type="number"
+                    value={foundedYear}
+                    onChange={(e) => setFoundedYear(e.target.value)}
+                    placeholder="2015"
+                    className="h-12 w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm text-white outline-none placeholder:text-white/30 focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan/40"
+                  />
+                </div>
+              </div>
+
+              {/* Contact Email & Phone */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div>
+                  <label className="block text-sm font-medium text-white/90 mb-1.5">
+                    Contact Email
+                  </label>
+                  <input
+                    type="email"
+                    value={contactEmail}
+                    onChange={(e) => setContactEmail(e.target.value)}
+                    placeholder="contact@techcorp-solutions.com"
+                    className="h-12 w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm text-white outline-none placeholder:text-white/30 focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan/40"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-white/90 mb-1.5">
+                    Contact Phone (Optional)
+                  </label>
+                  <input
+                    type="tel"
+                    value={contactPhone}
+                    onChange={(e) => setContactPhone(e.target.value)}
+                    placeholder="+1 (555) 123-4567"
+                    className="h-12 w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm text-white outline-none placeholder:text-white/30 focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan/40"
+                  />
+                </div>
+              </div>
+
+              {/* Social Links */}
+              <div className="pt-4 border-t border-white/[0.06] space-y-4">
+                <h4 className="text-sm font-bold text-white">Social Links</h4>
+
+                <div>
+                  <div className="flex items-center gap-1.5 text-xs text-white/70 mb-1.5">
+                    <Linkedin className="size-3.5 text-white/60" />
+                    <span>LinkedIn</span>
+                  </div>
+                  <input
+                    value={linkedinUrl}
+                    onChange={(e) => setLinkedinUrl(e.target.value)}
+                    placeholder="https://linkedin.com/company/techcorp-solutions"
+                    className="h-12 w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm text-white outline-none placeholder:text-white/30 focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan/40"
+                  />
+                </div>
+
+                <div>
+                  <div className="flex items-center gap-1.5 text-xs text-white/70 mb-1.5">
+                    <Twitter className="size-3.5 text-white/60" />
+                    <span>X.com</span>
+                  </div>
+                  <input
+                    value={twitterUrl}
+                    onChange={(e) => setTwitterUrl(e.target.value)}
+                    placeholder="https://twitter.com/techcorpsol"
+                    className="h-12 w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm text-white outline-none placeholder:text-white/30 focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan/40"
+                  />
+                </div>
+
+                <div>
+                  <div className="flex items-center gap-1.5 text-xs text-white/70 mb-1.5">
+                    <Globe className="size-3.5 text-white/60" />
+                    <span>Glassdoor</span>
+                  </div>
+                  <input
+                    value={glassdoorUrl}
+                    onChange={(e) => setGlassdoorUrl(e.target.value)}
+                    placeholder="https://glassdoor.com/techcorp-solutions"
+                    className="h-12 w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm text-white outline-none placeholder:text-white/30 focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan/40"
+                  />
+                </div>
               </div>
             </div>
-          </Card>
+          )}
+
+          {/* TAB 3: CULTURE */}
+          {activeTab === "culture" && (
+            <div className="space-y-6">
+              {/* Quick Presets */}
+              <div>
+                <h4 className="text-sm font-bold text-white mb-3">Quick Presets</h4>
+                <div className="flex flex-wrap gap-2.5">
+                  {Object.keys(CULTURE_PRESETS).map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => handleApplyPreset(preset)}
+                      className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-xs font-medium text-white/80 transition-colors hover:bg-white/[0.08] hover:text-white"
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Culture Attributes */}
+              <div>
+                <h4 className="text-sm font-bold text-white mb-3">Culture Attributes</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {CULTURE_ATTRIBUTES_LIST.map((attr) => {
+                    const isSelected = selectedCultureTags.includes(attr.key);
+                    const Icon = attr.icon;
+                    return (
+                      <button
+                        key={attr.key}
+                        type="button"
+                        onClick={() => handleToggleCultureTag(attr.key)}
+                        className={`flex h-12 w-full items-center gap-3 rounded-full border px-5 text-left text-sm font-medium transition-all ${
+                          isSelected
+                            ? "border-neon-cyan/50 bg-neon-cyan/10 text-white"
+                            : "border-white/10 bg-white/[0.02] text-white/70 hover:bg-white/[0.05] hover:text-white"
+                        }`}
+                      >
+                        <Icon className={`size-4 shrink-0 ${isSelected ? "text-neon-cyan" : "text-white/40"}`} />
+                        <span className="truncate">{attr.key}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Culture Statement */}
+              <div className="pt-4 border-t border-white/[0.06]">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-bold text-white">
+                    Culture Statement (Optional)
+                  </label>
+                  <span className="text-xs text-white/40">
+                    {cultureStatement.length}/140
+                  </span>
+                </div>
+                <textarea
+                  rows={3}
+                  maxLength={140}
+                  value={cultureStatement}
+                  onChange={(e) => setCultureStatement(e.target.value)}
+                  placeholder="Describe your company culture in one sentence..."
+                  className="w-full rounded-xl border border-white/10 bg-white/[0.03] p-4 text-sm text-white outline-none placeholder:text-white/30 focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan/40 leading-relaxed"
+                />
+              </div>
+            </div>
+          )}
         </div>
-      )}
-      */}
+      </div>
     </div>
   );
 }

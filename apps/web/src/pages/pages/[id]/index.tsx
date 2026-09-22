@@ -4,7 +4,7 @@ import Layout from "@/layout";
 const PageDetails = () => {
   return (
     <Layout activeSection={"pages"}>
-      <CompanyPage />;
+      <CompanyPage />
     </Layout>
   );
 };

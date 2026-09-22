@@ -54,4 +54,8 @@ export type Page = {
   founded_year?: number | null;
   contact_email?: string | null;
   contact_phone?: string | null;
+  glassdoor_url?: string | null;
+  culture_statement?: string | null;
+  culture_tags?: string[] | null;
+  specialties?: string[] | null;
 };

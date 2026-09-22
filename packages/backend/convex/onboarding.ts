@@ -100,6 +100,8 @@ export const completeHrOnboarding = authedMutation({
     hiring_role: hiringRole,
     industry: v.string(),
     size_id: v.id("company_sizes"),
+    website: v.optional(v.string()),
+    headquarters: v.optional(v.string()),
   },
   returns: v.object({
     page_id: v.id("pages"),
@@ -125,19 +127,24 @@ export const completeHrOnboarding = authedMutation({
       .collect();
     const existing = owned.find((page) => page.name.toLowerCase() === companyName.toLowerCase());
 
+    const pagePatch = {
+      industry: args.industry.trim(),
+      size_id: args.size_id,
+      ...(args.website ? { website: args.website.trim() } : {}),
+      ...(args.headquarters ? { headquarters: args.headquarters.trim() } : {}),
+    };
+
     let pageId = existing?._id;
     if (pageId) {
       await ctx.db.patch(pageId, {
-        industry: args.industry.trim(),
-        size_id: args.size_id,
+        ...pagePatch,
         type: existing?.type ?? "company",
       });
     } else {
       pageId = await ctx.db.insert("pages", {
         name: companyName,
         type: "company",
-        industry: args.industry.trim(),
-        size_id: args.size_id,
+        ...pagePatch,
         ownerId: ctx.user._id,
       });
     }

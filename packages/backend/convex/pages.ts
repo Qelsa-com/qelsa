@@ -115,6 +115,10 @@ export const create = authedMutation({
       facebook_url: data.facebook_url as string | undefined,
       instagram_url: data.instagram_url as string | undefined,
       youtube_url: data.youtube_url as string | undefined,
+      glassdoor_url: data.glassdoor_url as string | undefined,
+      culture_statement: data.culture_statement as string | undefined,
+      culture_tags: data.culture_tags as string[] | undefined,
+      specialties: data.specialties as string[] | undefined,
       ownerId: ctx.user._id,
     });
     const page = await ctx.db.get(id);

@@ -1,0 +1,241 @@
+"use client";
+
+import { useAuth } from "@/contexts/AuthContext";
+import {
+  AppWindow,
+  Bell,
+  BookOpen,
+  Briefcase,
+  ChevronsLeft,
+  ChevronsRight,
+  Cpu,
+  PenLine,
+  Target,
+} from "lucide-react";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+
+interface EmployerSidebarProps {
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
+  mobileOpen?: boolean;
+  onCloseMobile?: () => void;
+}
+
+export function EmployerSidebar({
+  collapsed: controlledCollapsed,
+  onToggleCollapse,
+  mobileOpen,
+  onCloseMobile,
+}: EmployerSidebarProps) {
+  const { user } = useAuth();
+  const pathname = usePathname();
+  const router = useRouter();
+
+  // Local state if not controlled
+  const [internalCollapsed, setInternalCollapsed] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    const saved = localStorage.getItem("qelsa_employer_sidebar_collapsed");
+    if (saved !== null) {
+      setInternalCollapsed(saved === "true");
+    }
+  }, []);
+
+  const isCollapsed =
+    controlledCollapsed !== undefined ? controlledCollapsed : internalCollapsed;
+
+  const handleToggle = () => {
+    if (onToggleCollapse) {
+      onToggleCollapse();
+    } else {
+      const next = !internalCollapsed;
+      setInternalCollapsed(next);
+      localStorage.setItem("qelsa_employer_sidebar_collapsed", String(next));
+    }
+  };
+
+  const activePageId = user?.active_page_id;
+  const mySpaceUrl = activePageId ? `/pages/${activePageId}` : "/pages";
+
+  const navItems = [
+    {
+      id: "my-space",
+      label: "My Space",
+      icon: AppWindow,
+      href: mySpaceUrl,
+      isActive:
+        pathname === "/" ||
+        pathname.startsWith("/pages/") ||
+        pathname === "/pages",
+    },
+    {
+      id: "applications",
+      label: "Applications",
+      icon: Cpu,
+      href: "/jobs/applications",
+      isActive: pathname.startsWith("/jobs/applications"),
+    },
+    {
+      id: "manage-jobs",
+      label: "Manage Jobs",
+      icon: Briefcase,
+      href: "/jobs/posted",
+      isActive:
+        pathname.startsWith("/jobs/posted") ||
+        pathname === "/jobs/create-job" ||
+        pathname.startsWith("/jobs/edit/"),
+    },
+    {
+      id: "hiring-goals",
+      label: "Hiring Goals",
+      icon: Target,
+      href: "/goals",
+      isActive: pathname.startsWith("/goals"),
+    },
+    {
+      id: "integrations",
+      label: "Integrations",
+      icon: BookOpen,
+      href: "/settings/integrations",
+      isActive: pathname.startsWith("/settings/integrations"),
+    },
+    {
+      id: "settings",
+      label: "Settings",
+      icon: PenLine,
+      href: "/settings",
+      isActive: pathname === "/settings",
+    },
+  ];
+
+  const sidebarContent = (collapsedState: boolean, isMobile: boolean = false) => (
+    <div className="flex h-full flex-col justify-between">
+      {/* Top Section: Brand + Menu */}
+      <div className="flex flex-col">
+        {/* Brand Header */}
+        <div
+          className={`flex h-20 items-center px-5 ${
+            collapsedState ? "justify-center" : "gap-3"
+          }`}
+        >
+          <Link
+            href={mySpaceUrl}
+            onClick={() => isMobile && onCloseMobile?.()}
+            className="flex items-center gap-3 transition-opacity hover:opacity-90"
+          >
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-neon-purple to-neon-pink shadow-md">
+              <span className="text-base font-extrabold text-white">Q</span>
+            </div>
+            {!collapsedState && (
+              <span className="text-2xl font-bold tracking-tight text-white">
+                qelsa
+              </span>
+            )}
+          </Link>
+        </div>
+
+        {/* Navigation Items */}
+        <nav className="mt-4 flex flex-col gap-1.5 px-3">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const active = item.isActive;
+
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => {
+                  router.push(item.href);
+                  if (isMobile) onCloseMobile?.();
+                }}
+                title={collapsedState ? item.label : undefined}
+                className={`group flex h-12 w-full items-center rounded-xl transition-colors ${
+                  collapsedState ? "justify-center px-0" : "gap-3.5 px-4"
+                } ${
+                  active
+                    ? "border border-neon-cyan/30 bg-neon-cyan/10 text-neon-cyan font-medium"
+                    : "text-white/70 hover:bg-white/[0.04] hover:text-white"
+                }`}
+              >
+                <Icon
+                  className={`size-5 shrink-0 transition-transform group-hover:scale-105 ${
+                    active ? "text-neon-cyan" : "text-white/70 group-hover:text-white"
+                  }`}
+                />
+                {!collapsedState && (
+                  <span className="truncate text-[15px]">{item.label}</span>
+                )}
+              </button>
+            );
+          })}
+        </nav>
+      </div>
+
+      {/* Bottom Section: Collapse Toggle + Notification Bell */}
+      <div className="flex flex-col items-center gap-4 px-3 pb-6">
+        {!isMobile && (
+          <>
+            {collapsedState ? (
+              <button
+                type="button"
+                onClick={handleToggle}
+                aria-label="Expand sidebar"
+                className="flex size-10 items-center justify-center rounded-xl border border-white/10 bg-white/[0.03] text-white/70 transition-colors hover:bg-white/[0.08] hover:text-white"
+              >
+                <ChevronsRight className="size-4" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleToggle}
+                className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm font-medium text-white/80 transition-colors hover:bg-white/[0.08] hover:text-white"
+              >
+                <ChevronsLeft className="size-4" />
+                <span>Collapse</span>
+              </button>
+            )}
+          </>
+        )}
+
+        {/* Circular Notification Bell */}
+        <button
+          type="button"
+          aria-label="Notifications"
+          className="flex size-11 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-white/70 transition-colors hover:bg-white/[0.08] hover:text-white"
+        >
+          <Bell className="size-4" />
+        </button>
+      </div>
+    </div>
+  );
+
+  return (
+    <>
+      {/* Desktop Fixed Sidebar */}
+      <aside
+        className={`fixed left-0 top-0 bottom-0 z-40 hidden lg:flex flex-col justify-between border-r border-white/[0.08] bg-[#06060f] transition-all duration-300 ease-in-out ${
+          isCollapsed ? "w-20" : "w-64"
+        }`}
+      >
+        {sidebarContent(isCollapsed, false)}
+      </aside>
+
+      {/* Mobile Drawer */}
+      {mobileOpen && (
+        <div className="fixed inset-0 z-50 flex lg:hidden">
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
+            onClick={onCloseMobile}
+          />
+          <aside className="relative flex w-64 flex-col justify-between border-r border-white/[0.08] bg-[#06060f] shadow-2xl z-10 animate-in slide-in-from-left duration-200">
+            {sidebarContent(false, true)}
+          </aside>
+        </div>
+      )}
+    </>
+  );
+}

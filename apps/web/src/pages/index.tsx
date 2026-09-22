@@ -11,11 +11,17 @@ export default function App() {
   const router = useRouter();
 
   useEffect(() => {
-    if (isLoading || user) return;
-    router.replace("/jobs");
+    if (isLoading) return;
+    if (!user) {
+      router.replace("/jobs");
+      return;
+    }
+    if (user.account_type === "recruiter") {
+      router.replace(user.active_page_id ? `/pages/${user.active_page_id}` : "/pages");
+    }
   }, [isLoading, router, user]);
 
-  if (isLoading || !user) return null;
+  if (isLoading || !user || user.account_type === "recruiter") return null;
 
   return (
     <Layout activeSection={"profile"}>
