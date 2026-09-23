@@ -1,31 +1,14 @@
 "use client";
 
 /**
- * Mobile top bar — brand on the left, three circular actions on the right.
- *
- * Figma: Qelsa-Screen — jobs-listing-mobile / Top Navigation (777:18). Both
- * navbars render it, so signed-in and signed-out mobile share one bar; it
- * hides at `lg` where each navbar's own desktop header takes over.
+ * Mobile top bar — brand on the left, hamburger on the right.
+ * Opens the candidate side menu. Hidden at `lg`, where DesktopTopBar takes over.
  */
 
-import { Bell, CircleHelp, Search, User } from "lucide-react";
+import { CircleHelp, Menu } from "lucide-react";
 import { useRouter } from "next/navigation";
 
-/** 36px circular action. Renders inert when there's nowhere to go yet. */
-function NavAction({ label, onClick, children }: { label: string; onClick?: () => void; children: React.ReactNode }) {
-  const className = "flex size-9 shrink-0 items-center justify-center rounded-full border border-white/[0.12] bg-white/[0.04] text-white/70";
-  return onClick ? (
-    <button type="button" aria-label={label} onClick={onClick} className={`${className} transition-colors hover:bg-white/[0.08] hover:text-white`}>
-      {children}
-    </button>
-  ) : (
-    <span aria-hidden="true" className={className}>
-      {children}
-    </span>
-  );
-}
-
-export function MobileTopBar({ onProfileClick }: { onProfileClick?: () => void }) {
+export function MobileTopBar({ onMenuClick }: { onMenuClick?: () => void }) {
   const router = useRouter();
 
   return (
@@ -37,18 +20,14 @@ export function MobileTopBar({ onProfileClick }: { onProfileClick?: () => void }
         <span className="text-base font-bold text-white">Qelsa</span>
       </button>
 
-      <div className="flex items-center gap-2">
-        <NavAction label="Search jobs" onClick={() => router.push("/jobs/all")}>
-          <Search className="size-4" />
-        </NavAction>
-        {/* Inert until there's a notifications destination to route to. */}
-        <NavAction label="Notifications">
-          <Bell className="size-4" />
-        </NavAction>
-        <NavAction label="Open profile" onClick={onProfileClick}>
-          <User className="size-4" />
-        </NavAction>
-      </div>
+      <button
+        type="button"
+        aria-label="Open menu"
+        onClick={onMenuClick}
+        className="flex size-9 shrink-0 items-center justify-center rounded-full border border-white/[0.12] bg-white/[0.04] text-white/80 transition-colors hover:bg-white/[0.08] hover:text-white"
+      >
+        <Menu className="size-5" />
+      </button>
     </header>
   );
 }

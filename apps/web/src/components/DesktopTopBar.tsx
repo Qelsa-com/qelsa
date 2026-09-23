@@ -5,7 +5,7 @@
  *
  * Figma: Qelsa-Screen — header (653:3739). Both navbars render it so signed-in
  * and signed-out desktop share one bar; it hides below `lg`, where MobileTopBar
- * takes over.
+ * and the hamburger menu take over.
  */
 
 import { useAuth } from "@/contexts/AuthContext";
