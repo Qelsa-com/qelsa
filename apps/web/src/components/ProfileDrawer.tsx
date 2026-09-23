@@ -1,5 +1,6 @@
 "use client";
 
+import { QelsaLogo } from "@/components/QelsaLogo";
 import { useAuth } from "@/contexts/AuthContext";
 import { BookOpen, Briefcase, FileText, LogOut, PenLine, Settings, Users, X } from "lucide-react";
 import Link from "next/link";
@@ -112,7 +113,7 @@ export function ProfileDrawer({ isOpen, onClose, activeSection }: ProfileDrawerP
         }`}
       >
         <div className="flex items-center justify-between">
-          {signedIn ? <p className="text-[28px] font-semibold tracking-tight text-white">Qelsa</p> : <span />}
+          {signedIn ? <QelsaLogo className="h-[26px] w-auto" /> : <span />}
           <button
             type="button"
             onClick={onClose}

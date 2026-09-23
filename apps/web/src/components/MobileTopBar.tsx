@@ -5,7 +5,8 @@
  * Opens the candidate side menu. Hidden at `lg`, where DesktopTopBar takes over.
  */
 
-import { CircleHelp, Menu } from "lucide-react";
+import { QelsaLogo } from "@/components/QelsaLogo";
+import { Menu } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 export function MobileTopBar({ onMenuClick }: { onMenuClick?: () => void }) {
@@ -13,11 +14,8 @@ export function MobileTopBar({ onMenuClick }: { onMenuClick?: () => void }) {
 
   return (
     <header className="sticky top-0 z-40 flex items-center justify-between border-b border-white/[0.12] bg-white/[0.06] px-4 py-3 backdrop-blur-xl lg:hidden">
-      <button type="button" onClick={() => router.push("/")} className="flex items-center gap-2">
-        <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-neon-cyan">
-          <CircleHelp className="size-4 text-[#06060f]" strokeWidth={2} />
-        </span>
-        <span className="text-base font-bold text-white">Qelsa</span>
+      <button type="button" onClick={() => router.push("/")} className="flex items-center" aria-label="Qelsa home">
+        <QelsaLogo className="h-[22px] w-auto" />
       </button>
 
       <button
