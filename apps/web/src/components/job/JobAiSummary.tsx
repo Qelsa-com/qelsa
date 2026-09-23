@@ -2,10 +2,12 @@
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { useAuth } from "@/contexts/AuthContext";
 import { useSummarizeJobAction } from "@/features/api/jobsApi";
 import { toastUnknownError } from "@/lib/errors";
 import type { Id } from "@qelsa/backend";
 import { ChevronDown, ChevronUp, Zap } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 export type JobAiSummaryData = {
@@ -23,13 +25,20 @@ export function JobAiSummary({
   jobId: string;
   summary?: JobAiSummaryData | null;
 }) {
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const router = useRouter();
   const generate = useSummarizeJobAction();
   const [expanded, setExpanded] = useState(Boolean(summary));
   const [loading, setLoading] = useState(false);
   const [local, setLocal] = useState<JobAiSummaryData | null>(summary ?? null);
-  const data = summary ?? local;
+  const data = isAuthenticated ? (summary ?? local) : null;
 
   const open = async () => {
+    if (authLoading) return;
+    if (!isAuthenticated) {
+      router.push(`/auth?actionType=profile&returnUrl=${encodeURIComponent(`/jobs/${jobId}`)}`);
+      return;
+    }
     if (data) {
       setExpanded(true);
       return;
@@ -110,7 +119,7 @@ export function JobAiSummary({
       </div>
       <Button
         onClick={() => void open()}
-        disabled={loading}
+        disabled={loading || authLoading}
         className={`h-auto w-full shrink-0 rounded-full px-4 py-2.5 text-sm font-semibold text-white lg:w-auto ${GRADIENT} hover:opacity-90 disabled:opacity-50`}
       >
         {loading ? "Summarizing…" : data ? (
