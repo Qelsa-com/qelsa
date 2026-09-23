@@ -1,5 +1,6 @@
 "use client";
 
+import { QelsaLogo } from "@/components/QelsaLogo";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   AppWindow,
@@ -13,9 +14,11 @@ import {
   PenLine,
   Target,
   Users,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { useEmployerSidebar } from "@/lib/employerSidebarState";
@@ -36,10 +39,37 @@ export function EmployerSidebar({
   const router = useRouter();
   const { user, logout } = useAuth();
   const pathname = usePathname();
+  const [drawerMounted, setDrawerMounted] = useState(false);
+  const [drawerVisible, setDrawerVisible] = useState(false);
 
-  const handleSignOut = () => {
-    if (mobileOpen) onCloseMobile?.();
-    logout();
+  useEffect(() => {
+    if (mobileOpen) {
+      setDrawerMounted(true);
+      const frame = requestAnimationFrame(() => setDrawerVisible(true));
+      return () => cancelAnimationFrame(frame);
+    }
+    setDrawerVisible(false);
+    const timeout = setTimeout(() => setDrawerMounted(false), 250);
+    return () => clearTimeout(timeout);
+  }, [mobileOpen]);
+
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onCloseMobile?.();
+    };
+    window.addEventListener("keydown", onKey);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [mobileOpen, onCloseMobile]);
+
+  const handleSignOut = async () => {
+    await logout();
+    onCloseMobile?.();
     router.push("/auth");
     toast.success("Signed out successfully");
   };
@@ -118,7 +148,7 @@ export function EmployerSidebar({
     },
   ];
 
-  const sidebarContent = (collapsedState: boolean, isMobile: boolean = false) => (
+  const sidebarContent = (collapsedState: boolean) => (
     <div className="flex h-full flex-col justify-between">
       {/* Top Section: Brand + Menu */}
       <div className="flex flex-col">
@@ -130,7 +160,6 @@ export function EmployerSidebar({
         >
           <Link
             href={mySpaceUrl}
-            onClick={() => isMobile && onCloseMobile?.()}
             className="flex items-center gap-3 transition-opacity hover:opacity-90"
           >
             <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-neon-purple to-neon-pink shadow-md">
@@ -158,9 +187,6 @@ export function EmployerSidebar({
               <Link
                 key={item.id}
                 href={item.href}
-                onClick={() => {
-                  if (isMobile) onCloseMobile?.();
-                }}
                 title={collapsedState ? item.label : undefined}
                 aria-label={item.label}
                 className={`group flex items-center transition-all ${
@@ -193,28 +219,26 @@ export function EmployerSidebar({
           collapsedState ? "items-center px-2" : "items-start px-3"
         }`}
       >
-        {!isMobile && (
-          <button
-            type="button"
-            onClick={handleToggle}
-            aria-label={collapsedState ? "Expand sidebar" : "Collapse sidebar"}
-            title={collapsedState ? "Expand sidebar" : "Collapse sidebar"}
-            className={`flex items-center transition-colors ${
-              collapsedState
-                ? "size-10 justify-center rounded-full border border-white/10 bg-white/[0.03] text-white/70 hover:bg-white/[0.08] hover:text-white"
-                : "h-11 w-full justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm font-medium text-white/80 hover:bg-white/[0.08] hover:text-white"
-            }`}
-          >
-            {collapsedState ? (
-              <ChevronsRight className="size-4" />
-            ) : (
-              <>
-                <ChevronsLeft className="size-4" />
-                <span>Collapse</span>
-              </>
-            )}
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={handleToggle}
+          aria-label={collapsedState ? "Expand sidebar" : "Collapse sidebar"}
+          title={collapsedState ? "Expand sidebar" : "Collapse sidebar"}
+          className={`flex items-center transition-colors ${
+            collapsedState
+              ? "size-10 justify-center rounded-full border border-white/10 bg-white/[0.03] text-white/70 hover:bg-white/[0.08] hover:text-white"
+              : "h-11 w-full justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm font-medium text-white/80 hover:bg-white/[0.08] hover:text-white"
+          }`}
+        >
+          {collapsedState ? (
+            <ChevronsRight className="size-4" />
+          ) : (
+            <>
+              <ChevronsLeft className="size-4" />
+              <span>Collapse</span>
+            </>
+          )}
+        </button>
 
         {collapsedState ? (
           <>
@@ -278,19 +302,84 @@ export function EmployerSidebar({
           isCollapsed ? "w-20" : "w-64"
         }`}
       >
-        {sidebarContent(isCollapsed, false)}
+        {sidebarContent(isCollapsed)}
       </aside>
 
-      {/* Mobile Drawer */}
-      {mobileOpen && (
-        <div className="fixed inset-0 z-50 flex lg:hidden">
+      {/* Mobile drawer — same right-slide overlay as the candidate menu */}
+      {drawerMounted && (
+        <div
+          className={`fixed inset-0 z-50 lg:hidden transition-opacity duration-200 ${
+            drawerVisible ? "opacity-100" : "opacity-0"
+          }`}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Account menu"
+        >
+          <div className="absolute inset-0 bg-[#06060f]" onClick={onCloseMobile} />
           <div
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
-            onClick={onCloseMobile}
-          />
-          <aside className="relative flex w-64 flex-col justify-between border-r border-white/[0.08] bg-[#06060f] shadow-2xl z-10 animate-in slide-in-from-left duration-200">
-            {sidebarContent(false, true)}
-          </aside>
+            className={`absolute inset-0 flex flex-col bg-[#06060f] px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(1.25rem,env(safe-area-inset-top))] transition-transform duration-250 ease-out ${
+              drawerVisible ? "translate-x-0" : "translate-x-full"
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <QelsaLogo className="h-[26px] w-auto" />
+              <button
+                type="button"
+                onClick={onCloseMobile}
+                aria-label="Close menu"
+                className="flex size-10 items-center justify-center rounded-full border border-white/20 text-white transition-colors hover:bg-white/[0.06]"
+              >
+                <X className="size-5" />
+              </button>
+            </div>
+
+            <nav className="mt-8 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.id}
+                    href={item.href}
+                    onClick={() => onCloseMobile?.()}
+                    aria-current={item.isActive ? "page" : undefined}
+                    className={`flex items-center gap-4 rounded-full px-3 py-2.5 text-left transition-colors ${
+                      item.isActive
+                        ? "border border-neon-cyan text-white"
+                        : "text-white hover:bg-white/[0.04]"
+                    }`}
+                  >
+                    <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white/[0.06]">
+                      <Icon className="size-4" />
+                    </span>
+                    <span className="text-[20px] font-medium">{item.label}</span>
+                  </Link>
+                );
+              })}
+            </nav>
+
+            <div className="mt-6 border-t border-white/10 pt-5">
+              <button
+                type="button"
+                onClick={() => toast.info("No new notifications")}
+                className="flex w-full items-center gap-4 rounded-full px-3 py-2.5 text-left text-white transition-colors hover:bg-white/[0.04]"
+              >
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white/[0.06]">
+                  <Bell className="size-4" />
+                </span>
+                <span className="text-[20px] font-medium">Notifications</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleSignOut()}
+                className="mt-1 flex w-full items-center gap-4 rounded-full px-3 py-2.5 text-left text-white transition-colors hover:bg-white/[0.04]"
+              >
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white/[0.06]">
+                  <LogOut className="size-4" />
+                </span>
+                <span className="text-[20px] font-medium">Sign Out</span>
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </>
