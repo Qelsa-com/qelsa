@@ -124,6 +124,26 @@ export default defineSchema({
     .index("by_industry", ["industry"])
     .searchIndex("search_name", { searchField: "name" }),
 
+  page_followers: defineTable({
+    page_id: v.id("pages"),
+    user_id: v.id("users"),
+    followed_at: v.number(),
+  })
+    .index("by_page", ["page_id"])
+    .index("by_user", ["user_id"])
+    .index("by_page_and_user", ["page_id", "user_id"]),
+
+  page_members: defineTable({
+    page_id: v.id("pages"),
+    user_id: v.id("users"),
+    role: v.union(v.literal("owner"), v.literal("admin"), v.literal("editor")),
+    added_at: v.number(),
+    added_by: v.id("users"),
+  })
+    .index("by_page", ["page_id"])
+    .index("by_user", ["user_id"])
+    .index("by_page_and_user", ["page_id", "user_id"]),
+
   jobs: defineTable({
     external_id: v.optional(v.string()),
     description: v.optional(v.string()),

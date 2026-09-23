@@ -34,6 +34,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import React, { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { CompanyPageSkeleton } from "./pageSkeletons";
+import { UserManagement } from "./UserManagement";
 
 const CULTURE_PRESETS: Record<string, string[]> = {
   Startup: [
@@ -94,7 +95,7 @@ export function CompanyPageEditor() {
   const id = Array.isArray(params?.id) ? params.id[0] : params?.id;
   const { user } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<"about" | "details" | "culture">("about");
+  const [activeTab, setActiveTab] = useState<"about" | "details" | "culture" | "team">("about");
   const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -130,6 +131,7 @@ export function CompanyPageEditor() {
     const tabParam = searchParams?.get("tab");
     if (tabParam === "details") setActiveTab("details");
     else if (tabParam === "culture") setActiveTab("culture");
+    else if (tabParam === "team") setActiveTab("team");
     else if (tabParam === "about") setActiveTab("about");
   }, [searchParams]);
 
@@ -320,6 +322,20 @@ export function CompanyPageEditor() {
               <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full bg-neon-cyan" />
             )}
           </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("team")}
+            className={`flex items-center gap-2 pb-3.5 text-sm font-semibold transition-colors relative ${
+              activeTab === "team" ? "text-neon-cyan" : "text-white/60 hover:text-white"
+            }`}
+          >
+            <Users className="size-4" />
+            <span>Team</span>
+            {activeTab === "team" && (
+              <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full bg-neon-cyan" />
+            )}
+          </button>
         </div>
 
         {/* Title & Publish Header */}
@@ -332,30 +348,34 @@ export function CompanyPageEditor() {
               {activeTab === "about" && "Manage your company's about page content"}
               {activeTab === "details" && "Manage your company details"}
               {activeTab === "culture" && "Define your work culture for better candidate matching"}
+              {activeTab === "team" && "Manage who can access and edit this page"}
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={handlePublish}
-            disabled={isSaving}
-            className="flex items-center justify-center gap-2 rounded-full gradient-primary px-7 py-2.5 text-sm font-semibold text-white shadow-lg transition-all hover:opacity-95 disabled:opacity-50"
-          >
-            {isSaving ? (
-              <>
-                <Loader2 className="size-4 animate-spin" />
-                <span>Publishing…</span>
-              </>
-            ) : (
-              <span>Publish</span>
-            )}
-          </button>
+          {activeTab !== "team" && (
+            <button
+              type="button"
+              onClick={handlePublish}
+              disabled={isSaving}
+              className="flex items-center justify-center gap-2 rounded-full gradient-primary px-7 py-2.5 text-sm font-semibold text-white shadow-lg transition-all hover:opacity-95 disabled:opacity-50"
+            >
+              {isSaving ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  <span>Publishing…</span>
+                </>
+              ) : (
+                <span>Publish</span>
+              )}
+            </button>
+          )}
         </div>
 
         {/* Form Container Card */}
-        <div className="mt-6 rounded-2xl border border-white/[0.08] bg-[#070712] p-8 shadow-xl">
-          {/* TAB 1: ABOUT */}
-          {activeTab === "about" && (
+        {activeTab !== "team" ? (
+          <div className="mt-6 rounded-2xl border border-white/[0.08] bg-[#070712] p-8 shadow-xl">
+            {/* TAB 1: ABOUT */}
+            {activeTab === "about" && (
             <div className="space-y-8">
               {/* Media Section */}
               <div>
@@ -702,6 +722,11 @@ export function CompanyPageEditor() {
             </div>
           )}
         </div>
+      ) : (
+        <div className="mt-6">
+          <UserManagement pageId={String(id)} showHeader={false} />
+        </div>
+      )}
       </div>
     </div>
   );

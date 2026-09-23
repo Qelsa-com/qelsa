@@ -9,11 +9,13 @@ import {
   ChevronsLeft,
   ChevronsRight,
   Cpu,
+  LogOut,
   PenLine,
   Target,
+  Users,
 } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { useEmployerSidebar } from "@/lib/employerSidebarState";
@@ -31,8 +33,16 @@ export function EmployerSidebar({
   mobileOpen,
   onCloseMobile,
 }: EmployerSidebarProps) {
-  const { user } = useAuth();
+  const router = useRouter();
+  const { user, logout } = useAuth();
   const pathname = usePathname();
+
+  const handleSignOut = () => {
+    if (mobileOpen) onCloseMobile?.();
+    logout();
+    router.push("/auth");
+    toast.success("Signed out successfully");
+  };
 
   const { isCollapsed: hookCollapsed, toggle: hookToggle } = useEmployerSidebar();
 
@@ -44,6 +54,8 @@ export function EmployerSidebar({
   const activePageId = user?.active_page_id;
   const mySpaceUrl = activePageId ? `/pages/${activePageId}` : "/pages";
 
+  const userManagementUrl = activePageId ? `/pages/${activePageId}/manage` : "/team";
+
   const navItems = [
     {
       id: "my-space",
@@ -52,8 +64,10 @@ export function EmployerSidebar({
       href: mySpaceUrl,
       isActive:
         pathname === "/" ||
-        pathname.startsWith("/pages/") ||
-        pathname === "/pages",
+        pathname === "/pages" ||
+        (pathname.startsWith("/pages/") &&
+          !pathname.includes("/manage") &&
+          !pathname.includes("/edit")),
     },
     {
       id: "applications",
@@ -71,6 +85,15 @@ export function EmployerSidebar({
         pathname.startsWith("/jobs/posted") ||
         pathname === "/jobs/create-job" ||
         pathname.startsWith("/jobs/edit/"),
+    },
+    {
+      id: "user-management",
+      label: "User Management",
+      icon: Users,
+      href: userManagementUrl,
+      isActive:
+        pathname === "/team" ||
+        pathname.includes("/manage"),
     },
     {
       id: "hiring-goals",
@@ -164,7 +187,7 @@ export function EmployerSidebar({
         </nav>
       </div>
 
-      {/* Bottom Section: Collapse Toggle + Notification Bell at bottom */}
+      {/* Bottom Section: Collapse Toggle + Notification Bell + Sign Out */}
       <div
         className={`flex flex-col gap-3 pb-6 ${
           collapsedState ? "items-center px-2" : "items-start px-3"
@@ -193,16 +216,56 @@ export function EmployerSidebar({
           </button>
         )}
 
-        {/* Circular Notification Bell at bottom, aligned to left on expand */}
-        <button
-          type="button"
-          onClick={() => toast.info("No new notifications")}
-          aria-label="Notifications"
-          title="Notifications"
-          className="flex size-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-white/70 transition-colors hover:bg-white/[0.08] hover:text-white"
-        >
-          <Bell className="size-4" />
-        </button>
+        {collapsedState ? (
+          <>
+            {/* Circular Notification Bell in collapsed */}
+            <button
+              type="button"
+              onClick={() => toast.info("No new notifications")}
+              aria-label="Notifications"
+              title="Notifications"
+              className="flex size-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-white/70 transition-colors hover:bg-white/[0.08] hover:text-white"
+            >
+              <Bell className="size-4" />
+            </button>
+
+            {/* Circular Sign Out button in collapsed */}
+            <button
+              type="button"
+              onClick={handleSignOut}
+              aria-label="Sign Out"
+              title="Sign Out"
+              className="flex size-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-red-400/80 transition-colors hover:border-red-500/30 hover:bg-red-500/10 hover:text-red-400"
+            >
+              <LogOut className="size-4" />
+            </button>
+          </>
+        ) : (
+          <div className="flex w-full items-center justify-between gap-2 pt-2 border-t border-white/[0.06]">
+            {/* Circular Notification Bell aligned to left */}
+            <button
+              type="button"
+              onClick={() => toast.info("No new notifications")}
+              aria-label="Notifications"
+              title="Notifications"
+              className="flex size-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-white/70 transition-colors hover:bg-white/[0.08] hover:text-white shrink-0"
+            >
+              <Bell className="size-4" />
+            </button>
+
+            {/* Sign Out Button with icon and text */}
+            <button
+              type="button"
+              onClick={handleSignOut}
+              aria-label="Sign Out"
+              title="Sign Out"
+              className="flex h-10 items-center gap-2 rounded-xl px-3.5 text-xs font-semibold text-red-400/80 transition-colors hover:bg-red-500/10 hover:text-red-400"
+            >
+              <LogOut className="size-4 shrink-0" />
+              <span>Sign Out</span>
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

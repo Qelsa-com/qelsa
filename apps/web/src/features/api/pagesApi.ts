@@ -34,3 +34,9 @@ export function useUpdatePageMutation() {
     data,
   }));
 }
+export function useToggleFollowPageMutation() {
+  return useConvexMutationHook(api.pages.toggleFollow, (pageId: string) => ({
+    pageId: pageId as never,
+  }));
+}
+
