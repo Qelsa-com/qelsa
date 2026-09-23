@@ -62,6 +62,7 @@ export function ProfileDrawer({ isOpen, onClose, activeSection }: ProfileDrawerP
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
   const [visible, setVisible] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -130,10 +131,13 @@ export function ProfileDrawer({ isOpen, onClose, activeSection }: ProfileDrawerP
             activeSection={activeSection}
             pathname={pathname}
             onGo={go}
-            onSignOut={() => {
-              logout();
+            signingOut={signingOut}
+            onSignOut={async () => {
+              if (signingOut) return;
+              setSigningOut(true);
+              await logout();
               onClose();
-              window.location.href = "/jobs";
+              window.location.replace("/jobs");
             }}
           />
         ) : (
@@ -197,6 +201,7 @@ function AuthedMenu({
   activeSection,
   pathname,
   onGo,
+  signingOut,
   onSignOut,
 }: {
   name?: string;
@@ -205,7 +210,8 @@ function AuthedMenu({
   activeSection?: string;
   pathname: string | null;
   onGo: (path: string) => void;
-  onSignOut: () => void;
+  signingOut: boolean;
+  onSignOut: () => void | Promise<void>;
 }) {
   const displayName = name || (username ? `@${username}` : "User");
   const settingsActive = isItemActive("settings", "/settings", activeSection, pathname);
@@ -271,13 +277,14 @@ function AuthedMenu({
         </button>
         <button
           type="button"
-          onClick={onSignOut}
-          className="mt-1 flex w-full items-center gap-4 rounded-full px-3 py-2.5 text-left text-white transition-colors hover:bg-white/[0.04]"
+          onClick={() => void onSignOut()}
+          disabled={signingOut}
+          className="mt-1 flex w-full items-center gap-4 rounded-full px-3 py-2.5 text-left text-white transition-colors hover:bg-white/[0.04] disabled:opacity-50"
         >
           <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white/[0.06]">
             <LogOut className="size-4" />
           </span>
-          <span className="text-[20px] font-medium">Sign Out</span>
+          <span className="text-[20px] font-medium">{signingOut ? "Signing out…" : "Sign Out"}</span>
         </button>
       </div>
     </div>
