@@ -11,7 +11,7 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  logout: () => void;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -40,8 +40,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .finally(() => setIsProvisioning(false));
   }, [session, profile, ensureAppUser]);
 
-  const logout = useCallback(() => {
-    void authClient.signOut();
+  const logout = useCallback(async () => {
+    await authClient.signOut().catch(() => undefined);
   }, []);
 
   const value = useMemo(

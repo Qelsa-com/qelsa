@@ -4,9 +4,9 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { EmployerSidebar } from "@/components/EmployerSidebar";
 import { PublicNavbar } from "@/components/PublicNavbar";
 import { useAuth } from "@/contexts/AuthContext";
-import { Menu, User } from "lucide-react";
+import { Menu } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { JobFilterSidebar } from "../components/job/JobFilterSidebar";
 import { MainNavigation } from "../components/MainNavigation";
 import { ProfileDrawer } from "../components/ProfileDrawer";
@@ -95,12 +95,7 @@ const Layout = ({ activeSection, children }: LayoutProps) => {
             <PublicNavbar activeSection={activeSection} onProfileClick={handleProfileClick} />
           )}
 
-          <ErrorBoundary label="this page">
-            {children}
-          </ErrorBoundary>
-
-          {/* Clears the fixed mobile tab bar both navbars render */}
-          <div className="h-[calc(5rem+env(safe-area-inset-bottom,0px))] lg:hidden" aria-hidden="true" />
+          <ErrorBoundary label="this page">{children}</ErrorBoundary>
         </>
       )}
 
@@ -108,7 +103,7 @@ const Layout = ({ activeSection, children }: LayoutProps) => {
       <JobFilterSidebar isOpen={showJobFilterSidebar} />
 
       {/* Profile Drawer */}
-      <ProfileDrawer isOpen={showProfileDrawer} onClose={handleCloseProfileDrawer} />
+      <ProfileDrawer isOpen={showProfileDrawer} onClose={handleCloseProfileDrawer} activeSection={activeSection} />
     </div>
   );
 };
