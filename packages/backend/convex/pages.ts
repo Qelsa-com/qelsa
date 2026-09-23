@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { authedMutation, authedQuery } from "./lib/customFunctions";
+import { authedMutation, authedQuery, optionalAuthQuery } from "./lib/customFunctions";
 import { withId } from "./lib/helpers";
 
 async function hydratePage(ctx: { db: { get: Function } }, page: Record<string, unknown> & { _id: string; size_id?: string; ownerId: string }) {
@@ -83,7 +83,7 @@ export const listDiscover = authedQuery({
   },
 });
 
-export const getById = authedQuery({
+export const getById = optionalAuthQuery({
   args: { id: v.id("pages") },
   returns: v.any(),
   handler: async (ctx, args) => {
@@ -100,7 +100,7 @@ export const getById = authedQuery({
       .withIndex("by_page", (q) => q.eq("page_id", page._id))
       .collect();
 
-    const isFollowing = followers.some((f) => f.user_id === ctx.user._id);
+    const isFollowing = ctx.user ? followers.some((f) => f.user_id === ctx.user._id) : false;
 
     const recentFollowers = [];
     for (const f of followers.slice(0, 3)) {
@@ -114,10 +114,28 @@ export const getById = authedQuery({
       }
     }
 
+    let isOwner = false;
+    let canManage = false;
+    let userRole: "owner" | "admin" | "editor" | null = null;
+
+    if (ctx.user) {
+      const userMembership = await ctx.db
+        .query("page_members")
+        .withIndex("by_page_and_user", (q) =>
+          q.eq("page_id", page._id).eq("user_id", ctx.user._id)
+        )
+        .first();
+
+      isOwner = page.ownerId === ctx.user._id;
+      canManage = isOwner || userMembership?.role === "admin";
+      userRole = isOwner ? "owner" : (userMembership?.role ?? null);
+    }
+
     return {
       ...hydrated,
       jobs: jobs.map(withId),
-      can_manage: page.ownerId === ctx.user._id,
+      can_manage: canManage,
+      user_role: userRole,
       followers_count: followers.length,
       is_following: isFollowing,
       recent_followers: recentFollowers,

@@ -54,34 +54,25 @@ const Layout = ({ activeSection, children }: LayoutProps) => {
             onCloseMobile={() => setIsMobileSidebarOpen(false)}
           />
 
-          {/* Mobile Recruiter Top Bar */}
+          {/* Mobile Recruiter Top Bar (matching Image 1) */}
           <header className="sticky top-0 z-40 flex items-center justify-between border-b border-white/[0.12] bg-[#06060f]/80 px-4 py-3 backdrop-blur-xl lg:hidden">
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => setIsMobileSidebarOpen(true)}
-                className="flex size-9 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] text-white hover:bg-white/[0.08]"
-                aria-label="Open menu"
-              >
-                <Menu className="size-5" />
-              </button>
-              <Link
-                href={user?.active_page_id ? `/pages/${user.active_page_id}` : "/pages"}
-                className="flex items-center gap-2"
-              >
-                <div className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-neon-purple to-neon-pink shadow-sm">
-                  <span className="text-xs font-bold text-white">Q</span>
-                </div>
-                <span className="text-base font-bold text-white">Qelsa</span>
-              </Link>
-            </div>
+            <Link
+              href={user?.active_page_id ? `/pages/${user.active_page_id}` : "/pages"}
+              className="flex items-center gap-2.5 transition-opacity hover:opacity-90"
+            >
+              <div className="flex size-8 items-center justify-center rounded-xl bg-gradient-to-br from-neon-purple to-neon-pink shadow-md">
+                <span className="text-sm font-extrabold text-white">Q</span>
+              </div>
+              <span className="text-lg font-bold tracking-tight text-white">qelsa</span>
+            </Link>
+
             <button
               type="button"
-              onClick={handleProfileClick}
-              aria-label="Open profile"
-              className="flex size-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-white/70 hover:bg-white/[0.08] hover:text-white"
+              onClick={() => setIsMobileSidebarOpen((prev) => !prev)}
+              className="flex size-9 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-white hover:bg-white/[0.08] active:scale-95 transition-all"
+              aria-label="Toggle menu"
             >
-              <User className="size-4" />
+              <Menu className="size-5" />
             </button>
           </header>
 

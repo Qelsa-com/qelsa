@@ -61,4 +61,19 @@ export type Page = {
   followers_count?: number;
   is_following?: boolean;
   recent_followers?: Array<{ id: string; name?: string; image?: string }>;
+  user_role?: PageMemberRole | null;
 };
+
+export type PageMemberRole = "owner" | "admin" | "editor";
+
+export interface PageMember {
+  id: string;
+  user_id: string;
+  name: string;
+  username?: string;
+  email: string;
+  image?: string;
+  role: PageMemberRole;
+  joined_at: number;
+  is_owner: boolean;
+}

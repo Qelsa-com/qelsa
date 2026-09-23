@@ -52,6 +52,7 @@ import type * as lib_resolve from "../lib/resolve.js";
 import type * as lib_skillLimits from "../lib/skillLimits.js";
 import type * as lib_skillMatch from "../lib/skillMatch.js";
 import type * as onboarding from "../onboarding.js";
+import type * as pageMembers from "../pageMembers.js";
 import type * as pages from "../pages.js";
 import type * as resumeParse from "../resumeParse.js";
 import type * as resumes from "../resumes.js";
@@ -111,6 +112,7 @@ declare const fullApi: ApiFromModules<{
   "lib/skillLimits": typeof lib_skillLimits;
   "lib/skillMatch": typeof lib_skillMatch;
   onboarding: typeof onboarding;
+  pageMembers: typeof pageMembers;
   pages: typeof pages;
   resumeParse: typeof resumeParse;
   resumes: typeof resumes;
