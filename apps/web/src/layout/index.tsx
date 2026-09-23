@@ -66,9 +66,9 @@ const Layout = ({ activeSection, children }: LayoutProps) => {
 
             <button
               type="button"
-              onClick={() => setIsMobileSidebarOpen((prev) => !prev)}
-              className="flex size-9 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-white hover:bg-white/[0.08] active:scale-95 transition-all"
-              aria-label="Toggle menu"
+              onClick={() => setIsMobileSidebarOpen(true)}
+              className="flex size-9 shrink-0 items-center justify-center rounded-full border border-white/[0.12] bg-white/[0.04] text-white/80 transition-colors hover:bg-white/[0.08] hover:text-white"
+              aria-label="Open menu"
             >
               <Menu className="size-5" />
             </button>
