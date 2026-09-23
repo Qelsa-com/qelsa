@@ -3,6 +3,7 @@
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { EmployerSidebar } from "@/components/EmployerSidebar";
 import { PublicNavbar } from "@/components/PublicNavbar";
+import { QelsaLogo } from "@/components/QelsaLogo";
 import { useAuth } from "@/contexts/AuthContext";
 import { Menu } from "lucide-react";
 import Link from "next/link";
@@ -60,10 +61,7 @@ const Layout = ({ activeSection, children }: LayoutProps) => {
               href={user?.active_page_id ? `/pages/${user.active_page_id}` : "/pages"}
               className="flex items-center gap-2.5 transition-opacity hover:opacity-90"
             >
-              <div className="flex size-8 items-center justify-center rounded-xl bg-gradient-to-br from-neon-purple to-neon-pink shadow-md">
-                <span className="text-sm font-extrabold text-white">Q</span>
-              </div>
-              <span className="text-lg font-bold tracking-tight text-white">qelsa</span>
+              <QelsaLogo className="h-[22px] w-auto" />
             </Link>
 
             <button

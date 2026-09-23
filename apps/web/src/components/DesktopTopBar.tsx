@@ -8,9 +8,9 @@
  * and the hamburger menu take over.
  */
 
+import { QelsaLogo } from "@/components/QelsaLogo";
 import { useAuth } from "@/contexts/AuthContext";
 import { Bell, Search, User } from "lucide-react";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 
 /**
@@ -44,7 +44,7 @@ export function DesktopTopBar({ activeSection, onProfileClick }: { activeSection
     <header className="sticky top-0 z-50 hidden border-b border-white/[0.08] bg-[#06060f] lg:block">
       <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-6 py-4">
       <button type="button" onClick={() => router.push("/")} className="flex items-center">
-        <Image src="/qelsa-logo.svg" alt="Qelsa" width={91} height={29} priority unoptimized className="h-[26px] w-auto" />
+        <QelsaLogo priority className="h-[26px] w-auto" />
       </button>
 
       <nav className="flex items-center gap-9">
