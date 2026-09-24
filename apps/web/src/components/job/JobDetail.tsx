@@ -245,10 +245,10 @@ export function JobDetail() {
       ]
     : [
         // Readiness is the deterministic skill-vs-skill match; the composite
-        // (whole profile) is shown separately as Profile Fit. Always render all
+        // (whole profile/resume) is shown separately as Resume Fit. Always render all
         // four tiles so the mobile 2×2 grid stays balanced.
         { label: "Readiness Score", value: competency ? `${competency.readiness}%` : "—" },
-        { label: "Profile Fit", value: overallMatch != null ? `${overallMatch}%` : "—" },
+        { label: "Resume Fit", value: overallMatch != null ? `${overallMatch}%` : "—" },
         { label: "Views", value: formatCount(job.view_count ?? 0) },
         { label: "Applications", value: `${job.application_count ?? job.applications?.length ?? 0}` },
       ];
@@ -494,7 +494,7 @@ export function JobDetail() {
 
             {/* How you fit this role — reuses the data-wired competency panel.
                 The ring shows the skill-based readiness; the composite stays
-                in the Profile Fit metric so the two scores don't conflate. */}
+                in the Resume Fit metric so the two scores don't conflate. */}
             {!isOwner && competency && <CompetencyTable competency={competency} experienceMatch={matchSession?.analysis?.experience_match ?? experienceMatch} educationMatch={matchSession?.analysis?.education_match ?? educationMatch} />}
 
             {/* About the Company */}
