@@ -727,6 +727,7 @@ export function JobDetail() {
         // which closes itself from its own CTAs.
         onSubmit={() => {}}
         resumes={myResumes ?? []}
+        defaultResumeId={user?.default_resume_id}
       />
 
       <ExternalApplyConfirmModal

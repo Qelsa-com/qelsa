@@ -33,8 +33,13 @@ export const me = optionalAuthQuery({
         .unique(),
     ]);
     const state = city ? await ctx.db.get(city.state_id) : null;
+    const effectiveDefaultResumeId =
+      ctx.user.default_resume_id && resumes.some((r) => r._id === ctx.user.default_resume_id)
+        ? ctx.user.default_resume_id
+        : (resumes[0]?._id ?? undefined);
     return {
       ...asUserJson(ctx.user),
+      default_resume_id: effectiveDefaultResumeId,
       profile_image: (await signedFileUrl(r2, ctx.user.profile_image_storage_id)) ?? ctx.user.profile_image,
       city: city ? { ...withId(city), state: state ? withId(state) : null } : null,
       culture_preference: culture ? withId(culture) : null,

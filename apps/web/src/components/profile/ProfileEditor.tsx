@@ -128,6 +128,20 @@ export function ProfileEditor() {
     }
   }, [user, profile]);
 
+  useEffect(() => {
+    if (resumes && resumes.length > 0 && profile) {
+      const hasValidDefault = resumes.some((r) => String(r.id) === profile.default_resume_id);
+      if (!hasValidDefault && resumes[0]?.id) {
+        patch({ default_resume_id: String(resumes[0].id) });
+      }
+    }
+  }, [resumes, profile?.default_resume_id]);
+
+  const effectiveDefaultResumeId =
+    (resumes ?? []).some((r) => String(r.id) === profile?.default_resume_id)
+      ? profile?.default_resume_id
+      : (resumes?.[0]?.id ? String(resumes[0].id) : undefined);
+
   const workplaceTypes = useMemo(
     () =>
       (profile?.work_preference ?? "")
@@ -207,7 +221,11 @@ export function ProfileEditor() {
     const file = e.target.files?.[0];
     if (!file) return;
     try {
-      await createResume({ file, title: file.name }).unwrap();
+      const res = await createResume({ file, title: file.name }).unwrap();
+      const newResumeId = res?.data?.id;
+      if (newResumeId && (!profile?.default_resume_id || (resumes ?? []).length === 0)) {
+        patch({ default_resume_id: String(newResumeId) });
+      }
       toast.success("Resume uploaded");
     } catch (error) {
       toastUnknownError(error, "Could not upload the resume. Please try again.");
@@ -588,14 +606,14 @@ export function ProfileEditor() {
                     </div>
 
                     {(resumes ?? []).map((resume) => {
-                      const selected = profile.default_resume_id === String(resume.id);
+                      const selected = effectiveDefaultResumeId === String(resume.id);
                       return (
-                        <div key={String(resume.id)} className="flex items-center gap-4 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
+                        <div key={String(resume.id)} className={`flex items-center gap-4 rounded-xl border px-4 py-3 transition-colors ${selected ? "border-neon-cyan/40 bg-neon-cyan/[0.04]" : "border-white/10 bg-white/[0.03]"}`}>
                           <button
                             type="button"
                             onClick={() => patch({ default_resume_id: String(resume.id) })}
                             aria-label="Use this resume for job applications"
-                            className={`flex size-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${selected ? "border-neon-cyan bg-neon-cyan" : "border-white/25"}`}
+                            className={`flex size-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${selected ? "border-neon-cyan bg-neon-cyan" : "border-white/25 hover:border-white/50"}`}
                           >
                             {selected && <Check className="size-3 text-[#06060f]" />}
                           </button>
@@ -603,8 +621,15 @@ export function ProfileEditor() {
                             <FileText className="size-4 text-white" />
                           </span>
                           <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-medium text-white">{resume.title}</p>
-                            <p className="text-xs text-white/45">Last updated: {resume.updatedAt ? new Date(resume.updatedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "—"}</p>
+                            <div className="flex items-center gap-2">
+                              <p className="truncate text-sm font-medium text-white">{resume.title}</p>
+                              {selected && (
+                                <span className="rounded-full bg-neon-cyan/15 px-2 py-0.5 text-[11px] font-medium text-neon-cyan">
+                                  Default
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-white/50">Last updated: {resume.updatedAt ? new Date(resume.updatedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "—"}</p>
                           </div>
                           {resume.file_url && (
                             <a
@@ -622,7 +647,8 @@ export function ProfileEditor() {
                             onClick={async () => {
                               try {
                                 await deleteResume(resume.id).unwrap();
-                                if (selected) patch({ default_resume_id: undefined });
+                                const remaining = (resumes ?? []).filter((r) => String(r.id) !== String(resume.id));
+                                patch({ default_resume_id: remaining[0]?.id ? String(remaining[0].id) : undefined });
                                 toast.success("Resume deleted");
                               } catch (error) {
                                 toastUnknownError(error, "Could not delete the resume.");

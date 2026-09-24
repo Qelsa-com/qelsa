@@ -18,6 +18,7 @@ interface QuickApplyModalProps {
   screeningQuestions?: ScreeningQuestion[];
   onSubmit: () => void;
   resumes: Resume[];
+  defaultResumeId?: string | number | null;
 }
 
 type Step = "resume" | "questions" | "review" | "success";
@@ -25,7 +26,7 @@ type Step = "resume" | "questions" | "review" | "success";
 const COVER_LETTER_MAX = 2000;
 const STEP_LABELS = ["Resume & Cover Letter", "Screening Questions", "Review & Submit"];
 
-export function QuickApplyModal({ isOpen, onClose, job, companyName, screeningQuestions = [], onSubmit, resumes }: QuickApplyModalProps) {
+export function QuickApplyModal({ isOpen, onClose, job, companyName, screeningQuestions = [], onSubmit, resumes, defaultResumeId }: QuickApplyModalProps) {
   const router = useRouter();
 
   const [step, setStep] = useState<Step>("resume");
@@ -39,7 +40,10 @@ export function QuickApplyModal({ isOpen, onClose, job, companyName, screeningQu
   const [createResume] = useCreateResumeMutation();
   const [createJobApplication, { isLoading: isSubmitting }] = useCreateJobApplicationMutation();
 
-  const [selectedResumeId, setSelectedResumeId] = useState<string | number | null>(resumes?.[0]?.id ?? null);
+  const [selectedResumeId, setSelectedResumeId] = useState<string | number | null>(() => {
+    const matched = resumes?.find((r) => String(r.id) === String(defaultResumeId));
+    return matched?.id ?? resumes?.[0]?.id ?? null;
+  });
   const selectedResume = resumes?.find((r) => r.id === selectedResumeId);
 
   const hasScreeningQuestions = screeningQuestions.length > 0;
@@ -52,14 +56,20 @@ export function QuickApplyModal({ isOpen, onClose, job, companyName, screeningQu
       setErrors({});
       setCoverLetter("");
       setConsented(false);
+      const matched = resumes?.find((r) => String(r.id) === String(defaultResumeId));
+      setSelectedResumeId(matched?.id ?? resumes?.[0]?.id ?? null);
     }
-  }, [isOpen]);
+  }, [isOpen, resumes, defaultResumeId]);
 
   useEffect(() => {
     if (resumes && resumes.length > 0) {
-      setSelectedResumeId((prev) => prev ?? resumes[0].id ?? null);
+      setSelectedResumeId((prev) => {
+        if (prev && resumes.some((r) => r.id === prev)) return prev;
+        const def = resumes.find((r) => String(r.id) === String(defaultResumeId));
+        return def?.id ?? resumes[0].id ?? null;
+      });
     }
-  }, [resumes]);
+  }, [resumes, defaultResumeId]);
 
   /* ------------------------------ answer helpers ---------------------------- */
 

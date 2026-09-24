@@ -43,6 +43,9 @@ export const create = authedMutation({
       storage_id: args.storageId,
       file_url,
     });
+    if (!ctx.user.default_resume_id) {
+      await ctx.db.patch(ctx.user._id, { default_resume_id: id });
+    }
     const resume = await ctx.db.get(id);
     return { resume: withId(resume!) };
   },
@@ -56,6 +59,15 @@ export const remove = authedMutation({
     if (!resume || resume.user_id !== ctx.user._id) throw new Error("Resume not found");
     await deleteR2Keys(r2, ctx, [resume.storage_id]);
     await ctx.db.delete(args.id);
+    if (ctx.user.default_resume_id === args.id) {
+      const remaining = await ctx.db
+        .query("resumes")
+        .withIndex("by_user", (q) => q.eq("user_id", ctx.user._id))
+        .first();
+      await ctx.db.patch(ctx.user._id, {
+        default_resume_id: remaining?._id ?? undefined,
+      });
+    }
     return null;
   },
 });
