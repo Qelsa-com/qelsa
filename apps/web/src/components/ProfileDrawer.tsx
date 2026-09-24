@@ -2,18 +2,7 @@
 
 import { QelsaLogo } from "@/components/QelsaLogo";
 import { useAuth } from "@/contexts/AuthContext";
-import {
-  BookOpen,
-  Briefcase,
-  FileText,
-  LogOut,
-  PenLine,
-  Settings,
-  Sparkles,
-  Target,
-  Users,
-  X,
-} from "lucide-react";
+import { BookOpen, Briefcase, FileText, LogOut, PenLine, Settings, Target, Users, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -37,14 +26,14 @@ const GUEST_ITEMS = [
   { id: "blog", label: "Blog", href: "/blogs" },
 ];
 
+/** Items also in DesktopTopBar are hidden from `lg` so the drawer is account-only. */
 const AUTHED_ITEMS = [
-  { id: "jobs", label: "Jobs", href: "/jobs/smart-matches", icon: Briefcase },
-  { id: "connections", label: "Network", href: "/network", icon: Users },
+  { id: "jobs", label: "Jobs", href: "/jobs/smart-matches", icon: Briefcase, hideOnDesktop: true },
+  { id: "connections", label: "Network", href: "/network", icon: Users, hideOnDesktop: true },
   { id: "goals", label: "Goals", href: "/goals", icon: Target },
   { id: "resume", label: "My Resume", href: "/profile/edit?section=media", icon: FileText },
-  { id: "job-match", label: "Job Match AI", href: "/jobs/smart-matches", icon: Sparkles },
-  { id: "courses", label: "Courses", href: "/courses", icon: BookOpen },
-  { id: "blog", label: "Blog", href: "/blogs", icon: PenLine },
+  { id: "courses", label: "Courses", href: "/courses", icon: BookOpen, hideOnDesktop: true },
+  { id: "blog", label: "Blog", href: "/blogs", icon: PenLine, hideOnDesktop: true },
 ];
 
 function initials(name?: string) {
@@ -61,6 +50,7 @@ function initials(name?: string) {
 function isItemActive(itemId: string, href: string, activeSection?: string, pathname?: string | null) {
   if (activeSection && itemId === activeSection) return true;
   if (!pathname) return false;
+  if (href === "/") return pathname === "/";
   if (href.startsWith("/profile/edit?section=media")) {
     return pathname === "/profile/edit";
   }
@@ -117,12 +107,7 @@ export function ProfileDrawer({ isOpen, onClose, activeSection }: ProfileDrawerP
   const signedIn = Boolean(isAuthenticated && user);
 
   return (
-    <div
-      className={`fixed inset-0 z-50 transition-opacity duration-200 ${visible ? "opacity-100" : "opacity-0"}`}
-      role="dialog"
-      aria-modal="true"
-      aria-label={signedIn ? "Account menu" : "Site menu"}
-    >
+    <div className={`fixed inset-0 z-50 transition-opacity duration-200 ${visible ? "opacity-100" : "opacity-0"}`} role="dialog" aria-modal="true" aria-label={signedIn ? "Account menu" : "Site menu"}>
       <div className="absolute inset-0 bg-[#06060f] lg:bg-black/60" onClick={onClose} />
       <div
         className={`absolute inset-0 flex flex-col bg-[#06060f] px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(1.25rem,env(safe-area-inset-top))] transition-transform duration-250 ease-out lg:inset-y-0 lg:right-0 lg:left-auto lg:w-[400px] lg:border-l lg:border-white/10 ${
@@ -131,12 +116,7 @@ export function ProfileDrawer({ isOpen, onClose, activeSection }: ProfileDrawerP
       >
         <div className="flex items-center justify-between">
           <QelsaLogo className="h-[26px] w-auto" />
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close menu"
-            className="flex size-10 items-center justify-center rounded-full border border-white/20 text-white transition-colors hover:bg-white/[0.06]"
-          >
+          <button type="button" onClick={onClose} aria-label="Close menu" className="flex size-10 items-center justify-center rounded-full border border-white/20 text-white transition-colors hover:bg-white/[0.06]">
             <X className="size-5" />
           </button>
         </div>
@@ -174,17 +154,9 @@ export function ProfileDrawer({ isOpen, onClose, activeSection }: ProfileDrawerP
   );
 }
 
-function GuestMenu({
-  activeSection,
-  pathname,
-  onGo,
-}: {
-  activeSection?: string;
-  pathname: string | null;
-  onGo: (path: string) => void;
-}) {
+function GuestMenu({ activeSection, pathname, onGo }: { activeSection?: string; pathname: string | null; onGo: (path: string) => void }) {
   return (
-    <nav className="mt-16 flex flex-col gap-3">
+    <nav className="mt-16 flex flex-col gap-3 lg:hidden">
       {GUEST_ITEMS.map((item) => {
         const active = isItemActive(item.id, item.href, activeSection, pathname);
         return (
@@ -193,19 +165,13 @@ function GuestMenu({
             type="button"
             onClick={() => onGo(item.href)}
             aria-current={active ? "page" : undefined}
-            className={`rounded-full px-6 py-3.5 text-left text-[22px] font-semibold transition-colors ${
-              active ? "border border-neon-cyan text-white" : "text-white hover:bg-white/[0.04]"
-            }`}
+            className={`rounded-full px-6 py-3.5 text-left text-[22px] font-semibold transition-colors ${active ? "border border-neon-cyan text-white" : "text-white hover:bg-white/[0.04]"}`}
           >
             {item.label}
           </button>
         );
       })}
-      <button
-        type="button"
-        onClick={() => onGo("/auth")}
-        className="mt-6 rounded-full border border-white/20 px-6 py-3.5 text-[22px] font-semibold text-white transition-colors hover:bg-white/[0.04]"
-      >
+      <button type="button" onClick={() => onGo("/auth")} className="mt-6 rounded-full border border-white/20 px-6 py-3.5 text-[22px] font-semibold text-white transition-colors hover:bg-white/[0.04]">
         Sign in
       </button>
     </nav>
@@ -236,11 +202,7 @@ function AuthedMenu({
 
   return (
     <div className="mt-8 flex min-h-0 flex-1 flex-col">
-      <button
-        type="button"
-        onClick={() => onGo("/profile")}
-        className="flex w-full items-center gap-3 rounded-full bg-white/[0.05] px-3 py-2.5 text-left transition-colors hover:bg-white/[0.08]"
-      >
+      <button type="button" onClick={() => onGo("/profile")} className="flex w-full items-center gap-3 rounded-full bg-white/[0.05] px-3 py-2.5 text-left transition-colors hover:bg-white/[0.08]">
         <div className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white/10">
           {avatarUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -266,9 +228,7 @@ function AuthedMenu({
               type="button"
               onClick={() => onGo(item.href)}
               aria-current={active ? "page" : undefined}
-              className={`flex items-center gap-4 rounded-full px-3 py-2.5 text-left transition-colors ${
-                active ? "border border-neon-cyan text-white" : "text-white hover:bg-white/[0.04]"
-              }`}
+              className={`flex items-center gap-4 rounded-full px-3 py-2.5 text-left transition-colors ${item.hideOnDesktop ? "lg:hidden" : ""} ${active ? "border border-neon-cyan text-white" : "text-white hover:bg-white/[0.04]"}`}
             >
               <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white/[0.06]">
                 <Icon className="size-4" />
@@ -284,21 +244,14 @@ function AuthedMenu({
           type="button"
           onClick={() => onGo("/settings")}
           aria-current={settingsActive ? "page" : undefined}
-          className={`flex w-full items-center gap-4 rounded-full px-3 py-2.5 text-left transition-colors ${
-            settingsActive ? "border border-neon-cyan text-white" : "text-white hover:bg-white/[0.04]"
-          }`}
+          className={`flex w-full items-center gap-4 rounded-full px-3 py-2.5 text-left transition-colors ${settingsActive ? "border border-neon-cyan text-white" : "text-white hover:bg-white/[0.04]"}`}
         >
           <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white/[0.06]">
             <Settings className="size-4" />
           </span>
           <span className="text-[20px] font-medium">Settings</span>
         </button>
-        <button
-          type="button"
-          onClick={() => void onSignOut()}
-          disabled={signingOut}
-          className="mt-1 flex w-full items-center gap-4 rounded-full px-3 py-2.5 text-left text-white transition-colors hover:bg-white/[0.04] disabled:opacity-50"
-        >
+        <button type="button" onClick={() => void onSignOut()} disabled={signingOut} className="mt-1 flex w-full items-center gap-4 rounded-full px-3 py-2.5 text-left text-white transition-colors hover:bg-white/[0.04] disabled:opacity-50">
           <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white/[0.06]">
             <LogOut className="size-4" />
           </span>

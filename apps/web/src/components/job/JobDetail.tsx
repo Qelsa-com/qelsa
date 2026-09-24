@@ -27,7 +27,7 @@ import { toast } from "sonner";
 import { jobDescriptionToHtml } from "@/lib/jobDescription";
 import { Job } from "@/types/job";
 import DOMPurify from "dompurify";
-import { ArrowLeft, ArrowUpRight, Bookmark, BookmarkCheck, BookOpen, Briefcase, Building2, CheckCircle2, FileText, HelpCircle, Info, Linkedin, Link as LinkIcon, MessageCircle, Pencil, Share2, Twitter, Users } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, Bookmark, BookmarkCheck, BookOpen, Briefcase, Building2, CheckCircle2, FileText, Info, Linkedin, Link as LinkIcon, MessageCircle, Pencil, Share2, Twitter, Users } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { goBackJobs } from "@/lib/jobNavigation";
 import { useEffect, useRef, useState } from "react";
@@ -106,6 +106,7 @@ function heroBadgesFor(job: Job): string[] {
   return [experienceLabel(job), jobTypeLabel(job), salaryText(job), workplaceLabel(job), formatPosted(job)].filter((b): b is string => Boolean(b));
 }
 
+/* TODO: restore AI-Generated Interview Questions once the feature is wired.
 const interviewQuestions = [
   "What is the difference between useMemo and useCallback in React?",
   "How does the virtual DOM work in React, and why is it useful?",
@@ -113,6 +114,7 @@ const interviewQuestions = [
   "How would you optimize a React application's performance?",
   "Describe your experience with state management libraries like Redux or Zustand.",
 ];
+*/
 
 export function JobDetail() {
   const { user, isAuthenticated } = useAuth();
@@ -542,7 +544,7 @@ export function JobDetail() {
               </div>
             </SectionCard>
 
-            {/* Interview Questions (static placeholder, as before) */}
+            {/* TODO: restore AI-Generated Interview Questions once the feature is wired.
             <SectionCard icon={<HelpCircle className="size-5 text-neon-purple" />} title="AI-Generated Interview Questions">
               <div className="flex flex-col gap-3">
                 {interviewQuestions.map((q) => (
@@ -553,6 +555,7 @@ export function JobDetail() {
               </div>
               <span className={`${CHIP} w-fit px-4 py-2.5 text-sm font-semibold text-neon-purple`}>View All Questions (5)</span>
             </SectionCard>
+            */}
 
             {!isOwner && gapSkillNames.length > 0 && (
               <SectionCard icon={<Info className="size-5 text-neon-pink" />} title="Insider Intel: Hiring Insights">

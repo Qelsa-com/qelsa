@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import React, { useEffect, useId, useState } from "react";
 import { toast } from "sonner";
+import { UserManagementSkeleton } from "./pageSkeletons";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 
 interface UserManagementProps {
@@ -248,10 +249,7 @@ export function UserManagement({ pageId, showHeader = true }: UserManagementProp
       {/* Main Container Card */}
       <div className="rounded-2xl border border-white/10 bg-[#0d0d17]/80 p-6 sm:p-10 shadow-2xl backdrop-blur-xl">
         {isMembersLoading ? (
-          <div className="flex min-h-[320px] flex-col items-center justify-center gap-3">
-            <Loader2 className="size-8 animate-spin text-neon-cyan" />
-            <p className="text-sm text-white/50">Loading team members...</p>
-          </div>
+          <UserManagementSkeleton />
         ) : membersError ? (
           <div className="flex min-h-[300px] flex-col items-center justify-center p-6 text-center">
             <p className="text-base text-red-400">Failed to load team members.</p>

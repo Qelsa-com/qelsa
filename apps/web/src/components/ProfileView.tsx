@@ -4,8 +4,7 @@ import {
   Heart, Share2, Bookmark, TrendingUp, Award, Target, Briefcase,
   ExternalLink, ChevronRight, Star, Lock, BarChart3, Brain,
   Globe, Coffee, Code, Lightbulb, Zap, Eye, Plus, CheckCircle,
-  ArrowUpRight, Clock, Filter, ThumbsUp, MessageCircle, MoreHorizontal,
-  Bell
+  ArrowUpRight, Clock, Filter, ThumbsUp, MessageCircle, MoreHorizontal
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -287,15 +286,6 @@ export function ProfileView({ userId, onClose }: ProfileViewProps) {
                 >
                   <MessageSquare className="h-4 w-4 mr-2" />
                   Message
-                </Button>
-                
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  className="glass hover:glass-strong border-neon-yellow/30 text-neon-yellow hover:text-neon-yellow"
-                  title="Get notified when they post"
-                >
-                  <Bell className="h-4 w-4" />
                 </Button>
               </div>
             </div>

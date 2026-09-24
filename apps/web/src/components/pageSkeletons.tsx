@@ -158,6 +158,50 @@ export function CompanyPageSkeleton() {
   );
 }
 
+export function UserManagementSkeleton() {
+  return (
+    <div role="status" aria-label="Loading team members">
+      <span className="sr-only">Loading team members</span>
+      <div className="flex flex-col gap-4 border-b border-white/10 pb-6 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-2">
+          <Bone className="h-6 w-44 rounded-md" />
+          <Bone className="h-3.5 w-56 max-w-full rounded-md" />
+        </div>
+        <Bone className="h-10 w-40 shrink-0 rounded-full" />
+      </div>
+      <div className="divide-y divide-white/[0.08]">
+        {range(4).map((i) => (
+          <div key={i} className="flex flex-col justify-between gap-4 py-5 sm:flex-row sm:items-center">
+            <div className="flex items-center gap-3.5">
+              <Bone className="size-11 shrink-0 rounded-full" />
+              <div className="flex min-w-0 flex-col gap-1.5">
+                <Bone className="h-4 w-36 rounded-md" />
+                <Bone className="h-3 w-48 max-w-full rounded-md" />
+                <Bone className="h-3 w-28 rounded-md" />
+              </div>
+            </div>
+            <div className="flex items-center gap-3 self-end sm:self-center">
+              <Bone className="h-7 w-20 rounded-full" />
+              <Bone className="size-8 rounded-full" />
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="mt-10 rounded-xl border border-white/10 bg-white/[0.02] p-5 sm:p-6">
+        <Bone className="mb-4 h-4 w-32 rounded-md" />
+        <div className="space-y-3.5">
+          {range(3).map((i) => (
+            <div key={i} className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-3">
+              <Bone className="h-4 w-20 rounded-md" />
+              <Bone className="h-3.5 w-64 max-w-full rounded-md" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function ProfilePageSkeleton() {
   return (
     <div className="flex min-h-screen w-full flex-col bg-[#06060f]" role="status" aria-label="Loading profile">

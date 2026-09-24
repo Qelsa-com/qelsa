@@ -4,7 +4,6 @@ import { QelsaLogo } from "@/components/QelsaLogo";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   AppWindow,
-  Bell,
   BookOpen,
   Briefcase,
   ChevronsLeft,
@@ -213,10 +212,10 @@ export function EmployerSidebar({
         </nav>
       </div>
 
-      {/* Bottom Section: Collapse Toggle + Notification Bell + Sign Out */}
+      {/* Bottom Section: Collapse Toggle + Sign Out */}
       <div
         className={`flex flex-col gap-3 pb-6 ${
-          collapsedState ? "items-center px-2" : "items-start px-3"
+          collapsedState ? "items-center px-2" : "items-stretch px-3"
         }`}
       >
         <button
@@ -241,54 +240,26 @@ export function EmployerSidebar({
         </button>
 
         {collapsedState ? (
-          <>
-            {/* Circular Notification Bell in collapsed */}
-            <button
-              type="button"
-              onClick={() => toast.info("No new notifications")}
-              aria-label="Notifications"
-              title="Notifications"
-              className="flex size-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-white/70 transition-colors hover:bg-white/[0.08] hover:text-white"
-            >
-              <Bell className="size-4" />
-            </button>
-
-            {/* Circular Sign Out button in collapsed */}
-            <button
-              type="button"
-              onClick={handleSignOut}
-              aria-label="Sign Out"
-              title="Sign Out"
-              className="flex size-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-red-400/80 transition-colors hover:border-red-500/30 hover:bg-red-500/10 hover:text-red-400"
-            >
-              <LogOut className="size-4" />
-            </button>
-          </>
+          <button
+            type="button"
+            onClick={handleSignOut}
+            aria-label="Sign Out"
+            title="Sign Out"
+            className="flex size-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-red-400/80 transition-colors hover:border-red-500/30 hover:bg-red-500/10 hover:text-red-400"
+          >
+            <LogOut className="size-4" />
+          </button>
         ) : (
-          <div className="flex w-full items-center justify-between gap-2 pt-2 border-t border-white/[0.06]">
-            {/* Circular Notification Bell aligned to left */}
-            <button
-              type="button"
-              onClick={() => toast.info("No new notifications")}
-              aria-label="Notifications"
-              title="Notifications"
-              className="flex size-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-white/70 transition-colors hover:bg-white/[0.08] hover:text-white shrink-0"
-            >
-              <Bell className="size-4" />
-            </button>
-
-            {/* Sign Out Button with icon and text */}
-            <button
-              type="button"
-              onClick={handleSignOut}
-              aria-label="Sign Out"
-              title="Sign Out"
-              className="flex h-10 items-center gap-2 rounded-xl px-3.5 text-xs font-semibold text-red-400/80 transition-colors hover:bg-red-500/10 hover:text-red-400"
-            >
-              <LogOut className="size-4 shrink-0" />
-              <span>Sign Out</span>
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={handleSignOut}
+            aria-label="Sign Out"
+            title="Sign Out"
+            className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm font-medium text-red-400/80 transition-colors hover:border-red-500/30 hover:bg-red-500/10 hover:text-red-400"
+          >
+            <LogOut className="size-4 shrink-0" />
+            <span>Sign Out</span>
+          </button>
         )}
       </div>
     </div>
@@ -360,18 +331,8 @@ export function EmployerSidebar({
             <div className="mt-6 border-t border-white/10 pt-5">
               <button
                 type="button"
-                onClick={() => toast.info("No new notifications")}
-                className="flex w-full items-center gap-4 rounded-full px-3 py-2.5 text-left text-white transition-colors hover:bg-white/[0.04]"
-              >
-                <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white/[0.06]">
-                  <Bell className="size-4" />
-                </span>
-                <span className="text-[20px] font-medium">Notifications</span>
-              </button>
-              <button
-                type="button"
                 onClick={() => void handleSignOut()}
-                className="mt-1 flex w-full items-center gap-4 rounded-full px-3 py-2.5 text-left text-white transition-colors hover:bg-white/[0.04]"
+                className="flex w-full items-center gap-4 rounded-full px-3 py-2.5 text-left text-white transition-colors hover:bg-white/[0.04]"
               >
                 <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white/[0.06]">
                   <LogOut className="size-4" />
