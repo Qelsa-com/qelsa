@@ -12,13 +12,14 @@ export interface SendEmailOptions {
   from?: string;
 }
 
-function parseEmailAddress(raw: string): { email: string; name?: string } {
+/** Cloudflare Email Sending REST objects use `address`, not `email`. */
+function parseEmailAddress(raw: string): { address: string; name?: string } {
   const match = raw.match(/^(.*?)\s*<(.+)>$/);
   if (match) {
     const name = match[1].trim().replace(/^["']|["']$/g, "");
-    return { name: name || undefined, email: match[2].trim() };
+    return { name: name || undefined, address: match[2].trim() };
   }
-  return { email: raw.trim() };
+  return { address: raw.trim() };
 }
 
 export async function sendEmail({
@@ -31,8 +32,11 @@ export async function sendEmail({
   const rawRecipients = Array.isArray(to) ? to : [to];
   const parsedRecipients = rawRecipients.map(parseEmailAddress);
   const fromObj = parseEmailAddress(from);
+  const plainText = text ?? html.replace(/<[^>]*>?/gm, "").trim();
+  const recipientList = parsedRecipients.map((r) => r.address).join(", ");
 
-  // 1. Cloudflare Email Service REST API (POST https://api.cloudflare.com/client/v4/accounts/{account_id}/email/sending/send)
+  // 1. Cloudflare Email Service REST API
+  // https://developers.cloudflare.com/email-service/api/send-emails/rest-api/
   const cfAccountId = process.env.CLOUDFLARE_ACCOUNT_ID;
   const cfApiToken = process.env.CLOUDFLARE_EMAIL_API_TOKEN || process.env.CLOUDFLARE_API_TOKEN;
 
@@ -51,23 +55,26 @@ export async function sendEmail({
             to: parsedRecipients,
             subject,
             html,
-            text: text ?? html.replace(/<[^>]*>?/gm, "").trim(),
+            text: plainText,
           }),
         },
       );
 
-      if (!res.ok) {
-        const errorText = await res.text();
-        console.error("[Email] Cloudflare Email Service error:", errorText);
-        return { success: false, error: errorText };
+      const data = (await res.json().catch(() => null)) as {
+        success?: boolean;
+        errors?: Array<{ message?: string }>;
+        result?: { message_id?: string };
+      } | null;
+
+      if (res.ok && data?.success !== false) {
+        console.log(`[Email] Sent via Cloudflare Email Sending to ${recipientList}`);
+        return { success: true, id: data?.result?.message_id ?? "cf-sent" };
       }
 
-      const data = (await res.json()) as { success: boolean; result?: { id?: string } };
-      console.log(`[Email] Sent successfully via Cloudflare to ${parsedRecipients.map((r) => r.email).join(", ")}`);
-      return { success: true, id: data.result?.id ?? "cf-sent" };
+      const errorText = data?.errors?.map((e) => e.message).filter(Boolean).join("; ") || `HTTP ${res.status}`;
+      console.error("[Email] Cloudflare Email Service error:", errorText);
     } catch (err) {
       console.error("[Email] Error dispatching email via Cloudflare:", err);
-      return { success: false, error: err instanceof Error ? err.message : String(err) };
     }
   }
 
@@ -88,22 +95,19 @@ export async function sendEmail({
           to: parsedRecipients,
           subject,
           html,
-          text: text ?? html.replace(/<[^>]*>?/gm, "").trim(),
+          text: plainText,
         }),
       });
 
-      if (!res.ok) {
-        const errorText = await res.text();
-        console.error("[Email] Cloudflare Worker email dispatch error:", errorText);
-        return { success: false, error: errorText };
+      if (res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { id?: string };
+        console.log(`[Email] Sent via Cloudflare Worker to ${recipientList}`);
+        return { success: true, id: data.id ?? "cf-worker-sent" };
       }
 
-      const data = (await res.json().catch(() => ({}))) as { id?: string };
-      console.log(`[Email] Sent successfully via Cloudflare Worker to ${parsedRecipients.map((r) => r.email).join(", ")}`);
-      return { success: true, id: data.id ?? "cf-worker-sent" };
+      console.error("[Email] Cloudflare Worker email dispatch error:", await res.text());
     } catch (err) {
       console.error("[Email] Error dispatching email via Cloudflare Worker:", err);
-      return { success: false, error: err instanceof Error ? err.message : String(err) };
     }
   }
 
@@ -122,7 +126,7 @@ export async function sendEmail({
           to: rawRecipients,
           subject,
           html,
-          text: text ?? html.replace(/<[^>]*>?/gm, "").trim(),
+          text: plainText,
         }),
       });
 
@@ -310,11 +314,15 @@ export async function sendOTPEmail({
 </html>
   `.trim();
 
-  return await sendEmail({
+  const result = await sendEmail({
     to,
     subject,
     html,
     text: `Your Qelsa verification code is ${otp}. It will expire in 10 minutes.`,
   });
+  if (!result.success) {
+    throw new Error(result.error ?? "Failed to send verification email");
+  }
+  return result;
 }
 

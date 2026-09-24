@@ -182,7 +182,6 @@ export const createAuth = (ctx: Parameters<typeof authComponent.adapter>[0]) =>
         otpLength: 6,
         expiresIn: 600,
         sendVerificationOTP: async ({ email, otp }) => {
-          console.log(`[emailOTP] ${email}: ${otp}`);
           await sendOTPEmail({ to: email, otp });
         },
       }),
