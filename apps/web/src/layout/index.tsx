@@ -3,10 +3,11 @@
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { EmployerSidebar } from "@/components/EmployerSidebar";
 import { PublicNavbar } from "@/components/PublicNavbar";
+import { QelsaLogo } from "@/components/QelsaLogo";
 import { useAuth } from "@/contexts/AuthContext";
-import { Menu, User } from "lucide-react";
+import { Menu } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { JobFilterSidebar } from "../components/job/JobFilterSidebar";
 import { MainNavigation } from "../components/MainNavigation";
 import { ProfileDrawer } from "../components/ProfileDrawer";
@@ -60,17 +61,14 @@ const Layout = ({ activeSection, children }: LayoutProps) => {
               href={user?.active_page_id ? `/pages/${user.active_page_id}` : "/pages"}
               className="flex items-center gap-2.5 transition-opacity hover:opacity-90"
             >
-              <div className="flex size-8 items-center justify-center rounded-xl bg-gradient-to-br from-neon-purple to-neon-pink shadow-md">
-                <span className="text-sm font-extrabold text-white">Q</span>
-              </div>
-              <span className="text-lg font-bold tracking-tight text-white">qelsa</span>
+              <QelsaLogo className="h-[22px] w-auto" />
             </Link>
 
             <button
               type="button"
-              onClick={() => setIsMobileSidebarOpen((prev) => !prev)}
-              className="flex size-9 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-white hover:bg-white/[0.08] active:scale-95 transition-all"
-              aria-label="Toggle menu"
+              onClick={() => setIsMobileSidebarOpen(true)}
+              className="flex size-9 shrink-0 items-center justify-center rounded-full border border-white/[0.12] bg-white/[0.04] text-white/80 transition-colors hover:bg-white/[0.08] hover:text-white"
+              aria-label="Open menu"
             >
               <Menu className="size-5" />
             </button>
@@ -95,12 +93,7 @@ const Layout = ({ activeSection, children }: LayoutProps) => {
             <PublicNavbar activeSection={activeSection} onProfileClick={handleProfileClick} />
           )}
 
-          <ErrorBoundary label="this page">
-            {children}
-          </ErrorBoundary>
-
-          {/* Clears the fixed mobile tab bar both navbars render */}
-          <div className="h-[calc(5rem+env(safe-area-inset-bottom,0px))] lg:hidden" aria-hidden="true" />
+          <ErrorBoundary label="this page">{children}</ErrorBoundary>
         </>
       )}
 
@@ -108,7 +101,7 @@ const Layout = ({ activeSection, children }: LayoutProps) => {
       <JobFilterSidebar isOpen={showJobFilterSidebar} />
 
       {/* Profile Drawer */}
-      <ProfileDrawer isOpen={showProfileDrawer} onClose={handleCloseProfileDrawer} />
+      <ProfileDrawer isOpen={showProfileDrawer} onClose={handleCloseProfileDrawer} activeSection={activeSection} />
     </div>
   );
 };

@@ -169,17 +169,6 @@
     }
   }
 
-  /* Opaque mobile tab bar so inactive items stay visible while content
-     scrolls underneath. Padding extends the bar into the home indicator. */
-  .mobile-tab-bar {
-    background-color: rgba(10, 10, 15, 0.96);
-    -webkit-backdrop-filter: blur(20px);
-    backdrop-filter: blur(20px);
-    border-top: 1px solid rgba(255, 255, 255, 0.12);
-    transform: translateZ(0);
-    padding-bottom: env(safe-area-inset-bottom, 0px);
-  }
-
   .safe-area-bottom,
   .pb-safe {
     padding-bottom: env(safe-area-inset-bottom, 0px);

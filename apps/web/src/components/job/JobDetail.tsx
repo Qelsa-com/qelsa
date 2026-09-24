@@ -316,8 +316,7 @@ export function JobDetail() {
       </div>
 
       {/* Content. Tighter padding on a phone; the lg values are the desktop
-          layout unchanged. Clearance for the fixed mobile tab bar comes from
-          Layout, so there's no extra bottom padding to add here. */}
+          layout unchanged. */}
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 pb-8 pt-4 sm:px-6 lg:gap-6 lg:px-8 lg:pb-12 lg:pt-8">
         {/* Breadcrumb + share sit on one row above the card. Desktop only —
             the mobile frame uses the header bar above instead. */}

@@ -1,63 +1,110 @@
 "use client";
 
+import { QelsaLogo } from "@/components/QelsaLogo";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   BookOpen,
   Briefcase,
   FileText,
   LogOut,
+  PenLine,
   Settings,
   Sparkles,
   Target,
-  User,
   Users,
   X,
 } from "lucide-react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 interface ProfileDrawerProps {
   isOpen: boolean;
   onClose: () => void;
+  activeSection?: string;
 }
+
+const LEGAL_LINKS = [
+  { label: "Terms", href: "/terms" },
+  { label: "Privacy", href: "/privacy" },
+  { label: "Cookie Policy", href: "/cookies" },
+];
+
+const GUEST_ITEMS = [
+  { id: "candidates", label: "For Candidates", href: "/candidates" },
+  { id: "employers", label: "For Employers", href: "/employers" },
+  { id: "jobs", label: "Jobs", href: "/jobs/all" },
+  { id: "blog", label: "Blog", href: "/blogs" },
+];
+
+const AUTHED_ITEMS = [
+  { id: "jobs", label: "Jobs", href: "/jobs/smart-matches", icon: Briefcase },
+  { id: "connections", label: "Network", href: "/network", icon: Users },
+  { id: "goals", label: "Goals", href: "/goals", icon: Target },
+  { id: "resume", label: "My Resume", href: "/profile/edit?section=media", icon: FileText },
+  { id: "job-match", label: "Job Match AI", href: "/jobs/smart-matches", icon: Sparkles },
+  { id: "courses", label: "Courses", href: "/courses", icon: BookOpen },
+  { id: "blog", label: "Blog", href: "/blogs", icon: PenLine },
+];
 
 function initials(name?: string) {
   if (!name) return "?";
   return name
     .split(" ")
-    .map((n) => n[0])
+    .map((part) => part[0])
     .filter(Boolean)
     .slice(0, 2)
     .join("")
     .toUpperCase();
 }
 
-export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
+function isItemActive(itemId: string, href: string, activeSection?: string, pathname?: string | null) {
+  if (activeSection && itemId === activeSection) return true;
+  if (!pathname) return false;
+  if (href.startsWith("/profile/edit?section=media")) {
+    return pathname === "/profile/edit";
+  }
+  if (href === "/jobs/all" || href === "/jobs/smart-matches") return pathname === "/jobs" || pathname.startsWith("/jobs/");
+  if (href === "/pages") return pathname === "/pages" || pathname.startsWith("/pages/");
+  if (href === "/blogs") return pathname === "/blogs" || pathname.startsWith("/blogs/");
+  if (href === "/network") return pathname === "/network" || pathname.startsWith("/network/");
+  if (href === "/goals") return pathname === "/goals" || pathname.startsWith("/goals/");
+  if (href === "/courses") return pathname === "/courses" || pathname.startsWith("/courses/");
+  if (href === "/settings") return pathname === "/settings" || pathname.startsWith("/settings/");
+  return pathname === href;
+}
+
+export function ProfileDrawer({ isOpen, onClose, activeSection }: ProfileDrawerProps) {
   const { user, isAuthenticated, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const [mounted, setMounted] = useState(false);
   const [visible, setVisible] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
 
-  // Animate in on open, out on close.
   useEffect(() => {
     if (isOpen) {
       setMounted(true);
-      const t = requestAnimationFrame(() => setVisible(true));
-      return () => cancelAnimationFrame(t);
+      const frame = requestAnimationFrame(() => setVisible(true));
+      return () => cancelAnimationFrame(frame);
     }
     setVisible(false);
-    const t = setTimeout(() => setMounted(false), 250);
-    return () => clearTimeout(t);
+    const timeout = setTimeout(() => setMounted(false), 250);
+    return () => clearTimeout(timeout);
   }, [isOpen]);
 
-  // Close on Escape.
   useEffect(() => {
     if (!isOpen) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = previousOverflow;
+    };
   }, [isOpen, onClose]);
 
   if (!mounted) return null;
@@ -67,190 +114,197 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
     router.push(path);
   };
 
-  const avatarUrl = (user as { profile_image?: string; avatar?: string } | null)?.profile_image;
-
-  const candidateNavItems = [
-    { id: "jobs", label: "Jobs", icon: Briefcase, path: "/jobs" },
-    { id: "network", label: "Network", icon: Users, path: "/network" },
-    { id: "goals", label: "Goals", icon: Target, path: "/goals" },
-    { id: "resume", label: "My Resume", icon: FileText, path: "/profile/edit?section=media" },
-    { id: "job-match", label: "Job Match AI", icon: Sparkles, path: "/jobs/match" },
-    { id: "courses", label: "Courses", icon: BookOpen, path: "/courses" },
-  ];
-
-  const isItemActive = (path: string) => {
-    if (path.includes("?section=media")) {
-      return pathname === "/profile/edit" && searchParams?.get("section") === "media";
-    }
-    if (path === "/jobs") {
-      return pathname === "/jobs" || pathname === "/jobs/all" || pathname === "/jobs/smart-matches";
-    }
-    return pathname === path || (path !== "/" && pathname?.startsWith(path + "/"));
-  };
+  const signedIn = Boolean(isAuthenticated && user);
 
   return (
-    <>
-      {/* Backdrop */}
+    <div
+      className={`fixed inset-0 z-50 transition-opacity duration-200 ${visible ? "opacity-100" : "opacity-0"}`}
+      role="dialog"
+      aria-modal="true"
+      aria-label={signedIn ? "Account menu" : "Site menu"}
+    >
+      <div className="absolute inset-0 bg-[#06060f] lg:bg-black/60" onClick={onClose} />
       <div
-        className={`fixed inset-0 z-40 bg-black/70 backdrop-blur-sm transition-opacity duration-200 ${
-          visible ? "opacity-100" : "opacity-0"
-        }`}
-        onClick={onClose}
-      />
-
-      {/* Drawer */}
-      <aside
-        className={`fixed top-0 right-0 z-50 flex h-full w-full max-w-[340px] sm:max-w-[380px] flex-col border-l border-white/10 bg-[#06060f] transition-transform duration-250 ease-out ${
+        className={`absolute inset-0 flex flex-col bg-[#06060f] px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(1.25rem,env(safe-area-inset-top))] transition-transform duration-250 ease-out lg:inset-y-0 lg:right-0 lg:left-auto lg:w-[400px] lg:border-l lg:border-white/10 ${
           visible ? "translate-x-0" : "translate-x-full"
         }`}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 pt-6 pb-2">
-          <span className="text-xl font-bold tracking-tight text-white">Qelsa</span>
+        <div className="flex items-center justify-between">
+          <QelsaLogo className="h-[26px] w-auto" />
           <button
             type="button"
             onClick={onClose}
-            className="flex size-10 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/15 active:scale-95"
             aria-label="Close menu"
+            className="flex size-10 items-center justify-center rounded-full border border-white/20 text-white transition-colors hover:bg-white/[0.06]"
           >
             <X className="size-5" />
           </button>
         </div>
 
-        {/* Profile Card */}
-        {isAuthenticated && user ? (
-          <div className="mx-6 mt-4 flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-            <div className="flex min-w-0 items-center gap-3">
-              <div className="relative size-12 shrink-0 overflow-hidden rounded-full border border-white/10 bg-white/10">
-                {avatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={avatarUrl} alt={user.name ?? "Profile"} className="size-full object-cover" />
-                ) : (
-                  <div className="flex size-full items-center justify-center text-sm font-bold text-white">
-                    {initials(user.name)}
-                  </div>
-                )}
-              </div>
-              <div className="min-w-0">
-                <p className="truncate text-base font-semibold text-white">{user.name || "User"}</p>
-                <p className="truncate text-sm text-white/50">
-                  {user.username
-                    ? `@${user.username}`
-                    : user.email
-                      ? `@${user.email.split("@")[0]}`
-                      : "@user"}
-                </p>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => go("/profile")}
-              className="shrink-0 text-sm font-medium text-cyan-400 hover:text-cyan-300 hover:underline"
-            >
-              View Profile
-            </button>
-          </div>
+        {signedIn ? (
+          <AuthedMenu
+            name={user?.name}
+            username={user?.username}
+            avatarUrl={user?.profile_image}
+            activeSection={activeSection}
+            pathname={pathname}
+            onGo={go}
+            signingOut={signingOut}
+            onSignOut={async () => {
+              if (signingOut) return;
+              setSigningOut(true);
+              await logout();
+              onClose();
+              window.location.replace("/jobs");
+            }}
+          />
         ) : (
-          <div className="mx-6 mt-4 rounded-2xl border border-white/10 bg-white/[0.04] p-5 text-center">
-            <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-full border border-white/10 bg-white/5">
-              <User className="size-6 text-white/60" />
-            </div>
-            <p className="mb-3 text-sm text-white/70">Sign in to unlock all features</p>
-            <button
-              type="button"
-              onClick={() => go("/auth")}
-              className="w-full rounded-full bg-gradient-to-r from-neon-purple to-neon-pink py-2.5 text-sm font-semibold text-white hover:opacity-90"
-            >
-              Sign In / Sign Up
-            </button>
-          </div>
+          <GuestMenu activeSection={activeSection} pathname={pathname} onGo={go} />
         )}
 
-        {/* Navigation Items */}
-        <div className="flex-1 overflow-y-auto px-6 py-4">
-          <nav className="flex flex-col gap-1.5">
-            {candidateNavItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = isItemActive(item.path);
+        <footer className="mt-auto flex flex-wrap items-center justify-center gap-x-5 gap-y-2 pb-4 pt-8 text-[13px] text-white/45">
+          {LEGAL_LINKS.map((link) => (
+            <Link key={link.href} href={link.href} onClick={onClose} className="transition-colors hover:text-white/70">
+              {link.label}
+            </Link>
+          ))}
+        </footer>
+      </div>
+    </div>
+  );
+}
 
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => go(item.path)}
-                  className={`flex w-full items-center gap-3.5 rounded-2xl px-3.5 py-3 text-left transition-colors ${
-                    isActive
-                      ? "border border-cyan-500/40 bg-cyan-950/20 text-white font-medium"
-                      : "border border-transparent text-white/85 hover:bg-white/[0.04] hover:text-white"
-                  }`}
-                >
-                  <span
-                    className={`flex size-10 shrink-0 items-center justify-center rounded-xl ${
-                      isActive ? "bg-cyan-500/15 text-cyan-400" : "bg-white/[0.06] text-white/70"
-                    }`}
-                  >
-                    <Icon className="size-5" />
-                  </span>
-                  <span className="text-base font-medium">{item.label}</span>
-                </button>
-              );
-            })}
+function GuestMenu({
+  activeSection,
+  pathname,
+  onGo,
+}: {
+  activeSection?: string;
+  pathname: string | null;
+  onGo: (path: string) => void;
+}) {
+  return (
+    <nav className="mt-16 flex flex-col gap-3">
+      {GUEST_ITEMS.map((item) => {
+        const active = isItemActive(item.id, item.href, activeSection, pathname);
+        return (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => onGo(item.href)}
+            aria-current={active ? "page" : undefined}
+            className={`rounded-full px-6 py-3.5 text-left text-[22px] font-semibold transition-colors ${
+              active ? "border border-neon-cyan text-white" : "text-white hover:bg-white/[0.04]"
+            }`}
+          >
+            {item.label}
+          </button>
+        );
+      })}
+      <button
+        type="button"
+        onClick={() => onGo("/auth")}
+        className="mt-6 rounded-full border border-white/20 px-6 py-3.5 text-[22px] font-semibold text-white transition-colors hover:bg-white/[0.04]"
+      >
+        Sign in
+      </button>
+    </nav>
+  );
+}
 
-            <div className="my-2 h-px w-full bg-white/10" />
+function AuthedMenu({
+  name,
+  username,
+  avatarUrl,
+  activeSection,
+  pathname,
+  onGo,
+  signingOut,
+  onSignOut,
+}: {
+  name?: string;
+  username?: string;
+  avatarUrl?: string;
+  activeSection?: string;
+  pathname: string | null;
+  onGo: (path: string) => void;
+  signingOut: boolean;
+  onSignOut: () => void | Promise<void>;
+}) {
+  const displayName = name || (username ? `@${username}` : "User");
+  const settingsActive = isItemActive("settings", "/settings", activeSection, pathname);
 
-            {/* Settings */}
+  return (
+    <div className="mt-8 flex min-h-0 flex-1 flex-col">
+      <button
+        type="button"
+        onClick={() => onGo("/profile")}
+        className="flex w-full items-center gap-3 rounded-full bg-white/[0.05] px-3 py-2.5 text-left transition-colors hover:bg-white/[0.08]"
+      >
+        <div className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white/10">
+          {avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={avatarUrl} alt="" className="size-full object-cover" />
+          ) : (
+            <span className="text-sm font-semibold text-white">{initials(name)}</span>
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[17px] font-semibold text-white">{displayName}</p>
+          {username ? <p className="truncate text-sm text-white/45">@{username}</p> : null}
+        </div>
+        <span className="shrink-0 pr-2 text-sm font-medium text-neon-cyan">View Profile</span>
+      </button>
+
+      <nav className="mt-8 flex flex-col gap-2">
+        {AUTHED_ITEMS.map((item) => {
+          const Icon = item.icon;
+          const active = isItemActive(item.id, item.href, activeSection, pathname);
+          return (
             <button
+              key={item.id}
               type="button"
-              onClick={() => go("/settings")}
-              className={`flex w-full items-center gap-3.5 rounded-2xl px-3.5 py-3 text-left transition-colors ${
-                pathname === "/settings"
-                  ? "border border-cyan-500/40 bg-cyan-950/20 text-white font-medium"
-                  : "border border-transparent text-white/85 hover:bg-white/[0.04] hover:text-white"
+              onClick={() => onGo(item.href)}
+              aria-current={active ? "page" : undefined}
+              className={`flex items-center gap-4 rounded-full px-3 py-2.5 text-left transition-colors ${
+                active ? "border border-neon-cyan text-white" : "text-white hover:bg-white/[0.04]"
               }`}
             >
-              <span
-                className={`flex size-10 shrink-0 items-center justify-center rounded-xl ${
-                  pathname === "/settings" ? "bg-cyan-500/15 text-cyan-400" : "bg-white/[0.06] text-white/70"
-                }`}
-              >
-                <Settings className="size-5" />
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white/[0.06]">
+                <Icon className="size-4" />
               </span>
-              <span className="text-base font-medium">Settings</span>
+              <span className="text-[20px] font-medium">{item.label}</span>
             </button>
+          );
+        })}
+      </nav>
 
-            {/* Sign Out (when authenticated) */}
-            {isAuthenticated && (
-              <button
-                type="button"
-                onClick={() => {
-                  logout();
-                  onClose();
-                  window.location.href = "/jobs";
-                }}
-                className="flex w-full items-center gap-3.5 rounded-2xl border border-transparent px-3.5 py-3 text-left text-white/85 transition-colors hover:bg-white/[0.04] hover:text-white"
-              >
-                <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-white/[0.06] text-white/70">
-                  <LogOut className="size-5" />
-                </span>
-                <span className="text-base font-medium">Sign Out</span>
-              </button>
-            )}
-          </nav>
-        </div>
-
-        {/* Footer Legal Links */}
-        <div className="mt-auto flex items-center justify-center gap-6 px-6 pt-4 pb-8 text-xs text-white/40">
-          <button type="button" onClick={() => go("/terms")} className="transition-colors hover:text-white">
-            Terms
-          </button>
-          <button type="button" onClick={() => go("/privacy")} className="transition-colors hover:text-white">
-            Privacy
-          </button>
-          <button type="button" onClick={() => go("/cookies")} className="transition-colors hover:text-white">
-            Cookie Policy
-          </button>
-        </div>
-      </aside>
-    </>
+      <div className="mt-6 border-t border-white/10 pt-5">
+        <button
+          type="button"
+          onClick={() => onGo("/settings")}
+          aria-current={settingsActive ? "page" : undefined}
+          className={`flex w-full items-center gap-4 rounded-full px-3 py-2.5 text-left transition-colors ${
+            settingsActive ? "border border-neon-cyan text-white" : "text-white hover:bg-white/[0.04]"
+          }`}
+        >
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white/[0.06]">
+            <Settings className="size-4" />
+          </span>
+          <span className="text-[20px] font-medium">Settings</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => void onSignOut()}
+          disabled={signingOut}
+          className="mt-1 flex w-full items-center gap-4 rounded-full px-3 py-2.5 text-left text-white transition-colors hover:bg-white/[0.04] disabled:opacity-50"
+        >
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white/[0.06]">
+            <LogOut className="size-4" />
+          </span>
+          <span className="text-[20px] font-medium">{signingOut ? "Signing out…" : "Sign Out"}</span>
+        </button>
+      </div>
+    </div>
   );
 }
