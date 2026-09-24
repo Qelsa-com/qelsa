@@ -14,7 +14,7 @@ import { cn } from "../../ui/utils";
 
 /* Shared form styling + primitives for the profile modals and editor pages. */
 
-export const inputClass = "w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white placeholder:text-white/35 focus:border-neon-cyan/60 focus:outline-none transition-colors";
+export const inputClass = "w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-base sm:text-sm text-white placeholder:text-white/35 focus:border-neon-cyan/60 focus:outline-none transition-colors";
 
 export const selectClass = `${inputClass} appearance-none pr-10 cursor-pointer`;
 
@@ -45,7 +45,7 @@ export function PopoverSelect({
     >
       <SelectTrigger
         className={cn(
-          "w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white h-auto transition-colors",
+          "w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-base sm:text-sm text-white h-auto transition-colors",
           "focus-visible:border-neon-cyan/60 focus-visible:ring-0 outline-none",
           "disabled:opacity-50 disabled:cursor-not-allowed",
           !value && "text-white/35"
@@ -74,12 +74,12 @@ export function PopoverSelect({
 export function Field({ label, required, children, hint }: { label: string; required?: boolean; children: ReactNode; hint?: string }) {
   return (
     <div className="flex flex-col gap-2">
-      <label className="text-[13px] font-medium text-white/70">
+      <label className="text-sm font-medium text-white/70">
         {label}
         {required && <span className="ml-0.5 text-[#d73e9d]">*</span>}
       </label>
       {children}
-      {hint && <p className="text-xs text-white/40">{hint}</p>}
+      {hint && <p className="text-xs text-white/50">{hint}</p>}
     </div>
   );
 }

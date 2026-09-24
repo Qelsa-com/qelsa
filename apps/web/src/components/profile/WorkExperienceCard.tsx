@@ -105,26 +105,26 @@ function RoleBody({
         )}
       </div>
 
-      {showCompany && experience.company?.name && <p className="text-sm text-[#00d4ff]">{experience.company.name}</p>}
+      {showCompany && experience.company?.name && <p className="text-sm font-medium text-[#00d4ff]">{experience.company.name}</p>}
 
       <div className="flex flex-wrap items-center gap-2">
-        <p className="text-[13px] text-white/45">{experienceMeta(experience)}</p>
+        <p className="text-xs sm:text-[13px] text-white/60">{experienceMeta(experience)}</p>
         {experience.employment_type && <span className="rounded-full bg-neon-cyan/8 px-2 py-0.5 text-[11px] font-medium text-neon-cyan/80">{experience.employment_type}</span>}
       </div>
 
       {visibleBullets.length > 0 && (
-        <div className="flex flex-col gap-1 pt-1">
+        <div className="flex flex-col gap-1.5 pt-1">
           {visibleBullets.map((bullet, index) => (
             <div key={index} className="flex gap-2">
               <span className="text-sm text-[#00d4ff]">•</span>
-              <p className="min-w-0 flex-1 text-sm leading-relaxed text-white/70">{bullet}</p>
+              <p className="min-w-0 flex-1 text-sm leading-relaxed text-white/85">{bullet}</p>
             </div>
           ))}
         </div>
       )}
 
       {canExpand && (
-        <button type="button" onClick={() => setExpanded((value) => !value)} className="w-fit text-xs font-medium text-neon-cyan transition-opacity hover:opacity-80">
+        <button type="button" onClick={() => setExpanded((value) => !value)} className="w-fit py-1 text-xs font-medium text-neon-cyan transition-opacity hover:opacity-80">
           {expanded ? "Show less" : "Show more"}
         </button>
       )}

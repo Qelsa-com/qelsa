@@ -100,9 +100,9 @@ export function CertificationsCard({ certifications, isOwner, onAdd, onEditItem 
                           )}
                         </div>
                         {(certification.issuing_body?.name || (certification as unknown as { issuingOrganization?: string }).issuingOrganization) && (
-                          <p className="text-sm text-[#00d4ff]">{certification.issuing_body?.name ?? (certification as unknown as { issuingOrganization?: string }).issuingOrganization}</p>
+                          <p className="text-sm font-medium text-[#00d4ff]">{certification.issuing_body?.name ?? (certification as unknown as { issuingOrganization?: string }).issuingOrganization}</p>
                         )}
-                        {meta && <p className="text-[13px] text-white/45">{meta}</p>}
+                        {meta && <p className="text-xs sm:text-[13px] text-white/60">{meta}</p>}
                       </div>
 
                       {skills.length > 0 && <SkillOverflowTags skills={skills} subtitle={skillRoleSubtitle(name, issuer)} sectionLabel="Skills used" />}

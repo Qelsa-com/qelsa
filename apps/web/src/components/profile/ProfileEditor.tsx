@@ -305,7 +305,7 @@ export function ProfileEditor() {
                 <div className="flex flex-col gap-6">
                   {/* Photo */}
                   <div className="flex flex-col gap-4">
-                    <p className="text-[13px] font-medium text-white/70">Profile Photo</p>
+                    <p className="text-sm font-medium text-white/70">Profile Photo</p>
                     <div className="flex flex-wrap items-center gap-5">
                       <Avatar className="size-24 ring-2 ring-neon-cyan/30">
                         <AvatarImage src={profile.profile_image || undefined} alt={profile.name} className="object-cover" />
@@ -333,7 +333,7 @@ export function ProfileEditor() {
                             </button>
                           )}
                         </div>
-                        <p className="text-xs text-white/40">JPG, PNG or GIF. Max 5MB. 1:1 ratio recommended.</p>
+                        <p className="text-xs text-white/50">JPG, PNG or GIF. Max 5MB. 1:1 ratio recommended.</p>
                         <input ref={photoInputRef} type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" />
                       </div>
                     </div>
@@ -358,7 +358,7 @@ export function ProfileEditor() {
 
                   <Field label="Username" hint="Your unique username for your Qelsa profile URL">
                     <div className="relative">
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40">@</span>
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-base sm:text-sm text-white/40">@</span>
                       <input value={profile.username ?? ""} onChange={(e) => patch({ username: e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, "") })} placeholder="username" className={`${inputClass} pl-9`} />
                     </div>
                   </Field>
@@ -400,7 +400,7 @@ export function ProfileEditor() {
                     </Field>
 
                     <div className="flex items-center gap-3">
-                      <span className="text-[13px] font-medium text-white/70">Willing to Relocate?</span>
+                      <span className="text-sm font-medium text-white/70">Willing to Relocate?</span>
                       <span className="text-sm text-white/50">{profile.want_to_relocate ? "Yes" : "No"}</span>
                       <Toggle checked={Boolean(profile.want_to_relocate)} onChange={(value) => patch({ want_to_relocate: value })} label="Willing to relocate" />
                     </div>
@@ -451,7 +451,7 @@ export function ProfileEditor() {
                     <Field label="Salary Expectations (Optional)">
                       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                         <div>
-                          <p className="mb-1.5 text-xs text-white/45">Currency</p>
+                          <p className="mb-1.5 text-xs text-white/60">Currency</p>
                           <Select value={profile.expected_salary_currency ?? "INR"} onChange={(value) => patch({ expected_salary_currency: value })}>
                             {CURRENCIES.map((currency) => (
                               <option key={currency} value={currency} className="bg-[#12122a]">
@@ -461,11 +461,11 @@ export function ProfileEditor() {
                           </Select>
                         </div>
                         <div>
-                          <p className="mb-1.5 text-xs text-white/45">Minimum</p>
+                          <p className="mb-1.5 text-xs text-white/60">Minimum</p>
                           <input type="number" value={profile.expected_min_salary ?? ""} onChange={(e) => patch({ expected_min_salary: e.target.value ? Number(e.target.value) : undefined })} placeholder="2000000" className={inputClass} />
                         </div>
                         <div>
-                          <p className="mb-1.5 text-xs text-white/45">Maximum</p>
+                          <p className="mb-1.5 text-xs text-white/60">Maximum</p>
                           <input type="number" value={profile.expected_max_salary ?? ""} onChange={(e) => patch({ expected_max_salary: e.target.value ? Number(e.target.value) : undefined })} placeholder="3500000" className={inputClass} />
                         </div>
                       </div>
@@ -676,7 +676,7 @@ export function ProfileEditor() {
               <CardSection title="Visibility & Privacy" subtitle="Control who can see your profile and manage your privacy settings.">
                 <div className="flex flex-col gap-7">
                   <div>
-                    <p className="mb-3 text-[13px] font-medium text-white/70">Profile Visibility</p>
+                    <p className="mb-3 text-sm font-medium text-white/70">Profile Visibility</p>
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                       {(
                         [
@@ -698,7 +698,7 @@ export function ProfileEditor() {
                               <Icon className="size-4" />
                             </span>
                             <span className="text-sm font-semibold text-white">{option.label}</span>
-                            <span className="text-xs text-white/45">{option.description}</span>
+                            <span className="text-xs text-white/50">{option.description}</span>
                           </button>
                         );
                       })}
@@ -706,7 +706,7 @@ export function ProfileEditor() {
                   </div>
 
                   <div>
-                    <p className="mb-3 text-[13px] font-medium text-white/70">Privacy Settings</p>
+                    <p className="mb-3 text-sm font-medium text-white/70">Privacy Settings</p>
                     <div className="flex flex-col divide-y divide-white/8">
                       {(
                         [

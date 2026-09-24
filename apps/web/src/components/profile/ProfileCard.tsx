@@ -20,13 +20,13 @@ export function ProfileCard({ title, onAdd, onEdit, className, children }: Profi
         {(onAdd || onEdit) && (
           <div className="flex shrink-0 items-center gap-3">
             {onAdd && (
-              <button type="button" onClick={onAdd} className="flex items-center gap-1 font-medium text-neon-cyan transition-opacity hover:opacity-80">
-                <span className="text-sm leading-none">+</span>
-                <span className="text-xs">Add</span>
+              <button type="button" onClick={onAdd} className="flex items-center gap-1 font-medium text-neon-cyan transition-opacity hover:opacity-80 py-1">
+                <span className="text-base leading-none">+</span>
+                <span className="text-sm">Add</span>
               </button>
             )}
             {onEdit && (
-              <button type="button" onClick={onEdit} className="rounded-full bg-neon-cyan/6 px-3 py-1 text-xs font-medium text-neon-cyan transition-colors hover:bg-neon-cyan/15">
+              <button type="button" onClick={onEdit} className="rounded-full bg-neon-cyan/6 px-3 py-1 text-sm sm:text-xs font-medium text-neon-cyan transition-colors hover:bg-neon-cyan/15">
                 Edit
               </button>
             )}
