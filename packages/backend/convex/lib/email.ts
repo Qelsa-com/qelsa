@@ -1,7 +1,7 @@
 /**
  * Unified email sender utility.
- * Sends emails via Resend if RESEND_API_KEY is configured,
- * otherwise cleanly logs email details for local development / testing.
+ * Sends emails via Cloudflare Email Service (REST API or Worker binding),
+ * with fallback to Resend or clean local development console logging.
  */
 
 export interface SendEmailOptions {
@@ -12,51 +12,138 @@ export interface SendEmailOptions {
   from?: string;
 }
 
+function parseEmailAddress(raw: string): { email: string; name?: string } {
+  const match = raw.match(/^(.*?)\s*<(.+)>$/);
+  if (match) {
+    const name = match[1].trim().replace(/^["']|["']$/g, "");
+    return { name: name || undefined, email: match[2].trim() };
+  }
+  return { email: raw.trim() };
+}
+
 export async function sendEmail({
   to,
   subject,
   html,
   text,
-  from = process.env.EMAIL_FROM || "Qelsa <no-reply@qelsa.com>",
+  from = process.env.CLOUDFLARE_EMAIL_FROM || process.env.EMAIL_FROM || "Qelsa <no-reply@qelsa.com>",
 }: SendEmailOptions): Promise<{ success: boolean; id?: string; error?: string }> {
-  const recipients = Array.isArray(to) ? to : [to];
-  const apiKey = process.env.RESEND_API_KEY;
+  const rawRecipients = Array.isArray(to) ? to : [to];
+  const parsedRecipients = rawRecipients.map(parseEmailAddress);
+  const fromObj = parseEmailAddress(from);
 
-  if (apiKey) {
+  // 1. Cloudflare Email Service REST API (POST https://api.cloudflare.com/client/v4/accounts/{account_id}/email/sending/send)
+  const cfAccountId = process.env.CLOUDFLARE_ACCOUNT_ID;
+  const cfApiToken = process.env.CLOUDFLARE_EMAIL_API_TOKEN || process.env.CLOUDFLARE_API_TOKEN;
+
+  if (cfAccountId && cfApiToken) {
     try {
-      const res = await fetch("https://api.resend.com/emails", {
+      const res = await fetch(
+        `https://api.cloudflare.com/client/v4/accounts/${cfAccountId}/email/sending/send`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${cfApiToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            from: fromObj,
+            to: parsedRecipients,
+            subject,
+            html,
+            text: text ?? html.replace(/<[^>]*>?/gm, "").trim(),
+          }),
+        },
+      );
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error("[Email] Cloudflare Email Service error:", errorText);
+        return { success: false, error: errorText };
+      }
+
+      const data = (await res.json()) as { success: boolean; result?: { id?: string } };
+      console.log(`[Email] Sent successfully via Cloudflare to ${parsedRecipients.map((r) => r.email).join(", ")}`);
+      return { success: true, id: data.result?.id ?? "cf-sent" };
+    } catch (err) {
+      console.error("[Email] Error dispatching email via Cloudflare:", err);
+      return { success: false, error: err instanceof Error ? err.message : String(err) };
+    }
+  }
+
+  // 2. Cloudflare Worker Email Service endpoint (if using a Cloudflare Worker microservice)
+  const cfWorkerUrl = process.env.CLOUDFLARE_EMAIL_WORKER_URL;
+  if (cfWorkerUrl) {
+    try {
+      const res = await fetch(cfWorkerUrl, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${apiKey}`,
           "Content-Type": "application/json",
+          ...(process.env.CLOUDFLARE_EMAIL_WORKER_SECRET
+            ? { Authorization: `Bearer ${process.env.CLOUDFLARE_EMAIL_WORKER_SECRET}` }
+            : {}),
         },
         body: JSON.stringify({
-          from,
-          to: recipients,
+          from: fromObj,
+          to: parsedRecipients,
           subject,
           html,
-          text: text ?? html.replace(/<[^>]*>?/gm, ""),
+          text: text ?? html.replace(/<[^>]*>?/gm, "").trim(),
         }),
       });
 
       if (!res.ok) {
         const errorText = await res.text();
-        console.error("[Email] Failed to send via Resend:", errorText);
+        console.error("[Email] Cloudflare Worker email dispatch error:", errorText);
         return { success: false, error: errorText };
       }
 
-      const data = (await res.json()) as { id: string };
-      console.log(`[Email] Sent successfully to ${recipients.join(", ")} (id: ${data.id})`);
-      return { success: true, id: data.id };
+      const data = (await res.json().catch(() => ({}))) as { id?: string };
+      console.log(`[Email] Sent successfully via Cloudflare Worker to ${parsedRecipients.map((r) => r.email).join(", ")}`);
+      return { success: true, id: data.id ?? "cf-worker-sent" };
     } catch (err) {
-      console.error("[Email] Error dispatching email:", err);
+      console.error("[Email] Error dispatching email via Cloudflare Worker:", err);
       return { success: false, error: err instanceof Error ? err.message : String(err) };
     }
   }
 
-  // Fallback for local development and environments without RESEND_API_KEY
+  // 3. Fallback: Resend (if RESEND_API_KEY is configured)
+  const resendApiKey = process.env.RESEND_API_KEY;
+  if (resendApiKey) {
+    try {
+      const res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${resendApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from,
+          to: rawRecipients,
+          subject,
+          html,
+          text: text ?? html.replace(/<[^>]*>?/gm, "").trim(),
+        }),
+      });
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error("[Email] Resend error:", errorText);
+        return { success: false, error: errorText };
+      }
+
+      const data = (await res.json()) as { id: string };
+      console.log(`[Email] Sent successfully via Resend to ${rawRecipients.join(", ")} (id: ${data.id})`);
+      return { success: true, id: data.id };
+    } catch (err) {
+      console.error("[Email] Error dispatching email via Resend:", err);
+      return { success: false, error: err instanceof Error ? err.message : String(err) };
+    }
+  }
+
+  // 4. Local development / anonymous testing fallback
   console.log(`\n================= [EMAIL DISPATCH] =================`);
-  console.log(`To: ${recipients.join(", ")}`);
+  console.log(`To: ${rawRecipients.join(", ")}`);
   console.log(`From: ${from}`);
   console.log(`Subject: ${subject}`);
   console.log(`-----------------------------------------------------`);
