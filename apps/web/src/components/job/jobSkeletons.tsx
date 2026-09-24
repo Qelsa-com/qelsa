@@ -340,6 +340,30 @@ export function MatchSessionSkeleton() {
   );
 }
 
+/** Hub load on /jobs/applications — before we know empty vs inbox. */
+export function ApplicationsHubSkeleton() {
+  return (
+    <div className="min-h-screen">
+      <div
+        className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 pt-8 sm:pt-10 pb-20"
+        role="status"
+        aria-label="Loading applications"
+      >
+        <span className="sr-only">Loading applications</span>
+        <div className="mb-10 flex flex-col gap-3">
+          <Bone className="h-10 w-48 sm:h-12 sm:w-64" />
+          <Bone className="h-4 w-72 max-w-full" />
+        </div>
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-white/12 bg-white/4 px-6 py-20">
+          <Bone className="mb-4 size-20 rounded-full" />
+          <Bone className="mb-2 h-6 w-56 max-w-full" />
+          <Bone className="h-4 w-72 max-w-full" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function CandidateRowSkeleton() {
   return (
     <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-3.5 sm:p-4">
