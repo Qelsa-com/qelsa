@@ -1,6 +1,9 @@
 "use client";
 
+import { authClient } from "@/lib/auth-client";
+import { clearResumeDraft } from "@/lib/resumeDraft";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { FileText, Upload, X } from "lucide-react";
 import { useRef, useState } from "react";
 import { ArrowRightIcon } from "./OnboardingShell";
@@ -21,9 +24,16 @@ export function ResumeUpload({
   onContinue: () => void;
   disabled?: boolean;
 }) {
+  const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const handleSignOut = async () => {
+    clearResumeDraft();
+    await authClient.signOut();
+    router.push("/auth");
+  };
 
   const takeFile = (next: File | undefined) => {
     if (!next) return;
@@ -48,9 +58,19 @@ export function ResumeUpload({
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center px-4 py-10" style={{ background: "var(--background)" }}>
+    <div className="relative flex min-h-screen flex-col items-center px-4 py-10" style={{ background: "var(--background)" }}>
       <div className="pointer-events-none absolute inset-0 -z-10">
         <div className="absolute left-1/2 top-24 h-[420px] w-[420px] -translate-x-1/2 rounded-full bg-neon-purple/10 blur-[130px]" />
+      </div>
+
+      <div className="absolute right-6 top-6">
+        <button
+          type="button"
+          onClick={handleSignOut}
+          className="text-xs text-muted-foreground transition-colors hover:text-white"
+        >
+          Sign out
+        </button>
       </div>
 
       <Image src="/qelsa-logo.svg" alt="Qelsa" width={91} height={29} priority unoptimized className="h-[24px] w-auto" />

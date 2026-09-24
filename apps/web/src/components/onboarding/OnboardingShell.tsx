@@ -1,14 +1,35 @@
 "use client";
 
+import { authClient } from "@/lib/auth-client";
+import { clearResumeDraft } from "@/lib/resumeDraft";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { QUIET_LINK } from "./styles";
 
 export function OnboardingShell({ children, onBack }: { children: ReactNode; onBack?: () => void }) {
+  const router = useRouter();
+
+  const handleSignOut = async () => {
+    clearResumeDraft();
+    await authClient.signOut();
+    router.push("/auth");
+  };
+
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-4 py-10" style={{ background: "var(--background)" }}>
       <div className="pointer-events-none absolute inset-0 -z-10">
         <div className="absolute left-1/2 top-1/2 h-[540px] w-[540px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-neon-purple/10 blur-[130px]" />
+      </div>
+
+      <div className="absolute right-6 top-6">
+        <button
+          type="button"
+          onClick={handleSignOut}
+          className="text-xs text-muted-foreground transition-colors hover:text-white"
+        >
+          Sign out
+        </button>
       </div>
 
       <Image src="/qelsa-logo.svg" alt="Qelsa" width={91} height={29} priority unoptimized className="mb-8 h-[21px] w-auto" />

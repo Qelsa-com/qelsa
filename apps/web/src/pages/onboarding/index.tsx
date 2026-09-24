@@ -7,8 +7,10 @@ import { OnboardingShell } from "@/components/onboarding/OnboardingShell";
 import { useAuth } from "@/contexts/AuthContext";
 import type { AccountType } from "@/features/api/authApi";
 import { useSetAccountTypeAndResetOnboardingMutation } from "@/features/api/onboardingApi";
+import { authClient } from "@/lib/auth-client";
 import { toastUnknownError } from "@/lib/errors";
 import { homeForAccount } from "@/lib/onboarding";
+import { clearResumeDraft } from "@/lib/resumeDraft";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -46,9 +48,15 @@ export default function OnboardingPage() {
     }
   };
 
+  const handleSignOut = async () => {
+    clearResumeDraft();
+    await authClient.signOut();
+    router.push("/auth");
+  };
+
   if (pickingRole || !accountType) {
     return (
-      <OnboardingShell onBack={!user.account_type ? () => router.push("/auth") : undefined}>
+      <OnboardingShell onBack={handleSignOut}>
         <RoleStep value={accountType} onChange={setAccountType} onContinue={handleRoleContinue} isSaving={isSavingRole} />
       </OnboardingShell>
     );

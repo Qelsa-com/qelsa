@@ -11,12 +11,14 @@ export function ResumeReview({
   profile,
   lockedEmail,
   onChange,
+  onBack,
   onContinue,
   isSaving,
 }: {
   profile: ParsedProfile;
   lockedEmail?: string;
   onChange: (profile: ParsedProfile) => void;
+  onBack?: () => void;
   onContinue: () => void;
   isSaving?: boolean;
 }) {
@@ -39,6 +41,15 @@ export function ResumeReview({
       <div className="mx-auto max-w-2xl">
         <header className="mb-8 flex items-center justify-between gap-4">
           <div className="flex min-w-0 items-center gap-3">
+            {onBack ? (
+              <button
+                type="button"
+                onClick={onBack}
+                className="mr-2 text-sm text-muted-foreground transition-colors hover:text-white"
+              >
+                ← Back
+              </button>
+            ) : null}
             <Image src="/qelsa-logo.svg" alt="Qelsa" width={91} height={29} unoptimized className="h-[21px] w-auto shrink-0" />
             <h1 className="truncate text-lg text-muted-foreground">Check your details</h1>
           </div>

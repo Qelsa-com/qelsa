@@ -1,8 +1,10 @@
 "use client";
 
 import { useParseResume } from "@/features/api/onboardingApi";
+import { authClient } from "@/lib/auth-client";
 import { toastUnknownError } from "@/lib/errors";
-import { emptyParsedProfile, type ParsedProfile, type ResumeDraft } from "@/lib/resumeDraft";
+import { clearResumeDraft, emptyParsedProfile, type ParsedProfile, type ResumeDraft } from "@/lib/resumeDraft";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ResumeParsing } from "./ResumeParsing";
 import { ResumeReview } from "./ResumeReview";
@@ -19,6 +21,7 @@ export function ResumeOnboardingFlow({
   onBack?: () => void;
   onFinished: (result: { profile: ParsedProfile; storageId?: string; filename?: string }) => Promise<void> | void;
 }) {
+  const router = useRouter();
   const [step, setStep] = useState<"upload" | "parsing" | "review">(initial?.reviewed ? "review" : "upload");
   const [file, setFile] = useState<File | null>(null);
   const [profile, setProfile] = useState<ParsedProfile>(initial?.profile ?? emptyParsedProfile());
@@ -26,6 +29,12 @@ export function ResumeOnboardingFlow({
   const [filename, setFilename] = useState<string | undefined>(initial?.filename);
   const [saving, setSaving] = useState(false);
   const [parseResume] = useParseResume();
+
+  const handleSignOut = async () => {
+    clearResumeDraft();
+    await authClient.signOut();
+    router.push("/auth");
+  };
 
   const handleRead = async () => {
     if (!file) return;
@@ -66,6 +75,7 @@ export function ResumeOnboardingFlow({
         profile={profile}
         lockedEmail={lockedEmail}
         onChange={setProfile}
+        onBack={() => setStep("upload")}
         onContinue={handleFinish}
         isSaving={saving}
       />
@@ -75,11 +85,23 @@ export function ResumeOnboardingFlow({
   return (
     <div>
       <ResumeUpload file={file} onFile={setFile} onContinue={handleRead} />
-      {onBack ? (
-        <button type="button" onClick={onBack} className="fixed bottom-6 left-1/2 -translate-x-1/2 text-sm text-muted-foreground hover:text-white">
-          ← Back
+      <div className="fixed bottom-6 left-1/2 flex -translate-x-1/2 items-center gap-3 text-sm text-muted-foreground">
+        {onBack ? (
+          <>
+            <button type="button" onClick={onBack} className="hover:text-white">
+              ← Back
+            </button>
+            <span>·</span>
+          </>
+        ) : null}
+        <button
+          type="button"
+          onClick={handleSignOut}
+          className="hover:text-white"
+        >
+          Sign out
         </button>
-      ) : null}
+      </div>
     </div>
   );
 }

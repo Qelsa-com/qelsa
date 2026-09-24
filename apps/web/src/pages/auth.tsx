@@ -4,6 +4,7 @@ import type { AccountType } from "@/features/api/authApi";
 import { useGetProfileQuery, useGoogleLoginMutation, useRequestOtpMutation, useResendOtpMutation, useSetAccountTypeMutation, useVerifyOtpMutation } from "@/features/api/authApi";
 import { authClient } from "@/lib/auth-client";
 import { toastUnknownError } from "@/lib/errors";
+import { clearResumeDraft } from "@/lib/resumeDraft";
 import type { User } from "@/types/user";
 import { AnimatePresence, motion } from "motion/react";
 import Image from "next/image";
@@ -65,6 +66,7 @@ export default function AuthPage() {
 
   const searchParams = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
   const returnUrl = searchParams.get("returnUrl") || undefined;
+  const isSwitching = searchParams.get("switch") === "true" || searchParams.get("logout") === "true";
 
   // Resend cooldown ticker.
   useEffect(() => {
@@ -72,6 +74,13 @@ export default function AuthPage() {
     const id = setInterval(() => setResendIn((n) => Math.max(0, n - 1)), 1000);
     return () => clearInterval(id);
   }, [resendIn]);
+
+  useEffect(() => {
+    if (isSwitching) {
+      clearResumeDraft();
+      void authClient.signOut();
+    }
+  }, [isSwitching]);
 
   /**
    * Commit the session and leave the auth flow.
@@ -88,14 +97,19 @@ export default function AuthPage() {
   );
 
   useEffect(() => {
-    if (!session || !profile) return;
+    if (isSwitching || !session || !profile) return;
     if (!profile.account_type) {
       setPendingAuth({ user: profile as User });
       setStep("role");
       return;
     }
+    // If onboarding is incomplete, do not auto-redirect away from /auth
+    // so user can switch accounts or continue.
+    if (!profile.onboarding_completed) {
+      return;
+    }
     finishAuth(false);
-  }, [session, profile, finishAuth]);
+  }, [session, profile, finishAuth, isSwitching]);
 
   const handleSendCode = async () => {
     const trimmed = email.trim();
@@ -186,8 +200,35 @@ export default function AuthPage() {
 
       <div className="w-full max-w-[460px]">
         <AnimatePresence mode="wait">
-          {/* ---------- Step 1: choose a method ---------- */}
-          {step === "method" && (
+          {/* ---------- Step 1: choose a method or switch account ---------- */}
+          {step === "method" && !isSwitching && session && profile && !profile.onboarding_completed ? (
+            <motion.div key="switch" {...cardMotion} className="rounded-3xl border border-white/10 bg-white/[0.03] p-8">
+              <h2 className="text-3xl font-bold text-white">Already signed in</h2>
+              <p className="mt-2 text-[15px] leading-relaxed text-muted-foreground">
+                You are currently signed in as <span className="font-semibold text-neon-cyan">{profile.email}</span>.
+              </p>
+
+              <button
+                type="button"
+                onClick={() => router.push("/onboarding")}
+                className={`mt-7 ${PRIMARY_BTN}`}
+              >
+                Continue onboarding
+              </button>
+
+              <button
+                type="button"
+                onClick={async () => {
+                  clearResumeDraft();
+                  await authClient.signOut();
+                  setStep("method");
+                }}
+                className={`mt-3 ${SECONDARY_BTN}`}
+              >
+                Sign in with a different email
+              </button>
+            </motion.div>
+          ) : step === "method" ? (
             <motion.div key="method" {...cardMotion} className="rounded-3xl border border-white/10 bg-white/[0.03] p-8">
               <h2 className="text-3xl font-bold text-white">Good to have you here.</h2>
               <p className="mt-2 text-[15px] leading-relaxed text-gray-500">Sign in or create your account — takes 30 seconds.</p>
@@ -222,7 +263,7 @@ export default function AuthPage() {
                 </Link>
               </p>
             </motion.div>
-          )}
+          ) : null}
 
           {/* ---------- Step 2: email ---------- */}
           {step === "email" && (
