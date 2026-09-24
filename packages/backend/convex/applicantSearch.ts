@@ -128,6 +128,11 @@ export async function loadApplicantSearchDocs(
           skill: { name: skill.name },
         })),
         userSkills.map((row) => ({ skill_id: row.skill_id, proficiency: row.proficiency })),
+        {
+          candidateYearsExperience: yearsFromExperiences(experienceRows, app.applied_at),
+          requiredExperienceYears: jobContext.experience,
+          candidateEducationCount: educationRows.length,
+        },
       );
 
       const screening = answers.map((row) => `${row.question} ${row.answer ?? ""}`).join(" ");

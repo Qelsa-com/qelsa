@@ -54,6 +54,12 @@ export function normalizeSkillName(name: string) {
     .trim();
 }
 
+export interface CompetencyProfileContext {
+  candidateYearsExperience?: number | null;
+  requiredExperienceYears?: number | null;
+  candidateEducationCount?: number | null;
+}
+
 export function buildCompetencyFramework(
   jobSkills: Array<{
     skill_id: string;
@@ -63,6 +69,7 @@ export function buildCompetencyFramework(
     skill?: { name?: string } | null;
   }>,
   userSkills: Array<{ skill_id: string; proficiency?: string }>,
+  profileContext?: CompetencyProfileContext,
 ) {
   const userBySkillId = new Map(userSkills.map((s) => [s.skill_id, s.proficiency ?? null]));
 
@@ -87,7 +94,46 @@ export function buildCompetencyFramework(
   const matchedCount = competencies.filter((c) => c.matched).length;
   const totalCount = competencies.length;
   const totalWeight = competencies.reduce((sum, c) => sum + (c.weight || 0), 0);
-  const readiness = totalWeight > 0 ? Math.round((competencies.filter((c) => c.matched).reduce((sum, c) => sum + (c.weight || 0), 0) / totalWeight) * 100) : totalCount > 0 ? Math.round((matchedCount / totalCount) * 100) : 0;
+  const skillReadiness = totalWeight > 0 ? Math.round((competencies.filter((c) => c.matched).reduce((sum, c) => sum + (c.weight || 0), 0) / totalWeight) * 100) : totalCount > 0 ? Math.round((matchedCount / totalCount) * 100) : 0;
 
-  return { competencies, matchedCount, totalCount, readiness };
+  // Calculate experience score when experience context is available
+  let experienceScore: number | null = null;
+  if (profileContext?.candidateYearsExperience !== undefined || profileContext?.requiredExperienceYears !== undefined) {
+    const candidateYears = profileContext?.candidateYearsExperience ?? 0;
+    const requiredYears = profileContext?.requiredExperienceYears ?? 0;
+    if (requiredYears <= 0) {
+      experienceScore = 100;
+    } else if (candidateYears >= requiredYears) {
+      experienceScore = 100;
+    } else {
+      experienceScore = Math.max(20, Math.min(100, Math.round((candidateYears / requiredYears) * 100)));
+    }
+  }
+
+  // Calculate education score when education context is available
+  let educationScore: number | null = null;
+  if (profileContext?.candidateEducationCount !== undefined && profileContext?.candidateEducationCount !== null) {
+    const count = profileContext.candidateEducationCount;
+    educationScore = count > 0 ? 100 : 70;
+  }
+
+  // Composite readiness combining skill (50%), experience (30%), and education (20%)
+  let readiness = skillReadiness;
+  if (experienceScore !== null && educationScore !== null) {
+    readiness = Math.round(0.5 * skillReadiness + 0.3 * experienceScore + 0.2 * educationScore);
+  } else if (experienceScore !== null) {
+    readiness = Math.round(0.65 * skillReadiness + 0.35 * experienceScore);
+  } else if (educationScore !== null) {
+    readiness = Math.round(0.75 * skillReadiness + 0.25 * educationScore);
+  }
+
+  return {
+    competencies,
+    matchedCount,
+    totalCount,
+    readiness,
+    skillReadiness,
+    experienceScore,
+    educationScore,
+  };
 }

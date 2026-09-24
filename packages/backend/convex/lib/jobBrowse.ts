@@ -123,6 +123,7 @@ export async function scoreReadiness(
   ctx: QueryCtx,
   jobs: Doc<"jobs">[],
   userSkills: Array<{ skill_id: string; proficiency?: string }>,
+  profileContext?: { yearsExperience?: number | null; educationCount?: number | null },
 ): Promise<Map<Id<"jobs">, number | null>> {
   const entries = await Promise.all(
     jobs.map(async (job) => {
@@ -141,6 +142,13 @@ export async function scoreReadiness(
               weight: row.weight,
             })),
             userSkills,
+            profileContext
+              ? {
+                  candidateYearsExperience: profileContext.yearsExperience,
+                  requiredExperienceYears: job.experience,
+                  candidateEducationCount: profileContext.educationCount,
+                }
+              : undefined,
           ).readiness,
         ),
       ] as const;

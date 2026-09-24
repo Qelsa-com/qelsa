@@ -79,10 +79,11 @@ export const listForJob = authedQuery({
         filtered.map(async (app) => {
           const user = await ctx.db.get(app.user_id);
           if (!user) return null;
-          const [city, userSkills, experienceRows] = await Promise.all([
+          const [city, userSkills, experienceRows, educationRows] = await Promise.all([
             user.city_id ? getCity(user.city_id) : null,
             ctx.db.query("user_skills").withIndex("by_user", (q) => q.eq("user_id", user._id)).take(24),
             ctx.db.query("experiences").withIndex("by_user", (q) => q.eq("user_id", user._id)).take(8),
+            ctx.db.query("educations").withIndex("by_user", (q) => q.eq("user_id", user._id)).take(4),
           ]);
           const skills: { id: Id<"skills">; name: string; proficiency?: string }[] = [];
           for (const row of userSkills) {
@@ -92,6 +93,11 @@ export const listForJob = authedQuery({
           const competency = buildCompetencyFramework(
             jobSkills,
             userSkills.map((row) => ({ skill_id: row.skill_id, proficiency: row.proficiency })),
+            {
+              candidateYearsExperience: yearsFromExperiences(experienceRows, app.applied_at),
+              requiredExperienceYears: job.experience,
+              candidateEducationCount: educationRows.length,
+            },
           );
           return {
             id: app._id,
