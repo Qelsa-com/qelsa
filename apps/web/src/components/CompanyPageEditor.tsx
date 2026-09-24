@@ -11,6 +11,7 @@ import {
   BookOpen,
   Briefcase,
   Building2,
+  Check,
   CheckSquare,
   Globe,
   Heart,
@@ -279,67 +280,8 @@ export function CompanyPageEditor() {
           <span>Back to profile</span>
         </button>
 
-        {/* Tab Navigation */}
-        <div className="mt-5 flex items-center gap-8 border-b border-white/[0.08]">
-          <button
-            type="button"
-            onClick={() => setActiveTab("about")}
-            className={`flex items-center gap-2 pb-3.5 text-sm font-semibold transition-colors relative ${
-              activeTab === "about" ? "text-neon-cyan" : "text-white/60 hover:text-white"
-            }`}
-          >
-            <Info className="size-4" />
-            <span>About</span>
-            {activeTab === "about" && (
-              <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full bg-neon-cyan" />
-            )}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab("details")}
-            className={`flex items-center gap-2 pb-3.5 text-sm font-semibold transition-colors relative ${
-              activeTab === "details" ? "text-neon-cyan" : "text-white/60 hover:text-white"
-            }`}
-          >
-            <Briefcase className="size-4" />
-            <span>Company Details</span>
-            {activeTab === "details" && (
-              <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full bg-neon-cyan" />
-            )}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab("culture")}
-            className={`flex items-center gap-2 pb-3.5 text-sm font-semibold transition-colors relative ${
-              activeTab === "culture" ? "text-neon-cyan" : "text-white/60 hover:text-white"
-            }`}
-          >
-            <Heart className="size-4" />
-            <span>Culture</span>
-            {activeTab === "culture" && (
-              <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full bg-neon-cyan" />
-            )}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab("team")}
-            className={`flex items-center gap-2 pb-3.5 text-sm font-semibold transition-colors relative ${
-              activeTab === "team" ? "text-neon-cyan" : "text-white/60 hover:text-white"
-            }`}
-          >
-            <Users className="size-4" />
-            <span>Team</span>
-            {activeTab === "team" && (
-              <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full bg-neon-cyan" />
-            )}
-          </button>
-        </div>
-
         {/* Title & Publish Header */}
-        <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
               Edit Page - {pageData.name}
@@ -347,7 +289,7 @@ export function CompanyPageEditor() {
             <p className="mt-1 text-sm text-white/60">
               {activeTab === "about" && "Manage your company's about page content"}
               {activeTab === "details" && "Manage your company details"}
-              {activeTab === "culture" && "Define your work culture for better candidate matching"}
+              {activeTab === "culture" && "Define your work culture for better matching"}
               {activeTab === "team" && "Manage who can access and edit this page"}
             </p>
           </div>
@@ -357,7 +299,7 @@ export function CompanyPageEditor() {
               type="button"
               onClick={handlePublish}
               disabled={isSaving}
-              className="flex items-center justify-center gap-2 rounded-full gradient-primary px-7 py-2.5 text-sm font-semibold text-white shadow-lg transition-all hover:opacity-95 disabled:opacity-50"
+              className="w-fit flex items-center justify-center gap-2 rounded-full gradient-primary px-6 sm:px-7 py-2.5 text-sm font-semibold text-white shadow-lg transition-all hover:opacity-95 disabled:opacity-50"
             >
               {isSaving ? (
                 <>
@@ -365,61 +307,110 @@ export function CompanyPageEditor() {
                   <span>Publishing…</span>
                 </>
               ) : (
-                <span>Publish</span>
+                <span>Publish Changes</span>
               )}
             </button>
           )}
         </div>
 
+        {/* Tab Navigation */}
+        <div className="mt-6 flex items-center gap-6 sm:gap-8 border-b border-white/[0.08]">
+          <button
+            type="button"
+            onClick={() => setActiveTab("about")}
+            className={`pb-3 text-sm font-semibold transition-colors relative ${
+              activeTab === "about" ? "text-neon-cyan" : "text-white/60 hover:text-white"
+            }`}
+          >
+            <span>About</span>
+            {activeTab === "about" && (
+              <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full bg-neon-cyan" />
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("details")}
+            className={`pb-3 text-sm font-semibold transition-colors relative ${
+              activeTab === "details" ? "text-neon-cyan" : "text-white/60 hover:text-white"
+            }`}
+          >
+            <span>Details</span>
+            {activeTab === "details" && (
+              <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full bg-neon-cyan" />
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("culture")}
+            className={`pb-3 text-sm font-semibold transition-colors relative ${
+              activeTab === "culture" ? "text-neon-cyan" : "text-white/60 hover:text-white"
+            }`}
+          >
+            <span>Culture</span>
+            {activeTab === "culture" && (
+              <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full bg-neon-cyan" />
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("team")}
+            className={`pb-3 text-sm font-semibold transition-colors relative ${
+              activeTab === "team" ? "text-neon-cyan" : "text-white/60 hover:text-white"
+            }`}
+          >
+            <span>Team</span>
+            {activeTab === "team" && (
+              <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full bg-neon-cyan" />
+            )}
+          </button>
+        </div>
+
         {/* Form Container Card */}
         {activeTab !== "team" ? (
-          <div className="mt-6 rounded-2xl border border-white/[0.08] bg-[#070712] p-8 shadow-xl">
+          <div className="mt-6 rounded-2xl border border-white/[0.08] bg-[#070712] p-4 sm:p-8 shadow-xl">
             {/* TAB 1: ABOUT */}
             {activeTab === "about" && (
             <div className="space-y-8">
               {/* Media Section */}
               <div>
                 <h3 className="text-base font-bold text-white mb-4">Media</h3>
-                <div>
-                  <h4 className="text-sm font-medium text-white/90">Company Logo</h4>
-                  <p className="text-xs text-white/50 mt-0.5 mb-4">
-                    JPG, PNG or GIF. Max 5MB. 1:1 ratio recommended.
-                  </p>
+                <div className="flex items-center gap-4">
+                  <div className="relative size-20 shrink-0 rounded-full border border-dashed border-white/20 bg-white/[0.03] flex items-center justify-center overflow-hidden">
+                    {logo ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img src={logo} alt="Company Logo" className="size-full object-cover rounded-full" />
+                    ) : (
+                      <ImageIcon className="size-6 text-white/35" />
+                    )}
+                  </div>
 
-                  <div className="flex items-center gap-5">
-                    <div className="relative size-24 shrink-0 rounded-full border-2 border-dashed border-white/20 bg-white/[0.02] flex items-center justify-center overflow-hidden">
-                      {logo ? (
-                        /* eslint-disable-next-line @next/next/no-img-element */
-                        <img src={logo} alt="Company Logo" className="size-full object-cover" />
-                      ) : (
-                        <ImageIcon className="size-7 text-white/30" />
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="file"
-                        ref={fileInputRef}
-                        onChange={handleFileChange}
-                        accept="image/*"
-                        className="hidden"
-                      />
+                  <div className="flex flex-col items-start gap-2">
+                    <p className="text-xs text-white/50">Max 5MB. 1:1 recommended.</p>
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleFileChange}
+                      accept="image/*"
+                      className="hidden"
+                    />
+                    <div className="flex items-center gap-2">
                       <button
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
-                        className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-white/[0.08]"
+                        className="rounded-full border border-cyan-500/40 bg-cyan-950/20 px-4 py-1.5 text-xs font-semibold text-cyan-400 hover:bg-cyan-950/40 transition-colors"
                       >
-                        <Upload className="size-4 text-white/70" />
-                        <span>Upload Logo</span>
+                        Upload Logo
                       </button>
                       {logo && (
                         <button
                           type="button"
                           onClick={() => setLogo("")}
-                          className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-white/[0.08]"
+                          className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-white/70 hover:bg-white/[0.08] transition-colors"
                         >
-                          <Trash2 className="size-4 text-white/70" />
-                          <span>Remove</span>
+                          Remove
                         </button>
                       )}
                     </div>
@@ -427,48 +418,41 @@ export function CompanyPageEditor() {
                 </div>
               </div>
 
-              {/* Description Section */}
-              <div className="pt-8 border-t border-white/[0.06]">
-                <h3 className="text-base font-bold text-white mb-4">Description</h3>
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-sm font-medium text-white/90">
-                      Tagline <span className="text-pink-500">*</span>
-                    </label>
-                  </div>
-                  <input
-                    value={tagline}
-                    maxLength={200}
-                    onChange={(e) => setTagline(e.target.value)}
-                    placeholder="A brief overview of what your company does..."
-                    className="h-12 w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm text-white outline-none placeholder:text-white/30 focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan/40"
-                  />
-                  <div className="mt-1 text-right text-xs text-white/40">
-                    {tagline.length}/200
-                  </div>
-                </div>
-
-                <div className="mt-4">
-                  <label className="block text-sm font-medium text-white/90 mb-1.5">
-                    Detailed Description
+              {/* Tagline Section */}
+              <div className="pt-6 border-t border-white/[0.08]">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-medium text-white/90">
+                    Tagline <span className="text-pink-500">*</span>
                   </label>
-                  <textarea
-                    rows={6}
-                    value={detailedDescription}
-                    onChange={(e) => setDetailedDescription(e.target.value)}
-                    placeholder="Tell your company's story... (supports rich text)"
-                    className="w-full rounded-xl border border-white/10 bg-white/[0.03] p-4 text-sm text-white outline-none placeholder:text-white/30 focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan/40 leading-relaxed"
-                  />
-                  <p className="mt-1.5 text-xs text-white/40">
-                    Supports bold, italic, bullets, and links
-                  </p>
+                  <span className="text-xs text-white/40">{tagline.length}/200</span>
                 </div>
+                <textarea
+                  rows={3}
+                  value={tagline}
+                  maxLength={200}
+                  onChange={(e) => setTagline(e.target.value)}
+                  placeholder="A brief overview of what your company does..."
+                  className="w-full rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-white outline-none placeholder:text-white/30 focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan/40 leading-relaxed"
+                />
               </div>
 
-              {/* Tags & Industry Section */}
-              <div className="pt-8 border-t border-white/[0.06]">
-                <h3 className="text-base font-bold text-white mb-4">Tags & Industry</h3>
+              {/* Detailed Description Section */}
+              <div className="pt-6 border-t border-white/[0.08]">
                 <label className="block text-sm font-medium text-white/90 mb-2">
+                  Detailed Description
+                </label>
+                <textarea
+                  rows={5}
+                  value={detailedDescription}
+                  onChange={(e) => setDetailedDescription(e.target.value)}
+                  placeholder="Tell your company's story... (supports rich text)"
+                  className="w-full rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-white outline-none placeholder:text-white/30 focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan/40 leading-relaxed"
+                />
+              </div>
+
+              {/* Focus Areas / Tags Section */}
+              <div className="pt-6 border-t border-white/[0.08]">
+                <label className="block text-sm font-medium text-white/90 mb-3">
                   Focus Areas / Tags
                 </label>
                 {specialties.length > 0 && (
@@ -476,13 +460,13 @@ export function CompanyPageEditor() {
                     {specialties.map((tag) => (
                       <span
                         key={tag}
-                        className="flex items-center gap-1.5 rounded-full border border-neon-cyan/40 bg-neon-cyan/15 px-3 py-1 text-xs font-medium text-neon-cyan"
+                        className="flex items-center gap-1.5 rounded-full border border-cyan-500/40 bg-cyan-950/25 px-3 py-1 text-xs font-medium text-cyan-400"
                       >
                         <span>{tag}</span>
                         <button
                           type="button"
                           onClick={() => handleRemoveSpecialty(tag)}
-                          className="text-neon-cyan/60 hover:text-neon-cyan"
+                          className="text-cyan-400/60 hover:text-cyan-400"
                         >
                           <X className="size-3" />
                         </button>
@@ -495,7 +479,7 @@ export function CompanyPageEditor() {
                   onChange={(e) => setTagInput(e.target.value)}
                   onKeyDown={handleTagKeyDown}
                   placeholder="Type a tag and press Enter"
-                  className="h-12 w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm text-white outline-none placeholder:text-white/30 focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan/40"
+                  className="h-12 w-full rounded-2xl border border-white/10 bg-white/[0.03] px-4 text-sm text-white outline-none placeholder:text-white/30 focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan/40"
                 />
               </div>
             </div>
@@ -514,7 +498,7 @@ export function CompanyPageEditor() {
                   value={website}
                   onChange={(e) => setWebsite(e.target.value)}
                   placeholder="https://techcorp-solutions.com"
-                  className="h-12 w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm text-white outline-none placeholder:text-white/30 focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan/40"
+                  className="h-12 w-full rounded-2xl border border-white/10 bg-white/[0.03] px-4 text-sm text-white outline-none placeholder:text-white/30 focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan/40"
                 />
               </div>
 
@@ -528,7 +512,7 @@ export function CompanyPageEditor() {
                     value={industry}
                     onChange={(e) => setIndustry(e.target.value)}
                     placeholder="Select an industry"
-                    className="h-12 w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm text-white outline-none placeholder:text-white/30 focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan/40"
+                    className="h-12 w-full rounded-2xl border border-white/10 bg-white/[0.03] px-4 text-sm text-white outline-none placeholder:text-white/30 focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan/40"
                   />
                 </div>
 
@@ -539,7 +523,7 @@ export function CompanyPageEditor() {
                   <select
                     value={sizeId}
                     onChange={(e) => setSizeId(e.target.value)}
-                    className="h-12 w-full rounded-xl border border-white/10 bg-[#0e0e1a] px-4 text-sm text-white outline-none focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan/40"
+                    className="h-12 w-full rounded-2xl border border-white/10 bg-[#0e0e1a] px-4 text-sm text-white outline-none focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan/40"
                   >
                     <option value="" className="bg-[#0e0e1a] text-white/40">Select a company size</option>
                     {sizes.map((s: { id: string; label: string }) => (
@@ -561,7 +545,7 @@ export function CompanyPageEditor() {
                     value={headquarters}
                     onChange={(e) => setHeadquarters(e.target.value)}
                     placeholder="San Francisco, CA"
-                    className="h-12 w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm text-white outline-none placeholder:text-white/30 focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan/40"
+                    className="h-12 w-full rounded-2xl border border-white/10 bg-white/[0.03] px-4 text-sm text-white outline-none placeholder:text-white/30 focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan/40"
                   />
                 </div>
 
@@ -574,7 +558,7 @@ export function CompanyPageEditor() {
                     value={foundedYear}
                     onChange={(e) => setFoundedYear(e.target.value)}
                     placeholder="2015"
-                    className="h-12 w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm text-white outline-none placeholder:text-white/30 focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan/40"
+                    className="h-12 w-full rounded-2xl border border-white/10 bg-white/[0.03] px-4 text-sm text-white outline-none placeholder:text-white/30 focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan/40"
                   />
                 </div>
               </div>
@@ -590,7 +574,7 @@ export function CompanyPageEditor() {
                     value={contactEmail}
                     onChange={(e) => setContactEmail(e.target.value)}
                     placeholder="contact@techcorp-solutions.com"
-                    className="h-12 w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm text-white outline-none placeholder:text-white/30 focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan/40"
+                    className="h-12 w-full rounded-2xl border border-white/10 bg-white/[0.03] px-4 text-sm text-white outline-none placeholder:text-white/30 focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan/40"
                   />
                 </div>
 
@@ -603,13 +587,13 @@ export function CompanyPageEditor() {
                     value={contactPhone}
                     onChange={(e) => setContactPhone(e.target.value)}
                     placeholder="+1 (555) 123-4567"
-                    className="h-12 w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm text-white outline-none placeholder:text-white/30 focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan/40"
+                    className="h-12 w-full rounded-2xl border border-white/10 bg-white/[0.03] px-4 text-sm text-white outline-none placeholder:text-white/30 focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan/40"
                   />
                 </div>
               </div>
 
               {/* Social Links */}
-              <div className="pt-4 border-t border-white/[0.06] space-y-4">
+              <div className="pt-6 border-t border-white/[0.08] space-y-4">
                 <h4 className="text-sm font-bold text-white">Social Links</h4>
 
                 <div>
@@ -621,7 +605,7 @@ export function CompanyPageEditor() {
                     value={linkedinUrl}
                     onChange={(e) => setLinkedinUrl(e.target.value)}
                     placeholder="https://linkedin.com/company/techcorp-solutions"
-                    className="h-12 w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm text-white outline-none placeholder:text-white/30 focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan/40"
+                    className="h-12 w-full rounded-2xl border border-white/10 bg-white/[0.03] px-4 text-sm text-white outline-none placeholder:text-white/30 focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan/40"
                   />
                 </div>
 
@@ -634,7 +618,7 @@ export function CompanyPageEditor() {
                     value={twitterUrl}
                     onChange={(e) => setTwitterUrl(e.target.value)}
                     placeholder="https://twitter.com/techcorpsol"
-                    className="h-12 w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm text-white outline-none placeholder:text-white/30 focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan/40"
+                    className="h-12 w-full rounded-2xl border border-white/10 bg-white/[0.03] px-4 text-sm text-white outline-none placeholder:text-white/30 focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan/40"
                   />
                 </div>
 
@@ -647,7 +631,7 @@ export function CompanyPageEditor() {
                     value={glassdoorUrl}
                     onChange={(e) => setGlassdoorUrl(e.target.value)}
                     placeholder="https://glassdoor.com/techcorp-solutions"
-                    className="h-12 w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm text-white outline-none placeholder:text-white/30 focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan/40"
+                    className="h-12 w-full rounded-2xl border border-white/10 bg-white/[0.03] px-4 text-sm text-white outline-none placeholder:text-white/30 focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan/40"
                   />
                 </div>
               </div>
@@ -666,7 +650,7 @@ export function CompanyPageEditor() {
                       key={preset}
                       type="button"
                       onClick={() => handleApplyPreset(preset)}
-                      className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-xs font-medium text-white/80 transition-colors hover:bg-white/[0.08] hover:text-white"
+                      className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-xs font-medium text-white/80 transition-colors hover:border-white/25 hover:bg-white/[0.08] hover:text-white"
                     >
                       {preset}
                     </button>
@@ -677,7 +661,7 @@ export function CompanyPageEditor() {
               {/* Culture Attributes */}
               <div>
                 <h4 className="text-sm font-bold text-white mb-3">Culture Attributes</h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   {CULTURE_ATTRIBUTES_LIST.map((attr) => {
                     const isSelected = selectedCultureTags.includes(attr.key);
                     const Icon = attr.icon;
@@ -686,14 +670,17 @@ export function CompanyPageEditor() {
                         key={attr.key}
                         type="button"
                         onClick={() => handleToggleCultureTag(attr.key)}
-                        className={`flex h-12 w-full items-center gap-3 rounded-full border px-5 text-left text-sm font-medium transition-all ${
+                        className={`flex min-h-[50px] w-full items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-left text-sm transition-all ${
                           isSelected
-                            ? "border-neon-cyan/50 bg-neon-cyan/10 text-white"
-                            : "border-white/10 bg-white/[0.02] text-white/70 hover:bg-white/[0.05] hover:text-white"
+                            ? "border-cyan-500/50 bg-cyan-950/20 text-white font-medium"
+                            : "border-white/10 bg-white/[0.03] text-white/70 hover:bg-white/[0.06] hover:text-white"
                         }`}
                       >
-                        <Icon className={`size-4 shrink-0 ${isSelected ? "text-neon-cyan" : "text-white/40"}`} />
-                        <span className="truncate">{attr.key}</span>
+                        <div className="flex items-center gap-3 min-w-0">
+                          <Icon className={`size-4 shrink-0 ${isSelected ? "text-cyan-400" : "text-white/40"}`} />
+                          <span className="truncate">{attr.key}</span>
+                        </div>
+                        {isSelected && <Check className="size-4 shrink-0 text-cyan-400" />}
                       </button>
                     );
                   })}
@@ -701,10 +688,10 @@ export function CompanyPageEditor() {
               </div>
 
               {/* Culture Statement */}
-              <div className="pt-4 border-t border-white/[0.06]">
+              <div className="pt-6 border-t border-white/[0.08]">
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-sm font-bold text-white">
-                    Culture Statement (Optional)
+                    Culture Statement
                   </label>
                   <span className="text-xs text-white/40">
                     {cultureStatement.length}/140
@@ -716,7 +703,7 @@ export function CompanyPageEditor() {
                   value={cultureStatement}
                   onChange={(e) => setCultureStatement(e.target.value)}
                   placeholder="Describe your company culture in one sentence..."
-                  className="w-full rounded-xl border border-white/10 bg-white/[0.03] p-4 text-sm text-white outline-none placeholder:text-white/30 focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan/40 leading-relaxed"
+                  className="w-full rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-white outline-none placeholder:text-white/30 focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan/40 leading-relaxed"
                 />
               </div>
             </div>
