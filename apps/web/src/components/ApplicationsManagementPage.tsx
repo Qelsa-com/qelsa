@@ -1,3 +1,4 @@
+import { useAuth } from "@/contexts/AuthContext";
 import { formatCity } from "@/constants/city";
 import { jobSkillTypeLabel, proficiencyLabel } from "@/constants/skills";
 import {
@@ -17,7 +18,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { goBackJobs } from "@/lib/jobNavigation";
 import { useCallback, useMemo, useState } from "react";
 import { CandidateNLPSearch } from "./CandidateNLPSearch";
-import { ApplicantDetailSkeleton, CandidateRowSkeleton } from "./job/jobSkeletons";
+import { ApplicantDetailSkeleton, ApplicationsHubSkeleton, CandidateRowSkeleton } from "./job/jobSkeletons";
 import { Button } from "./ui/button";
 import { Checkbox } from "./ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "./ui/dropdown-menu";
@@ -125,17 +126,22 @@ export function ApplicationsManagementPage() {
   const params = useParams<{ id?: string }>();
   const searchParams = useSearchParams();
   const queryJobId = searchParams?.get("jobId");
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
 
-  const { data: postedJobs = [], isLoading: isJobsLoading } = useGetPostedJobsQuery();
+  const { data: postedJobs = [], isLoading: isJobsLoading } = useGetPostedJobsQuery(undefined, {
+    skip: !isAuthenticated,
+  });
 
   const rawId = params?.id;
   const validParamId = rawId && rawId !== "applications" ? rawId : undefined;
+  const explicitJobId = validParamId || queryJobId || undefined;
   const effectiveJobId =
-    validParamId ||
-    queryJobId ||
+    explicitJobId ||
     (postedJobs.find((j) => j.status === "open")?.id ? String(postedJobs.find((j) => j.status === "open")?.id) : postedJobs[0]?.id ? String(postedJobs[0]?.id) : undefined);
 
   const id = effectiveJobId;
+  const deciding =
+    authLoading || !isAuthenticated || (isJobsLoading && !explicitJobId);
 
   const [selectedApplicationId, setSelectedApplicationId] = useState<string | number | null>(null);
   const [selectedApplications, setSelectedApplications] = useState<Array<string | number>>([]);
@@ -360,7 +366,11 @@ export function ApplicationsManagementPage() {
   const candidateYears = yearsOfExperience(selectedApplication?.user?.experiences) ?? selectedListRow?.years_experience ?? null;
   const selectedHit = selectedApplicationId != null ? hitById.get(String(selectedApplicationId)) : undefined;
 
-  if (!isJobsLoading && postedJobs.length === 0 && !id) {
+  if (deciding) {
+    return <ApplicationsHubSkeleton />;
+  }
+
+  if (postedJobs.length === 0 && !id) {
     return (
       <div className="min-h-screen">
         <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 pt-8 sm:pt-10 pb-20">
