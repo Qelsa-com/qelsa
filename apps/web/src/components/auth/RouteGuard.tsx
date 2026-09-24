@@ -75,14 +75,12 @@ export default function RouteGuard({ children }: { children: ReactNode }) {
     }
   }, [session, user, isClient, isPending, isLoading, router.isReady, router.asPath, logout, router]);
 
-  if (!isClient) return null;
-
   const path = router.asPath.split(/[?#]/)[0];
   const isPublic = isPublicPath(path) || router.pathname === "/404";
 
-  // For protected routes, wait for the initial auth check to settle before rendering.
-  // For public routes, render immediately without unmounting on background revalidations.
-  if (!isPublic && !hasInitialized && (isPending || isLoading)) {
+  // Public pages (including /jobs/[id]) must SSR so crawlers see <Head> OG tags.
+  // Returning null on the server previously stripped job link previews.
+  if (isClient && !isPublic && !hasInitialized && (isPending || isLoading)) {
     return null;
   }
 

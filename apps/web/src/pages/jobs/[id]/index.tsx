@@ -20,6 +20,33 @@ export interface JobDetailsPageProps {
   meta?: JobMeta;
 }
 
+const PREVIEW_MIN = 120;
+const PREVIEW_MAX = 160;
+
+function clipPreview(text: string) {
+  const trimmed = text.replace(/\s+/g, " ").trim();
+  if (trimmed.length <= PREVIEW_MAX) return trimmed;
+  const slice = trimmed.slice(0, PREVIEW_MAX);
+  const breakAt = slice.lastIndexOf(" ");
+  const cut = breakAt >= PREVIEW_MIN ? breakAt : PREVIEW_MAX;
+  return `${slice.slice(0, cut).trimEnd()}…`;
+}
+
+function stripHtml(value: string) {
+  return value.replace(/<[^>]*>?/gm, " ").replace(/\s+/g, " ").trim();
+}
+
+function formatWorkType(raw?: string | null) {
+  if (!raw) return undefined;
+  return raw.replace(/_/g, "-").replace(/\b[a-z]/g, (char) => char.toUpperCase());
+}
+
+function absoluteUrl(url: string, siteUrl: string) {
+  if (url.startsWith("http://") || url.startsWith("https://")) return url;
+  if (url.startsWith("/")) return `${siteUrl}${url}`;
+  return `${siteUrl}/${url}`;
+}
+
 /** Reserved slugs — do not treat them as a job id. */
 export const getServerSideProps: GetServerSideProps<JobDetailsPageProps> = async (ctx) => {
   const id = ctx.params?.id;
@@ -30,57 +57,47 @@ export const getServerSideProps: GetServerSideProps<JobDetailsPageProps> = async
   const host = (ctx.req.headers["x-forwarded-host"] || ctx.req.headers.host) as string | undefined;
   const proto = (ctx.req.headers["x-forwarded-proto"] || "https") as string;
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || (host ? `${proto}://${host}` : "https://qelsa.ai");
-  const canonicalUrl = `${siteUrl}/jobs/${id}`;
+  const canonicalUrl = `${siteUrl.replace(/\/$/, "")}/jobs/${id}`;
+  const defaultImage = `${siteUrl.replace(/\/$/, "")}/qelsa-logo.svg`;
 
   try {
     const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL || "http://127.0.0.1:3210";
     const client = new ConvexHttpClient(convexUrl);
     const job = await client.query(api.jobs.getById, { id: id as never });
 
-    if (job) {
-      const title = job.title || "Job Details";
-      const companyName = job.company_name || "Company";
-      const location = job.city?.name
-        ? `${job.city.name}${job.city.state?.name ? `, ${job.city.state.name}` : ""}`
-        : job.has_remote
+    if (!job) return { notFound: true };
+
+    const title = job.title || "Job Details";
+    const companyName = job.company_name || job.page?.name || "Qelsa";
+    const location = job.city?.name
+      ? `${job.city.name}${job.city.state?.name ? `, ${job.city.state.name}` : ""}`
+      : job.workplace_type === "remote" || job.has_remote
         ? "Remote"
         : "";
-      const workType = job.work_type ? job.work_type.replace(/[-_]/g, " ") : undefined;
+    const workType = formatWorkType(job.work_type);
 
-      let cleanDesc = (job.description || "")
-        .replace(/<[^>]*>?/gm, " ")
-        .replace(/\s+/g, " ")
-        .trim();
+    const facts = [location, workType].filter(Boolean).join(" · ");
+    const jd = stripHtml(job.description || job.ai_summary?.role_overview || "");
+    const fallback = `${companyName} is hiring a ${title}${location ? ` in ${location}` : ""}. Apply on Qelsa.`;
+    const description = clipPreview(facts ? `${facts}. ${jd || fallback}` : jd || fallback);
 
-      if (!cleanDesc) {
-        cleanDesc = `${companyName} is hiring a ${title}${
-          location ? ` in ${location}` : ""
-        }. Explore responsibilities, skills, and apply on Qelsa.`;
-      } else if (cleanDesc.length > 200) {
-        cleanDesc = cleanDesc.slice(0, 197) + "...";
-      }
+    const logo = job.company_logo || job.page?.logo;
+    const imageUrl = logo ? absoluteUrl(logo, siteUrl.replace(/\/$/, "")) : defaultImage;
 
-      let imageUrl = job.company_logo || `${siteUrl}/qelsa-logo.svg`;
-      if (imageUrl.startsWith("/")) {
-        imageUrl = `${siteUrl}${imageUrl}`;
-      }
-
-      return {
-        props: {
-          meta: {
-            title: `${title} at ${companyName} | Qelsa`,
-            description: cleanDesc,
-            canonicalUrl,
-            imageUrl,
-            companyName,
-            location,
-            workType,
-          },
+    return {
+      props: {
+        meta: {
+          title: `${title} at ${companyName} | Qelsa`,
+          description,
+          canonicalUrl,
+          imageUrl,
+          companyName,
+          location: location || undefined,
+          workType,
         },
-      };
-    }
+      },
+    };
   } catch (err) {
-    // If Convex is unreachable or ID is invalid, fallback cleanly
     console.error("[JobDetails SSR] Error fetching job metadata:", err);
   }
 
@@ -90,7 +107,7 @@ export const getServerSideProps: GetServerSideProps<JobDetailsPageProps> = async
         title: "Job Details | Qelsa",
         description: "Discover opportunities, analyze skill match, and apply on Qelsa.",
         canonicalUrl,
-        imageUrl: `${siteUrl}/qelsa-logo.svg`,
+        imageUrl: defaultImage,
         companyName: "Qelsa",
       },
     },
@@ -111,16 +128,14 @@ export default function JobDetails({ meta }: JobDetailsPageProps) {
         <meta name="description" content={ogDescription} />
         <link rel="canonical" href={canonicalUrl} />
 
-        {/* Open Graph / Facebook / LinkedIn / WhatsApp */}
         <meta property="og:type" content="website" />
         <meta property="og:site_name" content="Qelsa" />
         <meta property="og:url" content={canonicalUrl} />
         <meta property="og:title" content={ogTitle} />
         <meta property="og:description" content={ogDescription} />
         <meta property="og:image" content={ogImage} />
-        <meta property="og:image:alt" content={meta?.title || "Job Opportunity"} />
+        <meta property="og:image:alt" content={ogTitle} />
 
-        {/* Twitter */}
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:url" content={canonicalUrl} />
         <meta name="twitter:title" content={ogTitle} />
@@ -133,4 +148,3 @@ export default function JobDetails({ meta }: JobDetailsPageProps) {
     </>
   );
 }
-
