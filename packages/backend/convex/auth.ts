@@ -16,40 +16,77 @@ const trustedOrigins = process.env.TRUSTED_ORIGINS?.split(",") ?? [];
 
 type AppUserFields = { authId: string; email: string; name?: string; image?: string };
 
+async function claimPendingPageInvites(ctx: MutationCtx, userId: Id<"users">, email: string) {
+  const normalizedEmail = email.trim().toLowerCase();
+  const pendingInvites = await ctx.db
+    .query("page_invites")
+    .withIndex("by_email", (q) => q.eq("email", normalizedEmail))
+    .collect();
+
+  for (const invite of pendingInvites) {
+    if (invite.status !== "pending") continue;
+
+    const existingMember = await ctx.db
+      .query("page_members")
+      .withIndex("by_page_and_user", (q) =>
+        q.eq("page_id", invite.page_id).eq("user_id", userId)
+      )
+      .first();
+
+    if (!existingMember) {
+      await ctx.db.insert("page_members", {
+        page_id: invite.page_id,
+        user_id: userId,
+        role: invite.role,
+        added_at: Date.now(),
+        added_by: invite.invited_by,
+      });
+    }
+
+    await ctx.db.patch(invite._id, { status: "accepted" });
+  }
+}
+
 /**
  * Creates the app `users` row for a Better Auth user, or links an existing row
  * by email. Idempotent, so it is safe to call on every sign in.
  */
 async function upsertAppUser(ctx: MutationCtx, fields: AppUserFields): Promise<Id<"users">> {
+  let userId: Id<"users">;
   const byAuthId = await ctx.db
     .query("users")
     .withIndex("by_authId", (q) => q.eq("authId", fields.authId))
     .unique();
-  if (byAuthId) return byAuthId._id;
-
-  const byEmail = await ctx.db
-    .query("users")
-    .withIndex("by_email", (q) => q.eq("email", fields.email))
-    .unique();
-  if (byEmail) {
-    await ctx.db.patch(byEmail._id, {
-      authId: fields.authId,
-      name: fields.name ?? byEmail.name,
-      profile_image: fields.image ?? byEmail.profile_image,
-    });
-    return byEmail._id;
+  if (byAuthId) {
+    userId = byAuthId._id;
+  } else {
+    const byEmail = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q) => q.eq("email", fields.email))
+      .unique();
+    if (byEmail) {
+      await ctx.db.patch(byEmail._id, {
+        authId: fields.authId,
+        name: fields.name ?? byEmail.name,
+        profile_image: fields.image ?? byEmail.profile_image,
+      });
+      userId = byEmail._id;
+    } else {
+      userId = await ctx.db.insert("users", {
+        authId: fields.authId,
+        email: fields.email,
+        name: fields.name,
+        profile_image: fields.image,
+        role: "user",
+        isActive: true,
+        show_phone_number: false,
+        expected_salary_currency: "INR",
+      });
+    }
   }
 
-  return await ctx.db.insert("users", {
-    authId: fields.authId,
-    email: fields.email,
-    name: fields.name,
-    profile_image: fields.image,
-    role: "user",
-    isActive: true,
-    show_phone_number: false,
-    expected_salary_currency: "INR",
-  });
+  await claimPendingPageInvites(ctx, userId, fields.email);
+  return userId;
 }
 
 export const authComponent = createClient<DataModel>(components.betterAuth, {

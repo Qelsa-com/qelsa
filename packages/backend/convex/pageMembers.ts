@@ -1,5 +1,8 @@
 import { v } from "convex/values";
+import { internal } from "./_generated/api";
+import { internalAction } from "./_generated/server";
 import { authedMutation, authedQuery, optionalAuthQuery } from "./lib/customFunctions";
+import { sendPageInviteEmail } from "./lib/email";
 
 export const listMembers = optionalAuthQuery({
   args: { pageId: v.id("pages") },
@@ -62,8 +65,24 @@ export const listMembers = optionalAuthQuery({
       }
     }
 
+    // Hydrate all pending invites
+    const pendingInviteRows = await ctx.db
+      .query("page_invites")
+      .withIndex("by_page", (q) => q.eq("page_id", args.pageId))
+      .filter((q) => q.eq(q.field("status"), "pending"))
+      .collect();
+
+    const pendingInvites = pendingInviteRows.map((inv) => ({
+      id: inv._id,
+      email: inv.email,
+      role: inv.role,
+      joined_at: inv.created_at,
+      status: "pending" as const,
+      is_owner: false,
+    }));
+
     // Number of invited teammates (excluding the owner)
-    const invitedCount = members.filter((m) => !m.is_owner).length;
+    const invitedCount = members.filter((m) => !m.is_owner).length + pendingInvites.length;
 
     return {
       page: {
@@ -72,6 +91,7 @@ export const listMembers = optionalAuthQuery({
         ownerId: page.ownerId,
       },
       members,
+      pendingInvites,
       invitedCount,
       userRole,
       canManage: userRole === "owner" || userRole === "admin",
@@ -290,3 +310,194 @@ export const transferOwnership = authedMutation({
     return { success: true };
   },
 });
+
+export const inviteMembers = authedMutation({
+  args: {
+    pageId: v.id("pages"),
+    emails: v.array(v.string()),
+    role: v.union(v.literal("admin"), v.literal("editor")),
+  },
+  returns: v.object({
+    invited: v.array(v.string()),
+    skipped: v.array(v.object({ email: v.string(), reason: v.string() })),
+  }),
+  handler: async (ctx, args) => {
+    const page = await ctx.db.get(args.pageId);
+    if (!page) throw new Error("Page not found");
+
+    // Check permission: caller must be owner or admin
+    const isOwner = page.ownerId === ctx.user._id;
+    const adminMembership = await ctx.db
+      .query("page_members")
+      .withIndex("by_page_and_user", (q) =>
+        q.eq("page_id", args.pageId).eq("user_id", ctx.user._id)
+      )
+      .first();
+
+    if (!isOwner && adminMembership?.role !== "admin") {
+      throw new Error("You do not have permission to invite team members");
+    }
+
+    const pageOwner = await ctx.db.get(page.ownerId);
+    const results = {
+      invited: [] as string[],
+      skipped: [] as { email: string; reason: string }[],
+    };
+
+    const siteUrl = process.env.SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+
+    for (const rawEmail of args.emails) {
+      const email = rawEmail.trim().toLowerCase();
+      if (!email || !email.includes("@")) {
+        results.skipped.push({ email: rawEmail, reason: "Invalid email" });
+        continue;
+      }
+
+      if (pageOwner && pageOwner.email.toLowerCase() === email) {
+        results.skipped.push({ email, reason: "User is the page owner" });
+        continue;
+      }
+
+      // Check if user already exists
+      const existingUser = await ctx.db
+        .query("users")
+        .withIndex("by_email", (q) => q.eq("email", email))
+        .unique();
+
+      if (existingUser) {
+        const existingMember = await ctx.db
+          .query("page_members")
+          .withIndex("by_page_and_user", (q) =>
+            q.eq("page_id", args.pageId).eq("user_id", existingUser._id)
+          )
+          .first();
+
+        if (existingMember) {
+          results.skipped.push({ email, reason: "Already a team member" });
+          continue;
+        }
+
+        // Add them to page_members directly
+        await ctx.db.insert("page_members", {
+          page_id: args.pageId,
+          user_id: existingUser._id,
+          role: args.role,
+          added_at: Date.now(),
+          added_by: ctx.user._id,
+        });
+
+        // Also record an accepted invite
+        const existingInvite = await ctx.db
+          .query("page_invites")
+          .withIndex("by_page_and_email", (q) =>
+            q.eq("page_id", args.pageId).eq("email", email)
+          )
+          .first();
+
+        if (existingInvite) {
+          await ctx.db.patch(existingInvite._id, { status: "accepted", role: args.role });
+        } else {
+          await ctx.db.insert("page_invites", {
+            page_id: args.pageId,
+            email,
+            role: args.role,
+            invited_by: ctx.user._id,
+            status: "accepted",
+            created_at: Date.now(),
+          });
+        }
+      } else {
+        // User does not exist yet -> store pending invite
+        const existingInvite = await ctx.db
+          .query("page_invites")
+          .withIndex("by_page_and_email", (q) =>
+            q.eq("page_id", args.pageId).eq("email", email)
+          )
+          .first();
+
+        if (existingInvite) {
+          await ctx.db.patch(existingInvite._id, {
+            status: "pending",
+            role: args.role,
+            created_at: Date.now(),
+          });
+        } else {
+          await ctx.db.insert("page_invites", {
+            page_id: args.pageId,
+            email,
+            role: args.role,
+            invited_by: ctx.user._id,
+            status: "pending",
+            created_at: Date.now(),
+          });
+        }
+      }
+
+      // Schedule email sending
+      const inviteUrl = `${siteUrl}/auth?email=${encodeURIComponent(email)}&invitePageId=${args.pageId}`;
+      await ctx.scheduler.runAfter(0, internal.pageMembers.sendInviteEmailInternal, {
+        email,
+        pageName: page.name,
+        role: args.role,
+        inviterName: ctx.user.name || "A team administrator",
+        inviteUrl,
+      });
+
+      results.invited.push(email);
+    }
+
+    return results;
+  },
+});
+
+export const cancelInvite = authedMutation({
+  args: {
+    pageId: v.id("pages"),
+    inviteId: v.id("page_invites"),
+  },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    const page = await ctx.db.get(args.pageId);
+    if (!page) throw new Error("Page not found");
+
+    const isOwner = page.ownerId === ctx.user._id;
+    const adminMembership = await ctx.db
+      .query("page_members")
+      .withIndex("by_page_and_user", (q) =>
+        q.eq("page_id", args.pageId).eq("user_id", ctx.user._id)
+      )
+      .first();
+
+    if (!isOwner && adminMembership?.role !== "admin") {
+      throw new Error("You do not have permission to cancel invitations");
+    }
+
+    const invite = await ctx.db.get(args.inviteId);
+    if (!invite || invite.page_id !== args.pageId) {
+      throw new Error("Invitation not found");
+    }
+
+    await ctx.db.delete(args.inviteId);
+    return { success: true };
+  },
+});
+
+export const sendInviteEmailInternal = internalAction({
+  args: {
+    email: v.string(),
+    pageName: v.string(),
+    role: v.string(),
+    inviterName: v.string(),
+    inviteUrl: v.string(),
+  },
+  handler: async (_ctx, args) => {
+    await sendPageInviteEmail({
+      to: args.email,
+      pageName: args.pageName,
+      role: args.role,
+      inviterName: args.inviterName,
+      inviteUrl: args.inviteUrl,
+    });
+  },
+});
+

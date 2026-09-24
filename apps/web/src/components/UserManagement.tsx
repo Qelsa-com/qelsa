@@ -3,7 +3,9 @@
 import { useAuth } from "@/contexts/AuthContext";
 import {
   useAddPageMemberMutation,
+  useCancelInviteMutation,
   useGetPageMembersQuery,
+  useInviteMembersMutation,
   useRemovePageMemberMutation,
   useSearchUsersQuery,
   useTransferOwnershipMutation,
@@ -15,11 +17,13 @@ import {
   ChevronDown,
   Crown,
   Loader2,
+  Mail,
   PenLine,
   Search,
   ShieldCheck,
   Trash2,
   UserCheck,
+  UserPlus,
   Users,
   X,
 } from "lucide-react";
@@ -54,71 +58,138 @@ export function UserManagement({ pageId, showHeader = true }: UserManagementProp
 
   // Mutations
   const [addMemberMutation, { isLoading: isAddingMember }] = useAddPageMemberMutation();
+  const [inviteMembersMutation, { isLoading: isInvitingMembers }] = useInviteMembersMutation();
+  const [cancelInviteMutation, { isLoading: isCancellingInvite }] = useCancelInviteMutation();
   const [updateRoleMutation, { isLoading: isUpdatingRole }] = useUpdateMemberRoleMutation();
   const [removeMemberMutation, { isLoading: isRemovingMember }] = useRemovePageMemberMutation();
   const [transferOwnershipMutation, { isLoading: isTransferring }] = useTransferOwnershipMutation();
 
-  // Modal & Search states
+  // Modal & Email invite states
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [debouncedQuery, setDebouncedQuery] = useState("");
-  const [selectedUser, setSelectedUser] = useState<UserCandidate | null>(null);
-  const [selectedRole, setSelectedRole] = useState<"admin" | "editor" | "">("");
+  const [emails, setEmails] = useState<string[]>([]);
+  const [emailInput, setEmailInput] = useState("");
+  const [selectedRole, setSelectedRole] = useState<"admin" | "editor" | "">("admin");
   const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
 
   // Transfer Ownership state
   const [transferConfirmUserId, setTransferConfirmUserId] = useState<string | null>(null);
 
-  // Debounce search query
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedQuery(searchQuery.trim());
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
 
-  const { data: searchResults, isLoading: isSearching } = useSearchUsersQuery(
-    { query: debouncedQuery, pageId },
-    { skip: !debouncedQuery || !isInviteModalOpen },
-  );
+  const addEmailString = (raw: string) => {
+    const parts = raw
+      .split(/[\s,;]+/)
+      .map((e) => e.trim().toLowerCase())
+      .filter((e) => e.length > 0 && e.includes("@"));
+
+    if (parts.length > 0) {
+      setEmails((prev) => {
+        const set = new Set(prev);
+        for (const p of parts) {
+          set.add(p);
+        }
+        return Array.from(set);
+      });
+      setEmailInput("");
+    }
+  };
+
+  const handleEmailKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" || e.key === "," || e.key === ";") {
+      e.preventDefault();
+      if (emailInput.trim()) {
+        addEmailString(emailInput);
+      }
+    } else if (e.key === "Backspace" && !emailInput && emails.length > 0) {
+      setEmails((prev) => prev.slice(0, -1));
+    }
+  };
+
+  const handleEmailPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    const pasted = e.clipboardData.getData("text");
+    if (pasted) {
+      addEmailString(pasted);
+    }
+  };
+
+  const handleEmailBlur = () => {
+    if (emailInput.trim()) {
+      addEmailString(emailInput);
+    }
+  };
+
+  const removeEmail = (indexToRemove: number) => {
+    setEmails((prev) => prev.filter((_, idx) => idx !== indexToRemove));
+  };
 
   const members = membersData?.members ?? [];
+  const pendingInvites = membersData?.pendingInvites ?? [];
   const invitedCount = membersData?.invitedCount ?? 0;
   const userRole = membersData?.userRole;
   const canManage = Boolean(membersData?.canManage || user?.role === "admin");
   const isOwner = userRole === "owner";
 
   const handleOpenInvite = () => {
-    setSearchQuery("");
-    setDebouncedQuery("");
-    setSelectedUser(null);
-    setSelectedRole("");
+    setEmails([]);
+    setEmailInput("");
+    setSelectedRole("admin");
+    setRoleDropdownOpen(false);
     setIsInviteModalOpen(true);
   };
 
-  const handleAddMember = async () => {
-    if (!selectedUser) {
-      toast.error("Please select a user to invite");
+  const handleSendInvites = async () => {
+    let finalEmails = [...emails];
+    if (emailInput.trim() && emailInput.includes("@")) {
+      const extra = emailInput.trim().toLowerCase();
+      if (!finalEmails.includes(extra)) {
+        finalEmails.push(extra);
+      }
+      setEmails(finalEmails);
+      setEmailInput("");
+    }
+
+    if (finalEmails.length === 0) {
+      toast.error("Please enter at least one valid email address");
       return;
     }
+
     if (!selectedRole) {
       toast.error("Please select a role");
       return;
     }
 
     try {
-      await addMemberMutation({
+      const res = await inviteMembersMutation({
         pageId,
-        userId: selectedUser.id,
+        emails: finalEmails,
         role: selectedRole,
       });
-      toast.success(`${selectedUser.name} added as ${selectedRole}`);
+
+      if (res?.invited?.length) {
+        toast.success(`Invite sent to ${res.invited.length} user${res.invited.length > 1 ? "s" : ""}`);
+      }
+      if (res?.skipped?.length) {
+        const reasons = res.skipped.map((s: { email: string; reason: string }) => `${s.email} (${s.reason})`).join(", ");
+        toast.info(`Skipped: ${reasons}`);
+      }
+
       setIsInviteModalOpen(false);
-      setSelectedUser(null);
-      setSelectedRole("");
-      setSearchQuery("");
+      setEmails([]);
+      setEmailInput("");
     } catch (err) {
-      toastUnknownError(err, "Failed to invite user");
+      toastUnknownError(err, "Failed to send invitations");
+    }
+  };
+
+  const handleCancelInvite = async (inviteId: string, email: string) => {
+    if (!confirm(`Are you sure you want to cancel the invitation for ${email}?`)) {
+      return;
+    }
+    try {
+      await cancelInviteMutation({ pageId, inviteId });
+      toast.success(`Invitation for ${email} cancelled`);
+    } catch (err) {
+      toastUnknownError(err, "Failed to cancel invitation");
     }
   };
 
@@ -332,6 +403,65 @@ export function UserManagement({ pageId, showHeader = true }: UserManagementProp
                   </div>
                 );
               })}
+
+              {/* Pending Invites List */}
+              {pendingInvites.map((invite: { id: string; email: string; role: "admin" | "editor"; joined_at: number }) => (
+                <div
+                  key={invite.id}
+                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 py-5 transition-colors hover:bg-white/[0.01]"
+                >
+                  {/* Identity */}
+                  <div className="flex items-center gap-3.5">
+                    <div className="flex size-11 items-center justify-center rounded-full border border-dashed border-white/25 bg-white/[0.04] text-sm font-bold text-white/70 shrink-0">
+                      <Mail className="size-4 text-neon-cyan" />
+                    </div>
+
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-semibold text-white text-sm sm:text-base truncate">
+                          {invite.email}
+                        </p>
+                        <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-0.5 text-[11px] font-medium text-amber-300">
+                          Pending Invite
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-white/40 mt-0.5">
+                        Invited {new Date(invite.joined_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Role & Cancel */}
+                  <div className="flex items-center gap-3 self-end sm:self-center shrink-0">
+                    <div
+                      className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${
+                        invite.role === "admin"
+                          ? "border-neon-purple/40 bg-neon-purple/10 text-neon-purple"
+                          : "border-neon-pink/40 bg-neon-pink/10 text-neon-pink"
+                      }`}
+                    >
+                      {invite.role === "admin" ? (
+                        <ShieldCheck className="size-3.5" />
+                      ) : (
+                        <PenLine className="size-3.5" />
+                      )}
+                      <span className="capitalize">{invite.role}</span>
+                    </div>
+
+                    {canManage && (
+                      <button
+                        type="button"
+                        onClick={() => handleCancelInvite(invite.id, invite.email)}
+                        disabled={isCancellingInvite}
+                        title={`Cancel invitation for ${invite.email}`}
+                        className="flex size-8 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-white/50 transition-colors hover:border-red-500/40 hover:bg-red-500/10 hover:text-red-400"
+                      >
+                        <Trash2 className="size-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
 
             {/* Empty Teammates Callout (when invitedCount === 0) */}
@@ -403,7 +533,7 @@ export function UserManagement({ pageId, showHeader = true }: UserManagementProp
         )}
       </div>
 
-      {/* Invite Users Modal (Image 5) */}
+      {/* Invite Users Modal (Image 5 & QEL-69 Figma Design) */}
       <Dialog open={isInviteModalOpen} onOpenChange={setIsInviteModalOpen}>
         <DialogContent className="sm:max-w-md border border-white/15 bg-[#0e0e18] p-6 text-white shadow-2xl backdrop-blur-2xl">
           <DialogHeader className="flex flex-row items-center justify-between border-b border-white/10 pb-4">
@@ -413,120 +543,63 @@ export function UserManagement({ pageId, showHeader = true }: UserManagementProp
           </DialogHeader>
 
           <div className="mt-4 space-y-5">
-            {/* Field 1: Search Qelsa Users */}
+            {/* Field 1: Invite by Email */}
             <div>
               <label
                 htmlFor={searchInputId}
                 className="block text-sm font-semibold text-white/90 mb-2"
               >
-                Search Qelsa Users
+                Invite by Email
               </label>
 
-              {selectedUser ? (
-                /* Selected User Chip */
-                <div className="flex items-center justify-between rounded-xl border border-neon-cyan/40 bg-neon-cyan/10 p-2.5">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    {selectedUser.image ? (
-                      /* eslint-disable-next-line @next/next/no-img-element */
-                      <img
-                        src={selectedUser.image}
-                        alt={selectedUser.name}
-                        className="size-8 rounded-full border border-white/15 object-cover"
-                      />
-                    ) : (
-                      <div className="flex size-8 items-center justify-center rounded-full bg-neon-purple/30 text-xs font-bold text-white">
-                        {selectedUser.name.charAt(0).toUpperCase()}
-                      </div>
-                    )}
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-white truncate">
-                        {selectedUser.name}
-                      </p>
-                      <p className="text-xs text-white/60 truncate">
-                        {selectedUser.username ? `@${selectedUser.username}` : selectedUser.email}
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedUser(null)}
-                    className="flex size-7 items-center justify-center rounded-full text-white/60 hover:bg-white/10 hover:text-white"
+              {/* Multi-chip email input container */}
+              <div
+                onClick={() => document.getElementById(searchInputId)?.focus()}
+                className="flex flex-wrap items-center gap-2 min-h-[48px] w-full rounded-xl border border-white/15 bg-white/[0.04] p-2 transition-colors focus-within:border-neon-cyan focus-within:ring-1 focus-within:ring-neon-cyan cursor-text"
+              >
+                {emails.map((em, idx) => (
+                  <span
+                    key={idx}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-neon-cyan/40 bg-neon-cyan/15 px-2.5 py-1 text-xs font-medium text-neon-cyan"
                   >
-                    <X className="size-4" />
-                  </button>
-                </div>
-              ) : (
-                /* Search Input & Live Results */
-                <div className="relative">
-                  <div className="relative">
-                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-white/40" />
-                    <input
-                      id={searchInputId}
-                      type="text"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Search by username or name..."
-                      className="w-full rounded-xl border border-white/15 bg-white/[0.04] pl-10 pr-4 py-2.5 text-sm text-white placeholder-white/40 focus:border-neon-cyan focus:outline-none focus:ring-1 focus:ring-neon-cyan transition-colors"
-                      autoFocus
-                    />
-                    {isSearching && (
-                      <Loader2 className="absolute right-3.5 top-1/2 -translate-y-1/2 size-4 animate-spin text-white/40" />
-                    )}
-                  </div>
+                    <span>{em}</span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeEmail(idx);
+                      }}
+                      className="rounded-full p-0.5 hover:bg-neon-cyan/30 text-neon-cyan/70 hover:text-white"
+                    >
+                      <X className="size-3" />
+                    </button>
+                  </span>
+                ))}
 
-                  {/* Search Results Dropdown */}
-                  {debouncedQuery && (
-                    <div className="mt-2 max-h-48 overflow-y-auto rounded-xl border border-white/15 bg-[#141424] p-1.5 shadow-xl">
-                      {searchResults && searchResults.length > 0 ? (
-                        searchResults.map((cand: UserCandidate) => (
-                          <button
-                            key={cand.id}
-                            type="button"
-                            onClick={() => {
-                              setSelectedUser(cand);
-                              setSearchQuery("");
-                            }}
-                            className="flex w-full items-center justify-between rounded-lg p-2 text-left hover:bg-white/[0.06] transition-colors"
-                          >
-                            <div className="flex items-center gap-2.5 min-w-0">
-                              {cand.image ? (
-                                /* eslint-disable-next-line @next/next/no-img-element */
-                                <img
-                                  src={cand.image}
-                                  alt={cand.name}
-                                  className="size-7 rounded-full border border-white/10 object-cover"
-                                />
-                              ) : (
-                                <div className="flex size-7 items-center justify-center rounded-full bg-white/10 text-xs font-bold text-white">
-                                  {cand.name.charAt(0).toUpperCase()}
-                                </div>
-                              )}
-                              <div className="min-w-0">
-                                <p className="text-xs font-semibold text-white truncate">
-                                  {cand.name}
-                                </p>
-                                <p className="text-[11px] text-white/50 truncate">
-                                  {cand.username ? `@${cand.username}` : cand.email}
-                                </p>
-                              </div>
-                            </div>
-                            <span className="text-[11px] font-medium text-neon-cyan shrink-0 ml-2">
-                              Select
-                            </span>
-                          </button>
-                        ))
-                      ) : !isSearching ? (
-                        <p className="p-3 text-center text-xs text-white/40">
-                          No users found matching &ldquo;{debouncedQuery}&rdquo;
-                        </p>
-                      ) : null}
-                    </div>
-                  )}
-                </div>
-              )}
+                <input
+                  id={searchInputId}
+                  type="text"
+                  value={emailInput}
+                  onChange={(e) => setEmailInput(e.target.value)}
+                  onKeyDown={handleEmailKeyDown}
+                  onPaste={handleEmailPaste}
+                  onBlur={handleEmailBlur}
+                  placeholder={
+                    emails.length === 0
+                      ? "Enter email addresses, separated by commas..."
+                      : "Add more emails..."
+                  }
+                  className="flex-1 min-w-[170px] bg-transparent py-1 px-1 text-sm text-white placeholder-white/40 focus:outline-none"
+                  autoFocus
+                />
+              </div>
+
+              <p className="mt-1.5 text-xs text-white/40">
+                You can add multiple email addresses at once
+              </p>
             </div>
 
-            {/* Field 2: Role Select (Image 5) */}
+            {/* Field 2: Role Select */}
             <div>
               <label className="block text-sm font-semibold text-white/90 mb-2">
                 Role
@@ -587,7 +660,7 @@ export function UserManagement({ pageId, showHeader = true }: UserManagementProp
               </div>
             </div>
 
-            {/* Modal Actions (Image 5: Cancel + Add User) */}
+            {/* Modal Actions: Cancel + Send Invites */}
             <div className="mt-6 flex items-center justify-end gap-3 pt-3 border-t border-white/10">
               <button
                 type="button"
@@ -599,17 +672,24 @@ export function UserManagement({ pageId, showHeader = true }: UserManagementProp
 
               <button
                 type="button"
-                onClick={handleAddMember}
-                disabled={!selectedUser || !selectedRole || isAddingMember}
+                onClick={handleSendInvites}
+                disabled={
+                  (emails.length === 0 && !emailInput.trim()) ||
+                  !selectedRole ||
+                  isInvitingMembers
+                }
                 className="flex h-10 items-center justify-center gap-2 rounded-full gradient-primary px-6 text-sm font-semibold text-white shadow-lg transition-all hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                {isAddingMember ? (
+                {isInvitingMembers ? (
                   <>
                     <Loader2 className="size-4 animate-spin" />
-                    <span>Adding...</span>
+                    <span>Sending Invites...</span>
                   </>
                 ) : (
-                  <span>Add User</span>
+                  <>
+                    <UserPlus className="size-4" />
+                    <span>Send Invites</span>
+                  </>
                 )}
               </button>
             </div>

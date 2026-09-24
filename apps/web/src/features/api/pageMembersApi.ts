@@ -69,3 +69,33 @@ export function useTransferOwnershipMutation() {
     }),
   );
 }
+
+export function useInviteMembersMutation() {
+  return useConvexMutationHook(
+    api.pageMembers.inviteMembers,
+    ({
+      pageId,
+      emails,
+      role,
+    }: {
+      pageId: string;
+      emails: string[];
+      role: "admin" | "editor";
+    }) => ({
+      pageId: pageId as never,
+      emails,
+      role,
+    }),
+  );
+}
+
+export function useCancelInviteMutation() {
+  return useConvexMutationHook(
+    api.pageMembers.cancelInvite,
+    ({ pageId, inviteId }: { pageId: string; inviteId: string }) => ({
+      pageId: pageId as never,
+      inviteId: inviteId as never,
+    }),
+  );
+}
+

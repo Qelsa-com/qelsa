@@ -144,6 +144,18 @@ export default defineSchema({
     .index("by_user", ["user_id"])
     .index("by_page_and_user", ["page_id", "user_id"]),
 
+  page_invites: defineTable({
+    page_id: v.id("pages"),
+    email: v.string(),
+    role: v.union(v.literal("admin"), v.literal("editor")),
+    invited_by: v.id("users"),
+    status: v.union(v.literal("pending"), v.literal("accepted"), v.literal("revoked")),
+    created_at: v.number(),
+  })
+    .index("by_page", ["page_id"])
+    .index("by_email", ["email"])
+    .index("by_page_and_email", ["page_id", "email"]),
+
   jobs: defineTable({
     external_id: v.optional(v.string()),
     description: v.optional(v.string()),
