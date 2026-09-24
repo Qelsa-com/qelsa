@@ -375,14 +375,23 @@ export function MultiSelectPill({
   onChange: (values: string[]) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [alignRight, setAlignRight] = useState(false);
   const active = values.length > 0;
+
+  useEffect(() => {
+    if (open && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      setAlignRight(rect.left + 230 > window.innerWidth);
+    }
+  }, [open]);
 
   const toggle = (value: string) => {
     onChange(values.includes(value) ? values.filter((v) => v !== value) : [...values, value]);
   };
 
   return (
-    <div className="relative">
+    <div ref={containerRef} className="relative">
       <button
         onClick={() => setOpen((o) => !o)}
         className={`flex items-center gap-1 rounded-full border py-2 pl-3 pr-2.5 text-xs font-medium transition-colors sm:gap-1.5 sm:py-3 sm:pl-5 sm:pr-4 sm:text-[13px] ${
@@ -397,7 +406,11 @@ export function MultiSelectPill({
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 z-20 mt-2 flex w-[220px] flex-col gap-0.5 rounded-xl border border-glass-border bg-[#1a1a24] p-2 shadow-2xl">
+          <div
+            className={`absolute z-20 mt-2 flex w-[220px] max-w-[calc(100vw-24px)] flex-col gap-0.5 rounded-xl border border-glass-border bg-[#1a1a24] p-2 shadow-2xl ${
+              alignRight ? "right-0" : "left-0"
+            }`}
+          >
             {options.map((o) => {
               const checked = values.includes(o.value);
               return (
@@ -465,9 +478,19 @@ export function PillDropdown({
   onSelect: (value: string) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [alignRight, setAlignRight] = useState(false);
+
+  useEffect(() => {
+    if (open && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      setAlignRight(rect.left + 190 > window.innerWidth);
+    }
+  }, [open]);
+
   const current = options.find((o) => o.value === value && o.value !== "");
   return (
-    <div className="relative">
+    <div ref={containerRef} className="relative">
       <button
         onClick={() => setOpen((o) => !o)}
         className={`flex items-center gap-1 rounded-full border py-2 pl-3 pr-2.5 text-xs font-medium transition-colors sm:gap-1.5 sm:py-3 sm:pl-5 sm:pr-4 sm:text-[13px] ${
@@ -480,7 +503,11 @@ export function PillDropdown({
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 z-20 mt-2 min-w-[180px] overflow-hidden rounded-xl border border-glass-border bg-[#0d0d1a] p-1 shadow-2xl">
+          <div
+            className={`absolute z-20 mt-2 min-w-[180px] max-w-[calc(100vw-24px)] overflow-hidden rounded-xl border border-glass-border bg-[#0d0d1a] p-1 shadow-2xl ${
+              alignRight ? "right-0" : "left-0"
+            }`}
+          >
             {options.map((o) => (
               <button
                 key={o.value || "any"}

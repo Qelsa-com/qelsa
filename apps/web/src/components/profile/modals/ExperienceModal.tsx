@@ -159,18 +159,21 @@ export function ExperienceModal({ open, onClose, experience }: ExperienceModalPr
                 type="button"
                 disabled={saving || isDeleting}
                 onClick={() => setShowDeleteConfirm(true)}
-                className="mr-auto inline-flex items-center gap-1.5 text-xs font-medium text-red-400 transition-colors hover:text-red-300 disabled:opacity-50"
+                className="mr-auto inline-flex items-center gap-1 sm:gap-1.5 text-xs font-medium text-red-400 whitespace-nowrap shrink-0 transition-colors hover:text-red-300 disabled:opacity-50"
               >
-                <Trash2 className="size-3.5" />
-                Delete experience
+                <Trash2 className="size-3.5 shrink-0" />
+                <span className="hidden sm:inline">Delete experience</span>
+                <span className="sm:hidden">Delete</span>
               </button>
             )}
-            <GhostButton onClick={onClose} disabled={saving || isDeleting}>
-              Cancel
-            </GhostButton>
-            <GradientButton onClick={handleSubmit} disabled={saving || isDeleting}>
-              {saving ? "Saving…" : isEdit ? "Save changes" : "Add experience"}
-            </GradientButton>
+            <div className="flex items-center gap-2 sm:gap-3 ml-auto">
+              <GhostButton onClick={onClose} disabled={saving || isDeleting}>
+                Cancel
+              </GhostButton>
+              <GradientButton onClick={handleSubmit} disabled={saving || isDeleting}>
+                {saving ? "Saving…" : isEdit ? "Save changes" : "Add experience"}
+              </GradientButton>
+            </div>
           </>
         }
       >

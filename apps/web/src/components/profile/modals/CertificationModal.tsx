@@ -18,6 +18,7 @@ import { toastUnknownError } from "@/lib/errors";
 import { Certification } from "@/types/certification";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { Trash2 } from "lucide-react";
 import { CheckboxRow, Field, MonthYearSelect, inputClass, monthValueToIso, toMonthValue } from "./fields";
 import { GhostButton, GradientButton, ModalShell } from "./ModalShell";
 
@@ -145,21 +146,20 @@ export function CertificationModal({ open, onClose, certification }: Certificati
         title={isEdit ? "Edit certification" : "Add certification"}
         onClose={onClose}
         footer={
-          <div className="flex w-full items-center justify-between gap-3">
-            {isEdit ? (
-              <Button
+          <>
+            {isEdit && (
+              <button
                 type="button"
-                variant="ghost"
                 disabled={saving || isDeleting}
                 onClick={() => setShowDeleteConfirm(true)}
-                className="text-red-400 hover:bg-red-500/10 hover:text-red-300"
+                className="mr-auto inline-flex items-center gap-1 sm:gap-1.5 text-xs font-medium text-red-400 whitespace-nowrap shrink-0 transition-colors hover:text-red-300 disabled:opacity-50"
               >
-                Delete certification
-              </Button>
-            ) : (
-              <div />
+                <Trash2 className="size-3.5 shrink-0" />
+                <span className="hidden sm:inline">Delete certification</span>
+                <span className="sm:hidden">Delete</span>
+              </button>
             )}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3 ml-auto">
               <GhostButton onClick={onClose} disabled={saving || isDeleting}>
                 Cancel
               </GhostButton>
@@ -167,7 +167,7 @@ export function CertificationModal({ open, onClose, certification }: Certificati
                 {saving ? "Saving…" : isEdit ? "Save changes" : "Add certification"}
               </GradientButton>
             </div>
-          </div>
+          </>
         }
       >
         <div className="flex flex-col gap-5">
