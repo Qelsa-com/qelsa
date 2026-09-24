@@ -154,3 +154,80 @@ export async function sendPageInviteEmail({
     text: `${inviterName} has invited you to join ${pageName} on Qelsa as an ${roleDisplay}. Sign in or accept your invite at: ${inviteUrl}`,
   });
 }
+
+export async function sendOTPEmail({
+  to,
+  otp,
+}: {
+  to: string;
+  otp: string;
+}) {
+  const subject = `${otp} is your Qelsa verification code`;
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${subject}</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #0b0b14; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #ffffff;">
+  <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #0b0b14; padding: 40px 20px;">
+    <tr>
+      <td align="center">
+        <table width="100%" max-width="500" style="max-width: 500px; background-color: #121220; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px; padding: 36px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); text-align: center;">
+          <!-- Logo -->
+          <tr>
+            <td align="center" style="padding-bottom: 24px;">
+              <span style="font-size: 28px; font-weight: 800; background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%); -webkit-background-clip: text; -webkit-text-fill-color: #00f2fe;">
+                Qelsa
+              </span>
+            </td>
+          </tr>
+
+          <!-- Heading -->
+          <tr>
+            <td style="font-size: 20px; font-weight: 700; color: #ffffff; padding-bottom: 12px;">
+              Verification Code
+            </td>
+          </tr>
+          <tr>
+            <td style="font-size: 14px; line-height: 22px; color: #94a3b8; padding-bottom: 28px;">
+              Use the one-time code below to complete your sign in. This code is valid for 10 minutes.
+            </td>
+          </tr>
+
+          <!-- OTP Code Box -->
+          <tr>
+            <td align="center" style="padding-bottom: 28px;">
+              <div style="display: inline-block; background-color: rgba(0, 242, 254, 0.08); border: 1px solid rgba(0, 242, 254, 0.35); border-radius: 12px; padding: 18px 36px;">
+                <span style="font-family: monospace, Courier, monospace; font-size: 34px; font-weight: 700; letter-spacing: 10px; color: #00f2fe;">
+                  ${otp}
+                </span>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Security note -->
+          <tr>
+            <td style="font-size: 13px; line-height: 20px; color: #64748b; padding-top: 16px; border-top: 1px solid rgba(255, 255, 255, 0.08);">
+              If you didn&apos;t request this code, you can safely ignore this email. Someone may have entered your email address by mistake.
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `.trim();
+
+  return await sendEmail({
+    to,
+    subject,
+    html,
+    text: `Your Qelsa verification code is ${otp}. It will expire in 10 minutes.`,
+  });
+}
+

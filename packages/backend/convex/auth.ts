@@ -9,6 +9,7 @@ import type { DataModel, Id } from "./_generated/dataModel";
 import { internalMutation, mutation, query, type ActionCtx, type MutationCtx } from "./_generated/server";
 import authConfig from "./auth.config";
 import { deleteAppUserData } from "./lib/deleteUserData";
+import { sendOTPEmail } from "./lib/email";
 
 const siteUrl = process.env.SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
@@ -182,6 +183,7 @@ export const createAuth = (ctx: Parameters<typeof authComponent.adapter>[0]) =>
         expiresIn: 600,
         sendVerificationOTP: async ({ email, otp }) => {
           console.log(`[emailOTP] ${email}: ${otp}`);
+          await sendOTPEmail({ to: email, otp });
         },
       }),
     ],
