@@ -12,7 +12,7 @@ import { City } from "@/types/city";
 import { CulturePreference, User } from "@/types/user";
 import { useConvex, useMutation } from "convex/react";
 import { ArrowLeft, BadgeCheck, Building2, Check, Download, Dribbble, FileText, Globe, Link2, Linkedin, Loader2, Lock, MapPin, Paperclip, Plus, ShieldCheck, Sparkles, Trash2, Twitter, Upload, User as UserIcon } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Autocomplete } from "../ui/autocomplete";
@@ -100,9 +100,22 @@ function CardSection({ title, subtitle, children }: { title: string; subtitle?: 
 export function ProfileEditor() {
   const router = useRouter();
   const convex = useConvex();
-  const [activeSection, setActiveSection] = useState<SectionId>("identity");
+  const searchParams = useSearchParams();
+  const sectionParam = searchParams?.get("section") as SectionId | null;
+  const [activeSection, setActiveSection] = useState<SectionId>(() => {
+    if (sectionParam && SECTIONS.some((s) => s.id === sectionParam)) {
+      return sectionParam;
+    }
+    return "identity";
+  });
   const [profile, setProfile] = useState<User | null>(null);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (sectionParam && SECTIONS.some((s) => s.id === sectionParam)) {
+      setActiveSection(sectionParam);
+    }
+  }, [sectionParam]);
 
   const { data: user, isLoading } = useGetProfileQuery();
   const { data: experiences } = useGetExperiencesQuery();
