@@ -66,25 +66,15 @@ export function EducationCard({ educations, isOwner, onAdd, onEditItem }: Educat
                     <div className="flex min-w-0 flex-1 flex-col items-start gap-1.5">
                       <div className="flex w-full items-start justify-between gap-2">
                         <p className="text-base font-semibold text-white">{educationDegree(education)}</p>
-                        {isOwner && (
+                        {isOwner && onEditItem && (
                           <div className="flex shrink-0 items-center gap-1">
-                            {onEditItem && (
-                              <button
-                                type="button"
-                                onClick={() => onEditItem(education)}
-                                aria-label={`Edit ${educationDegree(education)}`}
-                                className="rounded-lg p-1.5 text-white/50 transition-colors hover:bg-white/10 hover:text-white"
-                              >
-                                <Pencil className="size-4" />
-                              </button>
-                            )}
                             <button
                               type="button"
-                              onClick={() => setDeletingEducation(education)}
-                              aria-label={`Delete ${educationDegree(education)}`}
-                              className="rounded-lg p-1.5 text-white/50 transition-colors hover:bg-red-500/15 hover:text-red-400"
+                              onClick={() => onEditItem(education)}
+                              aria-label={`Edit ${educationDegree(education)}`}
+                              className="rounded-lg p-1.5 text-white/50 transition-colors hover:bg-white/10 hover:text-white"
                             >
-                              <Trash2 className="size-4" />
+                              <Pencil className="size-4" />
                             </button>
                           </div>
                         )}

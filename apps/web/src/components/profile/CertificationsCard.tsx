@@ -76,25 +76,15 @@ export function CertificationsCard({ certifications, isOwner, onAdd, onEditItem 
                       <div className="flex flex-col gap-1.5">
                         <div className="flex items-start justify-between gap-2">
                           <p className="text-base font-semibold text-white">{name}</p>
-                          {isOwner && (
+                          {isOwner && onEditItem && (
                             <div className="flex shrink-0 items-center gap-1">
-                              {onEditItem && (
-                                <button
-                                  type="button"
-                                  onClick={() => onEditItem(certification)}
-                                  aria-label={`Edit ${name}`}
-                                  className="rounded-lg p-1.5 text-white/50 transition-colors hover:bg-white/10 hover:text-white"
-                                >
-                                  <Pencil className="size-4" />
-                                </button>
-                              )}
                               <button
                                 type="button"
-                                onClick={() => setDeletingCert(certification)}
-                                aria-label={`Delete ${name}`}
-                                className="rounded-lg p-1.5 text-white/50 transition-colors hover:bg-red-500/15 hover:text-red-400"
+                                onClick={() => onEditItem(certification)}
+                                aria-label={`Edit ${name}`}
+                                className="rounded-lg p-1.5 text-white/50 transition-colors hover:bg-white/10 hover:text-white"
                               >
-                                <Trash2 className="size-4" />
+                                <Pencil className="size-4" />
                               </button>
                             </div>
                           )}

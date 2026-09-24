@@ -77,30 +77,17 @@ function RoleBody({
     <div className="flex min-w-0 flex-1 flex-col gap-1.5">
       <div className="flex items-start justify-between gap-3">
         <p className="text-base font-bold text-white">{roleTitle}</p>
-        {(onEdit || onDelete) && (
+        {onEdit && (
           <div className="flex items-center gap-1 shrink-0">
-            {onEdit && (
-              <button
-                type="button"
-                onClick={onEdit}
-                aria-label={`Edit ${roleTitle}`}
-                title="Edit role"
-                className="flex size-7 items-center justify-center rounded-lg text-white/50 transition-colors hover:bg-white/10 hover:text-neon-cyan focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-neon-cyan"
-              >
-                <Pencil className="size-3.5" />
-              </button>
-            )}
-            {onDelete && (
-              <button
-                type="button"
-                onClick={onDelete}
-                aria-label={`Delete ${roleTitle}`}
-                title="Delete role"
-                className="flex size-7 items-center justify-center rounded-lg text-white/50 transition-colors hover:bg-red-500/10 hover:text-red-400 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-red-400"
-              >
-                <Trash2 className="size-3.5" />
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={onEdit}
+              aria-label={`Edit ${roleTitle}`}
+              title="Edit role"
+              className="flex size-7 items-center justify-center rounded-lg text-white/50 transition-colors hover:bg-white/10 hover:text-neon-cyan focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-neon-cyan"
+            >
+              <Pencil className="size-3.5" />
+            </button>
           </div>
         )}
       </div>
