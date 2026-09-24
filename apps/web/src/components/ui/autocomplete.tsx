@@ -33,6 +33,8 @@ interface AutocompleteProps<T extends AutocompleteOption> {
   allowFreeText?: boolean;
   /** Fires on every keystroke and on clear, with the raw text. */
   onQueryChange?: (query: string) => void;
+  /** Builds the value committed when the user keeps a name that is not in `options`. */
+  makeFreeTextValue?: (query: string) => T;
 }
 
 export function Autocomplete<T extends AutocompleteOption>({
@@ -51,6 +53,7 @@ export function Autocomplete<T extends AutocompleteOption>({
   id,
   allowFreeText,
   onQueryChange,
+  makeFreeTextValue,
 }: AutocompleteProps<T>) {
   const getLabel = (option: T) => (getInputLabel ? getInputLabel(option) : option.name);
 
@@ -157,6 +160,16 @@ export function Autocomplete<T extends AutocompleteOption>({
     setActiveIndex(-1);
   };
 
+  const query = inputValue.trim();
+  const hasExactMatch = options.some((option) => getLabel(option).toLowerCase() === query.toLowerCase());
+  const showCreate = Boolean(allowFreeText && query && !value && !hasExactMatch);
+
+  const commitFreeText = () => {
+    if (!query) return;
+    const option = makeFreeTextValue ? makeFreeTextValue(query) : ({ id: query, name: query } as T);
+    handleSelect(option);
+  };
+
   const handleClear = () => {
     if (value) onChange(null);
     setInputValue("");
@@ -166,11 +179,14 @@ export function Autocomplete<T extends AutocompleteOption>({
     inputRef.current?.focus();
   };
 
+  const lastIndex = showCreate ? options.length : options.length - 1;
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      if (!open && options.length > 0) { setOpen(true); return; }
-      setActiveIndex((i) => Math.min(i + 1, options.length - 1));
+      if (!open && (options.length > 0 || showCreate)) { setOpen(true); return; }
+      if (lastIndex < 0) return;
+      setActiveIndex((i) => Math.min(i + 1, lastIndex));
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setActiveIndex((i) => Math.max(i - 1, -1));
@@ -178,6 +194,8 @@ export function Autocomplete<T extends AutocompleteOption>({
       e.preventDefault();
       if (open && activeIndex >= 0 && activeIndex < options.length) {
         handleSelect(options[activeIndex]);
+      } else if (showCreate && (activeIndex === options.length || activeIndex < 0)) {
+        commitFreeText();
       }
     } else if (e.key === "Escape") {
       setOpen(false);
@@ -187,7 +205,7 @@ export function Autocomplete<T extends AutocompleteOption>({
 
   const showClear = Boolean(value || inputValue);
 
-  const dropdown = open && options.length > 0 ? (
+  const dropdown = open && (options.length > 0 || showCreate) ? (
     <ul
       ref={listRef}
       role="listbox"
@@ -212,7 +230,23 @@ export function Autocomplete<T extends AutocompleteOption>({
           {renderOption ? renderOption(option, index === activeIndex) : option.name}
         </li>
       ))}
-
+      {showCreate ? (
+        <li
+          role="option"
+          aria-selected={false}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            commitFreeText();
+          }}
+          onMouseEnter={() => setActiveIndex(options.length)}
+          className={cn(
+            "flex items-center gap-2 border-t border-white/10 px-4 py-2.5 text-sm cursor-pointer transition-colors",
+            activeIndex === options.length ? "bg-neon-cyan/20 text-white" : "text-white/80 hover:bg-neon-cyan/10"
+          )}
+        >
+          Use “{query}”
+        </li>
+      ) : null}
     </ul>
   ) : null;
 
@@ -243,9 +277,13 @@ export function Autocomplete<T extends AutocompleteOption>({
           onBlur={() => {
             isFocusedRef.current = false;
             if (value) return;
-            // Free-text fields keep the unmatched name; the caller decides what
-            // it means. Everything else discards a half-typed query.
-            if (!allowFreeText) setInputValue("");
+            // Catalog-only fields discard a half-typed query. Free-text fields
+            // keep it and commit it so publish/search can use the typed name.
+            if (allowFreeText && query) {
+              const exact = options.find((option) => getLabel(option).toLowerCase() === query.toLowerCase());
+              if (exact) handleSelect(exact);
+              else commitFreeText();
+            } else if (!allowFreeText) setInputValue("");
             setOpen(false);
             setActiveIndex(-1);
           }}

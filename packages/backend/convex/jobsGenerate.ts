@@ -183,8 +183,10 @@ async function summarizeJobs(
 export const loadDraftContext = internalQuery({
   args: {
     authId: v.string(),
-    jobTitleId: v.id("job_titles"),
-    cityId: v.id("cities"),
+    jobTitleId: v.optional(v.id("job_titles")),
+    jobTitle: v.optional(v.string()),
+    cityId: v.optional(v.id("cities")),
+    location: v.optional(v.string()),
     pageId: v.optional(v.id("pages")),
     companyName: v.optional(v.string()),
     existingSkillIds: v.optional(v.array(v.id("skills"))),
@@ -198,15 +200,17 @@ export const loadDraftContext = internalQuery({
       .unique();
     if (!user) throw new Error("User not found");
 
-    const [jobTitle, city] = await Promise.all([
-      ctx.db.get(args.jobTitleId),
-      ctx.db.get(args.cityId),
+    const [jobTitleDoc, city] = await Promise.all([
+      args.jobTitleId ? ctx.db.get(args.jobTitleId) : null,
+      args.cityId ? ctx.db.get(args.cityId) : null,
     ]);
-    if (!jobTitle) throw new Error("Job title not found in Qelsa catalog");
-    if (!city) throw new Error("Location not found in Qelsa catalog");
-
-    const state = await ctx.db.get(city.state_id);
-    const location = state ? `${city.name}, ${state.name}` : city.name;
+    const jobTitleName = jobTitleDoc?.name ?? args.jobTitle?.trim() ?? "";
+    if (!jobTitleName) throw new Error("Job title is required");
+    const state = city ? await ctx.db.get(city.state_id) : null;
+    const location = city
+      ? (state ? `${city.name}, ${state.name}` : city.name)
+      : (args.location?.trim() ?? "");
+    if (!location) throw new Error("Location is required");
 
     let page: Doc<"pages"> | null = null;
     if (args.pageId) {
@@ -237,11 +241,14 @@ export const loadDraftContext = internalQuery({
       }
     }
 
-    const similarJobs = await ctx.db
-      .query("jobs")
-      .withIndex("by_job_title", (q) => q.eq("job_title_id", args.jobTitleId))
-      .order("desc")
-      .take(8);
+    const similarTitleId = args.jobTitleId;
+    const similarJobs = similarTitleId
+      ? await ctx.db
+          .query("jobs")
+          .withIndex("by_job_title", (q) => q.eq("job_title_id", similarTitleId))
+          .order("desc")
+          .take(8)
+      : [];
 
     const previousJobs = page
       ? await ctx.db
@@ -269,7 +276,7 @@ export const loadDraftContext = internalQuery({
     }
 
     return {
-      job_title: jobTitle.name,
+      job_title: jobTitleName,
       location,
       company: page?.name ?? args.companyName?.trim() ?? "",
       industry: page?.industry,
@@ -356,8 +363,10 @@ type DraftResult = {
 
 export const generateDraft = action({
   args: {
-    jobTitleId: v.id("job_titles"),
-    cityId: v.id("cities"),
+    jobTitleId: v.optional(v.id("job_titles")),
+    jobTitle: v.optional(v.string()),
+    cityId: v.optional(v.id("cities")),
+    location: v.optional(v.string()),
     pageId: v.optional(v.id("pages")),
     companyName: v.optional(v.string()),
     existingSkillIds: v.optional(v.array(v.id("skills"))),
@@ -373,6 +382,12 @@ export const generateDraft = action({
     if (!args.pageId && !args.companyName?.trim()) {
       throw new Error("Select a company page or enter a company name.");
     }
+    if (!args.jobTitleId && !args.jobTitle?.trim()) {
+      throw new Error("Enter a job title.");
+    }
+    if (!args.cityId && !args.location?.trim()) {
+      throw new Error("Enter a location.");
+    }
 
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
@@ -380,7 +395,9 @@ export const generateDraft = action({
     const context: GenerationContext | null = await ctx.runQuery(internal.jobsGenerate.loadDraftContext, {
       authId: identity.subject,
       jobTitleId: args.jobTitleId,
+      jobTitle: args.jobTitle,
       cityId: args.cityId,
+      location: args.location,
       pageId: args.pageId,
       companyName: args.companyName,
       existingSkillIds: args.existingSkillIds,
@@ -392,7 +409,7 @@ export const generateDraft = action({
       name: "Job Description Writer",
       languageModel: openRouter.chat(AI_AGENT_MODEL),
       instructions:
-        "You write accurate job drafts for Qelsa recruiters. Locked fields (job title, location, company) come from the Qelsa database and must not be invented or changed. Infer work type, workplace, experience, salary, description, and skills from the provided context. Pick skills only from the allowed catalog names.",
+        "You write accurate job drafts for Qelsa recruiters. Locked fields (job title, location, company) are already chosen by the recruiter and must not be invented or changed. Infer work type, workplace, experience, salary, description, and skills from the provided context. Pick skills only from the allowed catalog names.",
       maxSteps: 1,
     });
 

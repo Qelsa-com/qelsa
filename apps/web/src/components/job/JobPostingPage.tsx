@@ -4,8 +4,11 @@
  * JobPostingPage — Figma "qelsa-post-job-screen" (Qelsa-Screen, node 230:773 / 214:541).
  *
  * A single-page posting form (the old multi-step wizard was replaced) wired to
- * `POST jobs/with-questions`. Sections: Basic information (catalog title /
- * location / company, then Generate with AI), Job description, What this role
+ * `POST jobs/with-questions`. Sections: Basic information (title / location /
+ * company — catalog match when possible, otherwise the typed name is created on
+ * publish — then Generate with AI), Job description, What this role uses daily,
+ * Competency framework, Screening questions, Internal Only (static), preview +
+ * actions.
  * uses daily, Competency framework, Screening questions, Internal Only (static),
  * preview + actions.
  *
@@ -24,6 +27,7 @@ import { useLazySearchJobTitlesQuery } from "@/features/api/jobTitlesApi";
 import { useLazyGetMyPagesQuery } from "@/features/api/pagesApi";
 import { useLazyGetSkillsQuery, useLazySearchCitiesQuery } from "@/features/api/seedApi";
 import { toastUnknownError } from "@/lib/errors";
+import { looksLikeConvexId } from "@/lib/catalogId";
 import { City } from "@/types/city";
 import type { Id } from "@qelsa/backend";
 import {
@@ -109,6 +113,17 @@ function formatSalaryRange(input: string): string | null {
 
 const slug = (s: string) => s.toLowerCase().trim().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
 
+function cityFromQuery(query: string): City {
+  const parts = query.split(",").map((part) => part.trim()).filter(Boolean);
+  const name = parts[0] ?? query.trim();
+  const stateName = parts[1];
+  return {
+    id: query.trim(),
+    name,
+    state: stateName ? { id: stateName, name: stateName } : undefined,
+  };
+}
+
 let idCounter = 0;
 const uid = () => `q_${Date.now().toString(36)}_${idCounter++}`;
 
@@ -188,10 +203,12 @@ export function JobPostingPage() {
   const [generating, setGenerating] = useState(false);
   const [aiGenerated, setAiGenerated] = useState(false);
   const [jobTitle, setJobTitle] = useState<CatalogOption | null>(null);
+  const [jobTitleQuery, setJobTitleQuery] = useState("");
   const [company, setCompany] = useState<CompanyOption | null>(null);
   // What the user typed, whether or not it matched one of their pages.
   const [companyName, setCompanyName] = useState("");
   const [city, setCity] = useState<City | null>(null);
+  const [cityQuery, setCityQuery] = useState("");
   const [workType, setWorkType] = useState("full-time");
   const [workplaceType, setWorkplaceType] = useState("on-site");
   const [experience, setExperience] = useState(0);
@@ -374,21 +391,26 @@ export function JobPostingPage() {
     });
   }
 
-  const canGenerate = Boolean(jobTitle && city && (company || companyName.trim()));
+  const resolvedTitle = jobTitle ?? (jobTitleQuery.trim() ? { id: jobTitleQuery.trim(), name: jobTitleQuery.trim() } : null);
+  const resolvedCity = city ?? (cityQuery.trim() ? cityFromQuery(cityQuery) : null);
+  const resolvedCompanyName = company?.name || companyName.trim();
+  const canGenerate = Boolean(resolvedTitle && resolvedCity && resolvedCompanyName);
 
   const handleGenerate = async () => {
-    if (!jobTitle) return toast.error("Select a job title from the Qelsa catalog.");
-    if (!city) return toast.error("Select a location from the Qelsa catalog.");
-    if (!company && !companyName.trim()) return toast.error("Select a company page or enter a company name.");
+    if (!resolvedTitle) return toast.error("Enter a job title.");
+    if (!resolvedCity) return toast.error("Enter a location.");
+    if (!resolvedCompanyName) return toast.error("Select a company page or enter a company name.");
 
     setGenerating(true);
     try {
       const draft = await generateDraft({
-        jobTitleId: String(jobTitle.id) as Id<"job_titles">,
-        cityId: String(city.id) as Id<"cities">,
-        pageId: company ? (String(company.id) as Id<"pages">) : undefined,
-        companyName: company ? undefined : companyName.trim() || undefined,
-        existingSkillIds: skills.map((s) => String(s.id) as Id<"skills">),
+        jobTitleId: looksLikeConvexId(resolvedTitle.id) ? (String(resolvedTitle.id) as Id<"job_titles">) : undefined,
+        jobTitle: resolvedTitle.name,
+        cityId: looksLikeConvexId(resolvedCity.id) ? (String(resolvedCity.id) as Id<"cities">) : undefined,
+        location: formatCity(resolvedCity),
+        pageId: company && looksLikeConvexId(company.id) ? (String(company.id) as Id<"pages">) : undefined,
+        companyName: company && looksLikeConvexId(company.id) ? undefined : resolvedCompanyName,
+        existingSkillIds: skills.filter((s) => looksLikeConvexId(s.id)).map((s) => String(s.id) as Id<"skills">),
         notes: aiPrompt.trim() || undefined,
       });
       setWorkType(draft.work_type);
@@ -412,8 +434,9 @@ export function JobPostingPage() {
   };
 
   const handlePublish = async () => {
-    if (!jobTitle) return toast.error("Job title is required.");
-    if (!company && !companyName.trim()) return toast.error("Company is required — pick one of your pages or type a new company name.");
+    if (!resolvedTitle) return toast.error("Job title is required.");
+    if (!resolvedCompanyName) return toast.error("Company is required — pick one of your pages or type a new company name.");
+    if (!resolvedCity) return toast.error("Location is required.");
     if (!description.trim()) return toast.error("Job description is required.");
     if (!weightsValid) return toast.error("Skill weights must be set on all skills and add up to exactly 100 (or left blank on all).");
     if (salaryRangeInvalid) return toast.error("Enter a valid salary range (max ≥ min).");
@@ -426,11 +449,13 @@ export function JobPostingPage() {
         await editJobMutation({
           jobId: editJobId,
           body: {
-            title: jobTitle.name,
-            job_title_id: typeof jobTitle.id === "string" && !jobTitle.id.includes(" ") ? jobTitle.id : undefined,
-            page_id: company?.id ? String(company.id) : undefined,
-            company_name: company?.name || companyName.trim(),
-            city_id: city?.id ? String(city.id) : undefined,
+            title: resolvedTitle.name,
+            job_title_id: looksLikeConvexId(resolvedTitle.id) ? resolvedTitle.id : undefined,
+            page_id: company && looksLikeConvexId(company.id) ? String(company.id) : undefined,
+            page_name: company && looksLikeConvexId(company.id) ? undefined : resolvedCompanyName,
+            company_name: resolvedCompanyName,
+            city_id: looksLikeConvexId(resolvedCity.id) ? String(resolvedCity.id) : undefined,
+            city: { id: looksLikeConvexId(resolvedCity.id) ? resolvedCity.id : undefined, name: resolvedCity.name, state: resolvedCity.state },
             work_type: workType,
             workplace_type: workplaceType,
             experience,
@@ -452,9 +477,9 @@ export function JobPostingPage() {
 
     const payload = {
       job: {
-        job_title: jobTitle,
+        job_title: { id: looksLikeConvexId(resolvedTitle.id) ? resolvedTitle.id : undefined, name: resolvedTitle.name },
         description,
-        city,
+        city: { id: looksLikeConvexId(resolvedCity.id) ? resolvedCity.id : undefined, name: resolvedCity.name, state: resolvedCity.state },
         work_type: workType,
         workplace_type: workplaceType,
         experience,
@@ -463,8 +488,8 @@ export function JobPostingPage() {
         salary_currency: SALARY_CURRENCY,
         resource: "qelsa",
         // Either an existing page, or a name the backend turns into one.
-        page_id: company?.id ?? null,
-        page_name: company ? null : companyName.trim(),
+        page_id: company && looksLikeConvexId(company.id) ? company.id : null,
+        page_name: company && looksLikeConvexId(company.id) ? null : resolvedCompanyName || null,
       },
       questionSet: { title: `Screening - ${new Date().toISOString()}` },
       questions: buildQuestionsPayload(),
@@ -514,10 +539,12 @@ export function JobPostingPage() {
                 value={jobTitle}
                 onChange={setJobTitle}
                 onSearch={(q) => searchJobTitles(q)}
+                onQueryChange={setJobTitleQuery}
                 options={jobTitleResults}
                 placeholder="e.g., Senior Backend Engineer"
                 icon={<Search className="h-4 w-4" />}
                 inputClassName={INPUT}
+                allowFreeText
               />
             </Field>
             <Field label="Company" required>
@@ -542,12 +569,15 @@ export function JobPostingPage() {
                 value={city}
                 onChange={setCity}
                 onSearch={(q) => searchCities(q)}
+                onQueryChange={setCityQuery}
                 options={cityResults}
                 placeholder="Search city..."
                 icon={<MapPin className="h-4 w-4" />}
                 getInputLabel={formatCity}
                 renderOption={(c) => formatCity(c)}
                 inputClassName={INPUT}
+                allowFreeText
+                makeFreeTextValue={cityFromQuery}
               />
             </Field>
           </div>
@@ -583,7 +613,7 @@ export function JobPostingPage() {
               <div>
                 <p className="text-sm font-semibold text-white">AI-generated job details</p>
                 <p className="mt-1 text-xs leading-relaxed text-white/70">
-                  Review and edit anything before publishing. Job title, location, and company came from Qelsa and were not changed.
+                  Review and edit anything before publishing. Job title, location, and company stay as you entered them.
                 </p>
               </div>
             </div>

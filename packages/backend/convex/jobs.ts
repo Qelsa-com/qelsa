@@ -37,6 +37,7 @@ import {
   type UserRoleProfile,
 } from "./lib/jobProfileMatch";
 import { buildCompetencyFramework, clipPlainText } from "./lib/skillMatch";
+import { canonicalizeCatalogName, catalogKey, looksLikeConvexId, resolveCityRef, resolveNamedRef, type CityRefInput } from "./lib/resolve";
 
 type SkillCache = Map<Id<"skills">, Doc<"skills"> | null>;
 
@@ -896,10 +897,23 @@ export const update = authedMutation({
     if (!job || job.owner_id !== ctx.user._id) throw new Error("Job not found");
     const data = { ...(args.data as Record<string, unknown>) };
     const jobFields = (data.job as Record<string, unknown> | undefined) ?? data;
+    const identity = await resolvePostedJobIdentity(ctx, jobFields, ctx.user._id);
     delete jobFields.id;
     delete jobFields._id;
     delete jobFields.owner_id;
     delete jobFields.skills;
+    delete jobFields.city;
+    delete jobFields.job_title;
+    delete jobFields.page_name;
+    delete jobFields.job_title_id;
+    delete jobFields.city_id;
+    delete jobFields.page_id;
+    if (identity.title) jobFields.title = identity.title;
+    if (identity.job_title_id) jobFields.job_title_id = identity.job_title_id;
+    if (identity.city_id) jobFields.city_id = identity.city_id;
+    if (identity.page_id) jobFields.page_id = identity.page_id;
+    if (identity.company_name) jobFields.company_name = identity.company_name;
+    if (identity.company_logo) jobFields.company_logo = identity.company_logo;
     if (typeof jobFields.status === "string" && jobFields.status !== job.status) {
       const delta = openCountDelta(job.status, jobFields.status as string);
       if (delta !== 0) await bumpOpenJobCount(ctx, delta);
@@ -918,7 +932,7 @@ export const update = authedMutation({
         .collect();
       for (const row of existingSkills) await ctx.db.delete(row._id);
       for (const s of data.skills) {
-        if (s.id) {
+        if (looksLikeConvexId(s.id)) {
           await ctx.db.insert("job_skills", {
             job_id: args.jobId,
             skill_id: s.id,
@@ -1021,6 +1035,79 @@ export const duplicate = authedMutation({
   },
 });
 
+async function resolvePostedJobIdentity(ctx: MutationCtx, jobIn: Record<string, unknown>, userId: Id<"users">) {
+  const titleFromRef = typeof jobIn.job_title === "object" && jobIn.job_title && "name" in jobIn.job_title
+    ? String((jobIn.job_title as { name?: string }).name ?? "").trim()
+    : "";
+  const title = ((jobIn.title as string | undefined) ?? titleFromRef) || undefined;
+  const jobTitleId = await resolveNamedRef(
+    ctx,
+    "job_titles",
+    (jobIn.job_title as { id?: string; name?: string } | string | undefined) ?? {
+      id: typeof jobIn.job_title_id === "string" ? jobIn.job_title_id : undefined,
+      name: title,
+    },
+  );
+  const catalogTitle = jobTitleId ? (await ctx.db.get(jobTitleId))?.name : undefined;
+  const cityId = await resolveCityRef(ctx, (jobIn.city as CityRefInput) ?? (jobIn.city_id ? { id: String(jobIn.city_id) } : null));
+  const page = await resolvePostedPage(ctx, jobIn, userId);
+  return {
+    title: catalogTitle ?? (title ? canonicalizeCatalogName(title, "title") : undefined),
+    job_title_id: jobTitleId,
+    city_id: cityId,
+    page_id: page?._id,
+    company_name: page?.name ?? (typeof jobIn.company_name === "string" ? canonicalizeCatalogName(jobIn.company_name, "company") || undefined : undefined),
+    company_logo: ((jobIn.company_logo as string | undefined) ?? page?.logo) || undefined,
+  };
+}
+
+async function resolvePostedPage(ctx: MutationCtx, jobIn: Record<string, unknown>, userId: Id<"users">) {
+  const pageIdRaw = jobIn.page_id;
+  const pageId = typeof pageIdRaw === "string" && looksLikeConvexId(pageIdRaw) ? (pageIdRaw as Id<"pages">) : undefined;
+  if (pageId) {
+    const page = await ctx.db.get(pageId);
+    if (!page) throw new Error("Company page not found");
+    if (page.ownerId !== userId) throw new Error("Unauthorized: you can only post jobs on your own company page");
+    return page;
+  }
+  const name = canonicalizeCatalogName(
+    String((jobIn.page_name as string | undefined) ?? (jobIn.company_name as string | undefined) ?? ""),
+    "company",
+  );
+  if (!name) return null;
+  const needle = catalogKey(name);
+  const searchHits = await ctx.db
+    .query("pages")
+    .withSearchIndex("search_name", (q) => q.search("name", name))
+    .take(16);
+  const fromSearch = searchHits.find((page) => page.ownerId === userId && catalogKey(page.name) === needle);
+  if (fromSearch) {
+    if (fromSearch.name !== name && fromSearch.name.toLowerCase() === name.toLowerCase()) {
+      await ctx.db.patch(fromSearch._id, { name });
+      return { ...fromSearch, name };
+    }
+    return fromSearch;
+  }
+  const mine = await ctx.db
+    .query("pages")
+    .withIndex("by_owner", (q) => q.eq("ownerId", userId))
+    .take(50);
+  const existing = mine.find((page) => catalogKey(page.name) === needle);
+  if (existing) {
+    if (existing.name !== name && existing.name.toLowerCase() === name.toLowerCase()) {
+      await ctx.db.patch(existing._id, { name });
+      return { ...existing, name };
+    }
+    return existing;
+  }
+  const id = await ctx.db.insert("pages", {
+    name,
+    type: "company",
+    ownerId: userId,
+  });
+  return await ctx.db.get(id);
+}
+
 export const createWithQuestions = authedMutation({
   args: { payload: v.any() },
   returns: v.any(),
@@ -1032,15 +1119,13 @@ export const createWithQuestions = authedMutation({
       skills?: Array<{ id: string; type?: string; proficiency?: string; weight?: number }>;
     };
     const jobIn = payload.job ?? {};
-    const pageId = (jobIn.page_id as Id<"pages"> | undefined) ?? undefined;
-    const jobTitleId = (jobIn.job_title as { id?: Id<"job_titles"> } | undefined)?.id;
-    const [page, jobTitle] = await Promise.all([pageId ? ctx.db.get(pageId) : null, jobTitleId ? ctx.db.get(jobTitleId) : null]);
+    const identity = await resolvePostedJobIdentity(ctx, jobIn, ctx.user._id);
     const jobId = await ctx.db.insert("jobs", {
-      title: ((jobIn.title as string | undefined) ?? jobTitle?.name) || undefined,
+      title: identity.title,
       description: (jobIn.description as string | undefined) || undefined,
-      page_id: pageId || undefined,
-      city_id: ((jobIn.city_id as Id<"cities"> | undefined) ?? (jobIn.city as { id?: Id<"cities"> } | undefined)?.id) || undefined,
-      job_title_id: jobTitleId || undefined,
+      page_id: identity.page_id,
+      city_id: identity.city_id,
+      job_title_id: identity.job_title_id,
       workplace_type: (jobIn.workplace_type as "on-site" | "hybrid" | "remote" | undefined) || undefined,
       work_type: (jobIn.work_type as string | undefined) || undefined,
       salary: jobIn.salary != null && jobIn.salary !== "" ? Number(jobIn.salary) : undefined,
@@ -1048,8 +1133,8 @@ export const createWithQuestions = authedMutation({
       salary_max: jobIn.salary_max != null && jobIn.salary_max !== "" ? Number(jobIn.salary_max) : undefined,
       salary_currency: (jobIn.salary_currency as string | undefined) ?? "INR",
       experience: jobIn.experience != null && jobIn.experience !== "" ? Number(jobIn.experience) : undefined,
-      company_name: ((jobIn.company_name as string | undefined) ?? page?.name) || undefined,
-      company_logo: ((jobIn.company_logo as string | undefined) ?? page?.logo) || undefined,
+      company_name: identity.company_name,
+      company_logo: identity.company_logo,
       status: "open",
       resource: "qelsa",
       owner_id: ctx.user._id,
@@ -1061,6 +1146,7 @@ export const createWithQuestions = authedMutation({
     await bumpOpenJobCount(ctx, 1);
 
     for (const skill of payload.skills ?? []) {
+      if (!looksLikeConvexId(skill.id)) continue;
       await ctx.db.insert("job_skills", {
         job_id: jobId,
         skill_id: skill.id as Id<"skills">,
