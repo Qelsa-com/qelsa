@@ -1,10 +1,10 @@
-import { useCreateJobApplicationMutation } from "@/features/api/jobApplicationsApi";
+import { useCreateJobApplicationMutation, useGenerateCoverLetterAction } from "@/features/api/jobApplicationsApi";
 import { useCreateResumeMutation } from "@/features/api/resumeApi";
 import { toastUnknownError } from "@/lib/errors";
 import { Job } from "@/types/job";
 import { ScreeningQuestion } from "@/types/question";
 import { Resume } from "@/types/resume";
-import { Check, CheckCircle2, FileText, Plus, X } from "lucide-react";
+import { Check, CheckCircle2, FileText, Plus, Sparkles, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { getLastJobsPage } from "@/lib/jobNavigation";
 import { useEffect, useRef, useState } from "react";
@@ -39,6 +39,22 @@ export function QuickApplyModal({ isOpen, onClose, job, companyName, screeningQu
 
   const [createResume] = useCreateResumeMutation();
   const [createJobApplication, { isLoading: isSubmitting }] = useCreateJobApplicationMutation();
+  const [generateCoverLetterAction, { isLoading: isGeneratingCoverLetter }] = useGenerateCoverLetterAction();
+
+  const handleGenerateCoverLetter = async () => {
+    try {
+      const res = await generateCoverLetterAction({
+        jobId: String(job.id),
+        resumeId: selectedResumeId ? String(selectedResumeId) : undefined,
+      });
+      if (res?.coverLetter) {
+        setCoverLetter(res.coverLetter);
+        toast.success("AI cover letter generated!");
+      }
+    } catch (err) {
+      toastUnknownError(err, "Could not generate cover letter. Please try again.");
+    }
+  };
 
   const [selectedResumeId, setSelectedResumeId] = useState<string | number | null>(() => {
     const matched = resumes?.find((r) => String(r.id) === String(defaultResumeId));
@@ -263,6 +279,8 @@ export function QuickApplyModal({ isOpen, onClose, job, companyName, screeningQu
                     onCoverLetterChange={setCoverLetter}
                     companyName={companyName}
                     formatDate={formatDate}
+                    onGenerateCoverLetter={handleGenerateCoverLetter}
+                    isGeneratingCoverLetter={isGeneratingCoverLetter}
                   />
                 )}
 
@@ -351,6 +369,8 @@ function ResumeStep({
   onCoverLetterChange,
   companyName,
   formatDate,
+  onGenerateCoverLetter,
+  isGeneratingCoverLetter,
 }: {
   resumes: Resume[];
   selectedResumeId: string | number | null;
@@ -361,6 +381,8 @@ function ResumeStep({
   onCoverLetterChange: (v: string) => void;
   companyName: string;
   formatDate: (d?: string) => string | null;
+  onGenerateCoverLetter: () => void;
+  isGeneratingCoverLetter: boolean;
 }) {
   return (
     <>
@@ -404,7 +426,22 @@ function ResumeStep({
 
       {/* Cover letter card */}
       <div className="flex flex-col gap-5 rounded-[20px] border border-glass-border bg-white/[0.04] p-6">
-        <h3 className="text-xl font-semibold text-white">Cover Letter (Optional)</h3>
+        <div className="flex items-center justify-between">
+          <h3 className="text-xl font-semibold text-white">Cover Letter (Optional)</h3>
+          <button
+            type="button"
+            onClick={onGenerateCoverLetter}
+            disabled={isGeneratingCoverLetter}
+            className="inline-flex items-center gap-1.5 rounded-full border border-neon-cyan/35 bg-neon-cyan/10 px-3.5 py-1.5 text-xs font-semibold text-neon-cyan transition-all hover:bg-neon-cyan/20 hover:border-neon-cyan active:scale-95 disabled:opacity-50"
+          >
+            {isGeneratingCoverLetter ? (
+              <span className="size-3.5 animate-spin rounded-full border-2 border-neon-cyan/30 border-t-neon-cyan" />
+            ) : (
+              <Sparkles className="size-3.5 text-neon-cyan" />
+            )}
+            <span>{isGeneratingCoverLetter ? "Generating with AI..." : "Generate with AI"}</span>
+          </button>
+        </div>
         <div className="flex flex-col gap-2">
           <label className="text-sm font-semibold text-white/70">Introductory Letter</label>
           <textarea

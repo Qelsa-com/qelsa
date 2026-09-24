@@ -114,3 +114,20 @@ export function useAddApplicationNoteMutation() {
   );
 }
 
+export function useGenerateCoverLetterAction() {
+  const generate = useAction(api.coverLetter.generateCoverLetter);
+  const [isLoading, setIsLoading] = useState(false);
+  const trigger = (input: { jobId: string; resumeId?: string }) => {
+    setIsLoading(true);
+    return withUnwrap(
+      generate(input as never)
+        .catch((err) => {
+          throw err;
+        })
+        .finally(() => setIsLoading(false)),
+    );
+  };
+  return [trigger, { isLoading }] as const;
+}
+
+
