@@ -156,9 +156,10 @@ export function CompanyPage() {
     Boolean(pageData.culture_tags && pageData.culture_tags.length > 0);
 
   return (
-    <div className="min-h-screen pb-16">
-      {/* Hero Header */}
-      <div className="relative border-b border-white/[0.08] pb-0 pt-10">
+    <div className="min-h-screen overflow-x-hidden pb-16">
+      {/* Hero Header — clip the glow so a 640px blob cannot widen the page
+          and make mobile browsers scale the whole layout down. */}
+      <div className="relative overflow-hidden border-b border-white/[0.08] pb-0 pt-10">
         {/* Cyan Radial Glow Background */}
         <div className="pointer-events-none absolute -top-24 left-1/2 h-[340px] w-[640px] -translate-x-1/2 rounded-full bg-neon-cyan/[0.12] blur-[120px]" />
 
