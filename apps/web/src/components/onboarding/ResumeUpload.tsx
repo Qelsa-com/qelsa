@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { FileText, Upload, X } from "lucide-react";
 import { useRef, useState } from "react";
 import { ArrowRightIcon } from "./OnboardingShell";
@@ -52,7 +53,7 @@ export function ResumeUpload({
         <div className="absolute left-1/2 top-24 h-[420px] w-[420px] -translate-x-1/2 rounded-full bg-neon-purple/10 blur-[130px]" />
       </div>
 
-      <p className="bg-gradient-to-r from-neon-cyan to-neon-pink bg-clip-text text-2xl font-semibold text-transparent">Qelsa</p>
+      <Image src="/qelsa-logo.svg" alt="Qelsa" width={91} height={29} priority unoptimized className="h-[24px] w-auto" />
       <h1 className="mt-10 text-center text-4xl font-bold text-white">Start with your resume</h1>
       <p className="mt-3 max-w-md text-center text-[15px] text-muted-foreground">
         We read it and fill your profile automatically. Usually under 10 seconds.

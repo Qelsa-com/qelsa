@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState } from "react";
 
 const MESSAGES = ["Reading your education...", "Reading your experience...", "Reading your skills..."];
@@ -23,7 +24,7 @@ export function ResumeParsing() {
         <div className="absolute left-1/2 top-1/2 h-[420px] w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-neon-purple/10 blur-[130px]" />
       </div>
 
-      <p className="bg-gradient-to-r from-neon-cyan to-neon-pink bg-clip-text text-2xl font-semibold text-transparent">Qelsa</p>
+      <Image src="/qelsa-logo.svg" alt="Qelsa" width={91} height={29} priority unoptimized className="h-[26px] w-auto" />
 
       <div className="mt-16 flex h-28 w-28 items-center justify-center rounded-full gradient-primary shadow-[0_0_40px_rgba(124,58,237,0.35)]">
         <svg width="28" height="28" viewBox="0 0 24 24" fill="white" aria-hidden>
