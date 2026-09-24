@@ -6,4 +6,7 @@ import { emailOTPClient } from "better-auth/client/plugins";
 
 export const authClient = createAuthClient({
   plugins: [convexClient(), emailOTPClient()],
+  sessionOptions: {
+    refetchOnWindowFocus: false,
+  },
 });

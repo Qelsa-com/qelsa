@@ -4,7 +4,7 @@ import { authClient } from "@/lib/auth-client";
 import { useAuth } from "@/contexts/AuthContext";
 import { needsOnboarding } from "@/lib/onboarding";
 import { useRouter } from "next/router";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 const PUBLIC_ROUTES = [
   "/",
@@ -37,15 +37,22 @@ const isPublicPath = (path: string) => {
   return Boolean(handle) && !RESERVED_PROFILE_HANDLES.includes(handle);
 };
 
-export default function RouteGuard({ children }) {
+export default function RouteGuard({ children }: { children: ReactNode }) {
   const router = useRouter();
   const { user, isLoading, logout } = useAuth();
   const { data: session, isPending } = authClient.useSession();
   const [isClient, setIsClient] = useState(false);
+  const [hasInitialized, setHasInitialized] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  useEffect(() => {
+    if (!isPending && !isLoading) {
+      setHasInitialized(true);
+    }
+  }, [isPending, isLoading]);
 
   useEffect(() => {
     if (!isClient || isPending || isLoading || !router.isReady) return;
@@ -68,7 +75,16 @@ export default function RouteGuard({ children }) {
     }
   }, [session, user, isClient, isPending, isLoading, router.isReady, router.asPath, logout, router]);
 
-  if (!isClient || isPending || isLoading) return null;
+  if (!isClient) return null;
+
+  const path = router.asPath.split(/[?#]/)[0];
+  const isPublic = isPublicPath(path) || router.pathname === "/404";
+
+  // For protected routes, wait for the initial auth check to settle before rendering.
+  // For public routes, render immediately without unmounting on background revalidations.
+  if (!isPublic && !hasInitialized && (isPending || isLoading)) {
+    return null;
+  }
 
   return children;
 }
