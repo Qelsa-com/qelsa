@@ -11,7 +11,6 @@ import {
   Cpu,
   LogOut,
   PenLine,
-  Target,
   Users,
   X,
 } from "lucide-react";
@@ -101,7 +100,7 @@ export function EmployerSidebar({
     {
       id: "applications",
       label: "Applications",
-      icon: Cpu,
+      icon: BookOpen,
       href: "/jobs/applications",
       isActive: pathname.startsWith("/jobs/applications"),
     },
@@ -125,16 +124,9 @@ export function EmployerSidebar({
         pathname.includes("/manage"),
     },
     {
-      id: "hiring-goals",
-      label: "Hiring Goals",
-      icon: Target,
-      href: "/goals",
-      isActive: pathname.startsWith("/goals"),
-    },
-    {
       id: "integrations",
       label: "Integrations",
-      icon: BookOpen,
+      icon: Cpu,
       href: "/settings/integrations",
       isActive: pathname.startsWith("/settings/integrations"),
     },
