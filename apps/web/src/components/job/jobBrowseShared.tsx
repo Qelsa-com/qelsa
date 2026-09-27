@@ -430,11 +430,6 @@ export function MultiSelectPill({
                 </button>
               );
             })}
-
-            <div className="my-1 h-px w-full bg-white/[0.12]" />
-            <button onClick={() => setOpen(false)} className="flex w-full items-center justify-center p-2.5 text-[13px] font-semibold text-neon-cyan">
-              Show results
-            </button>
           </div>
         </>
       )}
