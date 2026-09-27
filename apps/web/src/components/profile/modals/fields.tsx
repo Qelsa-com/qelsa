@@ -203,8 +203,21 @@ export function YearSelect({
 /** Blue switch used across the editor (relocate, privacy settings). */
 export function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (value: boolean) => void; label?: string }) {
   return (
-    <button type="button" role="switch" aria-checked={checked} aria-label={label} onClick={() => onChange(!checked)} className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${checked ? "bg-neon-cyan" : "bg-white/15"}`}>
-      <span className={`absolute top-0.5 size-5 rounded-full bg-white shadow transition-transform ${checked ? "translate-x-[22px]" : "translate-x-0.5"}`} />
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      onClick={() => onChange(!checked)}
+      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full p-0.5 transition-colors focus:outline-none ${
+        checked ? "bg-neon-cyan" : "bg-white/15"
+      }`}
+    >
+      <span
+        className={`pointer-events-none block size-5 rounded-full bg-white shadow-md transition-transform ${
+          checked ? "translate-x-5" : "translate-x-0"
+        }`}
+      />
     </button>
   );
 }
