@@ -15,11 +15,13 @@ export function ResumeOnboardingFlow({
   initial,
   onBack,
   onFinished,
+  onSkip,
 }: {
   lockedEmail?: string;
   initial?: ResumeDraft | null;
   onBack?: () => void;
   onFinished: (result: { profile: ParsedProfile; storageId?: string; filename?: string }) => Promise<void> | void;
+  onSkip?: () => void;
 }) {
   const router = useRouter();
   const [step, setStep] = useState<"upload" | "parsing" | "review">(initial?.reviewed ? "review" : "upload");
@@ -84,7 +86,7 @@ export function ResumeOnboardingFlow({
 
   return (
     <div>
-      <ResumeUpload file={file} onFile={setFile} onContinue={handleRead} />
+      <ResumeUpload file={file} onFile={setFile} onContinue={handleRead} onSkip={onSkip} />
       <div className="fixed bottom-6 left-1/2 flex -translate-x-1/2 items-center gap-3 text-sm text-muted-foreground">
         {onBack ? (
           <>

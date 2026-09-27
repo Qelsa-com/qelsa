@@ -17,11 +17,13 @@ export function ResumeUpload({
   file,
   onFile,
   onContinue,
+  onSkip,
   disabled,
 }: {
   file: File | null;
   onFile: (file: File | null) => void;
   onContinue: () => void;
+  onSkip?: () => void;
   disabled?: boolean;
 }) {
   const router = useRouter();
@@ -148,6 +150,21 @@ export function ResumeUpload({
         {file ? "Read my resume" : "Select a file to continue"}
         {file ? <ArrowRightIcon /> : null}
       </button>
+
+      {onSkip && !file && (
+        <div className="flex flex-col items-center">
+          <button
+            type="button"
+            onClick={onSkip}
+            className="mt-6 rounded-full border border-white/20 bg-white/5 px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-white/10"
+          >
+            Skip for now
+          </button>
+          <p className="mt-3 text-center text-xs text-muted-foreground">
+            You can add your resume later from your profile.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

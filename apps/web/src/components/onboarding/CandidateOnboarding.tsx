@@ -101,6 +101,7 @@ export function CandidateOnboarding({ onBack, onComplete }: { onBack: () => void
         lockedEmail={user?.email}
         initial={readResumeDraft()}
         onBack={onBack}
+        onSkip={() => setStep("intent")}
         onFinished={async (result) => {
           try {
             await saveResume(result);
