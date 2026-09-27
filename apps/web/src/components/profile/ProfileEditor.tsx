@@ -87,7 +87,7 @@ const emptyCulture = (): CulturePreference => ({
 
 function CardSection({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-[20px] border border-white/10 bg-white/[0.03] p-6 lg:p-7">
+    <section className="rounded-[20px] sm:rounded-[24px] border border-white/10 bg-white/[0.03] p-4 sm:p-6 lg:p-7">
       <h2 className="text-lg font-bold text-white">{title}</h2>
       {subtitle && <p className="mt-1 text-sm text-white/50">{subtitle}</p>}
       <div className="mt-5">{children}</div>
@@ -290,28 +290,71 @@ export function ProfileEditor() {
   const section = SECTIONS.find((s) => s.id === activeSection)!;
 
   return (
-    <div className="min-h-screen bg-[#06060f] text-white">
-      <div className="mx-auto w-full max-w-[1100px] px-4 py-8 lg:px-8">
+    <div className="min-h-screen bg-[#06060f] text-white pb-20 pt-8 sm:pt-10">
+      <div className="mx-auto w-full max-w-[1100px] px-4 sm:px-6 lg:px-8">
         {/* Back link */}
-        <button type="button" onClick={() => router.push("/profile")} className="mb-4 flex items-center gap-2 text-sm text-white/60 transition-colors hover:text-white">
+        <button
+          type="button"
+          onClick={() => router.push("/profile")}
+          className="flex items-center gap-2 text-sm text-white/70 hover:text-white transition-colors"
+        >
           <ArrowLeft className="size-4" />
-          Back to profile
+          <span>Back to profile</span>
         </button>
 
-        {/* Header */}
-        <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
+        {/* Title & Publish Header */}
+        <div className="mt-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-3xl font-bold">{section.title}</h1>
-            <p className="mt-1 text-sm text-white/50">{section.subtitle}</p>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
+              Edit Profile{profile?.name ? ` - ${profile.name}` : ""}
+            </h1>
+            <p className="mt-1 text-sm text-white/60">
+              {section.subtitle}
+            </p>
           </div>
-          <GradientButton onClick={handlePublish} disabled={saving}>
-            {saving ? "Publishing…" : "Publish"}
-          </GradientButton>
+
+          <button
+            type="button"
+            onClick={handlePublish}
+            disabled={saving}
+            className="w-fit flex items-center justify-center gap-2 rounded-full gradient-primary px-6 sm:px-7 py-2.5 text-sm font-semibold text-white shadow-lg transition-all hover:opacity-95 disabled:opacity-50"
+          >
+            {saving ? (
+              <>
+                <Loader2 className="size-4 animate-spin" />
+                <span>Publishing…</span>
+              </>
+            ) : (
+              <span>Publish Changes</span>
+            )}
+          </button>
         </div>
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">
-          {/* Sidebar */}
-          <nav className="flex h-fit flex-col gap-1 rounded-[20px] border border-white/10 bg-white/[0.03] p-3 lg:sticky lg:top-6">
+        {/* Mobile Tab Navigation */}
+        <div className="mt-6 flex lg:hidden items-center gap-6 overflow-x-auto no-scrollbar border-b border-white/[0.08] -mx-4 px-4 sm:mx-0 sm:px-0">
+          {SECTIONS.map((item) => {
+            const active = item.id === activeSection;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setActiveSection(item.id)}
+                className={`pb-3 text-sm font-semibold transition-colors relative whitespace-nowrap shrink-0 ${
+                  active ? "text-neon-cyan" : "text-white/60 hover:text-white"
+                }`}
+              >
+                <span>{item.label}</span>
+                {active && (
+                  <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full bg-neon-cyan" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="mt-6 lg:mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">
+          {/* Desktop Sidebar */}
+          <nav className="hidden lg:flex h-fit flex-col gap-1 rounded-[20px] border border-white/10 bg-white/[0.03] p-3 lg:sticky lg:top-6">
             {SECTIONS.map((item) => {
               const Icon = item.icon;
               const active = item.id === activeSection;
