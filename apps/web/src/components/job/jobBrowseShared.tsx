@@ -707,7 +707,7 @@ export function JobsBrowseHeader({
         />
         <MultiSelectPill label="Work type" options={WORK_TYPE_OPTIONS} values={filters.job_types} onChange={(v) => onApplyFilters({ job_types: v })} />
         <Autocomplete
-          className="w-[141px] sm:w-[221px]"
+          className="w-[168px] sm:w-[221px]"
           value={cityFilter}
           onChange={handleCitySelect}
           onSearch={searchCities}
