@@ -17,7 +17,7 @@ export default function MatchEntryPage() {
   }, [isAuthenticated, isLoading, router]);
 
   return (
-    <Layout activeSection="jobs">
+    <Layout activeSection="match">
       {isAuthenticated ? <ExternalMatchForm /> : null}
     </Layout>
   );

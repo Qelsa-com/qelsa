@@ -283,7 +283,37 @@ export const list = optionalAuthQuery({
   returns: v.any(),
   handler: async (ctx, args) => {
     const search = ((args.search as string | undefined) ?? "").trim();
-    const open = search ? await jobsMatchingBrowseSearch(ctx, search) : await openJobs(ctx, 100);
+    let open: Doc<"jobs">[];
+    if (args.page_id) {
+      let isPageAdminOrOwner = false;
+      if (ctx.user) {
+        const page = await ctx.db.get(args.page_id as Id<"pages">);
+        if (page) {
+          if (page.ownerId === ctx.user._id) {
+            isPageAdminOrOwner = true;
+          } else {
+            const membership = await ctx.db
+              .query("page_members")
+              .withIndex("by_page_and_user", (q) =>
+                q.eq("page_id", page._id).eq("user_id", ctx.user._id)
+              )
+              .first();
+            if (membership?.role === "admin") {
+              isPageAdminOrOwner = true;
+            }
+          }
+        }
+      }
+      const rawPageJobs = await ctx.db
+        .query("jobs")
+        .withIndex("by_page", (q) => q.eq("page_id", args.page_id as Id<"pages">))
+        .collect();
+      open = isPageAdminOrOwner ? rawPageJobs : rawPageJobs.filter((j) => j.status === "open");
+    } else if (search) {
+      open = await jobsMatchingBrowseSearch(ctx, search);
+    } else {
+      open = await openJobs(ctx, 100);
+    }
     const hydration = await listHydration(ctx, ctx.user);
     const profile = ctx.user ? await loadUserRoleProfile(ctx, ctx.user) : null;
     const listingArgs = { ...args, cities: args.cities ?? (args.city ? [args.city] : []), search: undefined };
@@ -293,7 +323,6 @@ export const list = optionalAuthQuery({
       if (!matchesFilters(job, city?.name ?? null, listingArgs)) {
         continue;
       }
-      if (!matchesUserRole(job, profile)) continue;
       results.push(await enrichJob(ctx, job, ctx.user, hydration));
     }
     sortEnrichedJobs(results, args.sort_by);
@@ -378,8 +407,7 @@ export const listPaginated = optionalAuthQuery({
       const cityName = needsCity && job.city_id ? (cache.cities.get(job.city_id)?.name ?? null) : null;
       // Search already selected title / company / skill hits; don't drop skill
       // matches with a title+company substring check.
-      if (!matchesFilters(job, cityName, { ...filterArgs, cities, search: undefined })) return false;
-      return matchesUserRole(job, profile);
+      return matchesFilters(job, cityName, { ...filterArgs, cities, search: undefined });
     };
 
     const toCandidates = async (jobs: Doc<"jobs">[], stopAt?: number): Promise<BrowseCandidate[]> => {
@@ -537,8 +565,7 @@ export const countFiltered = optionalAuthQuery({
   args: browseFilterArgs,
   returns: v.union(v.number(), v.null()),
   handler: async (ctx, args) => {
-    // Signed-in browse is role-filtered, so the global open counter would lie.
-    if (ctx.user || hasBrowseFilters(args)) return null;
+    if (hasBrowseFilters(args)) return null;
     return await getOpenJobCount(ctx);
   },
 });

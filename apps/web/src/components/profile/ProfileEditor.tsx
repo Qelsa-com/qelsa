@@ -87,7 +87,7 @@ const emptyCulture = (): CulturePreference => ({
 
 function CardSection({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-[20px] border border-white/10 bg-white/[0.03] p-6 lg:p-7">
+    <section className="rounded-[20px] sm:rounded-[24px] border border-white/10 bg-white/[0.03] p-4 sm:p-6 lg:p-7">
       <h2 className="text-lg font-bold text-white">{title}</h2>
       {subtitle && <p className="mt-1 text-sm text-white/50">{subtitle}</p>}
       <div className="mt-5">{children}</div>
@@ -290,28 +290,71 @@ export function ProfileEditor() {
   const section = SECTIONS.find((s) => s.id === activeSection)!;
 
   return (
-    <div className="min-h-screen bg-[#06060f] text-white">
-      <div className="mx-auto w-full max-w-[1100px] px-4 py-8 lg:px-8">
+    <div className="min-h-screen bg-[#06060f] text-white pb-20 pt-8 sm:pt-10">
+      <div className="mx-auto w-full max-w-[1100px] px-4 sm:px-6 lg:px-8">
         {/* Back link */}
-        <button type="button" onClick={() => router.push("/profile")} className="mb-4 flex items-center gap-2 text-sm text-white/60 transition-colors hover:text-white">
+        <button
+          type="button"
+          onClick={() => router.push("/profile")}
+          className="flex items-center gap-2 text-sm text-white/70 hover:text-white transition-colors"
+        >
           <ArrowLeft className="size-4" />
-          Back to profile
+          <span>Back to profile</span>
         </button>
 
-        {/* Header */}
-        <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
+        {/* Title & Publish Header */}
+        <div className="mt-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-3xl font-bold">{section.title}</h1>
-            <p className="mt-1 text-sm text-white/50">{section.subtitle}</p>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
+              Edit Profile{profile?.name ? ` - ${profile.name}` : ""}
+            </h1>
+            <p className="mt-1 text-sm text-white/60">
+              {section.subtitle}
+            </p>
           </div>
-          <GradientButton onClick={handlePublish} disabled={saving}>
-            {saving ? "Publishing…" : "Publish"}
-          </GradientButton>
+
+          <button
+            type="button"
+            onClick={handlePublish}
+            disabled={saving}
+            className="w-fit flex items-center justify-center gap-2 rounded-full gradient-primary px-6 sm:px-7 py-2.5 text-sm font-semibold text-white shadow-lg transition-all hover:opacity-95 disabled:opacity-50"
+          >
+            {saving ? (
+              <>
+                <Loader2 className="size-4 animate-spin" />
+                <span>Publishing…</span>
+              </>
+            ) : (
+              <span>Publish Changes</span>
+            )}
+          </button>
         </div>
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">
-          {/* Sidebar */}
-          <nav className="flex h-fit flex-col gap-1 rounded-[20px] border border-white/10 bg-white/[0.03] p-3 lg:sticky lg:top-6">
+        {/* Mobile Tab Navigation */}
+        <div className="mt-6 flex lg:hidden items-center gap-6 overflow-x-auto no-scrollbar border-b border-white/[0.08] -mx-4 px-4 sm:mx-0 sm:px-0">
+          {SECTIONS.map((item) => {
+            const active = item.id === activeSection;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setActiveSection(item.id)}
+                className={`pb-3 text-sm font-semibold transition-colors relative whitespace-nowrap shrink-0 ${
+                  active ? "text-neon-cyan" : "text-white/60 hover:text-white"
+                }`}
+              >
+                <span>{item.label}</span>
+                {active && (
+                  <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full bg-neon-cyan" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="mt-6 lg:mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">
+          {/* Desktop Sidebar */}
+          <nav className="hidden lg:flex h-fit flex-col gap-1 rounded-[20px] border border-white/10 bg-white/[0.03] p-3 lg:sticky lg:top-6">
             {SECTIONS.map((item) => {
               const Icon = item.icon;
               const active = item.id === activeSection;
@@ -621,57 +664,61 @@ export function ProfileEditor() {
                     {(resumes ?? []).map((resume) => {
                       const selected = effectiveDefaultResumeId === String(resume.id);
                       return (
-                        <div key={String(resume.id)} className={`flex items-center gap-4 rounded-xl border px-4 py-3 transition-colors ${selected ? "border-neon-cyan/40 bg-neon-cyan/[0.04]" : "border-white/10 bg-white/[0.03]"}`}>
-                          <button
-                            type="button"
-                            onClick={() => patch({ default_resume_id: String(resume.id) })}
-                            aria-label="Use this resume for job applications"
-                            className={`flex size-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${selected ? "border-neon-cyan bg-neon-cyan" : "border-white/25 hover:border-white/50"}`}
-                          >
-                            {selected && <Check className="size-3 text-[#06060f]" />}
-                          </button>
-                          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-[#7c2ff3] to-[#d73e9d]">
-                            <FileText className="size-4 text-white" />
-                          </span>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2">
-                              <p className="truncate text-sm font-medium text-white">{resume.title}</p>
-                              {selected && (
-                                <span className="rounded-full bg-neon-cyan/15 px-2 py-0.5 text-[11px] font-medium text-neon-cyan">
-                                  Default
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-xs text-white/50">Last updated: {resume.updatedAt ? new Date(resume.updatedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "—"}</p>
-                          </div>
-                          {resume.file_url && (
-                            <a
-                              href={resume.file_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-1.5 text-xs font-medium text-white/70 transition-colors hover:text-white"
+                        <div key={String(resume.id)} className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 rounded-xl border p-4 transition-colors ${selected ? "border-neon-cyan/40 bg-neon-cyan/[0.04]" : "border-white/10 bg-white/[0.03]"}`}>
+                          <div className="flex items-center gap-3 min-w-0 flex-1">
+                            <button
+                              type="button"
+                              onClick={() => patch({ default_resume_id: String(resume.id) })}
+                              aria-label="Use this resume for job applications"
+                              className={`flex size-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${selected ? "border-neon-cyan bg-neon-cyan" : "border-white/25 hover:border-white/50"}`}
                             >
-                              <Download className="size-3.5" />
-                              Download
-                            </a>
-                          )}
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              try {
-                                await deleteResume(resume.id).unwrap();
-                                const remaining = (resumes ?? []).filter((r) => String(r.id) !== String(resume.id));
-                                patch({ default_resume_id: remaining[0]?.id ? String(remaining[0].id) : undefined });
-                                toast.success("Resume deleted");
-                              } catch (error) {
-                                toastUnknownError(error, "Could not delete the resume.");
-                              }
-                            }}
-                            className="flex items-center gap-1.5 rounded-full border border-[#d73e9d]/40 px-3 py-1.5 text-xs font-medium text-[#f27bb8] transition-colors hover:bg-[#d73e9d]/10"
-                          >
-                            <Trash2 className="size-3.5" />
-                            Delete
-                          </button>
+                              {selected && <Check className="size-3 text-[#06060f]" />}
+                            </button>
+                            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-[#7c2ff3] to-[#d73e9d]">
+                              <FileText className="size-4 text-white" />
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="truncate text-sm font-medium text-white">{resume.title || "Resume"}</p>
+                                {selected && (
+                                  <span className="rounded-full bg-neon-cyan/15 px-2 py-0.5 text-[11px] font-medium text-neon-cyan">
+                                    Default
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs text-white/50">Last updated: {resume.updatedAt ? new Date(resume.updatedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "—"}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 self-end sm:self-auto shrink-0 pl-8 sm:pl-0">
+                            {resume.file_url && (
+                              <a
+                                href={resume.file_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-1.5 text-xs font-medium text-white/70 transition-colors hover:text-white"
+                              >
+                                <Download className="size-3.5" />
+                                Download
+                              </a>
+                            )}
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                try {
+                                  await deleteResume(resume.id).unwrap();
+                                  const remaining = (resumes ?? []).filter((r) => String(r.id) !== String(resume.id));
+                                  patch({ default_resume_id: remaining[0]?.id ? String(remaining[0].id) : undefined });
+                                  toast.success("Resume deleted");
+                                } catch (error) {
+                                  toastUnknownError(error, "Could not delete the resume.");
+                                }
+                              }}
+                              className="flex items-center gap-1.5 rounded-full border border-[#d73e9d]/40 px-3 py-1.5 text-xs font-medium text-[#f27bb8] transition-colors hover:bg-[#d73e9d]/10"
+                            >
+                              <Trash2 className="size-3.5" />
+                              Delete
+                            </button>
+                          </div>
                         </div>
                       );
                     })}

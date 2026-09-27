@@ -12,8 +12,8 @@ export interface JobMeta {
   canonicalUrl: string;
   imageUrl: string;
   companyName: string;
-  location?: string;
-  workType?: string;
+  location?: string | null;
+  workType?: string | null;
 }
 
 export interface JobDetailsPageProps {
@@ -92,8 +92,8 @@ export const getServerSideProps: GetServerSideProps<JobDetailsPageProps> = async
           canonicalUrl,
           imageUrl,
           companyName,
-          location: location || undefined,
-          workType,
+          location: location || null,
+          workType: workType ?? null,
         },
       },
     };

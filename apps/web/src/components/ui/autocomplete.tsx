@@ -77,11 +77,18 @@ export function Autocomplete<T extends AutocompleteOption>({
   const updatePortalStyle = useCallback(() => {
     if (containerRef.current) {
       const rect = containerRef.current.getBoundingClientRect();
+      const isMobile = typeof window !== "undefined" && window.innerWidth < 640;
+      const desiredWidth = isMobile ? Math.max(rect.width, 240) : rect.width;
+      const maxWidth = typeof window !== "undefined" ? window.innerWidth - 16 : desiredWidth;
+      const width = Math.min(desiredWidth, maxWidth);
+      const maxLeft = typeof window !== "undefined" ? window.innerWidth - width - 8 : rect.left;
+      const left = Math.max(8, Math.min(rect.left, maxLeft));
+
       setPortalStyle({
         position: "fixed",
         top: rect.bottom + 4,
-        left: rect.left,
-        width: rect.width,
+        left,
+        width,
         zIndex: 9999,
       });
     }

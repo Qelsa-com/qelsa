@@ -215,7 +215,7 @@ export function JobDetail() {
     .filter(Boolean);
 
   const overallMatch = matchSession?.analysis?.overall;
-  const metrics: { label: string; value: React.ReactNode }[] = isOwner
+  const metrics: { label: string; value: React.ReactNode; action?: React.ReactNode }[] = isOwner
     ? [
         {
           label: "Job Status",
@@ -249,7 +249,28 @@ export function JobDetail() {
         // Readiness is the deterministic skill-vs-skill match; the composite
         // (whole profile/resume) is shown separately as Resume Fit. Always render all
         // four tiles so the mobile 2×2 grid stays balanced.
-        { label: "Readiness Score", value: competency ? `${competency.readiness}%` : "—" },
+        {
+          label: "Readiness Score",
+          value: competency ? `${competency.readiness}%` : "—",
+          action: (
+            <button
+              type="button"
+              onClick={() => {
+                const el = document.getElementById("how-you-fit");
+                if (el) {
+                  el.scrollIntoView({ behavior: "smooth" });
+                } else if (!isAuthenticated) {
+                  router.push(`/auth?actionType=profile&returnUrl=${encodeURIComponent(`/jobs/${id}`)}`);
+                } else {
+                  toast.info("Add skills to your profile to view your readiness breakdown.");
+                }
+              }}
+              className="rounded-full border border-white/15 bg-white/[0.04] px-2.5 py-0.5 text-xs font-medium text-white/80 transition-colors hover:bg-white/10 hover:text-white"
+            >
+              View
+            </button>
+          ),
+        },
         { label: "Resume Fit", value: overallMatch != null ? `${overallMatch}%` : "—" },
         { label: "Views", value: formatCount(job.view_count ?? 0) },
         { label: "Applications", value: `${job.application_count ?? job.applications?.length ?? 0}` },
@@ -431,7 +452,10 @@ export function JobDetail() {
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             {metrics.map((m) => (
               <div key={m.label} className="flex min-w-0 flex-col gap-1 rounded-xl border border-glass-border bg-white/[0.03] p-3 lg:gap-1.5 lg:rounded-2xl lg:p-4">
-                <span className="text-xs leading-tight text-white/45 lg:leading-4">{m.label}</span>
+                <div className="flex items-center justify-between gap-1">
+                  <span className="text-xs leading-tight text-white/45 lg:leading-4">{m.label}</span>
+                  {m.action}
+                </div>
                 <span className="text-lg font-bold text-white lg:text-2xl">{m.value}</span>
               </div>
             ))}
@@ -467,7 +491,9 @@ export function JobDetail() {
               </Card>
             )}
 
-            <JobAiSummary jobId={String(job.id)} summary={job.ai_summary} />
+            {!isOwner && user?.account_type !== "recruiter" && (
+              <JobAiSummary jobId={String(job.id)} summary={job.ai_summary} />
+            )}
 
             {/* Job Description */}
             {description && (
@@ -496,7 +522,11 @@ export function JobDetail() {
             {/* How you fit this role — reuses the data-wired competency panel.
                 The ring shows the skill-based readiness; the composite stays
                 in the Resume Fit metric so the two scores don't conflate. */}
-            {!isOwner && competency && <CompetencyTable competency={competency} experienceMatch={matchSession?.analysis?.experience_match ?? experienceMatch} educationMatch={matchSession?.analysis?.education_match ?? educationMatch} />}
+            {!isOwner && competency && (
+              <div id="how-you-fit" className="scroll-mt-24">
+                <CompetencyTable competency={competency} experienceMatch={matchSession?.analysis?.experience_match ?? experienceMatch} educationMatch={matchSession?.analysis?.education_match ?? educationMatch} />
+              </div>
+            )}
 
             {/* About the Company */}
             <SectionCard icon={<BookOpen className="size-5 text-neon-purple" />} title="About the Company">
@@ -608,24 +638,6 @@ export function JobDetail() {
                         </span>
                       </div>
                     )}
-                  </div>
-
-                  <div className="flex flex-col gap-2">
-                    <Button
-                      onClick={() => router.push(`/jobs/${job.id}/applications`)}
-                      className={`h-auto w-full rounded-full px-4 py-3 text-sm font-semibold text-white ${GRADIENT} hover:opacity-90`}
-                    >
-                      <Users className="mr-2 size-4" />
-                      Review Applications
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => router.push(`/jobs/create-job?jobId=${job.id}`)}
-                      className="h-auto w-full rounded-full border-[1.5px] border-white/20 bg-transparent px-4 py-3 text-sm text-white hover:bg-white/5"
-                    >
-                      <Pencil className="mr-2 size-4" />
-                      Edit Job Details
-                    </Button>
                   </div>
                 </div>
               </SectionCard>

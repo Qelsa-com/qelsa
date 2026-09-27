@@ -544,6 +544,7 @@ export const setUserRole = mutation({
     email: v.string(),
     account_type: v.union(v.literal("seeker"), v.literal("recruiter")),
     hiring_role: v.optional(v.union(v.literal("founder_cxo"), v.literal("hr_ta"), v.literal("hiring_manager"), v.literal("recruitment_agency"))),
+    onboarding_completed: v.optional(v.boolean()),
   },
   returns: v.object({ ok: v.boolean() }),
   handler: async (ctx, args) => {
@@ -555,6 +556,7 @@ export const setUserRole = mutation({
     await ctx.db.patch(user._id, {
       account_type: args.account_type,
       hiring_role: args.hiring_role,
+      ...(args.onboarding_completed !== undefined ? { onboarding_completed: args.onboarding_completed } : {}),
     });
     return { ok: true };
   },

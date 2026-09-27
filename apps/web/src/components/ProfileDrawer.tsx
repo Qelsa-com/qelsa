@@ -2,7 +2,7 @@
 
 import { QelsaLogo } from "@/components/QelsaLogo";
 import { useAuth } from "@/contexts/AuthContext";
-import { BookOpen, Briefcase, FileText, LogOut, PenLine, Settings, Target, Users, X } from "lucide-react";
+import { BookOpen, Briefcase, FileText, LogOut, PenLine, Settings, Sparkles, Target, Users, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -31,6 +31,7 @@ const AUTHED_ITEMS = [
   { id: "jobs", label: "Jobs", href: "/jobs/smart-matches", icon: Briefcase, hideOnDesktop: true },
   { id: "connections", label: "Network", href: "/network", icon: Users, hideOnDesktop: true },
   { id: "goals", label: "Goals", href: "/goals", icon: Target },
+  { id: "match", label: "Job Match AI", href: "/jobs/match", icon: Sparkles },
   { id: "resume", label: "My Resume", href: "/profile/edit?section=media", icon: FileText },
   { id: "courses", label: "Courses", href: "/courses", icon: BookOpen, hideOnDesktop: true },
   { id: "blog", label: "Blog", href: "/blogs", icon: PenLine, hideOnDesktop: true },
@@ -54,7 +55,8 @@ function isItemActive(itemId: string, href: string, activeSection?: string, path
   if (href.startsWith("/profile/edit?section=media")) {
     return pathname === "/profile/edit";
   }
-  if (href === "/jobs/all" || href === "/jobs/smart-matches") return pathname === "/jobs" || pathname.startsWith("/jobs/");
+  if (href === "/jobs/match") return pathname === "/jobs/match" || pathname.startsWith("/jobs/match/");
+  if (href === "/jobs/all" || href === "/jobs/smart-matches") return (pathname === "/jobs" || pathname.startsWith("/jobs/")) && !pathname.startsWith("/jobs/match");
   if (href === "/pages") return pathname === "/pages" || pathname.startsWith("/pages/");
   if (href === "/blogs") return pathname === "/blogs" || pathname.startsWith("/blogs/");
   if (href === "/network") return pathname === "/network" || pathname.startsWith("/network/");
@@ -110,11 +112,11 @@ export function ProfileDrawer({ isOpen, onClose, activeSection }: ProfileDrawerP
     <div className={`fixed inset-0 z-50 transition-opacity duration-200 ${visible ? "opacity-100" : "opacity-0"}`} role="dialog" aria-modal="true" aria-label={signedIn ? "Account menu" : "Site menu"}>
       <div className="absolute inset-0 bg-[#06060f] lg:bg-black/60" onClick={onClose} />
       <div
-        className={`absolute inset-0 flex flex-col bg-[#06060f] px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(1.25rem,env(safe-area-inset-top))] transition-transform duration-250 ease-out lg:inset-y-0 lg:right-0 lg:left-auto lg:w-[400px] lg:border-l lg:border-white/10 ${
+        className={`absolute inset-0 z-10 flex flex-col overflow-y-auto bg-[#06060f] px-6 pb-[max(2.5rem,calc(env(safe-area-inset-bottom)+2rem))] pt-[max(1.25rem,env(safe-area-inset-top))] transition-transform duration-250 ease-out lg:inset-y-0 lg:right-0 lg:left-auto lg:w-[400px] lg:border-l lg:border-white/10 ${
           visible ? "translate-x-0" : "translate-x-full"
         }`}
       >
-        <div className="flex items-center justify-between">
+        <div className="flex shrink-0 items-center justify-between">
           <QelsaLogo className="h-[26px] w-auto" />
           <button type="button" onClick={onClose} aria-label="Close menu" className="flex size-10 items-center justify-center rounded-full border border-white/20 text-white transition-colors hover:bg-white/[0.06]">
             <X className="size-5" />
@@ -133,7 +135,11 @@ export function ProfileDrawer({ isOpen, onClose, activeSection }: ProfileDrawerP
             onSignOut={async () => {
               if (signingOut) return;
               setSigningOut(true);
-              await logout();
+              try {
+                await logout();
+              } catch (e) {
+                console.error("Sign out error", e);
+              }
               onClose();
               window.location.replace("/jobs");
             }}
@@ -142,7 +148,7 @@ export function ProfileDrawer({ isOpen, onClose, activeSection }: ProfileDrawerP
           <GuestMenu activeSection={activeSection} pathname={pathname} onGo={go} />
         )}
 
-        <footer className="mt-auto flex flex-wrap items-center justify-center gap-x-5 gap-y-2 pb-4 pt-8 text-[13px] text-white/45">
+        <footer className="mt-8 flex shrink-0 flex-wrap items-center justify-center gap-x-5 gap-y-2 pb-2 text-[13px] text-white/45">
           {LEGAL_LINKS.map((link) => (
             <Link key={link.href} href={link.href} onClick={onClose} className="transition-colors hover:text-white/70">
               {link.label}
@@ -251,7 +257,12 @@ function AuthedMenu({
           </span>
           <span className="text-[20px] font-medium">Settings</span>
         </button>
-        <button type="button" onClick={() => void onSignOut()} disabled={signingOut} className="mt-1 flex w-full items-center gap-4 rounded-full px-3 py-2.5 text-left text-white transition-colors hover:bg-white/[0.04] disabled:opacity-50">
+        <button
+          type="button"
+          onClick={() => void onSignOut()}
+          disabled={signingOut}
+          className="mt-2 flex w-full cursor-pointer select-none items-center gap-4 rounded-full px-3 py-3 text-left text-white transition-colors hover:bg-white/[0.04] active:bg-white/[0.08] disabled:opacity-50 touch-manipulation"
+        >
           <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white/[0.06]">
             <LogOut className="size-4" />
           </span>

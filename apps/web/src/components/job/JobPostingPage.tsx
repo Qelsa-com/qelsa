@@ -725,16 +725,16 @@ export function JobPostingPage() {
             /* view */
             <div>
               <div className="grid grid-cols-12 border-b border-glass-border pb-2 text-[10px] font-medium uppercase tracking-wide text-white/45">
-                <span className="col-span-7">Skill</span>
+                <span className="col-span-5 sm:col-span-6">Skill</span>
                 <span className="col-span-3">Proficiency</span>
-                <span className="col-span-2">Type</span>
+                <span className="col-span-4 sm:col-span-3 text-right sm:text-left">Type</span>
               </div>
               {skills.map((s) => (
                 <div key={s.id} className="grid grid-cols-12 items-center border-b border-glass-border py-3 last:border-0">
-                  <span className="col-span-7 text-sm text-white">{s.name}</span>
+                  <span className="col-span-5 sm:col-span-6 truncate pr-2 text-sm text-white">{s.name}</span>
                   <span className="col-span-3 text-sm text-white/70">{proficiencyLabel(s.proficiency)}</span>
-                  <span className="col-span-2">
-                    <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${typeTag(s.type)}`}>{jobSkillTypeLabel(s.type)}</span>
+                  <span className="col-span-4 sm:col-span-3 flex justify-end sm:justify-start">
+                    <span className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-semibold ${typeTag(s.type)}`}>{jobSkillTypeLabel(s.type)}</span>
                   </span>
                 </div>
               ))}
@@ -874,16 +874,10 @@ export function JobPostingPage() {
             return (
               <div key={category} className="mt-6">
                 <div className="mb-3 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className={`rounded-md px-2 py-0.5 text-xs font-semibold ${meta.badge}`}>{meta.tag}</span>
-                    <span className="text-sm font-semibold text-white">{meta.title}</span>
-                  </div>
-                  <div className="flex items-center gap-3 text-xs">
-                    <span className="text-white/45">{items.length} question{items.length === 1 ? "" : "s"} added</span>
-                    <button onClick={() => removeCategory(category)} className="font-semibold text-red-400 hover:opacity-80">
-                      Remove
-                    </button>
-                  </div>
+                  <span className={`rounded-md px-2 py-0.5 text-xs font-semibold ${meta.badge}`}>{meta.tag}</span>
+                  <button onClick={() => removeCategory(category)} className="text-xs font-semibold text-red-400 hover:opacity-80">
+                    Remove
+                  </button>
                 </div>
                 <div className="flex flex-col gap-3">
                   {items.map((q, i) => (

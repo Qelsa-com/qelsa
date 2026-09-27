@@ -152,7 +152,7 @@ export function CompetencyTable({
   const fit = overallMatch ?? readiness;
 
   return (
-    <div className="glass border border-glass-border rounded-2xl p-4 lg:p-6 space-y-6">
+    <div id="how-you-fit" className="glass border border-glass-border rounded-2xl p-4 lg:p-6 space-y-6 scroll-mt-24">
       <div className="flex items-center gap-2">
         <Zap className="w-5 h-5 shrink-0 text-neon-purple" />
         <h3 className="text-lg lg:text-xl font-bold text-white">How you fit this role</h3>
