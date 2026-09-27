@@ -27,7 +27,6 @@ import {
   Heart,
   Laptop,
   MapPin,
-  MessageSquare,
   PenLine,
   Plus,
   Share2,
@@ -78,9 +77,11 @@ export function CompanyPage() {
   const [activeTab, setActiveTab] = useState<"overview" | "jobs">("overview");
   const [showShareModal, setShowShareModal] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [shareUrl, setShareUrl] = useState("");
   const [toggleFollowMutation, { isLoading: isTogglingFollow }] = useToggleFollowPageMutation();
 
   useEffect(() => {
+    setShareUrl(window.location.href);
     const tab = new URLSearchParams(window.location.search).get("tab");
     if (tab === "jobs" || tab === "overview") setActiveTab(tab);
   }, []);
@@ -122,17 +123,32 @@ export function CompanyPage() {
     );
   }
 
-  const jobs: Job[] = (pageJobs?.length ? pageJobs : pageData.jobs) ?? [];
+  const jobs: Job[] = pageJobs ?? (pageData.jobs as Job[] | undefined) ?? [];
   const isOwner = Boolean(pageData.can_manage || pageData.owner?.id == user?.id);
   const isFollowing = Boolean(pageData.is_following);
   const followersCount = pageData.followers_count ?? 0;
   const recentFollowers = pageData.recent_followers ?? [];
 
-  const shareUrl = typeof window !== "undefined" ? window.location.href : "";
+  const handleShare = async () => {
+    const url = typeof window !== "undefined" ? window.location.href : "";
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try {
+        await navigator.share({
+          title: pageData?.name ? `${pageData.name} on Qelsa` : "Qelsa",
+          url,
+        });
+        return;
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === "AbortError") return;
+      }
+    }
+    setShowShareModal(true);
+  };
 
   const handleCopyLink = async () => {
     try {
-      await navigator.clipboard.writeText(shareUrl);
+      const url = typeof window !== "undefined" ? window.location.href : shareUrl;
+      await navigator.clipboard.writeText(url);
       setCopied(true);
       toast.success("Link copied to clipboard");
       setTimeout(() => setCopied(false), 2000);
@@ -251,7 +267,7 @@ export function CompanyPage() {
             <div className="flex items-center justify-center sm:justify-end gap-3 shrink-0">
               <button
                 type="button"
-                onClick={() => setShowShareModal(true)}
+                onClick={handleShare}
                 className="flex h-10 items-center gap-2 rounded-full border border-white/15 bg-white/[0.04] px-4 text-sm font-medium text-white transition-colors hover:bg-white/[0.08]"
               >
                 <Share2 className="size-4 text-white/70" />
@@ -270,26 +286,16 @@ export function CompanyPage() {
               )}
 
               {!isOwner && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => toast.info("Messaging will be available soon.")}
-                    className="flex h-10 items-center gap-2 rounded-full border border-white/15 bg-white/[0.04] px-4 text-sm font-medium text-white transition-colors hover:bg-white/[0.08]"
-                  >
-                    <MessageSquare className="size-4 text-white/70" />
-                    <span>Message</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleFollowCompany}
-                    disabled={isTogglingFollow}
-                    className={`flex h-10 items-center gap-2 rounded-full px-5 text-sm font-medium transition-all ${
-                      isFollowing
-                        ? "border border-white/20 bg-white/10 text-white"
-                        : "gradient-primary text-white shadow-md hover:opacity-90"
-                    }`}
-                  >
+                <button
+                  type="button"
+                  onClick={handleFollowCompany}
+                  disabled={isTogglingFollow}
+                  className={`flex h-10 items-center gap-2 rounded-full px-5 text-sm font-medium transition-all ${
+                    isFollowing
+                      ? "border border-white/20 bg-white/10 text-white"
+                      : "gradient-primary text-white shadow-md hover:opacity-90"
+                  }`}
+                >
                     {isFollowing ? (
                       <>
                         <Check className="size-4" />
@@ -302,7 +308,6 @@ export function CompanyPage() {
                       </>
                     )}
                   </button>
-                </>
               )}
             </div>
           </div>
@@ -714,6 +719,7 @@ export function CompanyPage() {
 
                           <div className="mt-1">
                             <SkillOverflowTags
+                              max={2}
                               skills={(job.job_skills ?? [])
                                 .map((skill) => skill.skill?.name ?? skill.title)
                                 .filter((name): name is string => Boolean(name))}

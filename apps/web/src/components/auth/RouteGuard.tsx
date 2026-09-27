@@ -26,6 +26,7 @@ const PUBLIC_ROUTES = [
 const ONBOARDING_EXEMPT = new Set(["/onboarding", "/auth", "/privacy", "/terms", "/cookies"]);
 const JOB_STATIC = new Set(["all", "posted", "smart-matches", "create-job", "match", "ready", "almost", "smart_matches"]);
 const PUBLIC_JOB = /^\/jobs\/([^/]+)$/;
+const PUBLIC_PAGE = /^\/pages\/([^/]+)$/;
 const PUBLIC_PROFILE = /^\/profile\/([^/]+)$/;
 const RESERVED_PROFILE_HANDLES = ["edit", "certifications", "educations", "skills", "work-experience"];
 
@@ -36,7 +37,10 @@ const isPublicPath = (path: string) => {
   if (jobId && !JOB_STATIC.has(jobId) && jobId !== "my-jobs") return true;
 
   const handle = PUBLIC_PROFILE.exec(path)?.[1];
-  return Boolean(handle) && !RESERVED_PROFILE_HANDLES.includes(handle);
+  if (Boolean(handle) && !RESERVED_PROFILE_HANDLES.includes(handle)) return true;
+
+  const pageId = PUBLIC_PAGE.exec(path)?.[1];
+  return Boolean(pageId) && pageId !== "create" && pageId !== "create-page";
 };
 
 export default function RouteGuard({ children }: { children: ReactNode }) {

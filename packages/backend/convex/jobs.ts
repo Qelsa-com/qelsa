@@ -283,7 +283,37 @@ export const list = optionalAuthQuery({
   returns: v.any(),
   handler: async (ctx, args) => {
     const search = ((args.search as string | undefined) ?? "").trim();
-    const open = search ? await jobsMatchingBrowseSearch(ctx, search) : await openJobs(ctx, 100);
+    let open: Doc<"jobs">[];
+    if (args.page_id) {
+      let isPageAdminOrOwner = false;
+      if (ctx.user) {
+        const page = await ctx.db.get(args.page_id as Id<"pages">);
+        if (page) {
+          if (page.ownerId === ctx.user._id) {
+            isPageAdminOrOwner = true;
+          } else {
+            const membership = await ctx.db
+              .query("page_members")
+              .withIndex("by_page_and_user", (q) =>
+                q.eq("page_id", page._id).eq("user_id", ctx.user._id)
+              )
+              .first();
+            if (membership?.role === "admin") {
+              isPageAdminOrOwner = true;
+            }
+          }
+        }
+      }
+      const rawPageJobs = await ctx.db
+        .query("jobs")
+        .withIndex("by_page", (q) => q.eq("page_id", args.page_id as Id<"pages">))
+        .collect();
+      open = isPageAdminOrOwner ? rawPageJobs : rawPageJobs.filter((j) => j.status === "open");
+    } else if (search) {
+      open = await jobsMatchingBrowseSearch(ctx, search);
+    } else {
+      open = await openJobs(ctx, 100);
+    }
     const hydration = await listHydration(ctx, ctx.user);
     const profile = ctx.user ? await loadUserRoleProfile(ctx, ctx.user) : null;
     const listingArgs = { ...args, cities: args.cities ?? (args.city ? [args.city] : []), search: undefined };
@@ -293,7 +323,7 @@ export const list = optionalAuthQuery({
       if (!matchesFilters(job, city?.name ?? null, listingArgs)) {
         continue;
       }
-      if (!matchesUserRole(job, profile)) continue;
+      if (!args.page_id && !matchesUserRole(job, profile)) continue;
       results.push(await enrichJob(ctx, job, ctx.user, hydration));
     }
     sortEnrichedJobs(results, args.sort_by);
