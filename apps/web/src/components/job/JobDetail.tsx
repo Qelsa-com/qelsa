@@ -467,7 +467,9 @@ export function JobDetail() {
               </Card>
             )}
 
-            <JobAiSummary jobId={String(job.id)} summary={job.ai_summary} />
+            {!isOwner && user?.account_type !== "recruiter" && (
+              <JobAiSummary jobId={String(job.id)} summary={job.ai_summary} />
+            )}
 
             {/* Job Description */}
             {description && (
