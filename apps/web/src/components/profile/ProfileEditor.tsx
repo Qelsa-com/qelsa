@@ -621,57 +621,61 @@ export function ProfileEditor() {
                     {(resumes ?? []).map((resume) => {
                       const selected = effectiveDefaultResumeId === String(resume.id);
                       return (
-                        <div key={String(resume.id)} className={`flex items-center gap-4 rounded-xl border px-4 py-3 transition-colors ${selected ? "border-neon-cyan/40 bg-neon-cyan/[0.04]" : "border-white/10 bg-white/[0.03]"}`}>
-                          <button
-                            type="button"
-                            onClick={() => patch({ default_resume_id: String(resume.id) })}
-                            aria-label="Use this resume for job applications"
-                            className={`flex size-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${selected ? "border-neon-cyan bg-neon-cyan" : "border-white/25 hover:border-white/50"}`}
-                          >
-                            {selected && <Check className="size-3 text-[#06060f]" />}
-                          </button>
-                          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-[#7c2ff3] to-[#d73e9d]">
-                            <FileText className="size-4 text-white" />
-                          </span>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2">
-                              <p className="truncate text-sm font-medium text-white">{resume.title}</p>
-                              {selected && (
-                                <span className="rounded-full bg-neon-cyan/15 px-2 py-0.5 text-[11px] font-medium text-neon-cyan">
-                                  Default
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-xs text-white/50">Last updated: {resume.updatedAt ? new Date(resume.updatedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "—"}</p>
-                          </div>
-                          {resume.file_url && (
-                            <a
-                              href={resume.file_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-1.5 text-xs font-medium text-white/70 transition-colors hover:text-white"
+                        <div key={String(resume.id)} className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 rounded-xl border p-4 transition-colors ${selected ? "border-neon-cyan/40 bg-neon-cyan/[0.04]" : "border-white/10 bg-white/[0.03]"}`}>
+                          <div className="flex items-center gap-3 min-w-0 flex-1">
+                            <button
+                              type="button"
+                              onClick={() => patch({ default_resume_id: String(resume.id) })}
+                              aria-label="Use this resume for job applications"
+                              className={`flex size-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${selected ? "border-neon-cyan bg-neon-cyan" : "border-white/25 hover:border-white/50"}`}
                             >
-                              <Download className="size-3.5" />
-                              Download
-                            </a>
-                          )}
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              try {
-                                await deleteResume(resume.id).unwrap();
-                                const remaining = (resumes ?? []).filter((r) => String(r.id) !== String(resume.id));
-                                patch({ default_resume_id: remaining[0]?.id ? String(remaining[0].id) : undefined });
-                                toast.success("Resume deleted");
-                              } catch (error) {
-                                toastUnknownError(error, "Could not delete the resume.");
-                              }
-                            }}
-                            className="flex items-center gap-1.5 rounded-full border border-[#d73e9d]/40 px-3 py-1.5 text-xs font-medium text-[#f27bb8] transition-colors hover:bg-[#d73e9d]/10"
-                          >
-                            <Trash2 className="size-3.5" />
-                            Delete
-                          </button>
+                              {selected && <Check className="size-3 text-[#06060f]" />}
+                            </button>
+                            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-[#7c2ff3] to-[#d73e9d]">
+                              <FileText className="size-4 text-white" />
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="truncate text-sm font-medium text-white">{resume.title || "Resume"}</p>
+                                {selected && (
+                                  <span className="rounded-full bg-neon-cyan/15 px-2 py-0.5 text-[11px] font-medium text-neon-cyan">
+                                    Default
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs text-white/50">Last updated: {resume.updatedAt ? new Date(resume.updatedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "—"}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 self-end sm:self-auto shrink-0 pl-8 sm:pl-0">
+                            {resume.file_url && (
+                              <a
+                                href={resume.file_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-1.5 text-xs font-medium text-white/70 transition-colors hover:text-white"
+                              >
+                                <Download className="size-3.5" />
+                                Download
+                              </a>
+                            )}
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                try {
+                                  await deleteResume(resume.id).unwrap();
+                                  const remaining = (resumes ?? []).filter((r) => String(r.id) !== String(resume.id));
+                                  patch({ default_resume_id: remaining[0]?.id ? String(remaining[0].id) : undefined });
+                                  toast.success("Resume deleted");
+                                } catch (error) {
+                                  toastUnknownError(error, "Could not delete the resume.");
+                                }
+                              }}
+                              className="flex items-center gap-1.5 rounded-full border border-[#d73e9d]/40 px-3 py-1.5 text-xs font-medium text-[#f27bb8] transition-colors hover:bg-[#d73e9d]/10"
+                            >
+                              <Trash2 className="size-3.5" />
+                              Delete
+                            </button>
+                          </div>
                         </div>
                       );
                     })}
