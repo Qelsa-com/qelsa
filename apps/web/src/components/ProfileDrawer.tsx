@@ -112,49 +112,51 @@ export function ProfileDrawer({ isOpen, onClose, activeSection }: ProfileDrawerP
     <div className={`fixed inset-0 z-50 transition-opacity duration-200 ${visible ? "opacity-100" : "opacity-0"}`} role="dialog" aria-modal="true" aria-label={signedIn ? "Account menu" : "Site menu"}>
       <div className="absolute inset-0 bg-[#06060f] lg:bg-black/60" onClick={onClose} />
       <div
-        className={`absolute inset-0 z-10 flex flex-col overflow-y-auto bg-[#06060f] px-6 pb-[max(2.5rem,calc(env(safe-area-inset-bottom)+2rem))] pt-[max(1.25rem,env(safe-area-inset-top))] transition-transform duration-250 ease-out lg:inset-y-0 lg:right-0 lg:left-auto lg:w-[400px] lg:border-l lg:border-white/10 ${
+        className={`absolute inset-0 z-10 overflow-y-auto bg-[#06060f] px-6 pb-[max(2.5rem,calc(env(safe-area-inset-bottom)+2rem))] pt-[max(1.25rem,env(safe-area-inset-top))] transition-transform duration-250 ease-out lg:inset-y-0 lg:right-0 lg:left-auto lg:w-[400px] lg:border-l lg:border-white/10 ${
           visible ? "translate-x-0" : "translate-x-full"
         }`}
       >
-        <div className="flex shrink-0 items-center justify-between">
-          <QelsaLogo className="h-[26px] w-auto" />
-          <button type="button" onClick={onClose} aria-label="Close menu" className="flex size-10 items-center justify-center rounded-full border border-white/20 text-white transition-colors hover:bg-white/[0.06]">
-            <X className="size-5" />
-          </button>
+        <div className="flex min-h-full flex-col">
+          <div className="flex shrink-0 items-center justify-between">
+            <QelsaLogo className="h-[26px] w-auto" />
+            <button type="button" onClick={onClose} aria-label="Close menu" className="flex size-10 items-center justify-center rounded-full border border-white/20 text-white transition-colors hover:bg-white/[0.06]">
+              <X className="size-5" />
+            </button>
+          </div>
+
+          {signedIn ? (
+            <AuthedMenu
+              name={user?.name}
+              username={user?.username}
+              avatarUrl={user?.profile_image}
+              activeSection={activeSection}
+              pathname={pathname}
+              onGo={go}
+              signingOut={signingOut}
+              onSignOut={async () => {
+                if (signingOut) return;
+                setSigningOut(true);
+                try {
+                  await logout();
+                } catch (e) {
+                  console.error("Sign out error", e);
+                }
+                onClose();
+                window.location.replace("/jobs");
+              }}
+            />
+          ) : (
+            <GuestMenu activeSection={activeSection} pathname={pathname} onGo={go} />
+          )}
+
+          <footer className="mt-auto flex w-full shrink-0 flex-wrap items-center justify-center gap-x-5 gap-y-2 pt-8 pb-2 text-[13px] text-white/45">
+            {LEGAL_LINKS.map((link) => (
+              <Link key={link.href} href={link.href} onClick={onClose} className="transition-colors hover:text-white/70">
+                {link.label}
+              </Link>
+            ))}
+          </footer>
         </div>
-
-        {signedIn ? (
-          <AuthedMenu
-            name={user?.name}
-            username={user?.username}
-            avatarUrl={user?.profile_image}
-            activeSection={activeSection}
-            pathname={pathname}
-            onGo={go}
-            signingOut={signingOut}
-            onSignOut={async () => {
-              if (signingOut) return;
-              setSigningOut(true);
-              try {
-                await logout();
-              } catch (e) {
-                console.error("Sign out error", e);
-              }
-              onClose();
-              window.location.replace("/jobs");
-            }}
-          />
-        ) : (
-          <GuestMenu activeSection={activeSection} pathname={pathname} onGo={go} />
-        )}
-
-        <footer className="mt-8 flex shrink-0 flex-wrap items-center justify-center gap-x-5 gap-y-2 pb-2 text-[13px] text-white/45">
-          {LEGAL_LINKS.map((link) => (
-            <Link key={link.href} href={link.href} onClick={onClose} className="transition-colors hover:text-white/70">
-              {link.label}
-            </Link>
-          ))}
-        </footer>
       </div>
     </div>
   );
@@ -207,7 +209,7 @@ function AuthedMenu({
   const settingsActive = isItemActive("settings", "/settings", activeSection, pathname);
 
   return (
-    <div className="mt-8 flex min-h-0 flex-1 flex-col">
+    <div className="mt-8 flex flex-col">
       <button type="button" onClick={() => onGo("/profile")} className="flex w-full items-center gap-3 rounded-full bg-white/[0.05] px-3 py-2.5 text-left transition-colors hover:bg-white/[0.08]">
         <div className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white/10">
           {avatarUrl ? (
