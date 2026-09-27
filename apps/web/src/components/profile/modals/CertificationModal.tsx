@@ -67,9 +67,11 @@ export function CertificationModal({ open, onClose, certification }: Certificati
     if (!open) return;
     const n = certName(certification);
     const i = certIssuer(certification);
-    setName(certification?.certification?.id ? { id: certification.certification.id, name: n } : null);
+    const cId = certification?.certification?.id;
+    setName(n ? { id: cId ?? n, name: n } : null);
     setNameText(n);
-    setIssuer(certification?.issuing_body?.id ? { id: certification.issuing_body.id, name: i } : null);
+    const iId = certification?.issuing_body?.id;
+    setIssuer(i ? { id: iId ?? i, name: i } : null);
     setIssuerText(i);
     setIssueDate(toMonthValue(certification?.issue_date));
     setExpirationDate(certification?.does_not_expire ? null : toMonthValue(certification?.expiration_date));
@@ -96,11 +98,14 @@ export function CertificationModal({ open, onClose, certification }: Certificati
       return toast.error("Expiration date cannot be before issue date");
     }
 
+    const isCatalogCert = Boolean(name?.id && certOptions.some((o) => String(o.id) === String(name.id)));
+    const isCatalogIssuer = Boolean(issuer?.id && issuerOptions.some((o) => String(o.id) === String(issuer.id)));
+
     const payload = {
-      certification_id: name?.id ?? undefined,
-      name: name?.id ? undefined : finalName,
-      issuing_body_id: issuer?.id ?? undefined,
-      issuingOrganization: issuer?.id ? undefined : finalIssuer,
+      certification_id: isCatalogCert ? String(name!.id) : undefined,
+      name: finalName,
+      issuing_body_id: isCatalogIssuer ? String(issuer!.id) : undefined,
+      issuingOrganization: finalIssuer,
       issueDate: issueIso,
       expirationDate: expIso,
       doesNotExpire: noExpiration,

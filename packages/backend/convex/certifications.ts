@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { authedMutation, authedQuery } from "./lib/customFunctions";
 import { iso, withId } from "./lib/helpers";
+import { resolveNamedRef, type NamedRefInput } from "./lib/resolve";
 
 async function hydrate(ctx: { db: { get: Function; query: Function } }, row: { _id: string } & Record<string, unknown>) {
   const certification = row.certification_id ? await ctx.db.get(row.certification_id) : null;
@@ -56,12 +57,21 @@ export const create = authedMutation({
   returns: v.any(),
   handler: async (ctx, args) => {
     const data = args.data as Record<string, unknown>;
+    const certRef = (data.certification_id as string | undefined) ?? (data.certification as { id?: string; name?: string } | undefined) ?? (data.name as string | undefined);
+    const issuerRef = (data.issuing_body_id as string | undefined) ?? (data.issuing_body as { id?: string; name?: string } | undefined) ?? (data.issuingOrganization as string | undefined);
+
+    const certificationId = await resolveNamedRef(ctx, "certifications", certRef as NamedRefInput);
+    const issuingBodyId = await resolveNamedRef(ctx, "issuing_bodies", issuerRef as NamedRefInput);
+
+    const rawName = (data.name as string | undefined) ?? (typeof certRef === "string" ? certRef : undefined);
+    const rawIssuer = (data.issuingOrganization as string | undefined) ?? (typeof issuerRef === "string" ? issuerRef : undefined);
+
     const id = await ctx.db.insert("user_certifications", {
       user_id: ctx.user._id,
-      certification_id: (data.certification_id as Id<"certifications"> | undefined) ?? undefined,
-      issuing_body_id: (data.issuing_body_id as Id<"issuing_bodies"> | undefined) ?? undefined,
-      name: (data.name as string | undefined) ?? undefined,
-      issuingOrganization: (data.issuingOrganization as string | undefined) ?? undefined,
+      certification_id: certificationId,
+      issuing_body_id: issuingBodyId,
+      name: rawName,
+      issuingOrganization: rawIssuer,
       issue_date: data.issueDate ? new Date(data.issueDate as string).getTime() : undefined,
       expiration_date: data.expirationDate ? new Date(data.expirationDate as string).getTime() : undefined,
       does_not_expire: Boolean(data.doesNotExpire),
@@ -85,11 +95,28 @@ export const update = authedMutation({
     if (!row || row.user_id !== ctx.user._id) throw new Error("Certification not found");
     const data = args.data as Record<string, unknown>;
     const doesNotExpire = data.doesNotExpire != null ? Boolean(data.doesNotExpire) : row.does_not_expire;
+
+    let certId = row.certification_id;
+    let name = (data.name as string | undefined) ?? row.name;
+    if (data.certification_id !== undefined || data.name !== undefined || data.certification !== undefined) {
+      const certRef = (data.certification_id as string | undefined) ?? (data.certification as { id?: string; name?: string } | undefined) ?? (data.name as string | undefined);
+      certId = await resolveNamedRef(ctx, "certifications", certRef as NamedRefInput);
+      if (data.name !== undefined) name = data.name as string | undefined;
+    }
+
+    let issuerId = row.issuing_body_id;
+    let issuer = (data.issuingOrganization as string | undefined) ?? row.issuingOrganization;
+    if (data.issuing_body_id !== undefined || data.issuingOrganization !== undefined || data.issuing_body !== undefined) {
+      const issuerRef = (data.issuing_body_id as string | undefined) ?? (data.issuing_body as { id?: string; name?: string } | undefined) ?? (data.issuingOrganization as string | undefined);
+      issuerId = await resolveNamedRef(ctx, "issuing_bodies", issuerRef as NamedRefInput);
+      if (data.issuingOrganization !== undefined) issuer = data.issuingOrganization as string | undefined;
+    }
+
     await ctx.db.patch(args.id, {
-      certification_id: (data.certification_id as Id<"certifications"> | undefined) ?? row.certification_id,
-      issuing_body_id: (data.issuing_body_id as Id<"issuing_bodies"> | undefined) ?? row.issuing_body_id,
-      name: (data.name as string | undefined) ?? row.name,
-      issuingOrganization: (data.issuingOrganization as string | undefined) ?? row.issuingOrganization,
+      certification_id: certId,
+      issuing_body_id: issuerId,
+      name,
+      issuingOrganization: issuer,
       issue_date: data.issueDate ? new Date(data.issueDate as string).getTime() : row.issue_date,
       expiration_date: doesNotExpire ? undefined : data.expirationDate ? new Date(data.expirationDate as string).getTime() : row.expiration_date,
       does_not_expire: doesNotExpire,
