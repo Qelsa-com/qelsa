@@ -609,24 +609,6 @@ export function JobDetail() {
                       </div>
                     )}
                   </div>
-
-                  <div className="flex flex-col gap-2">
-                    <Button
-                      onClick={() => router.push(`/jobs/${job.id}/applications`)}
-                      className={`h-auto w-full rounded-full px-4 py-3 text-sm font-semibold text-white ${GRADIENT} hover:opacity-90`}
-                    >
-                      <Users className="mr-2 size-4" />
-                      Review Applications
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => router.push(`/jobs/create-job?jobId=${job.id}`)}
-                      className="h-auto w-full rounded-full border-[1.5px] border-white/20 bg-transparent px-4 py-3 text-sm text-white hover:bg-white/5"
-                    >
-                      <Pencil className="mr-2 size-4" />
-                      Edit Job Details
-                    </Button>
-                  </div>
                 </div>
               </SectionCard>
             ) : (
