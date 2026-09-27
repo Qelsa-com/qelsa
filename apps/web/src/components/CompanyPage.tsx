@@ -9,6 +9,7 @@ import { useGetCompanySizesQuery } from "@/features/api/onboardingApi";
 import { useGetPageByIdQuery, useToggleFollowPageMutation, useUpdatePageMutation } from "@/features/api/pagesApi";
 import { toastUnknownError } from "@/lib/errors";
 import { Job } from "@/types/job";
+import { displayLocation, salaryText, timeAgo } from "@/components/job/jobBrowseShared";
 import {
   ArrowRight,
   Award,
@@ -20,6 +21,7 @@ import {
   Copy,
   DollarSign,
   ExternalLink,
+  Eye,
   Globe,
   GraduationCap,
   Heart,
@@ -612,53 +614,120 @@ export function CompanyPage() {
                 </div>
 
                 <div className="space-y-3">
-                  {jobs.map((job: Job) => (
-                    <div
-                      key={job.id}
-                      onClick={() => router.push(`/jobs/${job.id}`)}
-                      className="group cursor-pointer rounded-2xl border border-white/[0.08] bg-white/[0.02] p-5 transition-all hover:border-neon-cyan/40 hover:bg-white/[0.04]"
-                    >
-                      <div className="flex flex-col gap-2">
-                        <div className="flex items-start justify-between">
-                          <h4 className="text-lg font-semibold text-white group-hover:text-neon-cyan transition-colors">
-                            {job.title}
-                          </h4>
-                        </div>
+                  {jobs.map((job: Job) => {
+                    const loc = displayLocation(job);
+                    const sal = salaryText(job);
+                    const workplace = job.workplace_type
+                      ? job.workplace_type.charAt(0).toUpperCase() + job.workplace_type.slice(1)
+                      : job.has_remote
+                      ? "Remote"
+                      : null;
+                    const postedDate =
+                      job.published_date ||
+                      (job as unknown as { created_at?: string; _creationTime?: number }).created_at ||
+                      (job as unknown as { _creationTime?: number })._creationTime ||
+                      job.createdAt;
+                    const timeText = timeAgo(postedDate);
+                    const postedLabel = timeText
+                      ? `Posted ${timeText}`
+                      : postedDate && !isNaN(new Date(postedDate).getTime())
+                      ? `Posted ${new Date(postedDate).toLocaleDateString()}`
+                      : null;
 
-                        <div className="flex flex-wrap items-center gap-4 text-xs text-white/60">
-                          {job.city && (
-                            <div className="flex items-center gap-1">
-                              <MapPin className="size-3.5" />
-                              <span>{formatCity(job.city)}</span>
-                            </div>
-                          )}
-                          {job.work_type && (
-                            <div className="flex items-center gap-1">
-                              <Briefcase className="size-3.5" />
-                              <span>{job.work_type}</span>
-                            </div>
-                          )}
-                          <div className="flex items-center gap-1">
-                            <Calendar className="size-3.5" />
-                            <span>Posted {new Date(job.createdAt).toLocaleDateString()}</span>
+                    return (
+                      <div
+                        key={job.id}
+                        onClick={() => router.push(`/jobs/${job.id}`)}
+                        className="group cursor-pointer rounded-2xl border border-white/[0.08] bg-white/[0.02] p-5 transition-all hover:border-neon-cyan/40 hover:bg-white/[0.04]"
+                      >
+                        <div className="flex flex-col gap-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <h4 className="text-lg font-semibold text-white group-hover:text-neon-cyan transition-colors">
+                              {job.title}
+                            </h4>
+                            {isOwner && (
+                              <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-0.5 text-xs font-semibold capitalize text-white">
+                                <span
+                                  className={`size-1.5 rounded-full ${
+                                    job.status === "paused"
+                                      ? "bg-amber-400"
+                                      : job.status === "closed"
+                                      ? "bg-red-400"
+                                      : "bg-neon-green"
+                                  }`}
+                                />
+                                {job.status === "paused" ? "Paused" : job.status === "closed" ? "Closed" : "Active"}
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-white/60">
+                            {loc && (
+                              <div className="flex items-center gap-1">
+                                <MapPin className="size-3.5 text-neon-cyan/80" />
+                                <span>{loc}</span>
+                              </div>
+                            )}
+                            {workplace && (
+                              <div className="flex items-center gap-1">
+                                <Globe className="size-3.5" />
+                                <span>{workplace}</span>
+                              </div>
+                            )}
+                            {job.work_type && (
+                              <div className="flex items-center gap-1">
+                                <Briefcase className="size-3.5" />
+                                <span>{job.work_type}</span>
+                              </div>
+                            )}
+                            {job.experience != null && (
+                              <div className="flex items-center gap-1">
+                                <Award className="size-3.5" />
+                                <span>{job.experience}+ yrs exp</span>
+                              </div>
+                            )}
+                            {sal && (
+                              <div className="flex items-center gap-1 text-neon-green">
+                                <DollarSign className="size-3.5" />
+                                <span>{sal}</span>
+                              </div>
+                            )}
+                            {isOwner && (
+                              <>
+                                <div className="flex items-center gap-1">
+                                  <Users className="size-3.5" />
+                                  <span>{job.application_count ?? job.applications?.length ?? 0} applicants</span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <Eye className="size-3.5" />
+                                  <span>{job.view_count ?? 0} views</span>
+                                </div>
+                              </>
+                            )}
+                            {postedLabel && (
+                              <div className="flex items-center gap-1">
+                                <Calendar className="size-3.5" />
+                                <span>{postedLabel}</span>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="mt-1">
+                            <SkillOverflowTags
+                              skills={(job.job_skills ?? [])
+                                .map((skill) => skill.skill?.name ?? skill.title)
+                                .filter((name): name is string => Boolean(name))}
+                              subtitle={skillRoleSubtitle(
+                                job.job_title?.name ?? job.title,
+                                job.company_name || job.page?.name || pageData.name,
+                              )}
+                              sectionLabel="Skills used"
+                            />
                           </div>
                         </div>
-
-                        <div className="mt-3">
-                          <SkillOverflowTags
-                            skills={(job.job_skills ?? [])
-                              .map((skill) => skill.skill?.name ?? skill.title)
-                              .filter((name): name is string => Boolean(name))}
-                            subtitle={skillRoleSubtitle(
-                              job.job_title?.name ?? job.title,
-                              job.company_name || job.page?.name || pageData.name,
-                            )}
-                            sectionLabel="Skills used"
-                          />
-                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
