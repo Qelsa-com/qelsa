@@ -2,7 +2,7 @@
 
 import { QelsaLogo } from "@/components/QelsaLogo";
 import { useAuth } from "@/contexts/AuthContext";
-import { BookOpen, Briefcase, FileText, LogOut, PenLine, Settings, Target, Users, X } from "lucide-react";
+import { BookOpen, Briefcase, FileText, LogOut, PenLine, Settings, Sparkles, Target, Users, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -31,6 +31,7 @@ const AUTHED_ITEMS = [
   { id: "jobs", label: "Jobs", href: "/jobs/smart-matches", icon: Briefcase, hideOnDesktop: true },
   { id: "connections", label: "Network", href: "/network", icon: Users, hideOnDesktop: true },
   { id: "goals", label: "Goals", href: "/goals", icon: Target },
+  { id: "match", label: "Job Match AI", href: "/jobs/match", icon: Sparkles },
   { id: "resume", label: "My Resume", href: "/profile/edit?section=media", icon: FileText },
   { id: "courses", label: "Courses", href: "/courses", icon: BookOpen, hideOnDesktop: true },
   { id: "blog", label: "Blog", href: "/blogs", icon: PenLine, hideOnDesktop: true },
@@ -54,7 +55,8 @@ function isItemActive(itemId: string, href: string, activeSection?: string, path
   if (href.startsWith("/profile/edit?section=media")) {
     return pathname === "/profile/edit";
   }
-  if (href === "/jobs/all" || href === "/jobs/smart-matches") return pathname === "/jobs" || pathname.startsWith("/jobs/");
+  if (href === "/jobs/match") return pathname === "/jobs/match" || pathname.startsWith("/jobs/match/");
+  if (href === "/jobs/all" || href === "/jobs/smart-matches") return (pathname === "/jobs" || pathname.startsWith("/jobs/")) && !pathname.startsWith("/jobs/match");
   if (href === "/pages") return pathname === "/pages" || pathname.startsWith("/pages/");
   if (href === "/blogs") return pathname === "/blogs" || pathname.startsWith("/blogs/");
   if (href === "/network") return pathname === "/network" || pathname.startsWith("/network/");
