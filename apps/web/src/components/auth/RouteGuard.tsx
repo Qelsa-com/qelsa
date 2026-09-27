@@ -15,6 +15,8 @@ const PUBLIC_ROUTES = [
   "/jobs/all",
   "/jobs",
   "/blogs",
+  "/courses",
+  "/network",
   "/employers",
   "/candidates",
   "/privacy",

@@ -7,11 +7,9 @@
  * Figma: Qelsa-Screen — coming-soon (653:3633).
  */
 
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export function ComingSoon() {
-  const router = useRouter();
-
   return (
     <div className="relative flex min-h-[70vh] items-center justify-center overflow-hidden px-6 py-20">
       {/* bg-glow-purple / bg-glow-cyan — a blurred solid disc each. */}
@@ -27,18 +25,18 @@ export function ComingSoon() {
 
         {/* button-row */}
         <div className="flex flex-wrap items-center justify-center gap-4 pt-10">
-          <button
-            onClick={() => router.push("/")}
-            className="rounded-full gradient-primary px-8 py-3.5 text-base font-bold text-white transition-opacity hover:opacity-90"
+          <Link
+            href="/"
+            className="rounded-full gradient-primary px-8 py-3.5 text-base font-bold text-white transition-opacity hover:opacity-90 inline-flex items-center justify-center"
           >
             Go to homepage
-          </button>
-          <button
-            onClick={() => router.push("/jobs/all")}
-            className="rounded-full border border-white/[0.12] px-8 py-3.5 text-base font-semibold text-white/70 transition-colors hover:border-white/25 hover:text-white"
+          </Link>
+          <Link
+            href="/jobs/all"
+            className="rounded-full border border-white/[0.12] px-8 py-3.5 text-base font-semibold text-white/70 transition-colors hover:border-white/25 hover:text-white inline-flex items-center justify-center"
           >
             Browse jobs
-          </button>
+          </Link>
         </div>
       </div>
     </div>
