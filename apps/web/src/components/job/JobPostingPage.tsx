@@ -874,16 +874,10 @@ export function JobPostingPage() {
             return (
               <div key={category} className="mt-6">
                 <div className="mb-3 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className={`rounded-md px-2 py-0.5 text-xs font-semibold ${meta.badge}`}>{meta.tag}</span>
-                    <span className="text-sm font-semibold text-white">{meta.title}</span>
-                  </div>
-                  <div className="flex items-center gap-3 text-xs">
-                    <span className="text-white/45">{items.length} question{items.length === 1 ? "" : "s"} added</span>
-                    <button onClick={() => removeCategory(category)} className="font-semibold text-red-400 hover:opacity-80">
-                      Remove
-                    </button>
-                  </div>
+                  <span className={`rounded-md px-2 py-0.5 text-xs font-semibold ${meta.badge}`}>{meta.tag}</span>
+                  <button onClick={() => removeCategory(category)} className="text-xs font-semibold text-red-400 hover:opacity-80">
+                    Remove
+                  </button>
                 </div>
                 <div className="flex flex-col gap-3">
                   {items.map((q, i) => (
