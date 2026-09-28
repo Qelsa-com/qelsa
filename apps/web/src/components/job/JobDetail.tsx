@@ -30,9 +30,10 @@ import DOMPurify from "dompurify";
 import { ArrowLeft, ArrowUpRight, Bookmark, BookmarkCheck, BookOpen, Briefcase, Building2, CheckCircle2, FileText, Linkedin, Link as LinkIcon, MessageCircle, Pencil, Share2, Twitter, Users } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { goBackJobs } from "@/lib/jobNavigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { QuickApplyModal } from "../QuickApplyModal";
 import { ExternalApplyConfirmModal } from "./ExternalApplyConfirmModal";
+import { ResumeSelectModal } from "./ResumeSelectModal";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
 import { CompetencyTable } from "./CompetencyMatch";
@@ -128,6 +129,8 @@ export function JobDetail() {
   const [justApplied, setJustApplied] = useState(false);
   const [createJobApplication, { isLoading: isApplyingExternal }] = useCreateJobApplicationMutation();
   const [matchOpen, setMatchOpen] = useState(false);
+  const [resumeSelectOpen, setResumeSelectOpen] = useState(false);
+  const [selectedMatchSessionId, setSelectedMatchSessionId] = useState<string | undefined>(undefined);
 
   const { data: job, error, isLoading } = useGetJobByIdQuery(isReserved ? undefined : id!, { skip: !id || isReserved });
   const isOwner = Boolean(
@@ -142,6 +145,30 @@ export function JobDetail() {
   const { data: experiences } = useGetExperiencesQuery(undefined, { skip: !isAuthenticated || isOwner });
   const { data: educations } = useGetEducationsQuery(undefined, { skip: !isAuthenticated || isOwner });
   const { data: matchSession } = useGetMatchByJobQuery(isReserved ? undefined : id, { skip: !isAuthenticated || !id || isReserved || isOwner });
+
+  const matchedResumeIds = useMemo(() => {
+    if (!matchSession || !id) return [];
+    const stored = typeof window !== "undefined" ? localStorage.getItem(`qelsa_job_match_${id}_resume`) : null;
+    if (stored) return [stored];
+    if (user?.default_resume_id) return [String(user.default_resume_id)];
+    if (myResumes?.[0]?.id) return [String(myResumes[0].id)];
+    return [];
+  }, [matchSession, id, user?.default_resume_id, myResumes]);
+
+  const handleStartMatchFromModal = (resumeId: string) => {
+    if (typeof window !== "undefined" && id) {
+      localStorage.setItem(`qelsa_job_match_${id}_resume`, resumeId);
+    }
+    setSelectedMatchSessionId(undefined);
+    setResumeSelectOpen(false);
+    setMatchOpen(true);
+  };
+
+  const handleViewMatchFromModal = (_resumeId: string) => {
+    setSelectedMatchSessionId(matchSession?.id);
+    setResumeSelectOpen(false);
+    setMatchOpen(true);
+  };
   const [toggleSaveJob] = useToggleSaveJobMutation();
   const { data: savedFromServer } = useIsJobSavedQuery(isReserved ? undefined : id, { skip: !isAuthenticated || !id || isReserved || isOwner });
   const [optimisticSaved, setOptimisticSaved] = useState<boolean | null>(null);
@@ -485,7 +512,7 @@ export function JobDetail() {
                   <span className="text-sm font-semibold text-white">Profile & Resume Match Intelligence</span>
                   <span className="text-sm leading-5 text-white/70">See how your profile and resume align with this role, where the gaps are, and what to do next.</span>
                 </div>
-                <Button variant="outline" onClick={() => setMatchOpen(true)} className="h-auto w-full shrink-0 rounded-full border-neon-cyan/50 bg-transparent px-4 py-2.5 text-sm font-semibold text-neon-cyan hover:bg-neon-cyan/10 lg:w-auto">
+                <Button variant="outline" onClick={() => setResumeSelectOpen(true)} className="h-auto w-full shrink-0 rounded-full border-neon-cyan/50 bg-transparent px-4 py-2.5 text-sm font-semibold text-neon-cyan hover:bg-neon-cyan/10 lg:w-auto">
                   Check Match Details
                 </Button>
               </Card>
@@ -723,7 +750,17 @@ export function JobDetail() {
         </div>
       </div>
 
-      <MatchChatDrawer isOpen={matchOpen} onClose={() => setMatchOpen(false)} jobId={String(job.id)} jobTitle={title} company={companyName} />
+      <MatchChatDrawer isOpen={matchOpen} onClose={() => setMatchOpen(false)} jobId={String(job.id)} jobTitle={title} company={companyName} existingSessionId={selectedMatchSessionId} />
+
+      <ResumeSelectModal
+        isOpen={resumeSelectOpen}
+        onClose={() => setResumeSelectOpen(false)}
+        resumes={myResumes ?? []}
+        defaultResumeId={user?.default_resume_id}
+        matchedResumeIds={matchedResumeIds}
+        onMatch={handleStartMatchFromModal}
+        onViewMatch={handleViewMatchFromModal}
+      />
 
       <QuickApplyModal
         isOpen={showQuickApplyModal}
