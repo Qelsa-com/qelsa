@@ -175,37 +175,25 @@ function ProfileBio({ bio }: { bio: string }) {
     <div className="flex max-w-3xl flex-col items-center sm:items-start">
       <div
         className={cn(
-          "relative w-full overflow-hidden transition-[max-height] duration-300 ease-in-out",
-          canExpand && !expanded ? "max-h-[68px]" : "max-h-none"
+          "w-full overflow-hidden transition-[max-height] duration-300 ease-in-out",
+          canExpand && !expanded
+            ? "max-h-[64px] [mask-image:linear-gradient(to_bottom,black_50%,transparent_100%)] [-webkit-mask-image:linear-gradient(to_bottom,black_50%,transparent_100%)]"
+            : "max-h-none"
         )}
       >
         <p ref={textRef} className="text-base leading-relaxed text-white/70">
           {bio}
         </p>
-
-        {/* Faded overlay on the 3rd line with Show more button sitting on top */}
-        {canExpand && !expanded && (
-          <div className="absolute inset-x-0 bottom-0 flex h-11 items-end justify-center bg-gradient-to-t from-[#06060f] via-[#06060f]/85 to-transparent pb-0.5 sm:justify-start">
-            <button
-              type="button"
-              onClick={() => setExpanded(true)}
-              className="flex items-center gap-1 text-xs font-semibold text-neon-cyan transition-opacity hover:opacity-80"
-            >
-              <span>Show more</span>
-              <ChevronDown className="size-3.5" />
-            </button>
-          </div>
-        )}
       </div>
 
-      {canExpand && expanded && (
+      {canExpand && (
         <button
           type="button"
-          onClick={() => setExpanded(false)}
-          className="mt-2 flex items-center gap-1 text-xs font-semibold text-neon-cyan transition-opacity hover:opacity-80"
+          onClick={() => setExpanded((prev) => !prev)}
+          className="mt-1.5 flex items-center gap-1 text-xs font-semibold text-neon-cyan transition-opacity hover:opacity-80"
         >
-          <span>Show less</span>
-          <ChevronUp className="size-3.5" />
+          <span>{expanded ? "Show less" : "Show more"}</span>
+          {expanded ? <ChevronUp className="size-3.5" /> : <ChevronDown className="size-3.5" />}
         </button>
       )}
     </div>
