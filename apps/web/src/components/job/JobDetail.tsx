@@ -333,7 +333,24 @@ export function JobDetail() {
 
   const shareUrl = typeof window !== "undefined" ? window.location.href : "";
   const share = {
-    copy: () => navigator.clipboard?.writeText(shareUrl),
+    copy: async () => {
+      try {
+        if (typeof navigator !== "undefined" && navigator.clipboard) {
+          await navigator.clipboard.writeText(shareUrl);
+          toast.success("Job link copied to clipboard!");
+        } else if (typeof document !== "undefined") {
+          const textArea = document.createElement("textarea");
+          textArea.value = shareUrl;
+          document.body.appendChild(textArea);
+          textArea.select();
+          document.execCommand("copy");
+          document.body.removeChild(textArea);
+          toast.success("Job link copied to clipboard!");
+        }
+      } catch {
+        toast.error("Failed to copy link");
+      }
+    },
     linkedin: () => window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`, "_blank"),
     twitter: () => window.open(`https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(title)}`, "_blank"),
     whatsapp: () => window.open(`https://wa.me/?text=${encodeURIComponent(`${title} — ${shareUrl}`)}`, "_blank"),
@@ -341,9 +358,16 @@ export function JobDetail() {
 
   // The mobile frame has a single share control; use the native sheet where the
   // browser offers it and fall back to copying the link.
-  const handleMobileShare = () => {
-    if (typeof navigator !== "undefined" && navigator.share) navigator.share({ title, url: shareUrl }).catch(() => {});
-    else share.copy();
+  const handleMobileShare = async () => {
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try {
+        await navigator.share({ title, url: shareUrl });
+      } catch {
+        // Ignored if user dismissed the share sheet
+      }
+    } else {
+      await share.copy();
+    }
   };
 
   return (

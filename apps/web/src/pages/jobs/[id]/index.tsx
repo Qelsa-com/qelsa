@@ -58,7 +58,7 @@ export const getServerSideProps: GetServerSideProps<JobDetailsPageProps> = async
   const proto = (ctx.req.headers["x-forwarded-proto"] || "https") as string;
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || (host ? `${proto}://${host}` : "https://qelsa.ai");
   const canonicalUrl = `${siteUrl.replace(/\/$/, "")}/jobs/${id}`;
-  const defaultImage = `${siteUrl.replace(/\/$/, "")}/qelsa-logo.svg`;
+  const defaultImage = `${siteUrl.replace(/\/$/, "")}/qelsa-og.png`;
 
   try {
     const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL || "http://127.0.0.1:3210";
@@ -82,7 +82,17 @@ export const getServerSideProps: GetServerSideProps<JobDetailsPageProps> = async
     const description = clipPreview(facts ? `${facts}. ${jd || fallback}` : jd || fallback);
 
     const logo = job.company_logo || job.page?.logo;
-    const imageUrl = logo ? absoluteUrl(logo, siteUrl.replace(/\/$/, "")) : defaultImage;
+    const absoluteLogo = logo ? absoluteUrl(logo, siteUrl.replace(/\/$/, "")) : undefined;
+
+    const ogParams = new URLSearchParams({
+      title,
+      company: companyName,
+      ...(location ? { location } : {}),
+      ...(workType ? { workType } : {}),
+      ...(job.workplace_type ? { workplaceType: job.workplace_type } : {}),
+      ...(absoluteLogo ? { logo: absoluteLogo } : {}),
+    });
+    const imageUrl = `${siteUrl.replace(/\/$/, "")}/api/og/job?${ogParams.toString()}`;
 
     return {
       props: {
@@ -119,7 +129,7 @@ export default function JobDetails({ meta }: JobDetailsPageProps) {
   const ogTitle = meta?.title ? meta.title.replace(/ \| Qelsa$/, "") : "Job Opportunity on Qelsa";
   const ogDescription = meta?.description || "Explore and apply for this job on Qelsa.";
   const canonicalUrl = meta?.canonicalUrl || "https://qelsa.ai/jobs";
-  const ogImage = meta?.imageUrl || "https://qelsa.ai/qelsa-logo.svg";
+  const ogImage = meta?.imageUrl || "https://qelsa.ai/qelsa-og.png";
 
   return (
     <>
@@ -134,6 +144,9 @@ export default function JobDetails({ meta }: JobDetailsPageProps) {
         <meta property="og:title" content={ogTitle} />
         <meta property="og:description" content={ogDescription} />
         <meta property="og:image" content={ogImage} />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
+        <meta property="og:image:type" content="image/png" />
         <meta property="og:image:alt" content={ogTitle} />
 
         <meta name="twitter:card" content="summary_large_image" />
@@ -141,6 +154,7 @@ export default function JobDetails({ meta }: JobDetailsPageProps) {
         <meta name="twitter:title" content={ogTitle} />
         <meta name="twitter:description" content={ogDescription} />
         <meta name="twitter:image" content={ogImage} />
+        <meta name="twitter:image:alt" content={ogTitle} />
       </Head>
       <Layout activeSection="jobs">
         <JobDetail />
