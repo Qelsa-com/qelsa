@@ -66,10 +66,13 @@ export function EmployerSidebar({
   }, [mobileOpen, onCloseMobile]);
 
   const handleSignOut = async () => {
-    await logout();
+    try {
+      await logout();
+    } catch (e) {
+      console.error("Sign out error", e);
+    }
     onCloseMobile?.();
-    router.push("/auth");
-    toast.success("Signed out successfully");
+    window.location.replace("/employers");
   };
 
   const { isCollapsed: hookCollapsed, toggle: hookToggle } = useEmployerSidebar();
