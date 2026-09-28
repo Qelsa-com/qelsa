@@ -24,6 +24,7 @@ interface AutocompleteProps<T extends AutocompleteOption> {
   debounceMs?: number;
   className?: string;
   inputClassName?: string;
+  iconClassName?: string;
   id?: string;
   /**
    * Keeps whatever the user typed on blur instead of clearing it, for fields
@@ -44,6 +45,7 @@ export function Autocomplete<T extends AutocompleteOption>({
   options,
   placeholder = "Search...",
   icon,
+  iconClassName,
   getInputLabel,
   renderOption,
   minChars = 2,
@@ -261,7 +263,7 @@ export function Autocomplete<T extends AutocompleteOption>({
     <div ref={containerRef} className={cn("relative", className)}>
       <div className="relative">
         {icon && (
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none flex items-center">
+          <span className={cn("absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none flex items-center", iconClassName)}>
             {icon}
           </span>
         )}
@@ -305,11 +307,9 @@ export function Autocomplete<T extends AutocompleteOption>({
             "placeholder:text-muted-foreground",
             "disabled:cursor-not-allowed disabled:opacity-50",
             inputClassName,
-            // After inputClassName on purpose: callers pass their own `px-*`, and
-            // twMerge lets the last class win. Listed earlier, a caller's px-4
-            // would beat these and the text would sit under the icon.
-            icon && "pl-10",
-            showClear && "pr-9"
+            // Fall back to pl-10 if caller did not supply custom pl-
+            icon && !inputClassName?.includes("pl-") && "pl-10",
+            showClear && (inputClassName?.includes("pr-") ? "pr-7 sm:pr-8" : "pr-9")
           )}
         />
         {showClear && (
@@ -318,9 +318,9 @@ export function Autocomplete<T extends AutocompleteOption>({
             onClick={handleClear}
             tabIndex={-1}
             aria-label="Clear"
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+            className="absolute right-2.5 sm:right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
           >
-            <X className="h-4 w-4" />
+            <X className="size-3.5 sm:size-4" />
           </button>
         )}
       </div>

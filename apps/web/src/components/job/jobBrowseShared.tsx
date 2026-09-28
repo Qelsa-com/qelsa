@@ -394,7 +394,7 @@ export function MultiSelectPill({
     <div ref={containerRef} className="relative">
       <button
         onClick={() => setOpen((o) => !o)}
-        className={`flex items-center gap-1 rounded-full border py-2 pl-3 pr-2.5 text-xs font-medium transition-colors sm:gap-1.5 sm:py-3 sm:pl-5 sm:pr-4 sm:text-[13px] ${
+        className={`flex h-[34px] items-center gap-1 rounded-full border py-2 pl-3 pr-2.5 text-xs font-medium transition-colors sm:h-[42px] sm:gap-1.5 sm:py-3 sm:pl-5 sm:pr-4 sm:text-[13px] ${
           active ? "border-neon-cyan bg-neon-cyan/10 text-neon-cyan" : "border-glass-border text-white/70 hover:border-white/25"
         }`}
       >
@@ -488,7 +488,7 @@ export function PillDropdown({
     <div ref={containerRef} className="relative">
       <button
         onClick={() => setOpen((o) => !o)}
-        className={`flex items-center gap-1 rounded-full border py-2 pl-3 pr-2.5 text-xs font-medium transition-colors sm:gap-1.5 sm:py-3 sm:pl-5 sm:pr-4 sm:text-[13px] ${
+        className={`flex h-[34px] items-center gap-1 rounded-full border py-2 pl-3 pr-2.5 text-xs font-medium transition-colors sm:h-[42px] sm:gap-1.5 sm:py-3 sm:pl-5 sm:pr-4 sm:text-[13px] ${
           current ? "border-neon-cyan/40 text-white" : "border-glass-border text-white/70 hover:border-white/25"
         }`}
       >
@@ -702,13 +702,14 @@ export function JobsBrowseHeader({
         />
         <MultiSelectPill label="Work type" options={WORK_TYPE_OPTIONS} values={filters.job_types} onChange={(v) => onApplyFilters({ job_types: v })} />
         <Autocomplete
-          className="w-[168px] sm:w-[221px]"
+          className="w-[136px] sm:w-[221px]"
           value={cityFilter}
           onChange={handleCitySelect}
           onSearch={searchCities}
           options={cityResults}
           placeholder="Enter location"
-          icon={<MapPin className="size-3.5 shrink-0 text-white/45" />}
+          icon={<MapPin className="size-3.5 shrink-0 text-white/45 sm:size-4" />}
+          iconClassName="left-2.5 sm:left-3.5"
           getInputLabel={formatCity}
           renderOption={(city) => (
             <>
@@ -716,7 +717,7 @@ export function JobsBrowseHeader({
               {formatCity(city)}
             </>
           )}
-          inputClassName="h-auto rounded-full border-glass-border py-2 text-xs font-medium text-white placeholder:text-white/45 sm:py-3 sm:text-[13px]"
+          inputClassName="h-[34px] rounded-full border-glass-border pl-7 pr-2.5 text-xs font-medium text-white placeholder:text-white/45 sm:h-[42px] sm:pl-9 sm:pr-4 sm:text-[13px]"
         />
         {resultsCount && resultsCount.loaded > 0 && (
           <p className="w-full text-right text-xs text-white/40 sm:ml-auto sm:w-auto sm:text-[13px]">
