@@ -1,7 +1,7 @@
 import { AccountBadge } from "@/components/AccountBadge";
 import { Experience } from "@/types/experience";
 import { User } from "@/types/user";
-import { Briefcase, Clock, MapPin } from "lucide-react";
+import { Briefcase, ChevronDown, ChevronUp, Clock, MapPin } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { cn } from "../ui/utils";
@@ -150,8 +150,10 @@ function ProfileBio({ bio }: { bio: string }) {
     if (!el) return;
 
     const checkOverflow = () => {
-      if (expanded) return;
-      setCanExpand(el.scrollHeight > el.clientHeight);
+      // 2 lines with text-base (16px) and leading-relaxed (~26px) is ~52px.
+      // Anything above 58px means a 3rd line exists.
+      const lineHeight = parseFloat(window.getComputedStyle(el).lineHeight) || 26;
+      setCanExpand(el.scrollHeight > lineHeight * 2 + 6);
     };
 
     checkOverflow();
@@ -167,26 +169,43 @@ function ProfileBio({ bio }: { bio: string }) {
     }
 
     return () => ro?.disconnect();
-  }, [bio, expanded]);
+  }, [bio]);
 
   return (
     <div className="flex max-w-3xl flex-col items-center sm:items-start">
-      <p
-        ref={textRef}
+      <div
         className={cn(
-          "text-base leading-relaxed text-white/70",
-          !expanded && "line-clamp-2"
+          "relative w-full overflow-hidden transition-[max-height] duration-300 ease-in-out",
+          canExpand && !expanded ? "max-h-[68px]" : "max-h-none"
         )}
       >
-        {bio}
-      </p>
-      {canExpand && (
+        <p ref={textRef} className="text-base leading-relaxed text-white/70">
+          {bio}
+        </p>
+
+        {/* Faded overlay on the 3rd line with Show more button sitting on top */}
+        {canExpand && !expanded && (
+          <div className="absolute inset-x-0 bottom-0 flex h-11 items-end justify-center bg-gradient-to-t from-[#06060f] via-[#06060f]/85 to-transparent pb-0.5 sm:justify-start">
+            <button
+              type="button"
+              onClick={() => setExpanded(true)}
+              className="flex items-center gap-1 text-xs font-semibold text-neon-cyan transition-opacity hover:opacity-80"
+            >
+              <span>Show more</span>
+              <ChevronDown className="size-3.5" />
+            </button>
+          </div>
+        )}
+      </div>
+
+      {canExpand && expanded && (
         <button
           type="button"
-          onClick={() => setExpanded((value) => !value)}
-          className="mt-1 w-fit text-xs font-medium text-neon-cyan transition-opacity hover:opacity-80"
+          onClick={() => setExpanded(false)}
+          className="mt-2 flex items-center gap-1 text-xs font-semibold text-neon-cyan transition-opacity hover:opacity-80"
         >
-          {expanded ? "Show less" : "Show more"}
+          <span>Show less</span>
+          <ChevronUp className="size-3.5" />
         </button>
       )}
     </div>
