@@ -350,15 +350,15 @@ export function CompanyPage() {
             {/* Left Column (2 Cols) */}
             <div className="lg:col-span-2 space-y-6">
               {!hasAboutOrCulture ? (
-                /* Empty State Card (matching media_1790093060840.png) */
-                <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-7 backdrop-blur-sm">
-                  <h3 className="text-xl font-bold text-white">
-                    Tell people what you&apos;re about
-                  </h3>
-                  <p className="mt-3 text-sm leading-relaxed text-white/70">
-                    Introduce your company to candidates. Share your mission, what you build, and why people love working here. A clear intro helps candidates decide if they&apos;re a fit before they apply.
-                  </p>
-                  {isOwner && (
+                /* Empty State Card (owner only) */
+                isOwner ? (
+                  <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-7 backdrop-blur-sm">
+                    <h3 className="text-xl font-bold text-white">
+                      Tell people what you&apos;re about
+                    </h3>
+                    <p className="mt-3 text-sm leading-relaxed text-white/70">
+                      Introduce your company to candidates. Share your mission, what you build, and why people love working here. A clear intro helps candidates decide if they&apos;re a fit before they apply.
+                    </p>
                     <button
                       type="button"
                       onClick={() => router.push(`/pages/${pageData.id}/edit?tab=about`)}
@@ -367,47 +367,53 @@ export function CompanyPage() {
                       <span>Add details</span>
                       <ArrowRight className="size-4" />
                     </button>
-                  )}
-                </div>
+                  </div>
+                ) : null
               ) : (
                 <>
                   {/* About Card */}
-                  <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-7 backdrop-blur-sm">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-xl font-bold text-white">
-                        About {pageData.name}
-                      </h3>
-                      {isOwner && (
-                        <button
-                          type="button"
-                          onClick={() => router.push(`/pages/${pageData.id}/edit?tab=about`)}
-                          className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-1 text-xs font-medium text-white/70 transition-colors hover:bg-white/[0.08] hover:text-white"
-                        >
-                          <PenLine className="size-3.5" />
-                          <span>Edit</span>
-                        </button>
+                  {(pageData.description || (pageData.specialties && pageData.specialties.length > 0) || isOwner) && (
+                    <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-7 backdrop-blur-sm">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-xl font-bold text-white">
+                          About {pageData.name}
+                        </h3>
+                        {isOwner && (
+                          <button
+                            type="button"
+                            onClick={() => router.push(`/pages/${pageData.id}/edit?tab=about`)}
+                            className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-1 text-xs font-medium text-white/70 transition-colors hover:bg-white/[0.08] hover:text-white"
+                          >
+                            <PenLine className="size-3.5" />
+                            <span>Edit</span>
+                          </button>
+                        )}
+                      </div>
+
+                      {pageData.description ? (
+                        <p className="mt-4 text-[15px] leading-relaxed text-white/80 whitespace-pre-line">
+                          {pageData.description}
+                        </p>
+                      ) : isOwner ? (
+                        <p className="mt-4 text-[15px] leading-relaxed text-white/80 whitespace-pre-line">
+                          <span className="italic text-white/40">No description provided yet.</span>
+                        </p>
+                      ) : null}
+
+                      {pageData.specialties && pageData.specialties.length > 0 && (
+                        <div className="mt-6 flex flex-wrap gap-2">
+                          {pageData.specialties.map((spec: string) => (
+                            <span
+                              key={spec}
+                              className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs font-medium text-white/80"
+                            >
+                              {spec}
+                            </span>
+                          ))}
+                        </div>
                       )}
                     </div>
-
-                    <p className="mt-4 text-[15px] leading-relaxed text-white/80 whitespace-pre-line">
-                      {pageData.description || (
-                        <span className="italic text-white/40">No description provided yet.</span>
-                      )}
-                    </p>
-
-                    {pageData.specialties && pageData.specialties.length > 0 && (
-                      <div className="mt-6 flex flex-wrap gap-2">
-                        {pageData.specialties.map((spec: string) => (
-                          <span
-                            key={spec}
-                            className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs font-medium text-white/80"
-                          >
-                            {spec}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                  )}
 
                   {/* Company Culture Card */}
                   {(pageData.culture_statement ||
@@ -453,7 +459,8 @@ export function CompanyPage() {
                         </div>
                       )}
 
-                      {!pageData.culture_statement &&
+                      {isOwner &&
+                        !pageData.culture_statement &&
                         (!pageData.culture_tags || pageData.culture_tags.length === 0) && (
                           <p className="mt-4 text-sm text-white/40 italic">
                             Share your culture and work principles to attract like-minded candidates.
@@ -468,75 +475,95 @@ export function CompanyPage() {
             {/* Right Rail (1 Col) */}
             <div className="space-y-6">
               {/* Company Details Card */}
-              <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-6 backdrop-blur-sm">
-                <div className="flex items-center justify-between mb-5">
-                  <h3 className="text-base font-bold text-white">Company Details</h3>
-                  {isOwner && (
-                    <button
-                      type="button"
-                      onClick={() => router.push(`/pages/${pageData.id}/edit?tab=details`)}
-                      className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1 text-xs font-medium text-white/70 transition-colors hover:bg-white/[0.08] hover:text-white"
-                    >
-                      <PenLine className="size-3" />
-                      <span>Edit</span>
-                    </button>
-                  )}
+              {(Boolean(
+                pageData.website ||
+                pageData.industry ||
+                pageData.company_size?.label ||
+                pageData.companySize ||
+                pageData.headquarters ||
+                pageData.founded_year ||
+                pageData.foundedYear
+              ) || isOwner) && (
+                <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-6 backdrop-blur-sm">
+                  <div className="flex items-center justify-between mb-5">
+                    <h3 className="text-base font-bold text-white">Company Details</h3>
+                    {isOwner && (
+                      <button
+                        type="button"
+                        onClick={() => router.push(`/pages/${pageData.id}/edit?tab=details`)}
+                        className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1 text-xs font-medium text-white/70 transition-colors hover:bg-white/[0.08] hover:text-white"
+                      >
+                        <PenLine className="size-3" />
+                        <span>Edit</span>
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="divide-y divide-white/[0.06] text-sm">
+                    {/* Website */}
+                    {(pageData.website || isOwner) && (
+                      <div className="py-3.5 first:pt-0 last:pb-0">
+                        <span className="text-xs text-white/50">Website</span>
+                        <div className="mt-1">
+                          {pageData.website ? (
+                            <a
+                              href={pageData.website.startsWith("http") ? pageData.website : `https://${pageData.website}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-neon-cyan hover:underline"
+                            >
+                              <span>{pageData.website.replace(/^https?:\/\//, "").replace(/\/$/, "")}</span>
+                              <ExternalLink className="size-3" />
+                            </a>
+                          ) : (
+                            <span className="text-white/40 italic">Not set</span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Industry */}
+                    {(pageData.industry || isOwner) && (
+                      <div className="py-3.5 first:pt-0 last:pb-0">
+                        <span className="text-xs text-white/50">Industry</span>
+                        <div className="mt-1 font-medium text-white/90">
+                          {pageData.industry || <span className="text-white/40 italic font-normal">Not set</span>}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Company Size */}
+                    {(pageData.company_size?.label || pageData.companySize || isOwner) && (
+                      <div className="py-3.5 first:pt-0 last:pb-0">
+                        <span className="text-xs text-white/50">Size</span>
+                        <div className="mt-1 font-medium text-white/90">
+                          {pageData.company_size?.label || pageData.companySize || <span className="text-white/40 italic font-normal">Not set</span>}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Headquarters */}
+                    {(pageData.headquarters || isOwner) && (
+                      <div className="py-3.5 first:pt-0 last:pb-0">
+                        <span className="text-xs text-white/50">Headquarters</span>
+                        <div className="mt-1 font-medium text-white/90">
+                          {pageData.headquarters || <span className="text-white/40 italic font-normal">Not set</span>}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Founded */}
+                    {(pageData.founded_year || pageData.foundedYear || isOwner) && (
+                      <div className="py-3.5 first:pt-0 last:pb-0">
+                        <span className="text-xs text-white/50">Founded</span>
+                        <div className="mt-1 font-medium text-white/90">
+                          {pageData.founded_year || pageData.foundedYear || <span className="text-white/40 italic font-normal">Not set</span>}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
-
-                <div className="divide-y divide-white/[0.06] text-sm">
-                  {/* Website */}
-                  <div className="pb-3.5">
-                    <span className="text-xs text-white/50">Website</span>
-                    <div className="mt-1">
-                      {pageData.website ? (
-                        <a
-                          href={pageData.website.startsWith("http") ? pageData.website : `https://${pageData.website}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-neon-cyan hover:underline"
-                        >
-                          <span>{pageData.website.replace(/^https?:\/\//, "").replace(/\/$/, "")}</span>
-                          <ExternalLink className="size-3" />
-                        </a>
-                      ) : (
-                        <span className="text-white/40 italic">Not set</span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Industry */}
-                  <div className="py-3.5">
-                    <span className="text-xs text-white/50">Industry</span>
-                    <div className="mt-1 font-medium text-white/90">
-                      {pageData.industry || <span className="text-white/40 italic font-normal">Not set</span>}
-                    </div>
-                  </div>
-
-                  {/* Company Size */}
-                  <div className="py-3.5">
-                    <span className="text-xs text-white/50">Size</span>
-                    <div className="mt-1 font-medium text-white/90">
-                      {pageData.company_size?.label || pageData.companySize || <span className="text-white/40 italic font-normal">Not set</span>}
-                    </div>
-                  </div>
-
-                  {/* Headquarters */}
-                  <div className="py-3.5">
-                    <span className="text-xs text-white/50">Headquarters</span>
-                    <div className="mt-1 font-medium text-white/90">
-                      {pageData.headquarters || <span className="text-white/40 italic font-normal">Not set</span>}
-                    </div>
-                  </div>
-
-                  {/* Founded */}
-                  <div className="pt-3.5">
-                    <span className="text-xs text-white/50">Founded</span>
-                    <div className="mt-1 font-medium text-white/90">
-                      {pageData.founded_year || pageData.foundedYear || <span className="text-white/40 italic font-normal">Not set</span>}
-                    </div>
-                  </div>
-                </div>
-              </div>
+              )}
 
               {/* Open Positions Card */}
               <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-6 backdrop-blur-sm">
