@@ -1,7 +1,7 @@
 import { AccountBadge } from "@/components/AccountBadge";
 import { Experience } from "@/types/experience";
 import { User } from "@/types/user";
-import { Briefcase, ChevronDown, ChevronUp, Clock, MapPin } from "lucide-react";
+import { Briefcase, Clock, MapPin } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { cn } from "../ui/utils";
@@ -138,64 +138,56 @@ export function ProfileHero({ user, experiences, isOwner, isFollowing, mutualLab
 
 function ProfileBio({ bio }: { bio: string }) {
   const [expanded, setExpanded] = useState(false);
-  const [canExpand, setCanExpand] = useState(false);
-  const textRef = useRef<HTMLParagraphElement>(null);
+  const [maxLength, setMaxLength] = useState(130);
 
   useEffect(() => {
     setExpanded(false);
   }, [bio]);
 
   useEffect(() => {
-    const el = textRef.current;
-    if (!el) return;
-
-    const checkOverflow = () => {
-      // 2 lines with text-base (16px) and leading-relaxed (~26px) is ~52px.
-      // Anything above 58px means a 3rd line exists.
-      const lineHeight = parseFloat(window.getComputedStyle(el).lineHeight) || 26;
-      setCanExpand(el.scrollHeight > lineHeight * 2 + 6);
+    const update = () => {
+      setMaxLength(window.innerWidth < 640 ? 120 : 200);
     };
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
 
-    checkOverflow();
+  const lines = bio.split("\n");
+  const hasMultipleLines = lines.length > 2;
+  const isTooLong = bio.length > maxLength;
+  const canExpand = hasMultipleLines || isTooLong;
 
-    let ro: ResizeObserver | null = null;
-    if (typeof ResizeObserver !== "undefined") {
-      ro = new ResizeObserver(() => checkOverflow());
-      ro.observe(el);
+  let truncatedText = bio;
+  if (canExpand && !expanded) {
+    if (hasMultipleLines) {
+      const twoLines = lines.slice(0, 2).join("\n");
+      if (twoLines.length > maxLength) {
+        const cut = twoLines.slice(0, maxLength);
+        const lastSpace = cut.lastIndexOf(" ");
+        truncatedText = (lastSpace > 0 ? cut.slice(0, lastSpace) : cut) + "...";
+      } else {
+        truncatedText = twoLines + "...";
+      }
+    } else {
+      const cut = bio.slice(0, maxLength);
+      const lastSpace = cut.lastIndexOf(" ");
+      truncatedText = (lastSpace > 0 ? cut.slice(0, lastSpace) : cut) + "...";
     }
-
-    if (typeof document !== "undefined" && "fonts" in document) {
-      document.fonts.ready.then(checkOverflow);
-    }
-
-    return () => ro?.disconnect();
-  }, [bio]);
+  }
 
   return (
-    <div className="flex max-w-3xl flex-col items-center sm:items-start">
-      <div
-        className={cn(
-          "w-full overflow-hidden transition-[max-height] duration-300 ease-in-out",
-          canExpand && !expanded
-            ? "max-h-[64px] [mask-image:linear-gradient(to_bottom,black_50%,transparent_100%)] [-webkit-mask-image:linear-gradient(to_bottom,black_50%,transparent_100%)]"
-            : "max-h-none"
-        )}
-      >
-        <p ref={textRef} className="text-base leading-relaxed text-white/70">
-          {bio}
-        </p>
-      </div>
-
+    <p className="max-w-3xl text-base leading-relaxed text-white/70">
+      {expanded ? bio : truncatedText}
       {canExpand && (
         <button
           type="button"
-          onClick={() => setExpanded((prev) => !prev)}
-          className="mt-1.5 flex items-center gap-1 text-xs font-semibold text-neon-cyan transition-opacity hover:opacity-80"
+          onClick={() => setExpanded(!expanded)}
+          className="ml-1.5 inline font-semibold text-neon-cyan transition-opacity hover:opacity-80 hover:underline"
         >
-          <span>{expanded ? "Show less" : "Show more"}</span>
-          {expanded ? <ChevronUp className="size-3.5" /> : <ChevronDown className="size-3.5" />}
+          {expanded ? "less" : "more"}
         </button>
       )}
-    </div>
+    </p>
   );
 }
