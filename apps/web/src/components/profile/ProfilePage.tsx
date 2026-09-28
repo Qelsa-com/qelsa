@@ -6,6 +6,7 @@ import { useGetCertificationsQuery } from "@/features/api/certificationsApi";
 import { useGetEducationsQuery } from "@/features/api/educationsApi";
 import { useGetExperiencesQuery } from "@/features/api/experiencesApi";
 import { useGetUserSkillsQuery } from "@/features/api/userSkillsApi";
+import { useApplyParsedProfileMutation } from "@/features/api/onboardingApi";
 import { hasCareerGoal } from "@/lib/careerGoal";
 import { Certification } from "@/types/certification";
 import { Education } from "@/types/education";
@@ -19,6 +20,7 @@ import { EducationCard } from "./EducationCard";
 import { InterestsCard, LanguagesCard } from "./ExtrasCards";
 import { ProfileFooter } from "./ProfileFooter";
 import { ProfileHero } from "./ProfileHero";
+import { ProfileEmptyState } from "./ProfileEmptyState";
 import { SkillsCard } from "./SkillsCard";
 import { WorkExperienceCard } from "./WorkExperienceCard";
 import { CertificationModal } from "./modals/CertificationModal";
@@ -80,6 +82,20 @@ export function ProfilePage({ isOwner = false, username }: ProfilePageProps) {
   const certificationList = (isOwner ? ownCertifications : publicProfile?.certifications) ?? [];
   const skillList = (isOwner ? ownSkills : publicProfile?.skills) ?? [];
 
+  const [applyProfile] = useApplyParsedProfileMutation();
+
+  /** Profile counts as "empty" when the owner has zero content across all sections. */
+  const isProfileEmpty =
+    isOwner &&
+    !isLoading &&
+    user &&
+    experienceList.length === 0 &&
+    educationList.length === 0 &&
+    certificationList.length === 0 &&
+    skillList.length === 0 &&
+    !user.professional_summary &&
+    !user.headline;
+
   const handleShare = useCallback(async () => {
     const handle = username || user?.username;
     const url = `${window.location.origin}${handle ? `/profile/${handle}` : "/profile"}`;
@@ -94,6 +110,45 @@ export function ProfilePage({ isOwner = false, username }: ProfilePageProps) {
   const handleFollow = useCallback(() => {
     setIsFollowing((value) => !value);
   }, []);
+
+  const handleResumeSaved = useCallback(
+    async (parsed: { profile: import("@/lib/resumeDraft").ParsedProfile; storageId?: string; filename?: string }) => {
+      await applyProfile({
+        profile: parsed.profile,
+        storage_id: parsed.storageId,
+        filename: parsed.filename,
+      }).unwrap();
+      toast.success("Your profile has been updated from your resume!");
+      router.refresh();
+    },
+    [applyProfile, router],
+  );
+
+  const handleAddSection = useCallback(
+    (section: string) => {
+      switch (section) {
+        case "experience":
+          setModal({ kind: "experience", item: null });
+          break;
+        case "education":
+          setModal({ kind: "education", item: null });
+          break;
+        case "certifications":
+          setModal({ kind: "certification", item: null });
+          break;
+        case "skills":
+          setModal({ kind: "skills" });
+          break;
+        case "languages":
+          setModal({ kind: "languages" });
+          break;
+        case "interests":
+          setModal({ kind: "interests" });
+          break;
+      }
+    },
+    [],
+  );
 
   if (isPublicView && isPublicError) {
     return (
@@ -118,34 +173,45 @@ export function ProfilePage({ isOwner = false, username }: ProfilePageProps) {
         </div>
       )}
 
-      <div className="mx-auto grid w-full max-w-[1280px] grid-cols-1 gap-6 px-6 pb-20 pt-6 md:px-12 lg:grid-cols-[minmax(0,1fr)_520px] lg:px-20">
-        <div className="flex min-w-0 flex-col gap-6">
-          <WorkExperienceCard
-            experiences={experienceList}
-            isOwner={isOwner}
-            onAdd={() => setModal({ kind: "experience", item: null })}
-            onEditItem={(experience) => setModal({ kind: "experience", item: experience })}
-          />
-          <CertificationsCard
-            certifications={certificationList}
-            isOwner={isOwner}
-            onAdd={() => setModal({ kind: "certification", item: null })}
-            onEditItem={(certification) => setModal({ kind: "certification", item: certification })}
+      {isProfileEmpty ? (
+        <div className="mx-auto w-full max-w-[1280px] px-6 pb-20 pt-6 md:px-12 lg:px-20">
+          <ProfileEmptyState
+            userName={user?.name ?? undefined}
+            onResumeSaved={handleResumeSaved}
+            onManualEdit={() => router.push("/profile/edit")}
+            onAddSection={handleAddSection}
           />
         </div>
+      ) : (
+        <div className="mx-auto grid w-full max-w-[1280px] grid-cols-1 gap-6 px-6 pb-20 pt-6 md:px-12 lg:grid-cols-[minmax(0,1fr)_520px] lg:px-20">
+          <div className="flex min-w-0 flex-col gap-6">
+            <WorkExperienceCard
+              experiences={experienceList}
+              isOwner={isOwner}
+              onAdd={() => setModal({ kind: "experience", item: null })}
+              onEditItem={(experience) => setModal({ kind: "experience", item: experience })}
+            />
+            <CertificationsCard
+              certifications={certificationList}
+              isOwner={isOwner}
+              onAdd={() => setModal({ kind: "certification", item: null })}
+              onEditItem={(certification) => setModal({ kind: "certification", item: certification })}
+            />
+          </div>
 
-        <div className="flex min-w-0 flex-col gap-6">
-          <SkillsCard skills={skillList} isOwner={isOwner} onAdd={() => setModal({ kind: "skills" })} onEdit={() => setModal({ kind: "skills" })} />
-          <EducationCard
-            educations={educationList}
-            isOwner={isOwner}
-            onAdd={() => setModal({ kind: "education", item: null })}
-            onEditItem={(education) => setModal({ kind: "education", item: education })}
-          />
-          <LanguagesCard languages={user?.languages ?? []} isOwner={isOwner} onAdd={() => setModal({ kind: "languages" })} onEdit={() => setModal({ kind: "languages" })} />
-          <InterestsCard interests={user?.interests ?? []} isOwner={isOwner} onAdd={() => setModal({ kind: "interests" })} onEdit={() => setModal({ kind: "interests" })} />
+          <div className="flex min-w-0 flex-col gap-6">
+            <SkillsCard skills={skillList} isOwner={isOwner} onAdd={() => setModal({ kind: "skills" })} onEdit={() => setModal({ kind: "skills" })} />
+            <EducationCard
+              educations={educationList}
+              isOwner={isOwner}
+              onAdd={() => setModal({ kind: "education", item: null })}
+              onEditItem={(education) => setModal({ kind: "education", item: education })}
+            />
+            <LanguagesCard languages={user?.languages ?? []} isOwner={isOwner} onAdd={() => setModal({ kind: "languages" })} onEdit={() => setModal({ kind: "languages" })} />
+            <InterestsCard interests={user?.interests ?? []} isOwner={isOwner} onAdd={() => setModal({ kind: "interests" })} onEdit={() => setModal({ kind: "interests" })} />
+          </div>
         </div>
-      </div>
+      )}
 
       <ProfileFooter />
 
