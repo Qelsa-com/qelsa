@@ -31,6 +31,17 @@ interface ExperienceModalProps {
   onClose: () => void;
   /** When set, the modal edits this experience instead of creating a new one. */
   experience?: Experience | null;
+  onCustomSave?: (payload: {
+    company: string;
+    title: string;
+    start?: string;
+    end?: string;
+    is_current: boolean;
+    description?: string;
+    responsibilities?: string[];
+    tools?: string[];
+  }) => Promise<void> | void;
+  onCustomDelete?: () => Promise<void> | void;
 }
 
 function bulletsFromDescription(text: string) {
@@ -47,8 +58,8 @@ function descriptionFromExperience(experience?: Experience | null) {
   return (experience.responsibilities ?? []).map((r) => `• ${r.title}`).join("\n");
 }
 
-export function ExperienceModal({ open, onClose, experience }: ExperienceModalProps) {
-  const isEdit = Boolean(experience?.id || (experience as unknown as { _id?: string })?._id);
+export function ExperienceModal({ open, onClose, experience, onCustomSave, onCustomDelete }: ExperienceModalProps) {
+  const isEdit = Boolean(experience?.id || (experience as unknown as { _id?: string })?._id || (onCustomSave && experience));
   const experienceId = (experience?.id ?? (experience as unknown as { _id?: string })?._id) as string | undefined;
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -117,7 +128,19 @@ export function ExperienceModal({ open, onClose, experience }: ExperienceModalPr
 
     setSaving(true);
     try {
-      if (isEdit) {
+      if (onCustomSave) {
+        await onCustomSave({
+          company: companyName,
+          title: titleName,
+          start: start || undefined,
+          end: isCurrent ? undefined : end || undefined,
+          is_current: isCurrent,
+          description: description.trim() || undefined,
+          responsibilities: bulletsFromDescription(description).map((b) => b.title),
+          tools: skills.map((s) => s.name),
+        });
+        toast.success(isEdit ? "Experience updated" : "Experience added");
+      } else if (isEdit) {
         await updateExperience({ id: experienceId!, data: payload }).unwrap();
         toast.success("Experience updated");
       } else {
@@ -133,13 +156,19 @@ export function ExperienceModal({ open, onClose, experience }: ExperienceModalPr
   };
 
   const handleDelete = async () => {
-    if (!experienceId) return;
     setIsDeleting(true);
     try {
-      await deleteExperience(experienceId).unwrap();
-      toast.success("Work experience deleted");
-      setShowDeleteConfirm(false);
-      onClose();
+      if (onCustomDelete) {
+        await onCustomDelete();
+        toast.success("Work experience deleted");
+        setShowDeleteConfirm(false);
+        onClose();
+      } else if (experienceId) {
+        await deleteExperience(experienceId).unwrap();
+        toast.success("Work experience deleted");
+        setShowDeleteConfirm(false);
+        onClose();
+      }
     } catch (error) {
       toastUnknownError(error, "Failed to delete work experience. Please try again.");
     } finally {

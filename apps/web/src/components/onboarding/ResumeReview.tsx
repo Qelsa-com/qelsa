@@ -1,11 +1,46 @@
 "use client";
 
+import { EducationModal } from "@/components/profile/modals/EducationModal";
+import { ExperienceModal } from "@/components/profile/modals/ExperienceModal";
+import { SkillsModal } from "@/components/profile/modals/SkillsModal";
 import type { ParsedEducation, ParsedExperience, ParsedProfile } from "@/lib/resumeDraft";
+import type { Education } from "@/types/education";
+import type { Experience } from "@/types/experience";
 import { Briefcase, ChevronDown, ChevronUp, GraduationCap, Linkedin, Mail, MapPin, Pencil, Phone, Plus, X } from "lucide-react";
 import Image from "next/image";
 import { useState, type ReactNode } from "react";
 import { ArrowRightIcon } from "./OnboardingShell";
 import { PRIMARY_BTN } from "./styles";
+
+/* ------------------------------------------------------------------ */
+/*  Helpers for converting parsed items to modal types                */
+/* ------------------------------------------------------------------ */
+
+function toExperience(exp: ParsedExperience, index: number): Experience {
+  return {
+    id: `exp-${index}`,
+    company: exp.company ? { id: "", name: exp.company } : undefined,
+    job_title: exp.title ? { id: "", name: exp.title } : undefined,
+    position: exp.title,
+    start_date: exp.start,
+    end_date: exp.end,
+    is_current: exp.is_current,
+    description: exp.description || (exp.responsibilities ?? []).join("\n"),
+    responsibilities: (exp.responsibilities ?? []).map((r) => ({ title: r })),
+    skills: (exp.tools ?? []).map((t) => ({ id: t, name: t })),
+  } as unknown as Experience;
+}
+
+function toEducation(edu: ParsedEducation, index: number): Education {
+  return {
+    id: `edu-${index}`,
+    college: edu.school ? { id: "", name: edu.school } : undefined,
+    degree: edu.degree ? { id: "", name: edu.degree } : undefined,
+    field_of_study: edu.field ? { id: "", name: edu.field } : undefined,
+    start_year: edu.start_year,
+    end_year: edu.end_year,
+  } as unknown as Education;
+}
 
 /* ------------------------------------------------------------------ */
 /*  Main component                                                     */
@@ -28,7 +63,15 @@ export function ResumeReview({
 }) {
   const email = lockedEmail || profile.email || "";
   const [skillDraft, setSkillDraft] = useState("");
-  const [editingSection, setEditingSection] = useState<string | null>(null);
+
+  // Modal states for Work Experience, Education, and Skills
+  const [expModalOpen, setExpModalOpen] = useState(false);
+  const [activeExpIndex, setActiveExpIndex] = useState<number>(-1);
+
+  const [eduModalOpen, setEduModalOpen] = useState(false);
+  const [activeEduIndex, setActiveEduIndex] = useState<number>(-1);
+
+  const [skillsModalOpen, setSkillsModalOpen] = useState(false);
 
   const patch = (partial: Partial<ParsedProfile>) => onChange({ ...profile, ...partial });
 
@@ -41,9 +84,117 @@ export function ResumeReview({
     setSkillDraft("");
   };
 
-  const toggleEdit = (section: string) => {
-    setEditingSection(editingSection === section ? null : section);
+  /* Work Experience handlers */
+  const handleOpenAddExp = () => {
+    setActiveExpIndex(-1);
+    setExpModalOpen(true);
   };
+
+  const handleOpenEditExp = (index: number) => {
+    setActiveExpIndex(index);
+    setExpModalOpen(true);
+  };
+
+  const handleSaveExperience = (payload: {
+    company: string;
+    title: string;
+    start?: string;
+    end?: string;
+    is_current: boolean;
+    description?: string;
+    responsibilities?: string[];
+    tools?: string[];
+  }) => {
+    const nextExp: ParsedExperience = {
+      company: payload.company,
+      title: payload.title,
+      start: payload.start,
+      end: payload.end,
+      is_current: payload.is_current,
+      description: payload.description,
+      responsibilities: payload.responsibilities,
+      tools: payload.tools,
+    };
+
+    if (activeExpIndex >= 0 && activeExpIndex < profile.experiences.length) {
+      const list = [...profile.experiences];
+      list[activeExpIndex] = nextExp;
+      patch({ experiences: list });
+    } else {
+      patch({ experiences: [...profile.experiences, nextExp] });
+    }
+    setExpModalOpen(false);
+    setActiveExpIndex(-1);
+  };
+
+  const handleDeleteExperience = () => {
+    if (activeExpIndex >= 0 && activeExpIndex < profile.experiences.length) {
+      patch({ experiences: profile.experiences.filter((_, i) => i !== activeExpIndex) });
+    }
+    setExpModalOpen(false);
+    setActiveExpIndex(-1);
+  };
+
+  /* Education handlers */
+  const handleOpenAddEdu = () => {
+    setActiveEduIndex(-1);
+    setEduModalOpen(true);
+  };
+
+  const handleOpenEditEdu = (index: number) => {
+    setActiveEduIndex(index);
+    setEduModalOpen(true);
+  };
+
+  const handleSaveEducation = (payload: {
+    school: string;
+    degree?: string;
+    field?: string;
+    start_year?: number;
+    end_year?: number;
+  }) => {
+    const nextEdu: ParsedEducation = {
+      school: payload.school,
+      degree: payload.degree,
+      field: payload.field,
+      start_year: payload.start_year,
+      end_year: payload.end_year,
+    };
+
+    if (activeEduIndex >= 0 && activeEduIndex < profile.educations.length) {
+      const list = [...profile.educations];
+      list[activeEduIndex] = nextEdu;
+      patch({ educations: list });
+    } else {
+      patch({ educations: [...profile.educations, nextEdu] });
+    }
+    setEduModalOpen(false);
+    setActiveEduIndex(-1);
+  };
+
+  const handleDeleteEducation = () => {
+    if (activeEduIndex >= 0 && activeEduIndex < profile.educations.length) {
+      patch({ educations: profile.educations.filter((_, i) => i !== activeEduIndex) });
+    }
+    setEduModalOpen(false);
+    setActiveEduIndex(-1);
+  };
+
+  /* Skills handler */
+  const handleSaveSkills = (skills: string[]) => {
+    patch({ skills });
+    setSkillsModalOpen(false);
+  };
+
+  const currentExperienceItem =
+    activeExpIndex >= 0 && activeExpIndex < profile.experiences.length
+      ? toExperience(profile.experiences[activeExpIndex], activeExpIndex)
+      : null;
+
+  const currentEducationItem =
+    activeEduIndex >= 0 && activeEduIndex < profile.educations.length
+      ? toEducation(profile.educations[activeEduIndex], activeEduIndex)
+      : null;
 
   return (
     <div className="min-h-screen px-4 pb-28 pt-8" style={{ background: "var(--background)" }}>
@@ -109,55 +260,36 @@ export function ResumeReview({
         <CardSection
           title="Work Experience"
           action={
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() =>
-                  patch({
-                    experiences: [...profile.experiences, { company: "", title: "", is_current: false, responsibilities: [], tools: [] }],
-                  })
-                }
-                className="flex cursor-pointer items-center gap-1 text-sm text-neon-purple hover:text-white"
-              >
-                <Plus className="h-4 w-4" /> Add
-              </button>
-              {profile.experiences.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => toggleEdit("experience")}
-                  className="flex cursor-pointer items-center gap-1 text-sm text-neon-purple hover:text-white"
-                >
-                  <Pencil className="h-3.5 w-3.5" /> Edit
-                </button>
-              )}
-            </div>
+            <button
+              type="button"
+              onClick={handleOpenAddExp}
+              className="flex cursor-pointer items-center gap-1 font-medium text-neon-cyan transition-opacity hover:opacity-80"
+            >
+              <span className="text-base leading-none">+</span>
+              <span className="text-sm">Add</span>
+            </button>
           }
         >
-          {editingSection === "experience" ? (
-            <div className="space-y-8">
-              {profile.experiences.map((row, index) => (
-                <ExperienceEditor
-                  key={`exp-edit-${index}`}
-                  row={row}
-                  onChange={(next) => {
-                    const experiences = profile.experiences.slice();
-                    experiences[index] = next;
-                    patch({ experiences });
-                  }}
-                  onRemove={() => patch({ experiences: profile.experiences.filter((_, i) => i !== index) })}
-                />
-              ))}
-            </div>
-          ) : (
-            <ExperienceReadView experiences={profile.experiences} />
-          )}
+          <ExperienceReadView experiences={profile.experiences} onEdit={handleOpenEditExp} />
           {profile.experiences.length === 0 && (
             <p className="text-sm text-muted-foreground">No roles yet. Click + Add to add your work experience.</p>
           )}
         </CardSection>
 
         {/* ---- Skills & Expertise ---- */}
-        <CardSection title="Skills & Expertise">
+        <CardSection
+          title="Skills & Expertise"
+          action={
+            <button
+              type="button"
+              onClick={() => setSkillsModalOpen(true)}
+              className="flex cursor-pointer items-center gap-1 font-medium text-neon-cyan transition-opacity hover:opacity-80"
+            >
+              <span className="text-base leading-none">+</span>
+              <span className="text-sm">Add</span>
+            </button>
+          }
+        >
           <span className="mb-3 block text-xs font-medium uppercase tracking-wider text-white/45">Skills</span>
           <div className="flex flex-wrap gap-2">
             {profile.skills.map((skill) => (
@@ -190,49 +322,52 @@ export function ResumeReview({
         <CardSection
           title="Education"
           action={
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => patch({ educations: [...profile.educations, { school: "" }] })}
-                className="flex cursor-pointer items-center gap-1 text-sm text-neon-purple hover:text-white"
-              >
-                <Plus className="h-4 w-4" /> Add
-              </button>
-              {profile.educations.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => toggleEdit("education")}
-                  className="flex cursor-pointer items-center gap-1 text-sm text-neon-purple hover:text-white"
-                >
-                  <Pencil className="h-3.5 w-3.5" /> Edit
-                </button>
-              )}
-            </div>
+            <button
+              type="button"
+              onClick={handleOpenAddEdu}
+              className="flex cursor-pointer items-center gap-1 font-medium text-neon-cyan transition-opacity hover:opacity-80"
+            >
+              <span className="text-base leading-none">+</span>
+              <span className="text-sm">Add</span>
+            </button>
           }
         >
-          {editingSection === "education" ? (
-            <div className="space-y-6">
-              {profile.educations.map((row, index) => (
-                <EducationEditor
-                  key={`edu-edit-${index}`}
-                  row={row}
-                  onChange={(next) => {
-                    const educations = profile.educations.slice();
-                    educations[index] = next;
-                    patch({ educations });
-                  }}
-                  onRemove={() => patch({ educations: profile.educations.filter((_, i) => i !== index) })}
-                />
-              ))}
-            </div>
-          ) : (
-            <EducationReadView educations={profile.educations} />
-          )}
+          <EducationReadView educations={profile.educations} onEdit={handleOpenEditEdu} />
           {profile.educations.length === 0 && (
             <p className="text-sm text-muted-foreground">No education yet. Click + Add to add your education.</p>
           )}
         </CardSection>
       </div>
+
+      {/* ---- Modals matching My Space / Profile edit ---- */}
+      <ExperienceModal
+        open={expModalOpen}
+        onClose={() => {
+          setExpModalOpen(false);
+          setActiveExpIndex(-1);
+        }}
+        experience={currentExperienceItem}
+        onCustomSave={handleSaveExperience}
+        onCustomDelete={handleDeleteExperience}
+      />
+
+      <EducationModal
+        open={eduModalOpen}
+        onClose={() => {
+          setEduModalOpen(false);
+          setActiveEduIndex(-1);
+        }}
+        education={currentEducationItem}
+        onCustomSave={handleSaveEducation}
+        onCustomDelete={handleDeleteEducation}
+      />
+
+      <SkillsModal
+        open={skillsModalOpen}
+        onClose={() => setSkillsModalOpen(false)}
+        initialSkills={profile.skills}
+        onCustomSave={handleSaveSkills}
+      />
 
       {/* ---- Sticky CTA ---- */}
       <div className="fixed inset-x-0 bottom-0 bg-gradient-to-t from-background via-background/95 to-transparent px-4 py-4">
@@ -306,7 +441,7 @@ function EditableField({
 }
 
 /* ------------------------------------------------------------------ */
-/*  Experience — read-only view (profile-editor style)                 */
+/*  Experience — read-only view with Edit action                       */
 /* ------------------------------------------------------------------ */
 
 type CompanyGroup = {
@@ -367,7 +502,13 @@ function RoleBullets({ responsibilities }: { responsibilities: string[] }) {
   );
 }
 
-function ExperienceReadView({ experiences }: { experiences: ParsedExperience[] }) {
+function ExperienceReadView({
+  experiences,
+  onEdit,
+}: {
+  experiences: ParsedExperience[];
+  onEdit: (originalIndex: number) => void;
+}) {
   if (experiences.length === 0) return null;
   const groups = groupByCompany(experiences);
 
@@ -396,7 +537,7 @@ function ExperienceReadView({ experiences }: { experiences: ParsedExperience[] }
               {group.roles.map((role, rIdx) => {
                 const dateStr = [role.start, role.is_current ? "Present" : role.end].filter(Boolean).join(" – ");
                 return (
-                  <div key={rIdx} className="relative pl-4">
+                  <div key={rIdx} className="group relative pl-4">
                     {/* Timeline dot */}
                     <div className="absolute left-0 top-1.5 h-2 w-2 rounded-full bg-neon-purple" />
                     {/* Timeline line */}
@@ -404,11 +545,33 @@ function ExperienceReadView({ experiences }: { experiences: ParsedExperience[] }
                       <div className="absolute bottom-0 left-[3px] top-4 w-px bg-white/10" />
                     )}
                     <div>
-                      <span className="font-medium text-white">{role.title || "Untitled Role"}</span>
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="font-medium text-white">{role.title || "Untitled Role"}</span>
+                        <button
+                          type="button"
+                          onClick={() => onEdit(role.originalIndex)}
+                          title="Edit role"
+                          className="flex size-7 shrink-0 items-center justify-center rounded-lg text-white/40 transition-colors hover:bg-white/10 hover:text-white"
+                        >
+                          <Pencil className="size-3.5" />
+                        </button>
+                      </div>
                       <div className="mt-0.5 text-xs text-white/45">
                         {dateStr}
                       </div>
                       <RoleBullets responsibilities={role.responsibilities ?? []} />
+                      {(role.tools ?? []).length > 0 && (
+                        <div className="mt-2.5 flex flex-wrap gap-1.5">
+                          {role.tools?.map((tool) => (
+                            <span
+                              key={tool}
+                              className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[11px] text-white/70"
+                            >
+                              {tool}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -422,104 +585,16 @@ function ExperienceReadView({ experiences }: { experiences: ParsedExperience[] }
 }
 
 /* ------------------------------------------------------------------ */
-/*  Experience — edit mode                                             */
+/*  Education — read-only view with Edit action                        */
 /* ------------------------------------------------------------------ */
 
-function experienceBody(row: ParsedExperience) {
-  const bullets = (row.responsibilities ?? []).filter((item) => item.trim());
-  if (bullets.length) return (row.responsibilities ?? []).join("\n");
-  return row.description ?? "";
-}
-
-function ExperienceEditor({
-  row,
-  onChange,
-  onRemove,
+function EducationReadView({
+  educations,
+  onEdit,
 }: {
-  row: ParsedExperience;
-  onChange: (row: ParsedExperience) => void;
-  onRemove: () => void;
+  educations: ParsedEducation[];
+  onEdit: (index: number) => void;
 }) {
-  const [toolDraft, setToolDraft] = useState("");
-  const addTool = () => {
-    const name = toolDraft.trim();
-    if (!name) return;
-    const tools = row.tools ?? [];
-    if (!tools.some((tool) => tool.toLowerCase() === name.toLowerCase())) {
-      onChange({ ...row, tools: [...tools, name] });
-    }
-    setToolDraft("");
-  };
-
-  return (
-    <div className="relative rounded-xl border border-white/10 bg-white/[0.02] p-4">
-      <button type="button" onClick={onRemove} className="absolute right-3 top-3 cursor-pointer text-muted-foreground hover:text-white">
-        <X className="h-4 w-4" />
-      </button>
-      <EditableField value={row.company} placeholder="Company" className="font-semibold" onChange={(company) => onChange({ ...row, company })} />
-      <EditableField value={row.title} placeholder="Untitled role" className="mt-1" onChange={(title) => onChange({ ...row, title })} />
-      <div className="mt-2 flex flex-wrap gap-2 text-sm text-muted-foreground">
-        <input
-          value={row.start ?? ""}
-          placeholder="Start"
-          onChange={(event) => onChange({ ...row, start: event.target.value })}
-          className="w-28 bg-transparent outline-none"
-        />
-        <span>—</span>
-        <input
-          value={row.is_current ? "Present" : row.end ?? ""}
-          placeholder="End"
-          onChange={(event) => onChange({ ...row, end: event.target.value, is_current: event.target.value.toLowerCase() === "present" })}
-          className="w-28 bg-transparent outline-none"
-        />
-      </div>
-      <textarea
-        value={experienceBody(row)}
-        placeholder="What you worked on — one highlight per line"
-        rows={Math.max(3, experienceBody(row).split("\n").length)}
-        onChange={(event) =>
-          onChange({
-            ...row,
-            description: undefined,
-            responsibilities: event.target.value.split("\n"),
-          })
-        }
-        className="mt-3 w-full resize-none bg-transparent text-sm leading-relaxed text-white outline-none placeholder:text-white/25"
-      />
-      <div className="mt-3 flex flex-wrap gap-2">
-        {(row.tools ?? []).map((tool) => (
-          <button
-            key={tool}
-            type="button"
-            onClick={() => onChange({ ...row, tools: (row.tools ?? []).filter((item) => item !== tool) })}
-            className="flex cursor-pointer items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-xs text-white hover:border-neon-pink/50"
-          >
-            {tool}
-            <X className="h-3 w-3 text-muted-foreground" />
-          </button>
-        ))}
-        <input
-          value={toolDraft}
-          onChange={(event) => setToolDraft(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              event.preventDefault();
-              addTool();
-            }
-          }}
-          placeholder="+ Tool"
-          className="w-24 rounded-full border border-dashed border-white/15 bg-transparent px-2.5 py-1 text-xs text-white outline-none placeholder:text-muted-foreground"
-        />
-      </div>
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/*  Education — read-only view                                         */
-/* ------------------------------------------------------------------ */
-
-function EducationReadView({ educations }: { educations: ParsedEducation[] }) {
   if (educations.length === 0) return null;
 
   return (
@@ -529,65 +604,28 @@ function EducationReadView({ educations }: { educations: ParsedEducation[] }) {
         const degreeLine = [edu.degree, edu.field].filter(Boolean).join(" in ");
 
         return (
-          <div key={idx} className="flex gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/[0.05]">
-              <GraduationCap className="h-5 w-5 text-white/40" />
+          <div key={idx} className="flex items-start justify-between gap-3">
+            <div className="flex gap-3 min-w-0 flex-1">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/[0.05]">
+                <GraduationCap className="h-5 w-5 text-white/40" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <span className="font-medium text-white">{degreeLine || "Degree"}</span>
+                <div className="text-sm text-neon-purple">{edu.school || "School"}</div>
+                {dateStr && <div className="mt-0.5 text-xs text-white/45">{dateStr}</div>}
+              </div>
             </div>
-            <div className="min-w-0">
-              <span className="font-medium text-white">{degreeLine || "Degree"}</span>
-              <div className="text-sm text-neon-purple">{edu.school || "School"}</div>
-              {dateStr && <div className="mt-0.5 text-xs text-white/45">{dateStr}</div>}
-            </div>
+            <button
+              type="button"
+              onClick={() => onEdit(idx)}
+              title="Edit education"
+              className="flex size-7 shrink-0 items-center justify-center rounded-lg text-white/40 transition-colors hover:bg-white/10 hover:text-white"
+            >
+              <Pencil className="size-3.5" />
+            </button>
           </div>
         );
       })}
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/*  Education — edit mode                                              */
-/* ------------------------------------------------------------------ */
-
-function EducationEditor({
-  row,
-  onChange,
-  onRemove,
-}: {
-  row: ParsedEducation;
-  onChange: (row: ParsedEducation) => void;
-  onRemove: () => void;
-}) {
-  return (
-    <div className="relative rounded-xl border border-white/10 bg-white/[0.02] p-4">
-      <button type="button" onClick={onRemove} className="absolute right-3 top-3 cursor-pointer text-muted-foreground hover:text-white">
-        <X className="h-4 w-4" />
-      </button>
-      <EditableField
-        value={row.degree ?? ""}
-        placeholder="Degree"
-        className="font-semibold"
-        onChange={(degree) => onChange({ ...row, degree })}
-      />
-      <EditableField value={row.school} placeholder="School" className="mt-1" onChange={(school) => onChange({ ...row, school })} />
-      <EditableField value={row.field ?? ""} placeholder="Field of study" className="mt-1 text-sm text-muted-foreground" onChange={(field) => onChange({ ...row, field })} />
-      <div className="mt-2 flex gap-3 text-sm text-muted-foreground">
-        <input
-          type="number"
-          value={row.start_year ?? ""}
-          placeholder="From"
-          onChange={(event) => onChange({ ...row, start_year: event.target.value ? Number(event.target.value) : undefined })}
-          className="w-24 bg-transparent outline-none"
-        />
-        <span>—</span>
-        <input
-          type="number"
-          value={row.end_year ?? ""}
-          placeholder="To"
-          onChange={(event) => onChange({ ...row, end_year: event.target.value ? Number(event.target.value) : undefined })}
-          className="w-24 bg-transparent outline-none"
-        />
-      </div>
     </div>
   );
 }

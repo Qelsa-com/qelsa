@@ -27,11 +27,19 @@ interface EducationModalProps {
   open: boolean;
   onClose: () => void;
   education?: Education | null;
+  onCustomSave?: (payload: {
+    school: string;
+    degree?: string;
+    field?: string;
+    start_year?: number;
+    end_year?: number;
+  }) => Promise<void> | void;
+  onCustomDelete?: () => Promise<void> | void;
 }
 
-export function EducationModal({ open, onClose, education }: EducationModalProps) {
+export function EducationModal({ open, onClose, education, onCustomSave, onCustomDelete }: EducationModalProps) {
   const educationId = (education?.id ?? (education as unknown as { _id?: string })?._id) as string | undefined;
-  const isEdit = Boolean(educationId);
+  const isEdit = Boolean(educationId || (onCustomSave && education));
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -103,7 +111,16 @@ export function EducationModal({ open, onClose, education }: EducationModalProps
 
     setSaving(true);
     try {
-      if (isEdit) {
+      if (onCustomSave) {
+        await onCustomSave({
+          school: collegeName,
+          degree: degreeName || undefined,
+          field: field?.name ?? (fieldText.trim() || undefined),
+          start_year: startYear ?? undefined,
+          end_year: studying ? undefined : endYear ?? undefined,
+        });
+        toast.success(isEdit ? "Education updated" : "Education added");
+      } else if (isEdit) {
         await updateEducation({ id: educationId!, data: payload }).unwrap();
         toast.success("Education updated");
       } else {
@@ -119,13 +136,19 @@ export function EducationModal({ open, onClose, education }: EducationModalProps
   };
 
   const handleDelete = async () => {
-    if (!educationId) return;
     setIsDeleting(true);
     try {
-      await deleteEducation(educationId).unwrap();
-      toast.success("Education deleted");
-      setShowDeleteConfirm(false);
-      onClose();
+      if (onCustomDelete) {
+        await onCustomDelete();
+        toast.success("Education deleted");
+        setShowDeleteConfirm(false);
+        onClose();
+      } else if (educationId) {
+        await deleteEducation(educationId).unwrap();
+        toast.success("Education deleted");
+        setShowDeleteConfirm(false);
+        onClose();
+      }
     } catch (error) {
       toastUnknownError(error, "Could not delete education. Please try again.");
     } finally {

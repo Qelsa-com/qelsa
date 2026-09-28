@@ -35,14 +35,16 @@ type SkillDraft = {
 interface SkillsModalProps {
   open: boolean;
   onClose: () => void;
+  initialSkills?: string[];
+  onCustomSave?: (skills: string[]) => void;
 }
 
 /**
  * Add/edit skills modal: search & attach skills, set proficiency per skill,
  * star up to three top skills, then save the whole set in one bulk call.
  */
-export function SkillsModal({ open, onClose }: SkillsModalProps) {
-  const { data: userSkills } = useGetUserSkillsQuery(undefined, { skip: !open });
+export function SkillsModal({ open, onClose, initialSkills, onCustomSave }: SkillsModalProps) {
+  const { data: userSkills } = useGetUserSkillsQuery(undefined, { skip: !open || Boolean(initialSkills) });
   const [bulkModify] = useBulkModifyUserSkillsMutation();
 
   const [drafts, setDrafts] = useState<SkillDraft[]>([]);
@@ -51,7 +53,20 @@ export function SkillsModal({ open, onClose }: SkillsModalProps) {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (!open || !userSkills) return;
+    if (!open) return;
+    if (initialSkills) {
+      setDrafts(
+        initialSkills.map((name) => ({
+          skill: { id: name, name },
+          proficiency: "" as ProficiencyLevel | "",
+          is_top_skill: false,
+        })),
+      );
+      setPickerSelection([]);
+      setLevelPickerFor(null);
+      return;
+    }
+    if (!userSkills) return;
     setDrafts(
       userSkills.map((row) => ({
         id: row.id,
@@ -62,7 +77,7 @@ export function SkillsModal({ open, onClose }: SkillsModalProps) {
     );
     setPickerSelection([]);
     setLevelPickerFor(null);
-  }, [open, userSkills]);
+  }, [open, userSkills, initialSkills]);
 
   if (!open) return null;
 
@@ -100,6 +115,12 @@ export function SkillsModal({ open, onClose }: SkillsModalProps) {
   };
 
   const handleSave = async () => {
+    if (onCustomSave) {
+      onCustomSave(drafts.map((d) => d.skill.name));
+      toast.success("Skills saved");
+      onClose();
+      return;
+    }
     setSaving(true);
     try {
       await bulkModify(
