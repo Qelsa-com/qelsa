@@ -2,7 +2,9 @@ import { AccountBadge } from "@/components/AccountBadge";
 import { Experience } from "@/types/experience";
 import { User } from "@/types/user";
 import { Briefcase, Clock, MapPin } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
+import { cn } from "../ui/utils";
 import { compactCount, currentExperience, formatCity, initials, totalExperienceSummary } from "./profileFormat";
 
 interface ProfileHeroProps {
@@ -112,7 +114,7 @@ export function ProfileHero({ user, experiences, isOwner, isFollowing, mutualLab
             </div>
           )}
 
-          {bio && <p className="max-w-3xl text-base leading-relaxed text-white/70">{bio}</p>}
+          {bio && <ProfileBio bio={bio} />}
 
           <div className="flex flex-wrap items-center justify-center gap-3 sm:justify-start">
             {isOwner ? (
@@ -131,5 +133,62 @@ export function ProfileHero({ user, experiences, isOwner, isFollowing, mutualLab
         </div>
       </div>
     </section>
+  );
+}
+
+function ProfileBio({ bio }: { bio: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const [canExpand, setCanExpand] = useState(false);
+  const textRef = useRef<HTMLParagraphElement>(null);
+
+  useEffect(() => {
+    setExpanded(false);
+  }, [bio]);
+
+  useEffect(() => {
+    const el = textRef.current;
+    if (!el) return;
+
+    const checkOverflow = () => {
+      if (expanded) return;
+      setCanExpand(el.scrollHeight > el.clientHeight);
+    };
+
+    checkOverflow();
+
+    let ro: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== "undefined") {
+      ro = new ResizeObserver(() => checkOverflow());
+      ro.observe(el);
+    }
+
+    if (typeof document !== "undefined" && "fonts" in document) {
+      document.fonts.ready.then(checkOverflow);
+    }
+
+    return () => ro?.disconnect();
+  }, [bio, expanded]);
+
+  return (
+    <div className="flex max-w-3xl flex-col items-center sm:items-start">
+      <p
+        ref={textRef}
+        className={cn(
+          "text-base leading-relaxed text-white/70",
+          !expanded && "line-clamp-2"
+        )}
+      >
+        {bio}
+      </p>
+      {canExpand && (
+        <button
+          type="button"
+          onClick={() => setExpanded((value) => !value)}
+          className="mt-1 w-fit text-xs font-medium text-neon-cyan transition-opacity hover:opacity-80"
+        >
+          {expanded ? "Show less" : "Show more"}
+        </button>
+      )}
+    </div>
   );
 }
