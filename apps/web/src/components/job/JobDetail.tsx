@@ -27,7 +27,7 @@ import { toast } from "sonner";
 import { jobDescriptionToHtml } from "@/lib/jobDescription";
 import { Job } from "@/types/job";
 import DOMPurify from "dompurify";
-import { ArrowLeft, ArrowUpRight, Bookmark, BookmarkCheck, BookOpen, Briefcase, Building2, CheckCircle2, FileText, Info, Linkedin, Link as LinkIcon, MessageCircle, Pencil, Share2, Twitter, Users } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, Bookmark, BookmarkCheck, BookOpen, Briefcase, Building2, CheckCircle2, FileText, Linkedin, Link as LinkIcon, MessageCircle, Pencil, Share2, Twitter, Users } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { goBackJobs } from "@/lib/jobNavigation";
 import { useEffect, useRef, useState } from "react";
@@ -587,14 +587,8 @@ export function JobDetail() {
             </SectionCard>
             */}
 
-            {!isOwner && gapSkillNames.length > 0 && (
-              <SectionCard icon={<Info className="size-5 text-neon-pink" />} title="Insider Intel: Hiring Insights">
-                <p className="text-sm leading-[22px] text-white/70">
-                  This hiring team is prioritizing {gapSkillNames.slice(0, 3).join(", ")}
-                  {gapSkillNames.length > 3 ? ", and related skills" : ""}. Showing clear evidence of those in your resume and interviews will help you stand out.
-                </p>
-              </SectionCard>
-            )}
+
+
           </div>
 
           {/* Right */}
