@@ -87,7 +87,7 @@ export function ProfileEmptyState({ userName, onResumeSaved, onManualEdit, onAdd
   }, [onResumeSaved, profile, storageId, filename]);
 
   /* Resume parsing screen */
-  if (step === "parsing") return <ResumeParsing />;
+  if (step === "parsing") return <ResumeParsing embedded />;
 
   /* Resume review screen */
   if (step === "review") {
