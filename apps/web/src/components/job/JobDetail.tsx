@@ -446,8 +446,8 @@ export function JobDetail() {
                       Verified
                     </span>
                   )}
-                  {locationLabel && <span className="text-xs text-white/45">{locationLabel}</span>}
                 </div>
+                {locationLabel && <p className="text-xs text-white/45">{locationLabel}</p>}
               </div>
             </div>
             {/* Desktop keeps these in the hero; the mobile frame moves them to a
