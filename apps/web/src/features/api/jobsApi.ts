@@ -88,11 +88,11 @@ export function useLazyGetAppliedJobsQuery() {
   return [run, state] as const;
 }
 export function useGetInProgressJobsQuery(filters?: JobFilters | void, options?: { skip?: boolean }) {
-  return useConvexQueryHook(api.jobs.list, jobListArgs(filters), options);
+  return useConvexQueryHook(api.jobs.listInProgress, { search: filters && "search" in filters ? filters.search : undefined }, options);
 }
 export function useLazyGetInProgressJobsQuery() {
-  const [trigger, state] = useLazyConvexQueryHook(api.jobs.list);
-  const run = (filters?: JobFilters, preferCacheValue?: boolean) => trigger(jobListArgs(filters) as never, preferCacheValue);
+  const [trigger, state] = useLazyConvexQueryHook(api.jobs.listInProgress);
+  const run = (filters?: JobFilters, preferCacheValue?: boolean) => trigger({ search: filters?.search } as never, preferCacheValue);
   return [run, state] as const;
 }
 export function useGetPostedJobsQuery(filters?: Record<string, string> | void, options?: { skip?: boolean }) {

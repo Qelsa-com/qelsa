@@ -818,6 +818,14 @@ export const listApplied = authedQuery({
   },
 });
 
+export const listInProgress = authedQuery({
+  args: { search: v.optional(v.string()) },
+  returns: v.any(),
+  handler: async () => {
+    return [];
+  },
+});
+
 export const listJobCities = optionalAuthQuery({
   args: {},
   returns: v.array(v.string()),
