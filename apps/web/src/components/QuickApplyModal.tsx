@@ -232,18 +232,20 @@ export function QuickApplyModal({ isOpen, onClose, job, companyName, screeningQu
         </button>
 
         {step === "success" ? (
-          <SuccessScreen
-            jobTitle={jobTitle ?? "this role"}
-            companyName={companyName}
-            onViewApplications={() => {
-              onClose();
-              router.push("/jobs/my-jobs/applied");
-            }}
-            onBrowseJobs={() => {
-              onClose();
-              router.push(getLastJobsPage() || "/jobs/all");
-            }}
-          />
+          <div className="flex-1 overflow-y-auto">
+            <SuccessScreen
+              jobTitle={jobTitle ?? "this role"}
+              companyName={companyName}
+              onViewApplications={() => {
+                onClose();
+                router.push("/jobs/my-jobs/applied");
+              }}
+              onBrowseJobs={() => {
+                onClose();
+                router.push(getLastJobsPage() || "/jobs/all");
+              }}
+            />
+          </div>
         ) : (
           <>
             {/* Scrollable content */}
@@ -695,40 +697,40 @@ function SuccessScreen({
   ];
 
   return (
-    <div className="relative flex flex-col items-center gap-12 overflow-hidden px-6 py-16 sm:px-10">
+    <div className="relative flex flex-col items-center gap-6 px-5 py-6 sm:gap-10 sm:px-10 sm:py-14">
       {/* bg glows (Figma 242:90 / 242:91) — the two ends of the brand gradient. */}
       <div aria-hidden="true" className="pointer-events-none absolute -left-40 top-40 size-[600px] rounded-full bg-[#4d33cc]/[0.08] blur-[60px]" />
       <div aria-hidden="true" className="pointer-events-none absolute -right-32 bottom-0 size-[500px] rounded-full bg-[#bf1f66]/[0.08] blur-[50px]" />
 
-      <div className="relative flex w-full max-w-[640px] flex-col items-center gap-6">
-        <div className="flex size-[120px] items-center justify-center rounded-full border-2 border-neon-cyan bg-neon-cyan/10">
-          <div className="flex size-16 items-center justify-center rounded-[32px] bg-neon-cyan">
-            <Check className="size-8 text-[#06060f]" strokeWidth={3} />
+      <div className="relative flex w-full max-w-[640px] flex-col items-center gap-4 sm:gap-6">
+        <div className="flex size-20 items-center justify-center rounded-full border-2 border-neon-cyan bg-neon-cyan/10 sm:size-[120px]">
+          <div className="flex size-12 items-center justify-center rounded-2xl bg-neon-cyan sm:size-16 sm:rounded-[32px]">
+            <Check className="size-6 text-[#06060f] sm:size-8" strokeWidth={3} />
           </div>
         </div>
-        <div className="flex flex-col items-center gap-3 text-center">
-          <h2 className="text-[28px] font-bold text-white sm:text-4xl">Application Submitted!</h2>
-          <p className="text-lg leading-7 text-white/70">
+        <div className="flex flex-col items-center gap-2 text-center sm:gap-3">
+          <h2 className="text-2xl font-bold text-white sm:text-4xl">Application Submitted!</h2>
+          <p className="text-sm leading-6 text-white/70 sm:text-lg sm:leading-7">
             Your application for <span className="font-bold text-white">{jobTitle}</span> at {companyName} has been submitted successfully.
           </p>
         </div>
-        <div className="flex w-full flex-col gap-4">
-          <h3 className="text-lg font-bold text-white">What happens next?</h3>
-          <div className="flex flex-col gap-3">
+        <div className="flex w-full flex-col gap-3 sm:gap-4">
+          <h3 className="text-base font-bold text-white sm:text-lg">What happens next?</h3>
+          <div className="flex flex-col gap-2.5 sm:gap-3">
             {nextSteps.map((text, i) => (
               <div key={i} className="flex items-center gap-3">
-                <div className="flex size-7 shrink-0 items-center justify-center rounded-[14px] bg-neon-cyan text-[13px] font-bold text-[#06060f]">{i + 1}</div>
-                <p className="flex-1 text-base leading-6 text-white/70">{text}</p>
+                <div className="flex size-6 shrink-0 items-center justify-center rounded-xl bg-neon-cyan text-xs font-bold text-[#06060f] sm:size-7 sm:rounded-[14px] sm:text-[13px]">{i + 1}</div>
+                <p className="flex-1 text-sm leading-5 text-white/70 sm:text-base sm:leading-6">{text}</p>
               </div>
             ))}
           </div>
         </div>
       </div>
-      <div className="relative flex flex-col items-center gap-6">
-        <button onClick={onViewApplications} className="gradient-primary rounded-full px-8 py-4 text-base font-bold text-white transition-opacity hover:opacity-90">
+      <div className="relative flex w-full flex-col items-center gap-3.5 pb-4 sm:w-auto sm:gap-5 sm:pb-0">
+        <button onClick={onViewApplications} className="w-full sm:w-auto gradient-primary rounded-full px-8 py-3.5 text-sm font-bold text-white transition-opacity hover:opacity-90 sm:py-4 sm:text-base">
           View My Applications
         </button>
-        <button onClick={onBrowseJobs} className="text-base font-semibold text-neon-cyan underline">
+        <button onClick={onBrowseJobs} className="text-sm font-semibold text-neon-cyan underline sm:text-base">
           Browse More Jobs
         </button>
       </div>
