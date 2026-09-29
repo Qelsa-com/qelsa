@@ -12,6 +12,7 @@ import { TrackedJobsListSkeleton } from "@/components/job/jobSkeletons";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useGetSavedJobsQuery, useToggleSaveJobMutation } from "@/features/api/jobsApi";
 import Layout from "@/layout";
+import { useAuth } from "@/contexts/AuthContext";
 import { Job } from "@/types/job";
 import { Archive, Eye, MoreVertical, Share2, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -19,13 +20,19 @@ import { useEffect, useState } from "react";
 
 const Saved = () => {
   const router = useRouter();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [toggleSaveJob] = useToggleSaveJobMutation();
 
   const [query, setQuery] = useState("");
   const [search, setSearch] = useState("");
 
-  const { data = [], isLoading } = useGetSavedJobsQuery(search ? { search } : {});
+  const { data = [], isLoading } = useGetSavedJobsQuery(search ? { search } : {}, { skip: !isAuthenticated });
   const jobs: Job[] = data ?? [];
+
+  useEffect(() => {
+    if (authLoading || isAuthenticated) return;
+    void router.replace("/auth?returnUrl=" + encodeURIComponent("/jobs/my-jobs/saved"));
+  }, [authLoading, isAuthenticated, router]);
 
   useEffect(() => {
     const timer = setTimeout(() => setSearch(query.trim()), 350);
@@ -33,6 +40,16 @@ const Saved = () => {
   }, [query]);
 
   const openJob = (id: string | number) => router.push(`/jobs/${id}`);
+
+  if (authLoading || !isAuthenticated) {
+    return (
+      <Layout activeSection={"jobs"}>
+        <div className="mx-auto w-full max-w-[1400px] px-6 py-8 text-white md:px-12">
+          <TrackedJobsListSkeleton />
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout activeSection={"jobs"}>

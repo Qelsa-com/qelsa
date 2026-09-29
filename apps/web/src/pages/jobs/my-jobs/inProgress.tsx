@@ -11,18 +11,25 @@ import { MyJobsHeader, TrackedJobCard } from "@/components/job/myJobsShared";
 import { TrackedJobsListSkeleton } from "@/components/job/jobSkeletons";
 import { useGetInProgressJobsQuery } from "@/features/api/jobsApi";
 import Layout from "@/layout";
+import { useAuth } from "@/contexts/AuthContext";
 import { Job } from "@/types/job";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 const InProgress = () => {
   const router = useRouter();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
 
   const [query, setQuery] = useState("");
   const [search, setSearch] = useState("");
 
-  const { data = [], isLoading } = useGetInProgressJobsQuery();
+  const { data = [], isLoading } = useGetInProgressJobsQuery(undefined, { skip: !isAuthenticated });
   const rawJobs: Job[] = data ?? [];
+
+  useEffect(() => {
+    if (authLoading || isAuthenticated) return;
+    void router.replace("/auth?returnUrl=" + encodeURIComponent("/jobs/my-jobs/inProgress"));
+  }, [authLoading, isAuthenticated, router]);
 
   const jobs = useMemo(() => {
     if (!search) return rawJobs;
@@ -38,6 +45,16 @@ const InProgress = () => {
     const timer = setTimeout(() => setSearch(query.trim()), 350);
     return () => clearTimeout(timer);
   }, [query]);
+
+  if (authLoading || !isAuthenticated) {
+    return (
+      <Layout activeSection={"jobs"}>
+        <div className="mx-auto w-full max-w-[1400px] px-6 py-8 text-white md:px-12">
+          <TrackedJobsListSkeleton />
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout activeSection={"jobs"}>

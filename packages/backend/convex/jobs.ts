@@ -769,10 +769,11 @@ export const listPosted = authedQuery({
   },
 });
 
-export const listSaved = authedQuery({
+export const listSaved = optionalAuthQuery({
   args: { search: v.optional(v.string()) },
   returns: v.any(),
   handler: async (ctx, args) => {
+    if (!ctx.user) return [];
     const saved = await ctx.db
       .query("saved_jobs")
       .withIndex("by_user", (q) => q.eq("user_id", ctx.user._id))
@@ -795,10 +796,11 @@ export const listSaved = authedQuery({
   },
 });
 
-export const listApplied = authedQuery({
+export const listApplied = optionalAuthQuery({
   args: { status: v.optional(v.string()), search: v.optional(v.string()) },
   returns: v.any(),
   handler: async (ctx, args) => {
+    if (!ctx.user) return [];
     if (args.status && isWithdrawn(args.status)) return [];
 
     const rows = await ctx.db
@@ -838,7 +840,7 @@ export const listApplied = authedQuery({
   },
 });
 
-export const listInProgress = authedQuery({
+export const listInProgress = optionalAuthQuery({
   args: { search: v.optional(v.string()) },
   returns: v.any(),
   handler: async () => {

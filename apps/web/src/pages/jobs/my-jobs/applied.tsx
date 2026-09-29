@@ -24,11 +24,12 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { useWithdrawApplicationMutation } from "@/features/api/jobApplicationsApi";
 import { useGetAppliedJobsQuery } from "@/features/api/jobsApi";
 import { toastUnknownError } from "@/lib/errors";
+import { useAuth } from "@/contexts/AuthContext";
 import Layout from "@/layout";
 import { JobApplication, JobApplicationStatus } from "@/types/jobApplication";
 import { Check, ExternalLink, FileText, MoreVertical, Undo2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 /* -------------------------------- status ---------------------------------- */
@@ -50,14 +51,20 @@ function canWithdraw(status: JobApplicationStatus) {
 
 const Applied = () => {
   const router = useRouter();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
 
   const [query, setQuery] = useState("");
   const [search, setSearch] = useState("");
   const [withdrawTarget, setWithdrawTarget] = useState<JobApplication | null>(null);
 
-  const { data, isLoading } = useGetAppliedJobsQuery(search ? { search } : {});
+  const { data, isLoading } = useGetAppliedJobsQuery(search ? { search } : {}, { skip: !isAuthenticated });
   const applications = (data ?? []).filter((row) => row.job);
   const [withdraw, { isLoading: isWithdrawing }] = useWithdrawApplicationMutation();
+
+  useEffect(() => {
+    if (authLoading || isAuthenticated) return;
+    void router.replace("/auth?returnUrl=" + encodeURIComponent("/jobs/my-jobs/applied"));
+  }, [authLoading, isAuthenticated, router]);
 
   const viewedCount = useMemo(() => applications.filter(wasViewed).length, [applications]);
   const withdrawTitle = withdrawTarget?.job?.job_title?.name ?? withdrawTarget?.job?.title ?? "this role";
@@ -72,6 +79,16 @@ const Applied = () => {
       toastUnknownError(error, "Could not withdraw this application. Please try again.");
     }
   };
+
+  if (authLoading || !isAuthenticated) {
+    return (
+      <Layout activeSection={"jobs"}>
+        <div className="mx-auto w-full max-w-[1400px] px-6 py-8 text-white md:px-12">
+          <TrackedJobsListSkeleton />
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout activeSection={"jobs"}>
