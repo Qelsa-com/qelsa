@@ -70,7 +70,7 @@ function RoleBody({
   const skills = (experience.skills ?? []).map((skill) => skill.name).filter(Boolean);
   const visibleBullets = expanded ? bullets : bullets.slice(0, COLLAPSED_BULLETS);
   const canExpand = bullets.length > COLLAPSED_BULLETS;
-  const roleTitle = experience.job_title?.name || experience.position || "Role";
+  const roleTitle = experience.job_title?.name || (typeof experience.position === "string" && isNaN(Number(experience.position)) ? experience.position : "") || "Role";
   const company = experience.company?.name || companyName || "";
 
   return (
@@ -97,6 +97,7 @@ function RoleBody({
       <div className="flex flex-wrap items-center gap-2">
         <p className="text-xs sm:text-[13px] text-white/60">{experienceMeta(experience)}</p>
         {experience.employment_type && <span className="rounded-full bg-neon-cyan/8 px-2 py-0.5 text-[11px] font-medium text-neon-cyan/80">{experience.employment_type}</span>}
+        {experience.work_type && <span className="rounded-full bg-neon-cyan/8 px-2 py-0.5 text-[11px] font-medium text-neon-cyan/80">{experience.work_type}</span>}
       </div>
 
       {visibleBullets.length > 0 && (
@@ -181,7 +182,7 @@ export function WorkExperienceCard({
     }
   };
 
-  const deletingRoleTitle = deletingExperience?.job_title?.name || deletingExperience?.position || "this role";
+  const deletingRoleTitle = deletingExperience?.job_title?.name || (typeof deletingExperience?.position === "string" && isNaN(Number(deletingExperience.position)) ? deletingExperience.position : "") || "this role";
   const deletingCompany = deletingExperience?.company?.name;
 
   return (

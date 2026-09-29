@@ -1003,7 +1003,9 @@ export function ApplicationsManagementPage() {
                       <p className="text-[13px] font-semibold text-white/80">Work Experience</p>
                       {selectedApplication.user.experiences.map((experience, idx) => (
                         <div key={idx} className="flex flex-col gap-1">
-                          <p className="text-[13px] font-semibold text-white">{experience.job_title?.name ?? experience.position}</p>
+                          <p className="text-[13px] font-semibold text-white">
+                            {experience.job_title?.name || (typeof experience.position === "string" && isNaN(Number(experience.position)) ? experience.position : "") || "Role"}
+                          </p>
                           <p className="text-[13px] text-white/50">{[experience.company?.name, experience.employment_type].filter(Boolean).join(" · ")}</p>
                           <p className="text-xs text-white/35">
                             {monthYear(experience.start_date)} – {experience.is_current || !experience.end_date ? "Present" : monthYear(experience.end_date)}

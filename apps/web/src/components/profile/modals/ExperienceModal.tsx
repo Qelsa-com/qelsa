@@ -89,7 +89,7 @@ export function ExperienceModal({ open, onClose, experience, onCustomSave, onCus
   useEffect(() => {
     if (!open) return;
     setJobTitle(experience?.job_title ? { id: experience.job_title.id, name: experience.job_title.name } : null);
-    setJobTitleText(experience?.job_title?.name ?? experience?.position ?? "");
+    setJobTitleText(experience?.job_title?.name ?? (typeof experience?.position === "string" && isNaN(Number(experience?.position)) ? experience.position : ""));
     setCompany(experience?.company ? { id: experience.company.id, name: experience.company.name } : null);
     setCompanyText(experience?.company?.name ?? "");
     setEmploymentType(experience?.employment_type ?? "");
@@ -113,8 +113,8 @@ export function ExperienceModal({ open, onClose, experience, onCustomSave, onCus
     if (!isCurrent && !end) return toast.error("End date is required (or mark as current)");
 
     const payload = {
-      job_title: jobTitle?.id ? { id: jobTitle.id } : { name: titleName },
-      company: company?.id ? { id: company.id } : { name: companyName },
+      job_title: { id: jobTitle?.id ? String(jobTitle.id) : undefined, name: titleName },
+      company: { id: company?.id ? String(company.id) : undefined, name: companyName },
       employment_type: employmentType || undefined,
       start_date: monthValueToIso(start),
       end_date: isCurrent ? undefined : monthValueToIso(end),

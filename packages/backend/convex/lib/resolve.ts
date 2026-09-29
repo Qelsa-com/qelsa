@@ -22,7 +22,11 @@ export function refId(value: NamedRefInput): string | undefined {
 
 export function refName(value: NamedRefInput): string {
   if (typeof value === "string") return value.trim();
-  return (value?.name ?? "").trim();
+  const name = (value?.name ?? "").trim();
+  if (name) return name;
+  const id = typeof value === "object" && value && typeof value.id === "string" ? value.id.trim() : "";
+  if (id && !looksLikeConvexId(id) && isNaN(Number(id))) return id;
+  return "";
 }
 
 export function catalogKey(name: string) {
