@@ -324,6 +324,7 @@ export function JobDetail() {
     try {
       await createJobApplication({ id: job.id }).unwrap();
       setJustApplied(true);
+      setOptimisticSaved(false);
       setShowExternalConfirmModal(false);
       toast.success("Application recorded!");
     } catch (error: unknown) {
@@ -407,7 +408,7 @@ export function JobDetail() {
             </button>
           )}
           <div className="glass-strong flex w-fit items-center gap-2 rounded-full p-2">
-            {!isOwner && isAuthenticated && (
+            {!isOwner && isAuthenticated && !applied && (
               <ShareButton onClick={handleSave} active={saved}>
                 {saved ? <BookmarkCheck className="size-[18px]" /> : <Bookmark className="size-[18px]" />}
               </ShareButton>
@@ -475,8 +476,8 @@ export function JobDetail() {
                 </>
               ) : (
                 <>
-                  {/* Saving a job needs an account — hidden while signed out. */}
-                  {isAuthenticated && (
+                  {/* Saving a job needs an account — hidden while signed out or already applied. */}
+                  {isAuthenticated && !applied && (
                     <Button type="button" variant="outline" onClick={handleSave} className="h-auto flex-1 rounded-full border-[1.5px] border-white/20 bg-transparent px-4 py-3 text-sm text-white hover:bg-white/5 lg:flex-none lg:px-6 lg:py-3.5">
                       {saved ? "Saved" : "Save job"}
                     </Button>
@@ -757,7 +758,7 @@ export function JobDetail() {
               </>
             ) : (
               <>
-                {isAuthenticated && (
+                {isAuthenticated && !applied && (
                   <Button
                     type="button"
                     variant="outline"
@@ -806,7 +807,10 @@ export function JobDetail() {
         screeningQuestions={job.questionSets ? job.questionSets?.[0]?.questions : []}
         // Must not close the modal: it stays open to show the success screen,
         // which closes itself from its own CTAs.
-        onSubmit={() => {}}
+        onSubmit={() => {
+          setJustApplied(true);
+          setOptimisticSaved(false);
+        }}
         resumes={myResumes ?? []}
         defaultResumeId={user?.default_resume_id}
       />

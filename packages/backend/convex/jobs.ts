@@ -44,6 +44,7 @@ type SkillCache = Map<Id<"skills">, Doc<"skills"> | null>;
 type ListHydration = {
   userSkills: Array<Pick<Doc<"user_skills">, "skill_id" | "proficiency">>;
   savedJobIds: Set<string>;
+  appliedJobIds: Set<string>;
   skillCache: SkillCache;
   yearsExperience: number | null;
   educationCount: number;
@@ -68,8 +69,8 @@ async function jobSkillsFor(ctx: QueryCtx, jobId: Id<"jobs">, cache?: SkillCache
 }
 
 async function listHydration(ctx: QueryCtx, user: Doc<"users"> | null, loadSaved = true): Promise<ListHydration> {
-  if (!user) return { userSkills: [], savedJobIds: new Set(), skillCache: new Map(), yearsExperience: null, educationCount: 0 };
-  const [skillRows, saved, expRows, eduRows] = await Promise.all([
+  if (!user) return { userSkills: [], savedJobIds: new Set(), appliedJobIds: new Set(), skillCache: new Map(), yearsExperience: null, educationCount: 0 };
+  const [skillRows, saved, expRows, eduRows, appRows] = await Promise.all([
     ctx.db
       .query("user_skills")
       .withIndex("by_user", (q) => q.eq("user_id", user._id))
@@ -88,7 +89,17 @@ async function listHydration(ctx: QueryCtx, user: Doc<"users"> | null, loadSaved
       .query("educations")
       .withIndex("by_user", (q) => q.eq("user_id", user._id))
       .collect(),
+    ctx.db
+      .query("job_applications")
+      .withIndex("by_user", (q) => q.eq("user_id", user._id))
+      .collect(),
   ]);
+
+  const appliedJobIds = new Set(
+    appRows
+      .filter((row) => row.status !== "rejected" && row.status !== "cancelled")
+      .map((row) => String(row.job_id)),
+  );
 
   const now = Date.now();
   const starts = expRows.map((r) => r.start_date).filter((v) => Number.isFinite(v));
@@ -99,7 +110,8 @@ async function listHydration(ctx: QueryCtx, user: Doc<"users"> | null, loadSaved
 
   return {
     userSkills: skillRows.map((row) => ({ skill_id: row.skill_id, proficiency: row.proficiency })),
-    savedJobIds: new Set(saved.map((row) => row.job_id)),
+    savedJobIds: new Set(saved.map((row) => String(row.job_id))),
+    appliedJobIds,
     skillCache: new Map(),
     yearsExperience,
     educationCount: eduRows.length,
@@ -173,6 +185,12 @@ async function enrichJob(ctx: QueryCtx, job: Doc<"jobs">, user: Doc<"users"> | n
         .withIndex("by_job_and_user", (q) => q.eq("job_id", job._id).eq("user_id", user._id))
         .collect();
       has_applied = mine.some((row) => row.status !== "rejected" && row.status !== "cancelled");
+    } else {
+      has_applied = list.appliedJobIds.has(String(job._id));
+    }
+
+    if (has_applied) {
+      is_bookmarked = false;
     }
   }
 
@@ -762,10 +780,12 @@ export const listSaved = authedQuery({
     const hydration = await listHydration(ctx, ctx.user);
     const out = [];
     for (const row of saved) {
+      if (hydration.appliedJobIds.has(String(row.job_id))) continue;
       const job = await ctx.db.get(row.job_id);
       if (!job) continue;
       if (args.search && !`${job.title ?? ""}`.toLowerCase().includes(args.search.toLowerCase())) continue;
       const enriched = await enrichJob(ctx, job, ctx.user, hydration);
+      if (enriched.has_applied) continue;
       out.push({
         ...enriched,
         saved_at: (row as any)._creationTime ?? (row as any).created_at,
@@ -869,6 +889,13 @@ export const isSaved = optionalAuthQuery({
   returns: v.boolean(),
   handler: async (ctx, args) => {
     if (!ctx.user) return false;
+    const applications = await ctx.db
+      .query("job_applications")
+      .withIndex("by_job_and_user", (q) => q.eq("job_id", args.jobId).eq("user_id", ctx.user._id))
+      .collect();
+    if (applications.some((a) => a.status !== "rejected" && a.status !== "cancelled")) {
+      return false;
+    }
     const existing = await savedJobsFor(ctx, args.jobId, ctx.user._id);
     return existing.length > 0;
   },
@@ -884,6 +911,13 @@ export const toggleSave = authedMutation({
         await ctx.db.delete(row._id);
       }
       return false;
+    }
+    const applications = await ctx.db
+      .query("job_applications")
+      .withIndex("by_job_and_user", (q) => q.eq("job_id", args.jobId).eq("user_id", ctx.user._id))
+      .collect();
+    if (applications.some((a) => a.status !== "rejected" && a.status !== "cancelled")) {
+      throw new Error("You have already applied to this job");
     }
     await ctx.db.insert("saved_jobs", { job_id: args.jobId, user_id: ctx.user._id });
     return true;

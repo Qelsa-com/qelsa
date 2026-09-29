@@ -297,6 +297,16 @@ export const apply = authedMutation({
       applied_at: Date.now(),
     });
     await bumpJobCount(ctx, args.jobId, "application_count", 1);
+
+    // Automatically remove from saved_jobs upon applying so a job is not both saved and applied
+    const savedEntries = await ctx.db
+      .query("saved_jobs")
+      .withIndex("by_job_and_user", (q) => q.eq("job_id", args.jobId).eq("user_id", ctx.user._id))
+      .collect();
+    for (const entry of savedEntries) {
+      await ctx.db.delete(entry._id);
+    }
+
     const answers = (args.answers ?? {}) as Record<string, string>;
     for (const [questionId, answer] of Object.entries(answers)) {
       const question = await ctx.db.get(questionId as Id<"questions">);
