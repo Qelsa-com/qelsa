@@ -12,7 +12,7 @@ import { SkillOverflowTags } from "@/components/skills/SkillOverflowTags";
 import { skillRoleSubtitle } from "@/constants/skills";
 import { useDeleteCertificationMutation } from "@/features/api/certificationsApi";
 import { Certification } from "@/types/certification";
-import { GraduationCap, Pencil, Trash2 } from "lucide-react";
+import { GraduationCap, Link2, Pencil, Trash2 } from "lucide-react";
 import { Fragment, useState } from "react";
 import { toast } from "sonner";
 import { ProfileCard, ProfileCardDivider, ProfileCardEmpty } from "./ProfileCard";
@@ -62,6 +62,8 @@ export function CertificationsCard({ certifications, isOwner, onAdd, onEditItem 
               const skills = (certification.skills ?? []).map((skill) => skill.name).filter(Boolean);
               const name = getCertName(certification);
               const issuer = certification.issuing_body?.name ?? (certification as unknown as { issuingOrganization?: string }).issuingOrganization;
+              const credentialId = certification.credential_id || (certification as unknown as { credentialId?: string }).credentialId;
+              const credentialUrl = certification.credential_url || (certification as unknown as { credentialUrl?: string }).credentialUrl;
               const certKey = certification.id ?? (certification as unknown as { _id?: string })._id ?? index;
 
               return (
@@ -93,6 +95,22 @@ export function CertificationsCard({ certifications, isOwner, onAdd, onEditItem 
                           <p className="text-sm font-medium text-[#00d4ff]">{certification.issuing_body?.name ?? (certification as unknown as { issuingOrganization?: string }).issuingOrganization}</p>
                         )}
                         {meta && <p className="text-xs sm:text-[13px] text-white/60">{meta}</p>}
+                        {credentialId && (
+                          <p className="text-xs sm:text-[13px] text-white/60">
+                            Credential ID: <span className="font-medium text-white/90">{credentialId}</span>
+                          </p>
+                        )}
+                        {credentialUrl && (
+                          <a
+                            href={credentialUrl.startsWith("http://") || credentialUrl.startsWith("https://") ? credentialUrl : `https://${credentialUrl}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex w-fit items-center gap-1.5 text-xs font-medium text-[#00d4ff] hover:underline sm:text-[13px]"
+                          >
+                            <Link2 className="size-3.5" />
+                            <span>View certificate</span>
+                          </a>
+                        )}
                       </div>
 
                       {skills.length > 0 && <SkillOverflowTags skills={skills} subtitle={skillRoleSubtitle(name, issuer)} sectionLabel="Skills used" />}
