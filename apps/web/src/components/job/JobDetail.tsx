@@ -390,8 +390,8 @@ export function JobDetail() {
       </div>
 
       {/* Content. Tighter padding on a phone; the lg values are the desktop
-          layout unchanged. */}
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 pb-8 pt-4 sm:px-6 lg:gap-6 lg:px-8 lg:pb-12 lg:pt-8">
+          layout unchanged. Extra bottom padding on mobile keeps the content clear of the fixed bottom bar. */}
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 pb-28 pt-4 sm:px-6 lg:gap-6 lg:px-8 lg:pb-12 lg:pt-8">
         {/* Breadcrumb + share sit on one row above the card. Desktop only —
             the mobile frame uses the header bar above instead. */}
         <div className="hidden w-full items-center justify-between lg:flex">
@@ -732,15 +732,16 @@ export function JobDetail() {
           </div>
         </div>
 
-        <div className="flex flex-col gap-3 lg:hidden">
-          <div className="flex items-center gap-3">
+        {/* Mobile fixed floating bottom actions bar */}
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-glass-border bg-[#06060f]/90 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-lg lg:hidden">
+          <div className="mx-auto flex max-w-lg items-center gap-3">
             {isOwner ? (
               <>
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => router.push(`/jobs/create-job?jobId=${job.id}`)}
-                  className="h-auto flex-1 rounded-full border-[1.5px] border-white/20 bg-transparent px-6 py-3.5 text-sm text-white hover:bg-white/5"
+                  className="h-auto flex-1 rounded-full border-[1.5px] border-white/20 bg-transparent px-5 py-3.5 text-sm font-semibold text-white hover:bg-white/5"
                 >
                   <Pencil className="mr-2 size-4" />
                   Edit job
@@ -748,7 +749,7 @@ export function JobDetail() {
                 <Button
                   type="button"
                   onClick={() => router.push(`/jobs/${job.id}/applications`)}
-                  className={`h-auto flex-1 rounded-full px-6 py-3.5 text-base font-semibold text-white ${GRADIENT} hover:opacity-90`}
+                  className={`h-auto flex-1 rounded-full px-5 py-3.5 text-sm font-semibold text-white ${GRADIENT} hover:opacity-90`}
                 >
                   <Users className="mr-2 size-4" />
                   Applications ({job.application_count ?? job.applications?.length ?? 0})
@@ -757,14 +758,25 @@ export function JobDetail() {
             ) : (
               <>
                 {isAuthenticated && (
-                  <Button type="button" variant="outline" onClick={handleSave} className="h-auto flex-1 rounded-full border-[1.5px] border-white/20 bg-transparent px-6 py-3.5 text-sm text-white hover:bg-white/5">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleSave}
+                    className="h-auto flex-1 rounded-full border-[1.5px] border-white/20 bg-transparent px-5 py-3.5 text-sm font-semibold text-white hover:bg-white/5"
+                  >
                     {saved ? "Saved" : "Save job"}
                   </Button>
                 )}
                 {applied ? (
-                  <span className="flex-1 rounded-full border border-neon-green/30 bg-neon-green/10 px-6 py-3.5 text-center text-base font-semibold text-neon-green">Applied</span>
+                  <span className="flex-1 rounded-full border border-neon-green/30 bg-neon-green/10 px-5 py-3.5 text-center text-sm font-semibold text-neon-green">
+                    Applied
+                  </span>
                 ) : (
-                  <Button onClick={handleApply} aria-label={isExternalApply ? "Apply now (opens in a new tab)" : undefined} className={`h-auto flex-1 rounded-full px-6 py-3.5 text-base font-semibold text-white ${GRADIENT} hover:opacity-90`}>
+                  <Button
+                    onClick={handleApply}
+                    aria-label={isExternalApply ? "Apply now (opens in a new tab)" : undefined}
+                    className={`h-auto flex-1 rounded-full px-5 py-3.5 text-base font-semibold text-white ${GRADIENT} hover:opacity-90 shadow-lg shadow-purple-500/20`}
+                  >
                     <ApplyNowLabel external={isExternalApply} />
                   </Button>
                 )}
