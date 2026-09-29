@@ -206,9 +206,21 @@ export function QuickApplyModal({ isOpen, onClose, job, companyName, screeningQu
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
       <div className="relative flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-[24px] border border-glass-border bg-[#06060f] text-white">
+        {/* Mobile top close button row so it never overlaps stepper or content */}
+        <div className="flex items-center justify-end px-5 pt-4 pb-1 sm:hidden">
+          <button
+            onClick={onClose}
+            className="flex size-8 items-center justify-center rounded-full border border-glass-border bg-white/[0.04] text-white/70 transition-colors hover:text-white"
+            aria-label="Close"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+
+        {/* Desktop absolute close button */}
         <button
           onClick={onClose}
-          className="absolute right-5 top-5 z-10 flex size-9 items-center justify-center rounded-full border border-glass-border bg-white/[0.04] text-white/70 transition-colors hover:text-white"
+          className="absolute right-5 top-5 z-10 hidden sm:flex size-9 items-center justify-center rounded-full border border-glass-border bg-white/[0.04] text-white/70 transition-colors hover:text-white"
           aria-label="Close"
         >
           <X className="size-4" />
@@ -231,9 +243,9 @@ export function QuickApplyModal({ isOpen, onClose, job, companyName, screeningQu
           <>
             {/* Scrollable content */}
             <div className="flex-1 overflow-y-auto">
-              <div className="flex flex-col gap-10 px-6 pb-12 pt-10 sm:px-10">
+              <div className="flex flex-col gap-8 px-5 pb-12 pt-2 sm:gap-10 sm:px-10 sm:pt-10">
                 {/* Stepper */}
-                <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-4 sm:pr-14">
                   <div className="flex items-start justify-between gap-2">
                     {STEP_LABELS.map((label, i) => {
                       const done = i < activeIndex;
