@@ -405,9 +405,9 @@ export function ApplicationsManagementPage() {
         {/* Header, Stats & Filter bar - hidden on mobile when viewing candidate details */}
         <div className={`${mobileDetailOpen ? "hidden lg:flex" : "flex"} flex-col gap-8`}>
           {/* Header */}
-          <button onClick={() => goBackJobs(router, "/jobs/posted")} className="flex w-fit items-center gap-2 text-sm text-white/70 hover:text-white transition-colors">
+          <button onClick={() => goBackJobs(router, "/jobs/applications")} className="flex w-fit items-center gap-2 text-sm text-white/70 hover:text-white transition-colors">
             <ArrowLeft className="w-4 h-4" />
-            Back to job posts
+            Back to applications
           </button>
 
           <div className="flex flex-wrap items-center justify-between gap-4">
@@ -418,7 +418,7 @@ export function ApplicationsManagementPage() {
                   <Select
                     value={String(id ?? "")}
                     onValueChange={(val) => {
-                      router.push(`/jobs/applications?jobId=${val}`);
+                      router.push(`/jobs/${val}/applications`);
                     }}
                   >
                     <SelectTrigger className="h-9 w-auto gap-2 rounded-full border-white/15 bg-white/5 px-4 text-xs sm:text-sm font-semibold text-white hover:bg-white/10">

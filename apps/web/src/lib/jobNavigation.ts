@@ -16,7 +16,8 @@ export function isJobsListingRoute(path: string): boolean {
     pathname.startsWith("/jobs/my-jobs/") ||
     pathname === "/jobs/almost" ||
     pathname === "/jobs/ready" ||
-    pathname === "/jobs/posted"
+    pathname === "/jobs/posted" ||
+    pathname === "/jobs/applications"
   );
 }
 

@@ -105,7 +105,9 @@ export function EmployerSidebar({
       label: "Applications",
       icon: BookOpen,
       href: "/jobs/applications",
-      isActive: pathname.startsWith("/jobs/applications"),
+      isActive:
+        pathname.startsWith("/jobs/applications") ||
+        (pathname.startsWith("/jobs/") && pathname.endsWith("/applications")),
     },
     {
       id: "manage-jobs",

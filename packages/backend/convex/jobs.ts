@@ -763,8 +763,25 @@ export const listPosted = authedQuery({
       jobs = jobs.filter((j) => `${j.title ?? ""} ${j.company_name ?? ""}`.toLowerCase().includes(q));
     }
     const hydration = await listHydration(ctx, ctx.user);
-    const out = [];
-    for (const job of jobs) out.push(await enrichJob(ctx, job, ctx.user, hydration));
+    const out = await Promise.all(
+      jobs.map(async (job) => {
+        const [enriched, sortedApps, shortlistedApps] = await Promise.all([
+          enrichJob(ctx, job, ctx.user, hydration),
+          ctx.db
+            .query("job_applications")
+            .withIndex("by_job_and_status", (q) => q.eq("job_id", job._id).eq("status", "sorted"))
+            .collect(),
+          ctx.db
+            .query("job_applications")
+            .withIndex("by_job_and_status", (q) => q.eq("job_id", job._id).eq("status", "shortlisted"))
+            .collect(),
+        ]);
+        return {
+          ...enriched,
+          shortlisted_count: sortedApps.length + shortlistedApps.length,
+        };
+      }),
+    );
     return out;
   },
 });
