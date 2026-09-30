@@ -4,7 +4,7 @@
 
 :root {
   --font-size: 16px;
-  --background: #0a0a0f;
+  --background: #06060f;
   --foreground: #ffffff;
   --card: rgba(255, 255, 255, 0.05);
   --card-foreground: #ffffff;
@@ -155,18 +155,10 @@
     cursor: pointer;
   }
 
+  html,
   body {
     @apply bg-background text-foreground;
-    background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
-    background-attachment: fixed;
-  }
-
-  /* Fixed attachment + backdrop-filter on the tab bar fights mobile
-     browsers while the page scrolls; keep the gradient but let it scroll. */
-  @media (max-width: 1023px) {
-    body {
-      background-attachment: scroll;
-    }
+    background-color: #06060f;
   }
 
   .safe-area-bottom,

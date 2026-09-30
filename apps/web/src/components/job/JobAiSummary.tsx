@@ -6,7 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useSummarizeJobAction } from "@/features/api/jobsApi";
 import { toastUnknownError } from "@/lib/errors";
 import type { Id } from "@qelsa/backend";
-import { ChevronDown, ChevronUp, Zap } from "lucide-react";
+import { ChevronUp, Zap } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -28,7 +28,7 @@ export function JobAiSummary({
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const generate = useSummarizeJobAction();
-  const [expanded, setExpanded] = useState(Boolean(summary));
+  const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState(false);
   const [local, setLocal] = useState<JobAiSummaryData | null>(summary ?? null);
   const data = isAuthenticated ? (summary ?? local) : null;
@@ -58,11 +58,11 @@ export function JobAiSummary({
 
   if (data && expanded) {
     return (
-      <Card className="gap-4 rounded-[20px] border-glass-border bg-white/[0.03] p-4 lg:p-6">
+      <Card className="flex flex-col gap-4 rounded-[20px] border border-white/10 bg-white/[0.03] p-5 lg:p-6">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3">
             <Zap className="size-5 shrink-0 text-neon-purple" />
-            <h3 className="text-lg font-bold text-white lg:text-xl">AI Summary</h3>
+            <h3 className="text-base font-bold text-white lg:text-lg">AI Job Summary</h3>
           </div>
           <button
             type="button"
@@ -105,31 +105,19 @@ export function JobAiSummary({
   }
 
   return (
-    <Card className="flex-col items-start gap-3 rounded-[20px] border-glass-border bg-white/[0.03] p-4 lg:flex-row lg:items-center lg:gap-4 lg:p-5">
-      <div className="flex size-10 shrink-0 items-center justify-center rounded-[20px] border border-glass-border bg-white/[0.04]">
-        <Zap className="size-5 text-neon-purple" />
-      </div>
-      <div className="flex w-full flex-1 flex-col gap-1 lg:w-auto">
-        <span className="text-xs font-semibold text-white">AI Summary</span>
-        <span className="text-sm leading-5 text-white/70">
-          {data
-            ? "A short AI overview of this role, requirements, and why it might fit."
-            : "Get a quick AI-powered summary of all job requirements, skills, and qualifications."}
-        </span>
+    <Card className="flex flex-col items-start gap-4 rounded-[20px] border border-white/10 bg-white/[0.03] p-5 sm:flex-row sm:items-center sm:justify-between lg:p-6">
+      <div className="flex w-full flex-1 flex-col gap-1">
+        <h3 className="text-base font-semibold text-white">AI Job Summary</h3>
+        <p className="text-sm leading-5 text-white/60">
+          A concise overview of the role, responsibilities, requirements, and important details.
+        </p>
       </div>
       <Button
         onClick={() => void open()}
         disabled={loading || authLoading}
-        className={`h-auto w-full shrink-0 rounded-full px-4 py-2.5 text-sm font-semibold text-white lg:w-auto ${GRADIENT} hover:opacity-90 disabled:opacity-50`}
+        className={`h-auto w-full shrink-0 rounded-full px-6 py-2.5 text-sm font-semibold text-white sm:w-auto ${GRADIENT} hover:opacity-90 disabled:opacity-50 shadow-lg shadow-purple-500/20`}
       >
-        {loading ? "Summarizing…" : data ? (
-          <span className="inline-flex items-center gap-1">
-            Show summary
-            <ChevronDown className="size-3.5" />
-          </span>
-        ) : (
-          "Summarize Requirements"
-        )}
+        {loading ? "Summarizing…" : "View summary"}
       </Button>
     </Card>
   );

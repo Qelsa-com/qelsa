@@ -353,11 +353,7 @@ export function JobDetail() {
         { label: "Applications", value: `${job.application_count ?? job.applications?.length ?? 0}` },
       ]
     : [
-        // Readiness is the deterministic skill-vs-skill match; the composite
-        // (whole profile/resume) is shown separately as Resume Fit. Always render all
-        // four tiles so the mobile 2×2 grid stays balanced.
-        { label: "Readiness Score", value: competency ? `${competency.readiness}%` : "—" },
-        { label: "Resume Fit", value: overallMatch != null ? `${overallMatch}%` : "—" },
+        { label: "Readiness score", value: competency ? `${competency.readiness}%` : "—" },
         { label: "Views", value: formatCount(job.view_count ?? 0) },
         { label: "Applications", value: `${job.application_count ?? job.applications?.length ?? 0}` },
       ];
@@ -559,8 +555,8 @@ export function JobDetail() {
 
           <h1 className="text-2xl font-bold leading-8 text-white lg:text-[32px] lg:leading-10">{title}</h1>
 
-          {/* Four metrics overflow a phone in one row; wrap to 2×2 below lg. */}
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {/* 3 metric cards */}
+          <div className="grid grid-cols-3 gap-3 lg:gap-4">
             {metrics.map((m) => (
               <div key={m.label} className="flex min-w-0 flex-col gap-1 rounded-xl border border-glass-border bg-white/[0.03] p-3 lg:gap-1.5 lg:rounded-2xl lg:p-4">
                 <span className="text-xs leading-tight text-white/45 lg:leading-4">{m.label}</span>
@@ -588,16 +584,19 @@ export function JobDetail() {
           <div className="flex min-w-0 flex-1 flex-col gap-4 lg:gap-6">
             <div id="job-overview" className="flex scroll-mt-36 flex-col gap-4 lg:gap-6">
             {!isOwner && (
-              <Card className="flex-col items-start gap-3 rounded-[20px] border-neon-cyan/40 bg-white/[0.03] p-4 lg:flex-row lg:items-center lg:gap-4 lg:p-5">
-                <div className="flex size-10 shrink-0 items-center justify-center rounded-[20px] border border-glass-border bg-white/[0.04]">
-                  <FileText className="size-5 text-neon-cyan" />
+              <Card className="flex flex-col items-start gap-4 rounded-[20px] border border-white/10 bg-white/[0.03] p-5 sm:flex-row sm:items-center sm:justify-between lg:p-6">
+                <div className="flex w-full flex-1 flex-col gap-1">
+                  <h3 className="text-base font-semibold text-white">Resume Match Intelligence</h3>
+                  <p className="text-sm leading-5 text-white/60">
+                    See how you align with this role based on the JD, and uploaded resume
+                  </p>
                 </div>
-                <div className="flex w-full flex-1 flex-col gap-1 lg:w-auto">
-                  <span className="text-sm font-semibold text-white">Profile & Resume Match Intelligence</span>
-                  <span className="text-sm leading-5 text-white/70">See how your profile and resume align with this role, where the gaps are, and what to do next.</span>
-                </div>
-                <Button variant="outline" onClick={() => setResumeSelectOpen(true)} className="h-auto w-full shrink-0 rounded-full border-neon-cyan/50 bg-transparent px-4 py-2.5 text-sm font-semibold text-neon-cyan hover:bg-neon-cyan/10 lg:w-auto">
-                  Check Match Details
+                <Button
+                  variant="outline"
+                  onClick={() => setResumeSelectOpen(true)}
+                  className="h-auto w-full shrink-0 rounded-full border-neon-cyan/50 bg-[#061820]/60 px-6 py-2.5 text-sm font-semibold text-neon-cyan hover:bg-neon-cyan/10 sm:w-auto"
+                >
+                  Check match
                 </Button>
               </Card>
             )}
@@ -851,9 +850,6 @@ export function JobDetail() {
             )}
           </div>
         </div>
-
-        {/* Lets the last sections scroll up under the tab row. */}
-        <div aria-hidden className="h-[calc(100vh-8rem)]" />
       </div>
 
       <MatchChatDrawer isOpen={matchOpen} onClose={() => setMatchOpen(false)} jobId={String(job.id)} jobTitle={title} company={companyName} existingSessionId={selectedMatchSessionId} />
