@@ -257,13 +257,24 @@ export function JobDetail() {
 
   const scrollToSection = (sectionId: string) => {
     setActiveSection(sectionId);
-    const el = document.getElementById(sectionId);
-    if (!el) return;
     sectionScrollLock.current = true;
-    el.scrollIntoView({ behavior: "smooth", block: "start" });
-    window.setTimeout(() => {
+    const unlock = () => {
       sectionScrollLock.current = false;
-    }, 900);
+    };
+    if (sectionId === "job-overview") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      window.setTimeout(unlock, 900);
+      return;
+    }
+    const el = document.getElementById(sectionId);
+    if (!el) {
+      unlock();
+      return;
+    }
+    // Clear the sticky site nav and the section tab row.
+    const top = el.getBoundingClientRect().top + window.scrollY - 120;
+    window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+    window.setTimeout(unlock, 900);
   };
 
   if (!id || isLoading) return <JobDetailSkeleton />;
@@ -827,6 +838,9 @@ export function JobDetail() {
             )}
           </div>
         </div>
+
+        {/* Lets the last sections scroll up under the tab row. */}
+        <div aria-hidden className="h-[calc(100vh-8rem)]" />
       </div>
 
       <MatchChatDrawer isOpen={matchOpen} onClose={() => setMatchOpen(false)} jobId={String(job.id)} jobTitle={title} company={companyName} existingSessionId={selectedMatchSessionId} />
