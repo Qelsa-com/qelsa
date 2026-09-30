@@ -212,6 +212,7 @@ export function JobDetail() {
 
   const sectionScrollLock = useRef(false);
   const [activeSection, setActiveSection] = useState("job-overview");
+  const [tabStickyTop, setTabStickyTop] = useState(64);
   const pageSections = useMemo(() => {
     const items: { id: string; label: string }[] = [{ id: "job-overview", label: "Overview" }];
     if (job?.description?.trim()) items.push({ id: "job-description", label: "Job description" });
@@ -224,13 +225,25 @@ export function JobDetail() {
   }, [job, isOwner]);
 
   useEffect(() => {
+    const applyStickyTop = () => {
+      const header = [...document.querySelectorAll("header")].find((el) => el.getBoundingClientRect().height > 0);
+      if (!header) return;
+      const next = Math.round(header.getBoundingClientRect().height);
+      setTabStickyTop((prev) => (prev === next ? prev : next));
+    };
+    applyStickyTop();
+    window.addEventListener("resize", applyStickyTop);
+    return () => window.removeEventListener("resize", applyStickyTop);
+  }, []);
+
+  useEffect(() => {
     let frame = 0;
     const update = () => {
       frame = 0;
       if (sectionScrollLock.current) return;
       // The section whose top has passed the sticky nav + tab row is current.
       // Before any section reaches that line, Overview stays selected.
-      const marker = 128;
+      const marker = sectionScrollOffset() + 12;
       let current = "job-overview";
       for (const section of pageSections) {
         const el = document.getElementById(section.id);
@@ -272,7 +285,7 @@ export function JobDetail() {
       return;
     }
     // Clear the sticky site nav and the section tab row.
-    const top = el.getBoundingClientRect().top + window.scrollY - 120;
+    const top = el.getBoundingClientRect().top + window.scrollY - sectionScrollOffset();
     window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
     window.setTimeout(unlock, 900);
   };
@@ -418,7 +431,7 @@ export function JobDetail() {
   };
 
   return (
-    <div className="overflow-x-hidden text-white">
+    <div className="overflow-x-clip text-white">
       {/* Mobile header bar (Figma 721:264). Desktop keeps the breadcrumb below. */}
       <div className="flex h-16 items-center justify-between border-b border-white/[0.12] bg-white/[0.06] px-4 lg:hidden">
         <div className="flex items-center gap-3">
@@ -567,7 +580,7 @@ export function JobDetail() {
           )}
         </Card>
 
-        <JobSectionTabs sections={pageSections} activeId={activeSection} onSelect={scrollToSection} />
+        <JobSectionTabs sections={pageSections} activeId={activeSection} onSelect={scrollToSection} stickyTop={tabStickyTop} />
 
         {/* Two columns on desktop; the sidebar drops below the content on a phone. */}
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-6">
@@ -894,17 +907,28 @@ function ShareButton({ children, onClick, active }: { children: React.ReactNode;
   );
 }
 
+/** Distance from the viewport top to just under the sticky section tabs. */
+function sectionScrollOffset() {
+  const header = [...document.querySelectorAll("header")].find((el) => el.getBoundingClientRect().height > 0);
+  const nav = document.querySelector('nav[aria-label="Job sections"]');
+  const headerHeight = header?.getBoundingClientRect().height ?? 64;
+  const navHeight = nav?.getBoundingClientRect().height ?? 48;
+  return headerHeight + navHeight + 8;
+}
+
 function JobSectionTabs({
   sections,
   activeId,
   onSelect,
+  stickyTop,
 }: {
   sections: { id: string; label: string }[];
   activeId: string;
   onSelect: (id: string) => void;
+  stickyTop: number;
 }) {
   return (
-    <nav aria-label="Job sections" className="sticky top-16 z-30 border-b border-white/[0.08] bg-background/95 backdrop-blur-md">
+    <nav aria-label="Job sections" className="sticky z-30 border-b border-white/[0.08] bg-[#06060f]" style={{ top: stickyTop }}>
       <div className="flex gap-1 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {sections.map((section) => {
           const active = section.id === activeId;
