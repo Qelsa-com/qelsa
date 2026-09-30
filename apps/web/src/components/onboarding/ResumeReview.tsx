@@ -420,25 +420,14 @@ export function ResumeReview({
         <CardSection
           title="Certifications"
           action={
-            <div className="flex items-center gap-3">
-              {(profile.certifications ?? []).length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => handleOpenEditCert(0)}
-                  className="cursor-pointer text-sm font-medium text-neon-cyan transition-opacity hover:opacity-80"
-                >
-                  Edit
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={handleOpenAddCert}
-                className="flex cursor-pointer items-center gap-1 font-medium text-neon-cyan transition-opacity hover:opacity-80"
-              >
-                <span className="text-base leading-none">+</span>
-                <span className="text-sm">Add</span>
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={handleOpenAddCert}
+              className="flex cursor-pointer items-center gap-1 font-medium text-neon-cyan transition-opacity hover:opacity-80"
+            >
+              <span className="text-base leading-none">+</span>
+              <span className="text-sm">Add</span>
+            </button>
           }
         >
           <CertificationsReadView certifications={profile.certifications ?? []} onEdit={handleOpenEditCert} />

@@ -130,7 +130,15 @@ export function ProfileEditor() {
 
   const photoInputRef = useRef<HTMLInputElement>(null);
   const resumeInputRef = useRef<HTMLInputElement>(null);
+  const mobileTabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const [photoUploading, setPhotoUploading] = useState(false);
+
+  useEffect(() => {
+    const el = mobileTabRefs.current[activeSection];
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+    }
+  }, [activeSection]);
 
   useEffect(() => {
     if (user && !profile) {
@@ -337,6 +345,9 @@ export function ProfileEditor() {
             return (
               <button
                 key={item.id}
+                ref={(el) => {
+                  mobileTabRefs.current[item.id] = el;
+                }}
                 type="button"
                 onClick={() => setActiveSection(item.id)}
                 className={`pb-3 text-sm font-semibold transition-colors relative whitespace-nowrap shrink-0 ${
