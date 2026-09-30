@@ -210,6 +210,62 @@ export function JobDetail() {
     });
   }, [id, isAuthenticated, job, recordJobView]);
 
+  const sectionScrollLock = useRef(false);
+  const [activeSection, setActiveSection] = useState("job-overview");
+  const pageSections = useMemo(() => {
+    const items: { id: string; label: string }[] = [{ id: "job-overview", label: "Overview" }];
+    if (job?.description?.trim()) items.push({ id: "job-description", label: "Job description" });
+    if ((job?.job_skills ?? []).some((skill) => skill.skill?.name || skill.title)) {
+      items.push({ id: "job-skills", label: "Skills" });
+    }
+    if (job && !isOwner && job.competency) items.push({ id: "how-you-fit", label: "Readiness score" });
+    items.push({ id: "job-company", label: "About company" });
+    return items;
+  }, [job, isOwner]);
+
+  useEffect(() => {
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      if (sectionScrollLock.current) return;
+      // The section whose top has passed the sticky nav + tab row is current.
+      // Before any section reaches that line, Overview stays selected.
+      const marker = 128;
+      let current = "job-overview";
+      for (const section of pageSections) {
+        const el = document.getElementById(section.id);
+        if (el && el.getBoundingClientRect().top <= marker) current = section.id;
+      }
+      setActiveSection((prev) => (prev === current ? prev : current));
+    };
+    const onScroll = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(update);
+    };
+    const unlock = () => {
+      sectionScrollLock.current = false;
+    };
+    update();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("scrollend", unlock);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("scrollend", unlock);
+      if (frame) window.cancelAnimationFrame(frame);
+    };
+  }, [pageSections]);
+
+  const scrollToSection = (sectionId: string) => {
+    setActiveSection(sectionId);
+    const el = document.getElementById(sectionId);
+    if (!el) return;
+    sectionScrollLock.current = true;
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+    window.setTimeout(() => {
+      sectionScrollLock.current = false;
+    }, 900);
+  };
+
   if (!id || isLoading) return <JobDetailSkeleton />;
   if (error) return <p className="p-6 text-white/70 lg:p-8">Error loading job.</p>;
   if (!job) return <p className="p-6 text-white/70 lg:p-8">No job found.</p>;
@@ -242,7 +298,7 @@ export function JobDetail() {
     .filter(Boolean);
 
   const overallMatch = matchSession?.analysis?.overall;
-  const metrics: { label: string; value: React.ReactNode; action?: React.ReactNode }[] = isOwner
+  const metrics: { label: string; value: React.ReactNode }[] = isOwner
     ? [
         {
           label: "Job Status",
@@ -276,28 +332,7 @@ export function JobDetail() {
         // Readiness is the deterministic skill-vs-skill match; the composite
         // (whole profile/resume) is shown separately as Resume Fit. Always render all
         // four tiles so the mobile 2×2 grid stays balanced.
-        {
-          label: "Readiness Score",
-          value: competency ? `${competency.readiness}%` : "—",
-          action: (
-            <button
-              type="button"
-              onClick={() => {
-                const el = document.getElementById("how-you-fit");
-                if (el) {
-                  el.scrollIntoView({ behavior: "smooth" });
-                } else if (!isAuthenticated) {
-                  router.push(`/auth?actionType=profile&returnUrl=${encodeURIComponent(`/jobs/${id}`)}`);
-                } else {
-                  toast.info("Add skills to your profile to view your readiness breakdown.");
-                }
-              }}
-              className="rounded-full border border-white/15 bg-white/[0.04] px-2.5 py-0.5 text-xs font-medium text-white/80 transition-colors hover:bg-white/10 hover:text-white"
-            >
-              View
-            </button>
-          ),
-        },
+        { label: "Readiness Score", value: competency ? `${competency.readiness}%` : "—" },
         { label: "Resume Fit", value: overallMatch != null ? `${overallMatch}%` : "—" },
         { label: "Views", value: formatCount(job.view_count ?? 0) },
         { label: "Applications", value: `${job.application_count ?? job.applications?.length ?? 0}` },
@@ -448,7 +483,7 @@ export function JobDetail() {
                     </span>
                   )}
                 </div>
-                {locationLabel && <p className="text-xs text-white/45">{locationLabel}</p>}
+                {locationLabel && <p className="block w-full text-xs text-white/45">{locationLabel}</p>}
               </div>
             </div>
             {/* Desktop keeps these in the hero; the mobile frame moves them to a
@@ -504,10 +539,7 @@ export function JobDetail() {
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             {metrics.map((m) => (
               <div key={m.label} className="flex min-w-0 flex-col gap-1 rounded-xl border border-glass-border bg-white/[0.03] p-3 lg:gap-1.5 lg:rounded-2xl lg:p-4">
-                <div className="flex items-center justify-between gap-1">
-                  <span className="text-xs leading-tight text-white/45 lg:leading-4">{m.label}</span>
-                  {m.action}
-                </div>
+                <span className="text-xs leading-tight text-white/45 lg:leading-4">{m.label}</span>
                 <span className="text-lg font-bold text-white lg:text-2xl">{m.value}</span>
               </div>
             ))}
@@ -524,10 +556,13 @@ export function JobDetail() {
           )}
         </Card>
 
+        <JobSectionTabs sections={pageSections} activeId={activeSection} onSelect={scrollToSection} />
+
         {/* Two columns on desktop; the sidebar drops below the content on a phone. */}
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-6">
           {/* Left */}
           <div className="flex min-w-0 flex-1 flex-col gap-4 lg:gap-6">
+            <div id="job-overview" className="flex scroll-mt-36 flex-col gap-4 lg:gap-6">
             {!isOwner && (
               <Card className="flex-col items-start gap-3 rounded-[20px] border-neon-cyan/40 bg-white/[0.03] p-4 lg:flex-row lg:items-center lg:gap-4 lg:p-5">
                 <div className="flex size-10 shrink-0 items-center justify-center rounded-[20px] border border-glass-border bg-white/[0.04]">
@@ -546,19 +581,23 @@ export function JobDetail() {
             {!isOwner && user?.account_type !== "recruiter" && (
               <JobAiSummary jobId={String(job.id)} summary={job.ai_summary} />
             )}
+            </div>
 
             {/* Job Description */}
             {description && (
+              <div id="job-description" className="scroll-mt-36">
               <SectionCard icon={<FileText className="size-5 text-neon-cyan" />} title="Job Description">
                 <div
                   className="break-words text-sm leading-[22px] text-white/70 max-lg:overflow-x-auto [&_p]:mb-3 [&_p:last-child]:mb-0 [&_ul]:mb-3 [&_ul]:list-disc [&_ul]:space-y-1.5 [&_ul]:pl-5 [&_ol]:mb-3 [&_ol]:list-decimal [&_ol]:space-y-1.5 [&_ol]:pl-5 [&_li]:leading-[22px] [&_strong]:font-semibold [&_strong]:text-white [&_h1]:mb-3 [&_h1]:text-base [&_h1]:font-semibold [&_h1]:text-white [&_h2]:mb-3 [&_h2]:text-base [&_h2]:font-semibold [&_h2]:text-white [&_h3]:mb-2 [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:text-white [&_a]:text-neon-cyan [&_a]:underline"
                   dangerouslySetInnerHTML={{ __html: description }}
                 />
               </SectionCard>
+              </div>
             )}
 
             {/* Required Skills */}
             {dailySkills.length > 0 && (
+              <div id="job-skills" className="scroll-mt-36">
               <SectionCard icon={<Briefcase className="size-5 text-neon-cyan" />} title="What this role uses daily">
                 <p className="text-sm leading-[22px] text-white/70">{skillsSubtitle}</p>
                 <div className="flex flex-wrap gap-2">
@@ -569,18 +608,20 @@ export function JobDetail() {
                   ))}
                 </div>
               </SectionCard>
+              </div>
             )}
 
             {/* How you fit this role — reuses the data-wired competency panel.
                 The ring shows the skill-based readiness; the composite stays
                 in the Resume Fit metric so the two scores don't conflate. */}
             {!isOwner && competency && (
-              <div id="how-you-fit" className="scroll-mt-24">
+              <div id="how-you-fit" className="scroll-mt-36">
                 <CompetencyTable competency={competency} experienceMatch={matchSession?.analysis?.experience_match ?? experienceMatch} educationMatch={matchSession?.analysis?.education_match ?? educationMatch} />
               </div>
             )}
 
             {/* About the Company */}
+            <div id="job-company" className="scroll-mt-36">
             <SectionCard icon={<BookOpen className="size-5 text-neon-purple" />} title="About the Company">
               {/*
                 Two shapes, one DOM. On a phone this is a 2-column grid: the logo
@@ -625,6 +666,7 @@ export function JobDetail() {
                 </div>
               </div>
             </SectionCard>
+            </div>
 
             {/* TODO: restore AI-Generated Interview Questions once the feature is wired.
             <SectionCard icon={<HelpCircle className="size-5 text-neon-purple" />} title="AI-Generated Interview Questions">
@@ -835,6 +877,39 @@ function ShareButton({ children, onClick, active }: { children: React.ReactNode;
     >
       {children}
     </button>
+  );
+}
+
+function JobSectionTabs({
+  sections,
+  activeId,
+  onSelect,
+}: {
+  sections: { id: string; label: string }[];
+  activeId: string;
+  onSelect: (id: string) => void;
+}) {
+  return (
+    <nav aria-label="Job sections" className="sticky top-16 z-30 border-b border-white/[0.08] bg-background/95 backdrop-blur-md">
+      <div className="flex gap-1 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {sections.map((section) => {
+          const active = section.id === activeId;
+          return (
+            <button
+              key={section.id}
+              type="button"
+              onClick={() => onSelect(section.id)}
+              aria-current={active ? "true" : undefined}
+              className={`shrink-0 border-b-2 px-3 py-3 text-sm font-semibold transition-colors ${
+                active ? "border-neon-cyan text-neon-cyan" : "border-transparent text-white/55 hover:text-white"
+              }`}
+            >
+              {section.label}
+            </button>
+          );
+        })}
+      </div>
+    </nav>
   );
 }
 
