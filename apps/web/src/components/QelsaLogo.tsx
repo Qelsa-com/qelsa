@@ -7,5 +7,5 @@ export function QelsaLogo({
   className?: string;
   priority?: boolean;
 }) {
-  return <Image src="/qelsa-logo.svg" alt="Qelsa" width={91} height={29} priority={priority} unoptimized className={className} />;
+  return <Image src="/qelsa-logo.svg" alt="Qelsa" width={93} height={32} priority={priority} unoptimized className={className} />;
 }

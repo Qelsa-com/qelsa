@@ -17,6 +17,17 @@ export type ParsedEducation = {
   end_year?: number;
 };
 
+export type ParsedCertification = {
+  name: string;
+  issuing_organization?: string;
+  issue_date?: string;
+  expiration_date?: string;
+  does_not_expire?: boolean;
+  credential_id?: string;
+  credential_url?: string;
+  skills?: string[];
+};
+
 export type ParsedProfile = {
   name?: string;
   email?: string;
@@ -28,6 +39,7 @@ export type ParsedProfile = {
   experiences: ParsedExperience[];
   educations: ParsedEducation[];
   skills: string[];
+  certifications?: ParsedCertification[];
 };
 
 export type ResumeDraft = {
@@ -40,7 +52,7 @@ export type ResumeDraft = {
 const DRAFT_KEY = "qelsa.resumeDraft";
 
 export function emptyParsedProfile(): ParsedProfile {
-  return { experiences: [], educations: [], skills: [] };
+  return { experiences: [], educations: [], skills: [], certifications: [] };
 }
 
 export function readResumeDraft(): ResumeDraft | null {

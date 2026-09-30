@@ -20,6 +20,17 @@ export const parsedEducationValidator = v.object({
   end_year: v.optional(v.number()),
 });
 
+export const parsedCertificationValidator = v.object({
+  name: v.string(),
+  issuing_organization: v.optional(v.string()),
+  issue_date: v.optional(v.string()),
+  expiration_date: v.optional(v.string()),
+  does_not_expire: v.optional(v.boolean()),
+  credential_id: v.optional(v.string()),
+  credential_url: v.optional(v.string()),
+  skills: v.optional(v.array(v.string())),
+});
+
 export const parsedProfileValidator = v.object({
   name: v.optional(v.string()),
   email: v.optional(v.string()),
@@ -31,6 +42,7 @@ export const parsedProfileValidator = v.object({
   experiences: v.array(parsedExperienceValidator),
   educations: v.array(parsedEducationValidator),
   skills: v.array(v.string()),
+  certifications: v.optional(v.array(parsedCertificationValidator)),
 });
 
 export type ParsedExperience = {
@@ -52,6 +64,17 @@ export type ParsedEducation = {
   end_year?: number;
 };
 
+export type ParsedCertification = {
+  name: string;
+  issuing_organization?: string;
+  issue_date?: string;
+  expiration_date?: string;
+  does_not_expire?: boolean;
+  credential_id?: string;
+  credential_url?: string;
+  skills?: string[];
+};
+
 export type ParsedProfile = {
   name?: string;
   email?: string;
@@ -63,6 +86,7 @@ export type ParsedProfile = {
   experiences: ParsedExperience[];
   educations: ParsedEducation[];
   skills: string[];
+  certifications?: ParsedCertification[];
 };
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -184,6 +208,31 @@ export function toParsedProfile(raw: unknown): ParsedProfile {
     if (educations.length >= 8) break;
   }
 
+  const certifications: ParsedCertification[] = [];
+  for (const row of Array.isArray(obj.certifications) ? obj.certifications : []) {
+    const item = asRecord(row);
+    const name = optionalString(item.name) ?? optionalString(item.title) ?? "";
+    if (!name) continue;
+    const issuer = optionalString(item.issuing_organization) ?? optionalString(item.issuingOrganization) ?? optionalString(item.issuer);
+    const issue_date = optionalString(item.issue_date) ?? optionalString(item.issueDate);
+    const expiration_date = optionalString(item.expiration_date) ?? optionalString(item.expirationDate);
+    const does_not_expire = item.does_not_expire === true || item.doesNotExpire === true;
+    const credential_id = optionalString(item.credential_id) ?? optionalString(item.credentialId);
+    const credential_url = optionalString(item.credential_url) ?? optionalString(item.credentialUrl);
+    const certSkills = compactStrings(item.skills);
+    certifications.push({
+      name,
+      ...(issuer ? { issuing_organization: issuer } : {}),
+      ...(issue_date ? { issue_date } : {}),
+      ...(expiration_date ? { expiration_date } : {}),
+      ...(does_not_expire ? { does_not_expire: true } : {}),
+      ...(credential_id ? { credential_id } : {}),
+      ...(credential_url ? { credential_url } : {}),
+      ...(certSkills.length ? { skills: certSkills } : {}),
+    });
+    if (certifications.length >= 10) break;
+  }
+
   const name = optionalString(obj.name);
   const email = optionalString(obj.email);
   const phone = optionalString(obj.phone);
@@ -203,6 +252,7 @@ export function toParsedProfile(raw: unknown): ParsedProfile {
     experiences,
     educations,
     skills: compactStrings(obj.skills).slice(0, 24),
+    certifications,
   };
 }
 
@@ -210,6 +260,7 @@ export const emptyParsedProfile = (): ParsedProfile => ({
   experiences: [],
   educations: [],
   skills: [],
+  certifications: [],
 });
 
 function toLlmProfile(raw: unknown) {
@@ -240,6 +291,16 @@ function toLlmProfile(raw: unknown) {
       end_year: item.end_year ?? null,
     })),
     skills: profile.skills,
+    certifications: (profile.certifications ?? []).map((item) => ({
+      name: item.name,
+      issuing_organization: item.issuing_organization ?? null,
+      issue_date: item.issue_date ?? null,
+      expiration_date: item.expiration_date ?? null,
+      does_not_expire: Boolean(item.does_not_expire),
+      credential_id: item.credential_id ?? null,
+      credential_url: item.credential_url ?? null,
+      skills: item.skills ?? [],
+    })),
   };
 }
 
@@ -267,6 +328,17 @@ export const parsedEducationSchema = z.object({
   end_year: z.number().nullable(),
 });
 
+export const parsedCertificationSchema = z.object({
+  name: z.string(),
+  issuing_organization: z.string().nullable(),
+  issue_date: z.string().nullable(),
+  expiration_date: z.string().nullable(),
+  does_not_expire: z.boolean(),
+  credential_id: z.string().nullable(),
+  credential_url: z.string().nullable(),
+  skills: z.array(z.string()),
+});
+
 export const parsedProfileSchema = z.preprocess(
   toLlmProfile,
   z.object({
@@ -280,5 +352,6 @@ export const parsedProfileSchema = z.preprocess(
     experiences: z.array(parsedExperienceSchema),
     educations: z.array(parsedEducationSchema),
     skills: z.array(z.string()),
+    certifications: z.array(parsedCertificationSchema),
   }),
 );

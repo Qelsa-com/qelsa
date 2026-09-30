@@ -1,9 +1,11 @@
 "use client";
 
+import { CertificationModal } from "@/components/profile/modals/CertificationModal";
 import { EducationModal } from "@/components/profile/modals/EducationModal";
 import { ExperienceModal } from "@/components/profile/modals/ExperienceModal";
 import { SkillsModal } from "@/components/profile/modals/SkillsModal";
-import type { ParsedEducation, ParsedExperience, ParsedProfile } from "@/lib/resumeDraft";
+import type { ParsedCertification, ParsedEducation, ParsedExperience, ParsedProfile } from "@/lib/resumeDraft";
+import type { Certification } from "@/types/certification";
 import type { Education } from "@/types/education";
 import type { Experience } from "@/types/experience";
 import { Briefcase, ChevronDown, ChevronUp, GraduationCap, Linkedin, Mail, MapPin, Pencil, Phone, Plus, X } from "lucide-react";
@@ -40,6 +42,22 @@ function toEducation(edu: ParsedEducation, index: number): Education {
     start_year: edu.start_year,
     end_year: edu.end_year,
   } as unknown as Education;
+}
+
+function toCertification(cert: ParsedCertification, index: number): Certification {
+  return {
+    id: index,
+    issue_date: cert.issue_date || "",
+    expiration_date: cert.expiration_date,
+    does_not_expire: Boolean(cert.does_not_expire),
+    credential_id: cert.credential_id,
+    credential_url: cert.credential_url,
+    name: cert.name,
+    issuingOrganization: cert.issuing_organization,
+    certification: { id: index, name: cert.name },
+    issuing_body: { id: index, name: cert.issuing_organization || "" },
+    skills: (cert.skills ?? []).map((s, sIdx) => ({ id: sIdx, name: s })),
+  } as unknown as Certification;
 }
 
 /* ------------------------------------------------------------------ */
@@ -186,6 +204,61 @@ export function ResumeReview({
     setSkillsModalOpen(false);
   };
 
+  /* Certifications handlers */
+  const [certModalOpen, setCertModalOpen] = useState(false);
+  const [activeCertIndex, setActiveCertIndex] = useState<number>(-1);
+
+  const handleOpenAddCert = () => {
+    setActiveCertIndex(-1);
+    setCertModalOpen(true);
+  };
+
+  const handleOpenEditCert = (index: number) => {
+    setActiveCertIndex(index);
+    setCertModalOpen(true);
+  };
+
+  const handleSaveCertification = (payload: {
+    name: string;
+    issuingOrganization?: string;
+    issueDate?: string | null;
+    expirationDate?: string | null;
+    doesNotExpire?: boolean;
+    credentialId?: string;
+    credentialUrl?: string;
+  }) => {
+    const nextCert: ParsedCertification = {
+      name: payload.name,
+      issuing_organization: payload.issuingOrganization,
+      issue_date: payload.issueDate ?? undefined,
+      expiration_date: payload.expirationDate ?? undefined,
+      does_not_expire: payload.doesNotExpire,
+      credential_id: payload.credentialId,
+      credential_url: payload.credentialUrl,
+      skills: (activeCertIndex >= 0 && profile.certifications?.[activeCertIndex]?.skills) || [],
+    };
+
+    const currentList = profile.certifications ?? [];
+    if (activeCertIndex >= 0 && activeCertIndex < currentList.length) {
+      const list = [...currentList];
+      list[activeCertIndex] = nextCert;
+      patch({ certifications: list });
+    } else {
+      patch({ certifications: [...currentList, nextCert] });
+    }
+    setCertModalOpen(false);
+    setActiveCertIndex(-1);
+  };
+
+  const handleDeleteCertification = () => {
+    const currentList = profile.certifications ?? [];
+    if (activeCertIndex >= 0 && activeCertIndex < currentList.length) {
+      patch({ certifications: currentList.filter((_, i) => i !== activeCertIndex) });
+    }
+    setCertModalOpen(false);
+    setActiveCertIndex(-1);
+  };
+
   const currentExperienceItem =
     activeExpIndex >= 0 && activeExpIndex < profile.experiences.length
       ? toExperience(profile.experiences[activeExpIndex], activeExpIndex)
@@ -194,6 +267,11 @@ export function ResumeReview({
   const currentEducationItem =
     activeEduIndex >= 0 && activeEduIndex < profile.educations.length
       ? toEducation(profile.educations[activeEduIndex], activeEduIndex)
+      : null;
+
+  const currentCertItem =
+    activeCertIndex >= 0 && profile.certifications && profile.certifications[activeCertIndex]
+      ? toCertification(profile.certifications[activeCertIndex], activeCertIndex)
       : null;
 
   return (
@@ -337,6 +415,37 @@ export function ResumeReview({
             <p className="text-sm text-muted-foreground">No education yet. Click + Add to add your education.</p>
           )}
         </CardSection>
+
+        {/* ---- Certifications ---- */}
+        <CardSection
+          title="Certifications"
+          action={
+            <div className="flex items-center gap-3">
+              {(profile.certifications ?? []).length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => handleOpenEditCert(0)}
+                  className="cursor-pointer text-sm font-medium text-neon-cyan transition-opacity hover:opacity-80"
+                >
+                  Edit
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={handleOpenAddCert}
+                className="flex cursor-pointer items-center gap-1 font-medium text-neon-cyan transition-opacity hover:opacity-80"
+              >
+                <span className="text-base leading-none">+</span>
+                <span className="text-sm">Add</span>
+              </button>
+            </div>
+          }
+        >
+          <CertificationsReadView certifications={profile.certifications ?? []} onEdit={handleOpenEditCert} />
+          {(profile.certifications ?? []).length === 0 && (
+            <p className="text-sm text-muted-foreground">Add certifications to back up your expertise.</p>
+          )}
+        </CardSection>
       </div>
 
       {/* ---- Modals matching My Space / Profile edit ---- */}
@@ -367,6 +476,17 @@ export function ResumeReview({
         onClose={() => setSkillsModalOpen(false)}
         initialSkills={profile.skills}
         onCustomSave={handleSaveSkills}
+      />
+
+      <CertificationModal
+        open={certModalOpen}
+        onClose={() => {
+          setCertModalOpen(false);
+          setActiveCertIndex(-1);
+        }}
+        certification={currentCertItem}
+        onCustomSave={handleSaveCertification}
+        onCustomDelete={handleDeleteCertification}
       />
 
       {/* ---- Sticky CTA ---- */}
@@ -619,6 +739,86 @@ function EducationReadView({
               type="button"
               onClick={() => onEdit(idx)}
               title="Edit education"
+              className="flex size-7 shrink-0 items-center justify-center rounded-lg text-white/40 transition-colors hover:bg-white/10 hover:text-white"
+            >
+              <Pencil className="size-3.5" />
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Certifications — read-only view with Edit action                  */
+/* ------------------------------------------------------------------ */
+
+function CertificationsReadView({
+  certifications,
+  onEdit,
+}: {
+  certifications: ParsedCertification[];
+  onEdit: (index: number) => void;
+}) {
+  if (certifications.length === 0) return null;
+
+  return (
+    <div className="space-y-5">
+      {certifications.map((cert, idx) => {
+        const dateParts: string[] = [];
+        if (cert.issue_date) dateParts.push(`Issued ${cert.issue_date}`);
+        if (cert.does_not_expire) dateParts.push("No expiration");
+        else if (cert.expiration_date) dateParts.push(`Exp. ${cert.expiration_date}`);
+        const dateStr = dateParts.join(" • ");
+
+        return (
+          <div key={idx} className="flex items-start justify-between gap-3">
+            <div className="flex gap-3 min-w-0 flex-1">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/[0.05]">
+                <GraduationCap className="h-5 w-5 text-white/40" />
+              </div>
+              <div className="min-w-0 flex-1 space-y-1">
+                <span className="font-medium text-white">{cert.name}</span>
+                {cert.issuing_organization && (
+                  <div className="text-sm font-medium text-neon-cyan">{cert.issuing_organization}</div>
+                )}
+                {dateStr && <div className="text-xs text-white/45">{dateStr}</div>}
+                {cert.credential_id && (
+                  <div className="text-xs text-white/60">
+                    Credential ID: <span className="font-medium text-white/90">{cert.credential_id}</span>
+                  </div>
+                )}
+                {cert.credential_url && (
+                  <div>
+                    <a
+                      href={cert.credential_url.startsWith("http") ? cert.credential_url : `https://${cert.credential_url}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-neon-cyan hover:underline"
+                    >
+                      <span>🔗 View certificate</span>
+                    </a>
+                  </div>
+                )}
+                {(cert.skills ?? []).length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {cert.skills?.map((skill) => (
+                      <span
+                        key={skill}
+                        className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[11px] text-white/70"
+                      >
+                        {skill}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => onEdit(idx)}
+              title="Edit certification"
               className="flex size-7 shrink-0 items-center justify-center rounded-lg text-white/40 transition-colors hover:bg-white/10 hover:text-white"
             >
               <Pencil className="size-3.5" />

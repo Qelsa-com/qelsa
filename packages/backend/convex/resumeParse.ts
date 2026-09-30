@@ -23,9 +23,10 @@ const INSTRUCTIONS = `Extract a candidate profile from the resume.
 - responsibilities: short bullet phrases listed for that role. Use [] if none.
 - Put role highlights only in responsibilities. Leave description null — do not duplicate bullets into description.
 - tools: technologies or tools used in that role. Use [] if none.
-- experiences, educations, and skills must be arrays. Use [] when absent, never omit them.
+- experiences, educations, skills, and certifications must be arrays. Use [] when absent, never omit them.
 - is_current must be true or false, never omit it.
 - start_year and end_year must be numbers like 2019, or null — never strings.
+- certifications: certifications, credentials, licenses, or completed courses. Include name (title), issuing_organization (e.g. "AWS", "Google", "ISB", "Coursera", or null), issue_date (e.g. "May 2022", or null), expiration_date (or null), does_not_expire (true if no expiration or lifetime), credential_id (or null), credential_url (or null), and skills ([] if none).
 - Use null for missing strings. Never omit required keys.`;
 
 type ResumeKind = "pdf" | "docx" | "image";

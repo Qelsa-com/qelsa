@@ -281,6 +281,40 @@ export const applyParsedProfile = authedMutation({
       }
     }
 
+    const existingCerts = await ctx.db
+      .query("user_certifications")
+      .withIndex("by_user", (q) => q.eq("user_id", ctx.user._id))
+      .take(1);
+    if (existingCerts.length === 0 && profile.certifications?.length) {
+      for (const row of profile.certifications) {
+        if (!row.name?.trim()) continue;
+        const certName = row.name.trim();
+        const issuerName = row.issuing_organization?.trim();
+        const certification_id = await findOrCreateNamed(ctx, "certifications", certName);
+        const issuing_body_id = issuerName ? await findOrCreateNamed(ctx, "issuing_bodies", issuerName) : undefined;
+        const issue_date = parseFlexibleDate(row.issue_date);
+        const expiration_date = parseFlexibleDate(row.expiration_date);
+        const certId = await ctx.db.insert("user_certifications", {
+          user_id: ctx.user._id,
+          certification_id: certification_id ?? undefined,
+          issuing_body_id: issuing_body_id ?? undefined,
+          name: certName,
+          issuingOrganization: issuerName,
+          issue_date,
+          expiration_date: row.does_not_expire ? undefined : expiration_date,
+          does_not_expire: Boolean(row.does_not_expire),
+          credential_id: row.credential_id?.trim() || undefined,
+          credential_url: row.credential_url?.trim() || undefined,
+        });
+        for (const skillName of uniqueNames(row.skills ?? [])) {
+          const skill_id = await findOrCreateNamed(ctx, "skills", skillName);
+          if (skill_id) {
+            await ctx.db.insert("user_certification_skills", { user_certification_id: certId, skill_id });
+          }
+        }
+      }
+    }
+
     if (args.storage_id) {
       const existingResume = await ctx.db
         .query("resumes")
@@ -300,7 +334,7 @@ export const applyParsedProfile = authedMutation({
   },
 });
 
-type NamedTable = "companies" | "job_titles" | "skills" | "colleges" | "fields_of_study";
+type NamedTable = "companies" | "job_titles" | "skills" | "colleges" | "fields_of_study" | "certifications" | "issuing_bodies";
 
 function catalogKey(name: string) {
   return name.toLowerCase().replace(/[^a-z0-9+#]+/g, "");

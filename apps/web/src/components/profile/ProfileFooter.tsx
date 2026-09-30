@@ -14,7 +14,7 @@ const LINKS = [
 
 export function ProfileFooter() {
   return (
-    <footer className="w-full px-6 pb-10 pt-20 sm:px-10">
+    <footer className="hidden w-full px-6 pb-10 pt-20 lg:block sm:px-10">
       <div className="flex flex-col gap-8">
         <div className="h-px w-full bg-white/[0.12]" />
         <div className="flex flex-col items-center justify-between gap-4 text-xs text-white/50 sm:flex-row">

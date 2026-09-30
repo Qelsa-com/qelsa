@@ -26,6 +26,16 @@ interface CertificationModalProps {
   open: boolean;
   onClose: () => void;
   certification?: Certification | null;
+  onCustomSave?: (payload: {
+    name: string;
+    issuingOrganization?: string;
+    issueDate?: string | null;
+    expirationDate?: string | null;
+    doesNotExpire?: boolean;
+    credentialId?: string;
+    credentialUrl?: string;
+  }) => Promise<void> | void;
+  onCustomDelete?: () => Promise<void> | void;
 }
 
 /** The API returns both the catalog link and any free-text name the user typed. */
@@ -39,9 +49,9 @@ function certIssuer(certification?: Certification | null): string {
   return ((certification as unknown as { issuingOrganization?: string }).issuingOrganization ?? certification.issuing_body?.name ?? "") as string;
 }
 
-export function CertificationModal({ open, onClose, certification }: CertificationModalProps) {
+export function CertificationModal({ open, onClose, certification, onCustomSave, onCustomDelete }: CertificationModalProps) {
   const certId = (certification?.id ?? (certification as unknown as { _id?: string })?._id) as string | undefined;
-  const isEdit = Boolean(certId);
+  const isEdit = Boolean(certId || (onCustomSave && certification));
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -115,7 +125,18 @@ export function CertificationModal({ open, onClose, certification }: Certificati
 
     setSaving(true);
     try {
-      if (isEdit) {
+      if (onCustomSave) {
+        await onCustomSave({
+          name: finalName,
+          issuingOrganization: finalIssuer,
+          issueDate: issueIso,
+          expirationDate: expIso,
+          doesNotExpire: noExpiration,
+          credentialId: credentialId.trim() || undefined,
+          credentialUrl: credentialUrl.trim() || undefined,
+        });
+        toast.success(isEdit ? "Certification updated" : "Certification added");
+      } else if (isEdit) {
         await updateCertification({ id: certId!, data: payload }).unwrap();
         toast.success("Certification updated");
       } else {
@@ -131,6 +152,20 @@ export function CertificationModal({ open, onClose, certification }: Certificati
   };
 
   const handleDelete = async () => {
+    if (onCustomDelete) {
+      setIsDeleting(true);
+      try {
+        await onCustomDelete();
+        toast.success("Certification deleted");
+        setShowDeleteConfirm(false);
+        onClose();
+      } catch (error) {
+        toastUnknownError(error, "Could not delete certification. Please try again.");
+      } finally {
+        setIsDeleting(false);
+      }
+      return;
+    }
     if (!certId) return;
     setIsDeleting(true);
     try {
