@@ -3,6 +3,7 @@ import type { Id } from "./_generated/dataModel";
 import { authedMutation, authedQuery } from "./lib/customFunctions";
 import { iso, withId } from "./lib/helpers";
 import { resolveNamedRef, type NamedRefInput } from "./lib/resolve";
+import { refreshInferredSkillLevels } from "./lib/skillLevels";
 
 async function hydrate(ctx: { db: { get: Function; query: Function } }, row: { _id: string } & Record<string, unknown>) {
   const certification = row.certification_id ? await ctx.db.get(row.certification_id) : null;
@@ -83,6 +84,7 @@ export const create = authedMutation({
       const skillId = typeof skill === "string" ? skill : skill.id;
       if (skillId) await ctx.db.insert("user_certification_skills", { user_certification_id: id, skill_id: skillId as Id<"skills"> });
     }
+    await refreshInferredSkillLevels(ctx, ctx.user._id);
     return hydrate(ctx, (await ctx.db.get(id))!);
   },
 });
@@ -125,6 +127,7 @@ export const update = authedMutation({
       description: (data.description as string | undefined) ?? row.description,
     });
     if (data.skills !== undefined) await replaceCertificationSkills(ctx, args.id, data.skills);
+    await refreshInferredSkillLevels(ctx, ctx.user._id);
     return hydrate(ctx, (await ctx.db.get(args.id))!);
   },
 });
@@ -136,6 +139,7 @@ export const remove = authedMutation({
     const row = await ctx.db.get(args.id);
     if (!row || row.user_id !== ctx.user._id) throw new Error("Certification not found");
     await ctx.db.delete(args.id);
+    await refreshInferredSkillLevels(ctx, ctx.user._id);
     return null;
   },
 });

@@ -5,6 +5,7 @@ import { components } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { internalMutation, internalQuery } from "./_generated/server";
 import { authedQuery } from "./lib/customFunctions";
+import { withSkillAliases } from "./lib/skillCatalog";
 import { clipPlainText, buildCompetencyFramework, extractJdListItems } from "./lib/skillMatch";
 
 export const skillRefValidator = v.object({
@@ -265,7 +266,7 @@ export const loadJobSnapshot = internalQuery({
         weight: s.weight,
         skill: { name: s.name },
       })),
-      userSkillRows.map((s) => ({ skill_id: s.skill_id, proficiency: s.proficiency })),
+      await withSkillAliases(ctx, userSkillRows),
     );
     return {
       job_id: job._id,
