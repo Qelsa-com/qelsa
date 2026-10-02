@@ -11,8 +11,9 @@ function statusOf(item: CompetencyItem): "match" | "exceeds" | "gap" {
   return item.matched ? "match" : "gap";
 }
 
+/** On the candidate's profile, with or without a level (older payloads lack `has_skill`). */
 function hasCandidate(item: CompetencyItem) {
-  return !!item.candidate_proficiency;
+  return item.has_skill ?? (!!item.candidate_proficiency || item.matched);
 }
 
 function typeBadgeClass(t?: JobSkillType) {
@@ -25,7 +26,7 @@ function typeBadgeClass(t?: JobSkillType) {
 export function CompetencySummary({ competency, className = "" }: { competency?: Competency | null; className?: string }) {
   if (!competency) return null;
   const { readiness, matchedCount, totalCount, competencies } = competency;
-  const missing = (competencies || []).filter((c) => statusOf(c) === "gap").map((c) => c.skill_name);
+  const missing = (competencies || []).filter((c) => !hasCandidate(c)).map((c) => c.skill_name);
 
   return (
     <div className={`space-y-1.5 ${className}`}>
@@ -101,7 +102,7 @@ function CompetencyRow({ item }: { item: CompetencyItem }) {
       <div className="flex items-center gap-2 flex-wrap">
         {candidate ? (
           <Badge variant="outline" className="text-xs border-neon-cyan/40 text-neon-cyan">
-            You: {proficiencyLabel(item.candidate_proficiency)}
+            You: {item.candidate_proficiency ? proficiencyLabel(item.candidate_proficiency) : "On profile"}
           </Badge>
         ) : (
           <Badge variant="outline" className="text-xs border-glass-border text-muted-foreground">
@@ -109,7 +110,7 @@ function CompetencyRow({ item }: { item: CompetencyItem }) {
           </Badge>
         )}
         <Badge variant="outline" className="text-xs border-glass-border text-muted-foreground">
-          Target: {proficiencyLabel(item.required_proficiency)}
+          Target: {item.required_proficiency ? proficiencyLabel(item.required_proficiency) : "Any level"}
         </Badge>
       </div>
       <Badge variant="outline" className={`text-xs ml-auto ${typeBadgeClass(item.type)}`}>

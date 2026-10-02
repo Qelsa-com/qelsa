@@ -7,6 +7,8 @@ import { components } from "./_generated/api";
 import { authedMutation } from "./lib/customFunctions";
 import { parsedProfileValidator } from "./lib/parsedProfile";
 import { signedFileUrl } from "./lib/r2";
+import { findOrCreateSkill } from "./lib/skillCatalog";
+import { refreshInferredSkillLevels } from "./lib/skillLevels";
 import { MAX_USER_SKILLS } from "./lib/skillLimits";
 
 const r2 = new R2(components.r2);
@@ -224,7 +226,7 @@ export const applyParsedProfile = authedMutation({
           responsibilities: bullets,
         });
         for (const tool of uniqueNames(row.tools ?? [])) {
-          const skill_id = await findOrCreateNamed(ctx, "skills", tool);
+          const skill_id = await findOrCreateSkill(ctx, tool);
           if (!skill_id) continue;
           await ctx.db.insert("experience_skills", { experience_id: experienceId, skill_id });
         }
@@ -266,7 +268,7 @@ export const applyParsedProfile = authedMutation({
         ...profile.experiences.flatMap((row) => row.tools ?? []),
       ]).slice(0, MAX_USER_SKILLS);
       for (const skillName of skillNames) {
-        const skill_id = await findOrCreateNamed(ctx, "skills", skillName);
+        const skill_id = await findOrCreateSkill(ctx, skillName);
         if (!skill_id) continue;
         const already = await ctx.db
           .query("user_skills")
@@ -307,13 +309,15 @@ export const applyParsedProfile = authedMutation({
           credential_url: row.credential_url?.trim() || undefined,
         });
         for (const skillName of uniqueNames(row.skills ?? [])) {
-          const skill_id = await findOrCreateNamed(ctx, "skills", skillName);
+          const skill_id = await findOrCreateSkill(ctx, skillName);
           if (skill_id) {
             await ctx.db.insert("user_certification_skills", { user_certification_id: certId, skill_id });
           }
         }
       }
     }
+
+    await refreshInferredSkillLevels(ctx, ctx.user._id);
 
     if (args.storage_id) {
       const existingResume = await ctx.db
@@ -334,7 +338,7 @@ export const applyParsedProfile = authedMutation({
   },
 });
 
-type NamedTable = "companies" | "job_titles" | "skills" | "colleges" | "fields_of_study" | "certifications" | "issuing_bodies";
+type NamedTable = "companies" | "job_titles" | "colleges" | "fields_of_study" | "certifications" | "issuing_bodies";
 
 function catalogKey(name: string) {
   return name.toLowerCase().replace(/[^a-z0-9+#]+/g, "");

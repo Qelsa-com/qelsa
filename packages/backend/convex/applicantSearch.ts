@@ -127,7 +127,7 @@ export async function loadApplicantSearchDocs(
           weight: skill.weight,
           skill: { name: skill.name },
         })),
-        userSkills.map((row) => ({ skill_id: row.skill_id, proficiency: row.proficiency })),
+        skills.map((s) => ({ skill_id: s.id, proficiency: s.proficiency, name: s.name })),
         {
           candidateYearsExperience: yearsFromExperiences(experienceRows, app.applied_at),
           requiredExperienceYears: jobContext.experience,

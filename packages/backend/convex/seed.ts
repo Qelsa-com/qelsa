@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { withId } from "./lib/helpers";
 import { bumpOpenJobCount, ensureJobStats } from "./lib/jobCounts";
+import { insertSkill } from "./lib/skillCatalog";
 import * as catalog from "./seedCatalogData";
 import cityData from "./seed/cities.json";
 
@@ -53,7 +54,7 @@ export const seedAll = mutation({
       }
       let i = 0;
       for (const name of catalog.skills) {
-        await ctx.db.insert("skills", {
+        await insertSkill(ctx, {
           name,
           category_id: categoryIds[i % categoryIds.length] as never,
           is_quick_add: true,

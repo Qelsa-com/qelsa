@@ -7,7 +7,8 @@ import { internalAction, internalMutation, internalQuery } from "./_generated/se
 import { AI_AGENT_MODEL, requireOpenRouter } from "./lib/ai";
 import { parseSalaryFromText, salaryFillPatch, salaryFromLlm } from "./lib/jobSalary";
 import { hasExtractedSkills, markSkillsExtracted, MIN_SKILL_DESCRIPTION_CHARS, skillContentHash } from "./lib/jobSkillExtraction";
-import { clipPlainText, normalizeSkillName } from "./lib/skillMatch";
+import { findOrCreateSkill } from "./lib/skillCatalog";
+import { clipPlainText } from "./lib/skillMatch";
 
 const SKILL_TYPES = ["core", "preferred", "nice_to_have"] as const;
 const PROFICIENCIES = ["beginner", "intermediate", "advance", "expert"] as const;
@@ -185,8 +186,6 @@ export const applyExtractedSkills = internalMutation({
     const job = await ctx.db.get(args.jobId);
     if (!job) return 0;
     if (await hasExtractedSkills(ctx, args.jobId, job.skills_extracted)) return 0;
-    const catalog = await ctx.db.query("skills").take(1000);
-    const byNormalized = new Map(catalog.map((skill) => [normalizeSkillName(skill.name), skill._id]));
     const existing = await ctx.db
       .query("job_skills")
       .withIndex("by_job", (q) => q.eq("job_id", args.jobId))
@@ -195,15 +194,9 @@ export const applyExtractedSkills = internalMutation({
 
     let inserted = 0;
     for (const skill of args.skills) {
-      const normalized = normalizeSkillName(skill.name);
-      if (!normalized) continue;
-      let skillId = byNormalized.get(normalized);
-      if (!skillId) {
-        // Grow the catalog organically so the skill can match user_skills later.
-        skillId = await ctx.db.insert("skills", { name: skill.name.trim() });
-        byNormalized.set(normalized, skillId);
-      }
-      if (linked.has(skillId)) continue;
+      // Grows the catalog organically so the skill can match user_skills later.
+      const skillId = await findOrCreateSkill(ctx, skill.name);
+      if (!skillId || linked.has(skillId)) continue;
       linked.add(skillId);
       await ctx.db.insert("job_skills", {
         job_id: args.jobId,
