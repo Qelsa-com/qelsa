@@ -51,6 +51,8 @@ import type * as lib_parsedProfile from "../lib/parsedProfile.js";
 import type * as lib_profileFields from "../lib/profileFields.js";
 import type * as lib_r2 from "../lib/r2.js";
 import type * as lib_resolve from "../lib/resolve.js";
+import type * as lib_skillCatalog from "../lib/skillCatalog.js";
+import type * as lib_skillLevels from "../lib/skillLevels.js";
 import type * as lib_skillLimits from "../lib/skillLimits.js";
 import type * as lib_skillMatch from "../lib/skillMatch.js";
 import type * as onboarding from "../onboarding.js";
@@ -60,6 +62,7 @@ import type * as resumeParse from "../resumeParse.js";
 import type * as resumes from "../resumes.js";
 import type * as seed from "../seed.js";
 import type * as seedCatalogData from "../seedCatalogData.js";
+import type * as skillBackfills from "../skillBackfills.js";
 import type * as userSkills from "../userSkills.js";
 import type * as users from "../users.js";
 
@@ -113,6 +116,8 @@ declare const fullApi: ApiFromModules<{
   "lib/profileFields": typeof lib_profileFields;
   "lib/r2": typeof lib_r2;
   "lib/resolve": typeof lib_resolve;
+  "lib/skillCatalog": typeof lib_skillCatalog;
+  "lib/skillLevels": typeof lib_skillLevels;
   "lib/skillLimits": typeof lib_skillLimits;
   "lib/skillMatch": typeof lib_skillMatch;
   onboarding: typeof onboarding;
@@ -122,6 +127,7 @@ declare const fullApi: ApiFromModules<{
   resumes: typeof resumes;
   seed: typeof seed;
   seedCatalogData: typeof seedCatalogData;
+  skillBackfills: typeof skillBackfills;
   userSkills: typeof userSkills;
   users: typeof users;
 }>;

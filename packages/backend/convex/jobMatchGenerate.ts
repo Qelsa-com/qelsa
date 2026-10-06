@@ -766,7 +766,7 @@ export const startForExternal = action({
               proficiency: "intermediate",
               skill: { name: s.name },
             })),
-          user.skills.map((s) => ({ skill_id: s.skill_id, proficiency: s.proficiency ?? undefined })),
+          user.skills.map((s) => ({ skill_id: s.skill_id, proficiency: s.proficiency ?? undefined, name: s.name })),
         )
       : null;
 

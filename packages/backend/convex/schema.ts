@@ -393,6 +393,9 @@ export default defineSchema({
     skill_id: v.id("skills"),
     category_id: v.optional(v.id("skill_categories")),
     proficiency: v.optional(proficiency),
+    // True while `proficiency` is estimated from experience, certifications and
+    // education; picking a level clears it so estimates never overwrite a choice.
+    proficiency_inferred: v.optional(v.boolean()),
     is_top_skill: v.optional(v.boolean()),
   })
     .index("by_user", ["user_id"])
@@ -482,8 +485,11 @@ export default defineSchema({
     category_id: v.optional(v.id("skill_categories")),
     is_quick_add: v.optional(v.boolean()),
     sort_order: v.optional(v.number()),
+    /** `skillMatchKey(name)`; links spelling variants such as ReactJS and React. */
+    match_key: v.optional(v.string()),
   })
     .index("by_name", ["name"])
+    .index("by_match_key", ["match_key"])
     .index("by_category", ["category_id"])
     .searchIndex("search_name", { searchField: "name" }),
 

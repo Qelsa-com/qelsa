@@ -54,6 +54,48 @@ export function normalizeSkillName(name: string) {
     .trim();
 }
 
+const SKILL_KEY_ALIASES: Record<string, string> = {
+  js: "javascript",
+  ecmascript: "javascript",
+  ts: "typescript",
+  golang: "go",
+  k8s: "kubernetes",
+  postgres: "postgresql",
+  mongo: "mongodb",
+};
+
+/**
+ * Spelling-insensitive identity for a skill: "ReactJS", "React.js" and "React"
+ * share a key, as do "JS" and "JavaScript". Stored on `skills.match_key`.
+ */
+export function skillMatchKey(name: string) {
+  let key = name.toLowerCase().replace(/[^a-z0-9+#]+/g, "");
+  if (key.length > 4 && key.endsWith("js")) key = key.slice(0, -2);
+  return SKILL_KEY_ALIASES[key] ?? key;
+}
+
+/** Library names that are also everyday words once ".js" is dropped. */
+const AMBIGUOUS_BARE_KEYS = new Set(["next", "three", "express", "ember", "meteor", "backbone", "alpine", "solid"]);
+
+/**
+ * Phrases (normalized like `normalizeSkillName`) that count as a mention of
+ * the skill in free text. Phrases of one or two letters (go, ts, js) are left
+ * out: too ambiguous in prose.
+ */
+export function skillMentionPhrases(name: string) {
+  const key = skillMatchKey(name);
+  const phrases = new Set([normalizeSkillName(name)]);
+  if (!AMBIGUOUS_BARE_KEYS.has(key)) phrases.add(key);
+  for (const [alias, target] of Object.entries(SKILL_KEY_ALIASES)) {
+    if (target === key) phrases.add(alias);
+  }
+  if (key && !(key in SKILL_KEY_ALIASES) && !Object.values(SKILL_KEY_ALIASES).includes(key)) {
+    phrases.add(`${key}js`);
+    phrases.add(`${key} js`);
+  }
+  return [...phrases].filter((phrase) => phrase.replace(/\s/g, "").length > 2);
+}
+
 export interface CompetencyProfileContext {
   candidateYearsExperience?: number | null;
   requiredExperienceYears?: number | null;
@@ -68,14 +110,25 @@ export function buildCompetencyFramework(
     weight?: number;
     skill?: { name?: string } | null;
   }>,
-  userSkills: Array<{ skill_id: string; proficiency?: string }>,
+  userSkills: Array<{ skill_id: string; proficiency?: string; name?: string }>,
   profileContext?: CompetencyProfileContext,
 ) {
   const userBySkillId = new Map(userSkills.map((s) => [s.skill_id, s.proficiency ?? null]));
+  // Catalog rows can differ only by spelling (ReactJS vs React), so fall back
+  // to the name key when both sides carry names.
+  const userByKey = new Map<string, string | null>();
+  for (const s of userSkills) {
+    if (!s.name) continue;
+    const key = skillMatchKey(s.name);
+    const prev = userByKey.get(key);
+    if (!key || (prev !== undefined && (proficiencyRank(prev) ?? -1) >= (proficiencyRank(s.proficiency) ?? -1))) continue;
+    userByKey.set(key, s.proficiency ?? null);
+  }
 
   const competencies = jobSkills.map((js) => {
-    const hasSkill = userBySkillId.has(js.skill_id);
-    const candidate = hasSkill ? (userBySkillId.get(js.skill_id) ?? null) : null;
+    const key = userByKey.size > 0 && js.skill?.name ? skillMatchKey(js.skill.name) : "";
+    const hasSkill = userBySkillId.has(js.skill_id) || (key !== "" && userByKey.has(key));
+    const candidate = !hasSkill ? null : userBySkillId.has(js.skill_id) ? (userBySkillId.get(js.skill_id) ?? null) : (userByKey.get(key) ?? null);
     // Distinguish "skill not on profile" (gap) from "skill present, no
     // proficiency set" (baseline match).
     const status = !hasSkill ? "gap" : candidate == null ? "match" : matchStatus(js.proficiency, candidate);
@@ -85,6 +138,7 @@ export function buildCompetencyFramework(
       type: js.type,
       required_proficiency: js.proficiency,
       candidate_proficiency: candidate,
+      has_skill: hasSkill,
       weight: js.weight ?? 0,
       status,
       matched: isMatched(status),

@@ -5,6 +5,7 @@ import { authedMutation, authedQuery } from "./lib/customFunctions";
 import { withId } from "./lib/helpers";
 import { titledList, withLocalIds } from "./lib/profileFields";
 import { resolveNamedRef, type NamedRefInput } from "./lib/resolve";
+import { refreshInferredSkillLevels } from "./lib/skillLevels";
 
 async function hydrate(ctx: QueryCtx, row: Doc<"educations">) {
   const degree = row.degree_id ? await ctx.db.get(row.degree_id) : null;
@@ -66,6 +67,7 @@ export const create = authedMutation({
       projects: titledList(data.projects),
       achievements: titledList(data.achievements),
     });
+    await refreshInferredSkillLevels(ctx, ctx.user._id);
     return hydrate(ctx, (await ctx.db.get(id))!);
   },
 });
@@ -101,6 +103,7 @@ export const update = authedMutation({
       projects: data.projects !== undefined ? titledList(data.projects) : row.projects,
       achievements: data.achievements !== undefined ? titledList(data.achievements) : row.achievements,
     });
+    await refreshInferredSkillLevels(ctx, ctx.user._id);
     return hydrate(ctx, (await ctx.db.get(args.id))!);
   },
 });
@@ -112,6 +115,7 @@ export const remove = authedMutation({
     const row = await ctx.db.get(args.id);
     if (!row || row.user_id !== ctx.user._id) throw new Error("Education not found");
     await ctx.db.delete(args.id);
+    await refreshInferredSkillLevels(ctx, ctx.user._id);
     return null;
   },
 });

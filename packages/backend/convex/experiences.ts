@@ -5,6 +5,7 @@ import { authedMutation, authedQuery } from "./lib/customFunctions";
 import { iso, withId } from "./lib/helpers";
 import { impactMetricList, titledList, withLocalIds } from "./lib/profileFields";
 import { resolveNamedRef, type NamedRefInput } from "./lib/resolve";
+import { refreshInferredSkillLevels } from "./lib/skillLevels";
 
 async function replaceExperienceSkills(ctx: MutationCtx, experienceId: Id<"experiences">, skills: unknown) {
   const existing = await ctx.db
@@ -84,6 +85,7 @@ export const create = authedMutation({
       impact_metrics: impactMetricList(data.impact_metrics),
     });
     await replaceExperienceSkills(ctx, id, data.skills);
+    await refreshInferredSkillLevels(ctx, ctx.user._id);
     return hydrate(ctx, (await ctx.db.get(id))!);
   },
 });
@@ -117,6 +119,7 @@ export const update = authedMutation({
       impact_metrics: data.impact_metrics !== undefined ? impactMetricList(data.impact_metrics) : row.impact_metrics,
     });
     if (data.skills !== undefined) await replaceExperienceSkills(ctx, args.id, data.skills);
+    await refreshInferredSkillLevels(ctx, ctx.user._id);
     return hydrate(ctx, (await ctx.db.get(args.id))!);
   },
 });
@@ -133,6 +136,7 @@ export const remove = authedMutation({
       .collect();
     for (const link of links) await ctx.db.delete(link._id);
     await ctx.db.delete(args.id);
+    await refreshInferredSkillLevels(ctx, ctx.user._id);
     return null;
   },
 });
