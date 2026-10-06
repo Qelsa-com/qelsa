@@ -36,13 +36,15 @@ import {
   scoreInRange,
   type UserRoleProfile,
 } from "./lib/jobProfileMatch";
+import { withSkillAliases } from "./lib/skillCatalog";
 import { buildCompetencyFramework, clipPlainText } from "./lib/skillMatch";
 import { canonicalizeCatalogName, catalogKey, looksLikeConvexId, resolveCityRef, resolveNamedRef, type CityRefInput } from "./lib/resolve";
 
 type SkillCache = Map<Id<"skills">, Doc<"skills"> | null>;
 
 type ListHydration = {
-  userSkills: Array<Pick<Doc<"user_skills">, "skill_id" | "proficiency">>;
+  /** Includes catalog spelling variants of each skill; see `withSkillAliases`. */
+  userSkills: Array<Pick<Doc<"user_skills">, "skill_id" | "proficiency"> & { name?: string }>;
   savedJobIds: Set<string>;
   appliedJobIds: Set<string>;
   skillCache: SkillCache;
@@ -109,7 +111,7 @@ async function listHydration(ctx: QueryCtx, user: Doc<"users"> | null, loadSaved
   const yearsExperience = earliest ? Math.max(0, Math.floor((Math.min(latest, now) - earliest) / (1000 * 60 * 60 * 24 * 365))) : null;
 
   return {
-    userSkills: skillRows.map((row) => ({ skill_id: row.skill_id, proficiency: row.proficiency })),
+    userSkills: await withSkillAliases(ctx, skillRows),
     savedJobIds: new Set(saved.map((row) => String(row.job_id))),
     appliedJobIds,
     skillCache: new Map(),
@@ -143,12 +145,13 @@ async function enrichJob(ctx: QueryCtx, job: Doc<"jobs">, user: Doc<"users"> | n
       : false;
     const userSkills = list
       ? list.userSkills
-      : (
+      : await withSkillAliases(
+          ctx,
           await ctx.db
             .query("user_skills")
             .withIndex("by_user", (q) => q.eq("user_id", user._id))
-            .collect()
-        ).map((row) => ({ skill_id: row.skill_id, proficiency: row.proficiency }));
+            .collect(),
+        );
     let yearsExp = list?.yearsExperience;
     let eduCount = list?.educationCount;
     if (!list) {

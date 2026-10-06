@@ -92,7 +92,7 @@ export const listForJob = authedQuery({
           }
           const competency = buildCompetencyFramework(
             jobSkills,
-            userSkills.map((row) => ({ skill_id: row.skill_id, proficiency: row.proficiency })),
+            skills.map((s) => ({ skill_id: s.id, proficiency: s.proficiency, name: s.name })),
             {
               candidateYearsExperience: yearsFromExperiences(experienceRows, app.applied_at),
               requiredExperienceYears: job.experience,
@@ -185,7 +185,7 @@ export const getDetail = authedQuery({
 
     const competency = buildCompetencyFramework(
       jobSkills,
-      userSkills.map((row) => ({ skill_id: row.skill_id, proficiency: row.proficiency })),
+      enrichedUserSkills.map((s) => ({ skill_id: s.id, proficiency: s.proficiency, name: s.skill.name || undefined })),
     );
 
     const enrichedExperiences = await Promise.all(

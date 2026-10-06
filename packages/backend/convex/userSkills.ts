@@ -2,6 +2,8 @@ import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { authedMutation, authedQuery } from "./lib/customFunctions";
 import { withId } from "./lib/helpers";
+import { findSkillByMatchKey, insertSkill } from "./lib/skillCatalog";
+import { refreshInferredSkillLevels } from "./lib/skillLevels";
 import { MAX_USER_SKILLS } from "./lib/skillLimits";
 
 async function hydrate(ctx: { db: { get: Function } }, row: { _id: string } & Record<string, unknown>) {
@@ -45,6 +47,7 @@ export const create = authedMutation({
       proficiency: data.proficiency as "beginner" | "intermediate" | "advance" | "expert" | undefined,
       is_top_skill: Boolean(data.is_top_skill),
     });
+    if (!data.proficiency) await refreshInferredSkillLevels(ctx, ctx.user._id);
     return hydrate(ctx, (await ctx.db.get(id))!);
   },
 });
@@ -56,8 +59,10 @@ export const update = authedMutation({
     const row = await ctx.db.get(args.id);
     if (!row || row.user_id !== ctx.user._id) throw new Error("Skill not found");
     const data = args.data as Record<string, unknown>;
+    const proficiency = (data.proficiency as typeof row.proficiency | undefined) ?? row.proficiency;
     await ctx.db.patch(args.id, {
-      proficiency: (data.proficiency as typeof row.proficiency | undefined) ?? row.proficiency,
+      proficiency,
+      proficiency_inferred: proficiency === row.proficiency ? row.proficiency_inferred : false,
       is_top_skill: data.is_top_skill != null ? Boolean(data.is_top_skill) : row.is_top_skill,
     });
     return hydrate(ctx, (await ctx.db.get(args.id))!);
@@ -82,12 +87,13 @@ export const resolveSkill = authedMutation({
   handler: async (ctx, args) => {
     const name = args.name.trim();
     if (!name) throw new Error("Skill name is required");
-    const existing = await ctx.db
-      .query("skills")
-      .withIndex("by_name", (q) => q.eq("name", name))
-      .unique();
+    const existing =
+      (await ctx.db
+        .query("skills")
+        .withIndex("by_name", (q) => q.eq("name", name))
+        .first()) ?? (await findSkillByMatchKey(ctx, name));
     if (existing) return withId(existing);
-    const id = await ctx.db.insert("skills", { name });
+    const id = await insertSkill(ctx, { name });
     return withId((await ctx.db.get(id))!);
   },
 });
@@ -115,8 +121,11 @@ export const bulkModify = authedMutation({
       if (skill.id) {
         const row = await ctx.db.get(skill.id as Id<"user_skills">);
         if (row && row.user_id === ctx.user._id) {
+          const proficiency = (skill.proficiency as typeof row.proficiency | undefined) || undefined;
           await ctx.db.patch(row._id, {
-            proficiency: skill.proficiency as typeof row.proficiency | undefined,
+            proficiency,
+            // Editors send every row back; an unchanged level keeps its estimate flag.
+            proficiency_inferred: proficiency === row.proficiency ? row.proficiency_inferred : false,
             is_top_skill: Boolean(skill.is_top_skill),
           });
           updated.push(row._id);
@@ -131,6 +140,7 @@ export const bulkModify = authedMutation({
         created.push(id);
       }
     }
+    await refreshInferredSkillLevels(ctx, ctx.user._id);
     return { created, updated, deleted: [] };
   },
 });

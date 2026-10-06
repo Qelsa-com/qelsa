@@ -226,10 +226,13 @@ Rules:
 - Use only the provided job snapshot and the candidate's Qelsa profile, skills, experience, education, projects, certifications, and resume text.
 - Never invent jobs, degrees, or skills the candidate did not list.
 - Catalog skill matches already computed are facts. Do not contradict them.
-- Be specific and practical. Qelsa tells people whether they are ready and how to become ready — not just a score.
+- A skill listed below the required level is partial. The candidate has it. Never call that skill missing or say they lack it.
+- Missing means the skill is not on their profile.
+- Be specific and practical. Explain skill gaps and what to do next. Readiness on the job page is the only score.
+- Never state a match percentage, resume-fit score, or a target like 90%.
 - If they ask to rewrite a resume, write a tailored draft from their real experience.
 - Keep answers concise unless they ask for a rewrite.
-- Format every reply in GitHub-flavored Markdown: short headings, bullets, and **bold** for scores and skill names. Never dump JSON or repeat the raw job snapshot.
+- Format every reply in GitHub-flavored Markdown: short headings, bullets, and **bold** for skill names. Never dump JSON or repeat the raw job snapshot.
 ${context ? `\n${context}` : ""}`,
     maxSteps: 1,
   });
@@ -264,41 +267,26 @@ function analysisBody(analysis: Analysis) {
     items.length ? items.map((item) => `- ${item}`).join("\n") : empty;
   return `${analysis.headline}
 
-### Why this score
+### How you compare
 **Strong**
 ${list(analysis.strong, "- No clear strengths listed yet.")}
-${analysis.partial.length ? `\n**Partial**\n${list(analysis.partial, "")}` : ""}
-${analysis.missing.length ? `\n**Missing**\n${list(analysis.missing, "")}` : ""}
+${analysis.partial.length ? `\n**Below the target**\n${list(analysis.partial, "")}` : ""}
+${analysis.missing.length ? `\n**Not on your profile**\n${list(analysis.missing, "")}` : ""}
 
 ### What to do next
 ${list(analysis.actions, "- Add more skills and experience on your Qelsa profile, then re-run this match.")}
 
 ${analysis.can_apply}
 
-Ask me why this score, what's missing, whether you should apply, how to get to 90%, or to rewrite your resume for this job.`;
+Ask what's missing, whether you should apply, how to close the gaps, or to rewrite your resume for this job.`;
 }
 
-function openingMessage(jobTitle: string, company: string | undefined, analysis: Analysis) {
-  const companyBit = company ? ` at ${company}` : "";
-  return `You're a **${analysis.overall}% match** for ${jobTitle}${companyBit}.
-
-${analysisBody(analysis)}`;
+function openingMessage(analysis: Analysis) {
+  return analysisBody(analysis);
 }
 
-function updatedMatchMessage(
-  jobTitle: string,
-  company: string | undefined,
-  analysis: Analysis,
-  previousOverall?: number,
-) {
-  const companyBit = company ? ` at ${company}` : "";
-  const changed = previousOverall != null && previousOverall !== analysis.overall;
-  const scoreLine = changed
-    ? `You're now a **${analysis.overall}% match** for ${jobTitle}${companyBit} — ${analysis.overall > previousOverall ? "up" : "down"} from **${previousOverall}%**.`
-    : `You're still a **${analysis.overall}% match** for ${jobTitle}${companyBit}.`;
+function updatedMatchMessage(analysis: Analysis) {
   return `I re-checked this role because your Qelsa profile changed.
-
-${scoreLine}
 
 ${analysisBody(analysis)}`;
 }
@@ -427,11 +415,15 @@ async function analyzeMatch(
   competency: ReturnType<typeof buildCompetencyFramework> | null,
 ): Promise<Analysis> {
   const agent = matchCoach(job.title, job.company);
+  const skillNames = (rows: Array<{ skill_name?: string | null }>) =>
+    rows.map((row) => row.skill_name).filter((name): name is string => Boolean(name));
+  const listed = competency?.competencies.filter((row) => Boolean(row.candidate_proficiency)) ?? [];
   const skillFacts = competency
     ? {
         readiness: competency.readiness,
-        matched: competency.competencies.filter((c) => c.matched).map((c) => c.skill_name).filter(Boolean),
-        gaps: competency.competencies.filter((c) => !c.matched).map((c) => c.skill_name).filter(Boolean),
+        strong: skillNames(listed.filter((row) => row.status !== "gap")),
+        partial: skillNames(listed.filter((row) => row.status === "gap")),
+        missing: skillNames(competency.competencies.filter((row) => !row.candidate_proficiency)),
       }
     : null;
 
@@ -459,10 +451,12 @@ ${JSON.stringify({
 CANDIDATE
 ${JSON.stringify(candidatePayload(user))}
 
-CATALOG SKILL MATCH FACTS (do not contradict):
+CATALOG SKILL LISTS (fixed; do not move a skill between lists):
 ${JSON.stringify(skillFacts)}
 
-Write headline as one sentence on readiness. can_apply should say whether applying now is reasonable and why. actions should be the next 3–6 concrete steps to become more ready. resume_evidence should cite real profile/experience lines.`,
+strong means the candidate meets the required level. partial means they already have the skill, but below the required level — never describe those as missing. missing means the skill is not on their profile.
+
+Write headline as one sentence on fit, with no percentage. can_apply should say whether applying now is reasonable and why. actions should be the next 3–6 concrete steps to become more ready. resume_evidence should cite real profile/experience lines.`,
     },
   );
 
@@ -474,19 +468,12 @@ Write headline as one sentence on readiness. can_apply should say whether applyi
     generated.responsibilities_match,
   );
 
-  const strong = generated.strong.length
-    ? generated.strong
-    : (skillFacts?.matched ?? []).slice(0, 6).map(String);
-  const missing = generated.missing.length
-    ? generated.missing
-    : (skillFacts?.gaps ?? []).slice(0, 6).map(String);
-
   return {
     overall,
     headline: generated.headline,
-    strong,
-    partial: generated.partial,
-    missing,
+    strong: skillFacts ? skillFacts.strong : generated.strong,
+    partial: skillFacts ? skillFacts.partial : generated.partial,
+    missing: skillFacts ? skillFacts.missing : generated.missing,
     experience_match: clampScore(generated.experience_match),
     education_match: clampScore(generated.education_match),
     domain_match: clampScore(generated.domain_match),
@@ -513,7 +500,7 @@ async function persistSession(
   const threadId = await createThread(ctx, components.agent, {
     userId: args.authId,
     title: `Match: ${args.job.title}`,
-    summary: `${args.analysis.overall}% match`,
+    summary: args.analysis.headline,
   });
   await saveMessage(ctx, components.agent, {
     threadId,
@@ -521,7 +508,7 @@ async function persistSession(
     agentName: "Match Coach",
     message: {
       role: "assistant",
-      content: openingMessage(args.job.title, args.job.company, args.analysis),
+      content: openingMessage(args.analysis),
     },
   });
   const payload = {
@@ -573,7 +560,6 @@ async function appendUpdatedAnalysis(
     job: JobSnapshot;
     analysis: Analysis;
     fingerprint?: string;
-    previousOverall?: number;
   },
 ) {
   await saveMessage(ctx, components.agent, {
@@ -582,7 +568,7 @@ async function appendUpdatedAnalysis(
     agentName: "Match Coach",
     message: {
       role: "assistant",
-      content: updatedMatchMessage(args.job.title, args.job.company, args.analysis, args.previousOverall),
+      content: updatedMatchMessage(args.analysis),
     },
   });
   await ctx.runMutation(internal.jobMatch.replaceSession, {
@@ -679,7 +665,6 @@ export const startForJob = action({
           job,
           analysis,
           fingerprint: user.fingerprint,
-          previousOverall: existing.overall,
         })
       : await persistSession(ctx, {
           userId: user.userId,
@@ -766,7 +751,7 @@ export const startForExternal = action({
               proficiency: "intermediate",
               skill: { name: s.name },
             })),
-          user.skills.map((s) => ({ skill_id: s.skill_id, proficiency: s.proficiency ?? undefined })),
+          user.skills.map((s) => ({ skill_id: s.skill_id, proficiency: s.proficiency ?? undefined, name: s.name })),
         )
       : null;
 

@@ -30,41 +30,6 @@ export type MatchSession = {
   analysis: Analysis;
 };
 
-function ringColor(score: number) {
-  if (score >= 85) return "#10b981";
-  if (score >= 70) return "#00d4ff";
-  return "#f59e0b";
-}
-
-function MatchRing({ value }: { value: number }) {
-  const r = 42;
-  const c = 2 * Math.PI * r;
-  const offset = c * (1 - Math.min(100, Math.max(0, value)) / 100);
-  const color = ringColor(value);
-  return (
-    <div className="relative size-[112px] shrink-0">
-      <svg className="size-full -rotate-90" viewBox="0 0 100 100">
-        <circle cx="50" cy="50" r={r} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="8" />
-        <circle
-          cx="50"
-          cy="50"
-          r={r}
-          fill="none"
-          stroke={color}
-          strokeWidth="8"
-          strokeLinecap="round"
-          strokeDasharray={c}
-          strokeDashoffset={offset}
-        />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-2xl font-extrabold text-white">{value}%</span>
-        <span className="text-[10px] uppercase tracking-wide text-white/45">match</span>
-      </div>
-    </div>
-  );
-}
-
 function Dimension({ label, value }: { label: string; value: number }) {
   return (
     <div className="space-y-1">
@@ -143,10 +108,7 @@ export function MatchExperience({ session }: { session: MatchSession }) {
 
       <div className="grid gap-5 lg:grid-cols-[minmax(280px,380px)_1fr] lg:items-start">
         <aside className="flex flex-col gap-4 rounded-[20px] border border-glass-border bg-white/[0.03] p-5">
-          <div className="flex items-center gap-4">
-            <MatchRing value={analysis.overall} />
-            <p className="text-sm leading-relaxed text-white/80">{analysis.headline}</p>
-          </div>
+          <p className="text-sm leading-relaxed text-white/80">{analysis.headline}</p>
 
           <div className="grid grid-cols-2 gap-3">
             <Dimension label="Experience" value={analysis.experience_match} />

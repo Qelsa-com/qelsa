@@ -957,13 +957,13 @@ export function ApplicationsManagementPage() {
                           return (
                             <div key={competency.skill_id} className="flex items-center border-b border-white/6 py-3">
                               <p className="flex-1 text-[13px] font-medium text-white">{competency.skill_name}</p>
-                              <p className="w-[120px] text-[13px] text-white/70">{proficiencyLabel(competency.required_proficiency)}</p>
+                              <p className="w-[120px] text-[13px] text-white/70">{competency.required_proficiency ? proficiencyLabel(competency.required_proficiency) : "Any level"}</p>
                               <div className="w-[110px]">
                                 <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${competencyTypeStyles[competency.type] ?? competencyTypeStyles.preferred}`}>
                                   {jobSkillTypeLabel(competency.type)}
                                 </span>
                               </div>
-                              <p className={`w-[120px] text-[13px] font-semibold ${isGap ? "text-red-500" : "text-neon-green"}`}>{proficiencyLabel(competency.candidate_proficiency)}</p>
+                              <p className={`w-[120px] text-[13px] font-semibold ${isGap ? "text-red-500" : "text-neon-green"}`}>{competency.candidate_proficiency ? proficiencyLabel(competency.candidate_proficiency) : (competency.has_skill ?? competency.matched) ? "On profile" : "Not listed"}</p>
                               <p className={`w-[80px] text-[11px] font-semibold ${isGap ? "text-red-500" : "text-neon-green"}`}>{matchLabel}</p>
                             </div>
                           );

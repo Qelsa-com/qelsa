@@ -1,5 +1,6 @@
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
+import { findSkillByMatchKey, insertSkill } from "./skillCatalog";
 
 /** Accepts either a resolved `{ id }` / `{ id, name }` option or free text. */
 export type NamedRefInput = { id?: string; name?: string } | string | null | undefined;
@@ -139,6 +140,10 @@ export async function resolveNamedRef<T extends NamedTable>(ctx: MutationCtx, ta
     return match._id as Id<T>;
   }
 
+  if (table === "skills") {
+    const variant = await findSkillByMatchKey(ctx, name);
+    return (variant?._id ?? (await insertSkill(ctx, { name }))) as Id<T>;
+  }
   return (await ctx.db.insert(table, { name } as never)) as Id<T>;
 }
 
