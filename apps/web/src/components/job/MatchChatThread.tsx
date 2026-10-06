@@ -10,15 +10,20 @@ import { Send } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 const SUGGESTIONS = [
-  "Why this score?",
+  "Why these gaps?",
   "What skills am I missing?",
   "Can I still apply?",
-  "How can I improve my match to 90%?",
+  "How can I get ready for this role?",
   "Rewrite my resume for this job.",
 ];
 
 function visibleMessageText(text: string) {
-  return text.split(/\n+JOB SNAPSHOT\n/)[0]?.split(/\n+CANDIDATE\n/)[0]?.trim() ?? text;
+  const clipped = text.split(/\n+JOB SNAPSHOT\n/)[0]?.split(/\n+CANDIDATE\n/)[0] ?? text;
+  return clipped
+    .replace(/You(?:'|’)re (?:now |still )?a \*\*\d+% match\*\*[^\n]*\n*/gi, "")
+    .replace(/### Why this score/g, "### How you compare")
+    .replace(/\n*Ask me why this score, what's missing, whether you should apply, how to get to 90%, or to rewrite your resume for this job\.?/gi, "")
+    .trim();
 }
 
 export function MatchChatThread({

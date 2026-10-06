@@ -321,7 +321,6 @@ export function JobDetail() {
     .map((item) => item.skill_name)
     .filter(Boolean);
 
-  const overallMatch = matchSession?.analysis?.overall;
   const metrics: { label: string; value: React.ReactNode }[] = isOwner
     ? [
         {
@@ -634,9 +633,7 @@ export function JobDetail() {
               </div>
             )}
 
-            {/* How you fit this role — reuses the data-wired competency panel.
-                The ring shows the skill-based readiness; the composite stays
-                in the Resume Fit metric so the two scores don't conflate. */}
+            {/* How you fit this role. The ring is the readiness score. */}
             {!isOwner && competency && (
               <div id="how-you-fit" className="scroll-mt-36">
                 <CompetencyTable competency={competency} experienceMatch={matchSession?.analysis?.experience_match ?? experienceMatch} educationMatch={matchSession?.analysis?.education_match ?? educationMatch} />
