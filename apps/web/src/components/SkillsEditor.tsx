@@ -7,7 +7,6 @@ import { Card } from "./ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
-import { Slider } from "./ui/slider";
 
 export type SkillCategory = "Professional" | "Technical" | "Soft Skills";
 export type ExperienceLevel = "Beginner" | "Intermediate" | "Advanced" | "Expert";
@@ -165,20 +164,6 @@ export function SkillsEditor({ isOpen, onClose, skills: initialSkills, onSave }:
   const handleDeleteSkill = (skillId: string) => {
     setSkills(skills.filter((skill) => skill.id !== skillId));
     toast.success("Skill removed");
-  };
-
-  const handleProficiencyChange = (skillId: string, proficiency: number) => {
-    setSkills(
-      skills.map((skill) =>
-        skill.id === skillId
-          ? {
-              ...skill,
-              proficiency,
-              experienceLevel: getExperienceLevelFromProficiency(proficiency),
-            }
-          : skill
-      )
-    );
   };
 
   const handleRunValidation = () => {
@@ -535,18 +520,9 @@ export function SkillsEditor({ isOpen, onClose, skills: initialSkills, onSave }:
                       </Button>
                     </div>
 
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label className="text-sm text-muted-foreground">Proficiency: {skill.proficiency}%</Label>
-                        <span className={`text-sm font-medium ${getProficiencyColor(skill.proficiency)}`}>{skill.experienceLevel}</span>
-                      </div>
-                      <Slider value={[skill.proficiency]} onValueChange={(value) => handleProficiencyChange(skill.id, value[0])} max={100} step={5} className="w-full" />
-                      <div className="flex justify-between text-xs text-muted-foreground">
-                        <span>Beginner</span>
-                        <span>Intermediate</span>
-                        <span>Advanced</span>
-                        <span>Expert</span>
-                      </div>
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm text-muted-foreground">Proficiency</Label>
+                      <span className={`text-sm font-medium ${getProficiencyColor(skill.proficiency)}`}>{skill.experienceLevel}</span>
                     </div>
                   </div>
                 </Card>
