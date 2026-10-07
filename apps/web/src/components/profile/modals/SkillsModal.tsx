@@ -1,6 +1,6 @@
 "use client";
 
-import { MAX_TOP_SKILLS, MAX_USER_SKILLS } from "@/constants/skills";
+import { MAX_TOP_SKILLS, MAX_USER_SKILLS, ProficiencyLevel, proficiencyBadgeLabel } from "@/constants/skills";
 import { useBulkModifyUserSkillsMutation, useGetUserSkillsQuery } from "@/features/api/userSkillsApi";
 import { toastUnknownError } from "@/lib/errors";
 import { Star, X } from "lucide-react";
@@ -12,8 +12,25 @@ import { PickedSkill, SkillPicker } from "./SkillPicker";
 type SkillDraft = {
   id?: string | number;
   skill: PickedSkill;
+  /** Stored estimate. Display only — the editor never writes this field. */
+  proficiency?: ProficiencyLevel | "" | null;
   is_top_skill: boolean;
 };
+
+function proficiencyClass(proficiency?: ProficiencyLevel | "" | null) {
+  switch (proficiency) {
+    case "expert":
+      return "bg-[#ef4444]/15 border-[#ef4444]/25 text-[#ef4444]";
+    case "advance":
+      return "bg-[#f97316]/15 border-[#f97316]/25 text-[#f97316]";
+    case "intermediate":
+      return "bg-neon-yellow/15 border-neon-yellow/25 text-neon-yellow";
+    case "beginner":
+      return "bg-neon-green/15 border-neon-green/25 text-neon-green";
+    default:
+      return "bg-white/10 border-white/12 text-white/70";
+  }
+}
 
 interface SkillsModalProps {
   open: boolean;
@@ -51,6 +68,7 @@ export function SkillsModal({ open, onClose, initialSkills, onCustomSave }: Skil
       userSkills.map((row) => ({
         id: row.id,
         skill: { id: row.skill?.id ?? "", name: row.skill?.name ?? "Skill" },
+        proficiency: row.proficiency,
         is_top_skill: Boolean(row.is_top_skill),
       })),
     );
@@ -140,6 +158,11 @@ export function SkillsModal({ open, onClose, initialSkills, onCustomSave }: Skil
             <div key={`${draft.id ?? draft.skill.id}-${index}`} className="py-3">
               <div className="flex items-center gap-3">
                 <span className="min-w-0 flex-1 truncate px-2 py-1.5 text-sm font-medium text-white">{draft.skill.name}</span>
+                {draft.proficiency ? (
+                  <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${proficiencyClass(draft.proficiency)}`}>
+                    {proficiencyBadgeLabel(draft.proficiency)}
+                  </span>
+                ) : null}
 
                 <button type="button" onClick={() => toggleTop(index)} aria-label={draft.is_top_skill ? "Remove from top skills" : "Mark as top skill"} className="shrink-0 text-white/40 transition-colors hover:text-neon-yellow">
                   <Star className={`size-4 ${draft.is_top_skill ? "fill-neon-yellow text-neon-yellow" : ""}`} />
