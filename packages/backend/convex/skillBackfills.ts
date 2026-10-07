@@ -34,9 +34,9 @@ export const backfillSkillMatchKeys = internalMutation({
 });
 
 /**
- * Estimates levels for existing profiles' skills that have none. Run after the
- * match-key backfill: `npx convex run skillBackfills:backfillSkillLevels '{}'`.
- * Levels users picked are left alone, so re-running is safe.
+ * Recomputes skill levels from each profile. Run after the match-key backfill:
+ * `npx convex run skillBackfills:backfillSkillLevels '{}'`. Unchanged rows are
+ * skipped, so re-running is safe.
  */
 export const backfillSkillLevels = internalMutation({
   args: { cursor: v.optional(v.union(v.string(), v.null())) },
