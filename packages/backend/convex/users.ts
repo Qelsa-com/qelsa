@@ -7,6 +7,7 @@ import { authedMutation, optionalAuthQuery } from "./lib/customFunctions";
 import { deleteAppUserData } from "./lib/deleteUserData";
 import { asUserJson, iso, withId } from "./lib/helpers";
 import { deleteR2Keys, signedFileUrl } from "./lib/r2";
+import { refreshInferredSkillLevels } from "./lib/skillLevels";
 
 const r2 = new R2(components.r2);
 
@@ -302,6 +303,9 @@ export const updateProfile = authedMutation({
     const incoming = args.updates as Record<string, unknown>;
     const culture = incoming.culture_preference;
     const updates = profileUpdates(incoming);
+    const skillsEvidenceChanged = (["headline", "about", "professional_summary"] as const).some(
+      (key) => updates[key] !== undefined && updates[key] !== ctx.user[key],
+    );
     await ctx.db.patch(ctx.user._id, updates);
 
     if (culture !== undefined) {
@@ -333,6 +337,8 @@ export const updateProfile = authedMutation({
         }
       }
     }
+
+    if (skillsEvidenceChanged) await refreshInferredSkillLevels(ctx, ctx.user._id);
 
     const user = (await ctx.db.get(ctx.user._id)) as Doc<"users">;
     return {

@@ -317,6 +317,8 @@ export const applyParsedProfile = authedMutation({
       }
     }
 
+    // Skill names come from the resume. Levels are estimated here from the
+    // roles, education, certifications, headline, and summary just saved.
     await refreshInferredSkillLevels(ctx, ctx.user._id);
 
     if (args.storage_id) {

@@ -393,8 +393,8 @@ export default defineSchema({
     skill_id: v.id("skills"),
     category_id: v.optional(v.id("skill_categories")),
     proficiency: v.optional(proficiency),
-    // True while `proficiency` is estimated from experience, certifications and
-    // education; picking a level clears it so estimates never overwrite a choice.
+    // True while `proficiency` is estimated from experience, certifications,
+    // education, and profile text. Estimates are rewritten when that evidence changes.
     proficiency_inferred: v.optional(v.boolean()),
     is_top_skill: v.optional(v.boolean()),
   })

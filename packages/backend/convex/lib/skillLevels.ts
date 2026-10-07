@@ -160,25 +160,25 @@ async function loadEvidence(ctx: MutationCtx, user: Doc<"users">, now: number): 
 }
 
 /**
- * Fill in levels the user hasn't picked, and refresh earlier estimates as the
- * profile changes. Levels the user chose are never touched. Idempotent: rows
- * are only patched when the estimate changes, and it's a single indexed read
- * when every skill already has a chosen level.
+ * Recompute every skill level from the current profile. Candidates cannot pin
+ * a level, so a later edit to experience, education, certifications, or the
+ * headline and summary replaces the previous estimate. Idempotent: a row is
+ * patched only when the estimate changes. Returns immediately when the user
+ * has no skills, before any evidence is loaded.
  */
 export async function refreshInferredSkillLevels(ctx: MutationCtx, userId: Id<"users">, now = Date.now()) {
   const rows = await ctx.db
     .query("user_skills")
     .withIndex("by_user", (q) => q.eq("user_id", userId))
     .take(MAX_USER_SKILLS * 2);
-  const targets = rows.filter((row) => !row.proficiency || row.proficiency_inferred);
-  if (targets.length === 0) return 0;
+  if (rows.length === 0) return 0;
 
   const user = await ctx.db.get(userId);
   if (!user) return 0;
   const evidence = await loadEvidence(ctx, user, now);
 
   let changed = 0;
-  for (const row of targets) {
+  for (const row of rows) {
     const skill = await ctx.db.get(row.skill_id);
     if (!skill) continue;
     const level = inferSkillLevel({ id: row.skill_id, name: skill.name }, evidence);
