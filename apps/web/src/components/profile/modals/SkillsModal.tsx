@@ -1,6 +1,6 @@
 "use client";
 
-import { MAX_USER_SKILLS, PROFICIENCY_LEVELS, ProficiencyLevel, proficiencyLabel } from "@/constants/skills";
+import { MAX_TOP_SKILLS, MAX_USER_SKILLS, ProficiencyLevel, proficiencyBadgeLabel } from "@/constants/skills";
 import { useBulkModifyUserSkillsMutation, useGetUserSkillsQuery } from "@/features/api/userSkillsApi";
 import { toastUnknownError } from "@/lib/errors";
 import { Star, X } from "lucide-react";
@@ -9,28 +9,28 @@ import { toast } from "sonner";
 import { GhostButton, GradientButton, ModalShell } from "./ModalShell";
 import { PickedSkill, SkillPicker } from "./SkillPicker";
 
-const MAX_TOP_SKILLS = 3;
-
-const LEVEL_DESCRIPTIONS: Record<ProficiencyLevel, string> = {
-  expert: "Deep mastery; can architect solutions and guide others",
-  advance: "Can work independently and deliver end-to-end tasks",
-  intermediate: "Can apply the skill with some guidance",
-  beginner: "Basic understanding; follows instructions",
-};
-
-const LEVEL_DOT: Record<ProficiencyLevel, string> = {
-  expert: "bg-[#ef4444]",
-  advance: "bg-[#f97316]",
-  intermediate: "bg-neon-yellow",
-  beginner: "bg-neon-green",
-};
-
 type SkillDraft = {
   id?: string | number;
   skill: PickedSkill;
-  proficiency: ProficiencyLevel | "";
+  /** Stored estimate. Display only — the editor never writes this field. */
+  proficiency?: ProficiencyLevel | "" | null;
   is_top_skill: boolean;
 };
+
+function proficiencyClass(proficiency?: ProficiencyLevel | "" | null) {
+  switch (proficiency) {
+    case "expert":
+      return "bg-[#ef4444]/15 border-[#ef4444]/25 text-[#ef4444]";
+    case "advance":
+      return "bg-[#f97316]/15 border-[#f97316]/25 text-[#f97316]";
+    case "intermediate":
+      return "bg-neon-yellow/15 border-neon-yellow/25 text-neon-yellow";
+    case "beginner":
+      return "bg-neon-green/15 border-neon-green/25 text-neon-green";
+    default:
+      return "bg-white/10 border-white/12 text-white/70";
+  }
+}
 
 interface SkillsModalProps {
   open: boolean;
@@ -40,15 +40,14 @@ interface SkillsModalProps {
 }
 
 /**
- * Add/edit skills modal: search & attach skills, set proficiency per skill,
- * star up to three top skills, then save the whole set in one bulk call.
+ * Add/edit skills modal: search & attach skills and star up to three top
+ * skills. Proficiency is inferred and is not editable here.
  */
 export function SkillsModal({ open, onClose, initialSkills, onCustomSave }: SkillsModalProps) {
   const { data: userSkills } = useGetUserSkillsQuery(undefined, { skip: !open || Boolean(initialSkills) });
   const [bulkModify] = useBulkModifyUserSkillsMutation();
 
   const [drafts, setDrafts] = useState<SkillDraft[]>([]);
-  const [levelPickerFor, setLevelPickerFor] = useState<number | null>(null);
   const [pickerSelection, setPickerSelection] = useState<PickedSkill[]>([]);
   const [saving, setSaving] = useState(false);
 
@@ -58,12 +57,10 @@ export function SkillsModal({ open, onClose, initialSkills, onCustomSave }: Skil
       setDrafts(
         initialSkills.map((name) => ({
           skill: { id: name, name },
-          proficiency: "" as ProficiencyLevel | "",
           is_top_skill: false,
         })),
       );
       setPickerSelection([]);
-      setLevelPickerFor(null);
       return;
     }
     if (!userSkills) return;
@@ -71,12 +68,11 @@ export function SkillsModal({ open, onClose, initialSkills, onCustomSave }: Skil
       userSkills.map((row) => ({
         id: row.id,
         skill: { id: row.skill?.id ?? "", name: row.skill?.name ?? "Skill" },
-        proficiency: (row.proficiency || "") as ProficiencyLevel | "",
+        proficiency: row.proficiency,
         is_top_skill: Boolean(row.is_top_skill),
       })),
     );
     setPickerSelection([]);
-    setLevelPickerFor(null);
   }, [open, userSkills, initialSkills]);
 
   if (!open) return null;
@@ -92,11 +88,6 @@ export function SkillsModal({ open, onClose, initialSkills, onCustomSave }: Skil
     setDrafts(drafts.map((d, i) => (i === index ? { ...d, is_top_skill: !d.is_top_skill } : d)));
   };
 
-  const setLevel = (index: number, proficiency: ProficiencyLevel) => {
-    setDrafts(drafts.map((d, i) => (i === index ? { ...d, proficiency } : d)));
-    setLevelPickerFor(null);
-  };
-
   const removeSkill = (index: number) => setDrafts(drafts.filter((_, i) => i !== index));
 
   /** Picker holds to-be-added skills; committing moves them into the draft list. */
@@ -109,7 +100,7 @@ export function SkillsModal({ open, onClose, initialSkills, onCustomSave }: Skil
         return toast.error(`You can add up to ${MAX_USER_SKILLS} skills`);
       }
       const exists = drafts.some((d) => String(d.skill.id) === String(added.id));
-      if (!exists) setDrafts([...drafts, { skill: added, proficiency: "", is_top_skill: false }]);
+      if (!exists) setDrafts([...drafts, { skill: added, is_top_skill: false }]);
       setPickerSelection([]);
     }
   };
@@ -127,7 +118,6 @@ export function SkillsModal({ open, onClose, initialSkills, onCustomSave }: Skil
         drafts.map((d) => ({
           id: d.id,
           skill_id: d.id ? undefined : d.skill.id,
-          proficiency: d.proficiency || undefined,
           is_top_skill: d.is_top_skill,
         })),
       ).unwrap();
@@ -143,7 +133,7 @@ export function SkillsModal({ open, onClose, initialSkills, onCustomSave }: Skil
   return (
     <ModalShell
       title={drafts.length ? "Edit skills & expertise" : "Add skills & expertise"}
-      subtitle={drafts.length ? "Click on a skill to set proficiency level" : "Search and add skills to your profile"}
+      subtitle="Search and add skills, then star up to 3 as top skills"
       onClose={onClose}
       footer={
         <>
@@ -167,18 +157,12 @@ export function SkillsModal({ open, onClose, initialSkills, onCustomSave }: Skil
           {drafts.map((draft, index) => (
             <div key={`${draft.id ?? draft.skill.id}-${index}`} className="py-3">
               <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => setLevelPickerFor(levelPickerFor === index ? null : index)}
-                  className={`flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors ${levelPickerFor === index ? "bg-white/[0.06] ring-1 ring-neon-cyan/50" : "hover:bg-white/[0.04]"}`}
-                >
-                  <span className="min-w-0 truncate text-sm font-medium text-white">{draft.skill.name}</span>
-                  {draft.proficiency ? (
-                    <span className="shrink-0 rounded-full border border-[#f97316]/40 bg-[#f97316]/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#f97316]">{proficiencyLabel(draft.proficiency)}</span>
-                  ) : (
-                    <span className="shrink-0 text-xs font-medium text-neon-cyan">Set level</span>
-                  )}
-                </button>
+                <span className="min-w-0 flex-1 truncate px-2 py-1.5 text-sm font-medium text-white">{draft.skill.name}</span>
+                {draft.proficiency ? (
+                  <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${proficiencyClass(draft.proficiency)}`}>
+                    {proficiencyBadgeLabel(draft.proficiency)}
+                  </span>
+                ) : null}
 
                 <button type="button" onClick={() => toggleTop(index)} aria-label={draft.is_top_skill ? "Remove from top skills" : "Mark as top skill"} className="shrink-0 text-white/40 transition-colors hover:text-neon-yellow">
                   <Star className={`size-4 ${draft.is_top_skill ? "fill-neon-yellow text-neon-yellow" : ""}`} />
@@ -187,25 +171,6 @@ export function SkillsModal({ open, onClose, initialSkills, onCustomSave }: Skil
                   <X className="size-4" />
                 </button>
               </div>
-
-              {levelPickerFor === index && (
-                <div className="mt-2 flex flex-col gap-1 rounded-xl border border-white/10 bg-white/[0.03] p-2">
-                  {([...PROFICIENCY_LEVELS].reverse() as { value: ProficiencyLevel; label: string }[]).map((level) => (
-                    <button
-                      key={level.value}
-                      type="button"
-                      onClick={() => setLevel(index, level.value)}
-                      className={`flex items-start gap-3 rounded-lg px-3 py-2 text-left transition-colors ${draft.proficiency === level.value ? "bg-neon-cyan/10" : "hover:bg-white/[0.05]"}`}
-                    >
-                      <span className={`mt-1.5 size-2 shrink-0 rounded-full ${LEVEL_DOT[level.value]}`} />
-                      <span>
-                        <span className="block text-sm font-semibold text-white">{level.label === "Advance" ? "Advanced" : level.label}</span>
-                        <span className="block text-xs text-white/50">{LEVEL_DESCRIPTIONS[level.value]}</span>
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
             </div>
           ))}
         </div>

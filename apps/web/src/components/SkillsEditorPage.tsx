@@ -12,7 +12,7 @@ import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
-import { PROFICIENCY_LEVELS, ProficiencyLevel, proficiencyLabel } from "@/constants/skills";
+import { ProficiencyLevel, proficiencyLabel } from "@/constants/skills";
 
 export interface SkillBadge {
   id: string;
@@ -117,10 +117,6 @@ export function SkillsEditorPage() {
     toast.success("Skill removed");
   };
 
-  const handleProficiencyChange = (seedSkillId: number, proficiency: ProficiencyLevel | "") => {
-    setSkills(skills.map((skill) => (skill.skill?.id === seedSkillId ? { ...skill, proficiency } : skill)));
-  };
-
   const handleToggleTopSkill = async (skillId: number) => {
     const skill = skills.find((s) => s.id === skillId);
     if (!skill) return;
@@ -190,7 +186,6 @@ export function SkillsEditorPage() {
       ...(s.id !== undefined && { id: s.id }),
       skill: { id: s.skill.id, name: s.skill.name },
       category: s.category ? { id: s.category.id, name: s.category.name } : null,
-      ...(s.proficiency && { proficiency: s.proficiency }),
       is_top_skill: s.is_top_skill,
     }));
 
@@ -470,23 +465,9 @@ export function SkillsEditorPage() {
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-sm text-muted-foreground">Proficiency</Label>
-                      <span className={`text-sm font-medium ${getProficiencyColor(skill.proficiency)}`}>{proficiencyLabel(skill.proficiency)}</span>
-                    </div>
-                    <select
-                      value={skill.proficiency || ""}
-                      onChange={(e) => skill.skill?.id && handleProficiencyChange(skill.skill.id, e.target.value as ProficiencyLevel | "")}
-                      className="w-full glass border border-glass-border rounded-lg px-3 py-2 focus:border-neon-cyan focus:outline-none bg-transparent text-white text-sm"
-                    >
-                      <option value="" className="bg-gray-900">Not set</option>
-                      {PROFICIENCY_LEVELS.map((level) => (
-                        <option key={level.value} value={level.value} className="bg-gray-900">
-                          {level.label}
-                        </option>
-                      ))}
-                    </select>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm text-muted-foreground">Proficiency</Label>
+                    <span className={`text-sm font-medium ${getProficiencyColor(skill.proficiency)}`}>{proficiencyLabel(skill.proficiency)}</span>
                   </div>
                 </div>
               </Card>

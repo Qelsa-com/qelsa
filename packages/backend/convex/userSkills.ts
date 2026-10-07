@@ -44,10 +44,10 @@ export const create = authedMutation({
       user_id: ctx.user._id,
       skill_id: skillId,
       category_id: (data.category as { id?: Id<"skill_categories"> } | undefined)?.id,
-      proficiency: data.proficiency as "beginner" | "intermediate" | "advance" | "expert" | undefined,
       is_top_skill: Boolean(data.is_top_skill),
     });
-    if (!data.proficiency) await refreshInferredSkillLevels(ctx, ctx.user._id);
+    // Levels are estimated from the profile. Clients cannot set them.
+    await refreshInferredSkillLevels(ctx, ctx.user._id);
     return hydrate(ctx, (await ctx.db.get(id))!);
   },
 });
@@ -59,10 +59,7 @@ export const update = authedMutation({
     const row = await ctx.db.get(args.id);
     if (!row || row.user_id !== ctx.user._id) throw new Error("Skill not found");
     const data = args.data as Record<string, unknown>;
-    const proficiency = (data.proficiency as typeof row.proficiency | undefined) ?? row.proficiency;
     await ctx.db.patch(args.id, {
-      proficiency,
-      proficiency_inferred: proficiency === row.proficiency ? row.proficiency_inferred : false,
       is_top_skill: data.is_top_skill != null ? Boolean(data.is_top_skill) : row.is_top_skill,
     });
     return hydrate(ctx, (await ctx.db.get(args.id))!);
@@ -121,11 +118,7 @@ export const bulkModify = authedMutation({
       if (skill.id) {
         const row = await ctx.db.get(skill.id as Id<"user_skills">);
         if (row && row.user_id === ctx.user._id) {
-          const proficiency = (skill.proficiency as typeof row.proficiency | undefined) || undefined;
           await ctx.db.patch(row._id, {
-            proficiency,
-            // Editors send every row back; an unchanged level keeps its estimate flag.
-            proficiency_inferred: proficiency === row.proficiency ? row.proficiency_inferred : false,
             is_top_skill: Boolean(skill.is_top_skill),
           });
           updated.push(row._id);
@@ -134,7 +127,6 @@ export const bulkModify = authedMutation({
         const id = await ctx.db.insert("user_skills", {
           user_id: ctx.user._id,
           skill_id: skillId,
-          proficiency: skill.proficiency as "beginner" | "intermediate" | "advance" | "expert" | undefined,
           is_top_skill: Boolean(skill.is_top_skill),
         });
         created.push(id);
