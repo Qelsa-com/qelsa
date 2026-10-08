@@ -8,6 +8,7 @@ import { action } from "./_generated/server";
 import { AI_AGENT_MODEL, openRouter } from "./lib/ai";
 import {
   experienceLevelValidator,
+  inferSkillsForRole,
   MAX_COMPANIES,
   MAX_DESCRIPTION,
   MAX_INDUSTRIES,
@@ -90,7 +91,12 @@ export const extractFromText = action({
       name: "Career Goal Reader",
       languageModel: openRouter.chat(AI_AGENT_MODEL),
       instructions:
-        "You are Qelsa Career Goal Reader. From the user's natural language goal description, extract 5 dimensions: 1) target_roles (2-3 realistic titles the user should aim for, e.g. ['Sr. Product Manager', 'AI Product Manager']), 2) skills (skills they should build or learn, e.g. ['Product Strategy', 'Gen AI']), 3) industries (domains they want to work in, e.g. ['Fintech', 'Technology']), 4) timeline ('3_months', '6_months', '1_year', '2_plus_years'), 5) experience_level ('entry', 'mid', 'senior', 'lead'). Do not invent unrelated roles or skills not mentioned or implied.",
+        "You are Qelsa Career Goal Reader & Career Guide. From the user's natural language goal description, analyze their career aspiration and extract 5 structured dimensions:\n" +
+        "1) target_roles: 2-3 realistic, properly capitalized job titles the user should aim for (e.g. ['Lead Frontend Developer', 'Senior Frontend Engineer', 'Staff Frontend Engineer'] or ['AI Product Manager', 'Sr. Product Manager']).\n" +
+        "2) skills: 4-6 essential, modern high-impact skills required to achieve and excel in this target role. IF the user does not explicitly list skills, you MUST recommend the 4-6 most important skills required for their target role (e.g. for Lead Frontend: React, TypeScript, Frontend Architecture, System Design, Web Performance, Engineering Leadership). NEVER return an empty skills array when a target role is identified.\n" +
+        "3) industries: 2-4 relevant industries or domains they want to work in or that fit this role (e.g. ['Technology', 'SaaS', 'Fintech']).\n" +
+        "4) timeline: realistic timeline ('3_months', '6_months', '1_year', '2_plus_years'). If unspecified, recommend '1_year' for senior/lead or '6_months' for mid/entry.\n" +
+        "5) experience_level: target seniority ('entry', 'mid', 'senior', 'lead').",
       maxSteps: 1,
     });
 
@@ -100,18 +106,23 @@ export const extractFromText = action({
         { userId: identity.subject },
         {
           schema: extractedSchema,
-          prompt: `Extract career goal fields from this description:\n\n${description}`,
+          prompt: `Analyze this user's career goal description and generate their goal profile with target roles, recommended skills to build, target industries, timeline, and level:\n\n"${description}"`,
         },
       );
       const ai = sanitizeExtract(result.object, "ai");
+      const targetRoles = ai.target_roles.length > 0 ? ai.target_roles : fallback.target_roles;
+      let skills = ai.skills.length > 0 ? ai.skills : fallback.skills;
+      if (skills.length === 0 && targetRoles.length > 0) {
+        skills = uniqueTrimmed(inferSkillsForRole(targetRoles[0]), MAX_SKILLS, MAX_TAG);
+      }
       return {
-        target_role: ai.target_role ?? fallback.target_role,
-        target_roles: ai.target_roles.length > 0 ? ai.target_roles : fallback.target_roles,
+        target_role: targetRoles[0] ?? ai.target_role ?? fallback.target_role,
+        target_roles: targetRoles,
         dream_companies: ai.dream_companies.length > 0 ? ai.dream_companies : fallback.dream_companies,
         industries: ai.industries.length > 0 ? ai.industries : fallback.industries,
         timeline: ai.timeline ?? fallback.timeline,
         experience_level: ai.experience_level ?? fallback.experience_level,
-        skills: ai.skills.length > 0 ? ai.skills : fallback.skills,
+        skills,
         primary_focus: ai.primary_focus ?? fallback.primary_focus,
         source: "ai" as const,
       };

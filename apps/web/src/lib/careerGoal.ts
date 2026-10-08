@@ -112,6 +112,118 @@ const COMMON_SKILLS_KEYWORDS: [RegExp, string][] = [
   [/\bprompt\s*engineering\b/i, "Prompt Engineering"],
 ];
 
+export function capitalizeTitle(str: string): string {
+  const words = str.trim().split(/\s+/);
+  return words
+    .map((w) => {
+      const lower = w.toLowerCase();
+      if (lower === "ai" || lower === "ux" || lower === "ui" || lower === "ml" || lower === "pm" || lower === "qa" || lower === "sre") {
+        return lower.toUpperCase();
+      }
+      if (lower === "sr." || lower === "sr") return "Sr.";
+      if (lower === "jr." || lower === "jr") return "Jr.";
+      return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+    })
+    .join(" ");
+}
+
+export function inferRelatedRoles(roleText: string): string[] {
+  const lower = roleText.toLowerCase();
+  const cap = capitalizeTitle(roleText);
+  const roles = [cap];
+
+  if (/front\s*end|frontend/i.test(lower)) {
+    if (/lead/i.test(lower)) {
+      roles.push("Senior Frontend Engineer", "Staff Frontend Engineer", "Frontend Architect");
+    } else if (/senior|sr/i.test(lower)) {
+      roles.push("Lead Frontend Developer", "Senior Frontend Engineer", "Frontend Developer");
+    } else {
+      roles.push("Senior Frontend Developer", "Frontend Developer");
+    }
+  } else if (/back\s*end|backend/i.test(lower)) {
+    if (/lead/i.test(lower)) {
+      roles.push("Senior Backend Engineer", "Staff Backend Engineer", "Backend Architect");
+    } else if (/senior|sr/i.test(lower)) {
+      roles.push("Lead Backend Developer", "Senior Backend Engineer", "Backend Developer");
+    } else {
+      roles.push("Senior Backend Developer", "Backend Developer");
+    }
+  } else if (/full\s*stack|fullstack/i.test(lower)) {
+    roles.push("Senior Full Stack Engineer", "Full Stack Developer");
+  } else if (/product\s*manager|\bpm\b/i.test(lower)) {
+    if (/ai/i.test(lower)) {
+      roles.push("AI Product Manager", "Sr. Product Manager", "Product Manager");
+    } else {
+      roles.push("Sr. Product Manager", "Product Manager");
+    }
+  } else if (/data\s*scien/i.test(lower)) {
+    roles.push("Senior Data Scientist", "Data Scientist", "Machine Learning Engineer");
+  } else if (/data\s*analyst/i.test(lower)) {
+    roles.push("Senior Data Analyst", "Data Analyst", "Business Intelligence Analyst");
+  } else if (/devops|sre|platform/i.test(lower)) {
+    roles.push("DevOps Engineer", "Site Reliability Engineer", "Cloud Engineer");
+  } else if (/mobile/i.test(lower)) {
+    roles.push("Senior Mobile Engineer", "iOS Developer", "Android Developer");
+  } else if (/design|ui|ux/i.test(lower)) {
+    roles.push("Product Designer", "Senior UX Designer", "UI Designer");
+  }
+
+  return uniqueTrimmed(roles, MAX_ROLES);
+}
+
+export function inferSkillsForRole(roleText: string): string[] {
+  const lower = roleText.toLowerCase();
+  if (/front\s*end|frontend/i.test(lower)) {
+    if (/lead|senior|staff|principal|architect|manager/i.test(lower)) {
+      return ["Frontend Architecture", "React", "TypeScript", "Web Performance", "System Design", "Engineering Leadership"];
+    }
+    return ["React", "TypeScript", "JavaScript", "HTML/CSS", "Web Performance", "Next.js"];
+  }
+  if (/back\s*end|backend/i.test(lower)) {
+    if (/lead|senior|staff|principal|architect/i.test(lower)) {
+      return ["System Design", "Microservices", "Node.js", "PostgreSQL", "Cloud Architecture", "Distributed Systems"];
+    }
+    return ["Node.js", "Python", "SQL", "REST APIs", "PostgreSQL", "System Design"];
+  }
+  if (/full\s*stack|fullstack/i.test(lower)) {
+    return ["React", "Node.js", "TypeScript", "PostgreSQL", "System Design", "REST APIs"];
+  }
+  if (/product\s*manager|product\s*management|\bpm\b/i.test(lower)) {
+    if (/ai|machine\s*learning|gen\s*ai/i.test(lower)) {
+      return ["Product Strategy", "Gen AI", "AI Agents", "Product Management", "Machine Learning", "User Experience"];
+    }
+    return ["Product Strategy", "User Research", "Product Management", "Roadmapping", "Data Analytics", "Cross-Functional Leadership"];
+  }
+  if (/data\s*scien|machine\s*learn|\bml\b|\bai\b/i.test(lower)) {
+    return ["Machine Learning", "Python", "Data Science", "SQL", "Deep Learning", "Statistics"];
+  }
+  if (/data\s*analyst|analytics|business\s*intelligence|\bbi\b/i.test(lower)) {
+    return ["Data Analytics", "SQL", "Tableau", "Python", "Business Intelligence", "Data Visualization"];
+  }
+  if (/devops|sre|cloud|infrastructure|platform\s*engineer/i.test(lower)) {
+    return ["Kubernetes", "Docker", "CI/CD", "AWS", "Terraform", "System Architecture"];
+  }
+  if (/mobile|ios|android/i.test(lower)) {
+    return ["React Native", "iOS / Swift", "Android / Kotlin", "Mobile Architecture", "State Management"];
+  }
+  if (/design|ui|ux/i.test(lower)) {
+    return ["UI/UX Design", "Figma", "Design Systems", "User Research", "Prototyping"];
+  }
+  if (/qa|test|automation|quality\s*assurance/i.test(lower)) {
+    return ["Test Automation", "Selenium / Playwright", "API Testing", "CI/CD", "Quality Assurance"];
+  }
+  if (/security|cyber/i.test(lower)) {
+    return ["Cybersecurity", "Network Security", "Penetration Testing", "Threat Modeling", "SIEM", "Security Compliance"];
+  }
+  if (/marketing|growth/i.test(lower)) {
+    return ["Growth Marketing", "SEO", "Content Strategy", "Digital Marketing", "Conversion Rate Optimization", "Google Analytics"];
+  }
+  if (/sales|account\s*exec/i.test(lower)) {
+    return ["B2B Sales", "Enterprise Sales", "CRM", "Pipeline Management", "Negotiation", "Client Relationship Management"];
+  }
+  return [];
+}
+
 /** Instant, no-network fill from the free-text goal. Empty fields stay empty. */
 export function parseCareerGoalText(raw: string): ExtractedCareerGoal {
   const text = raw.trim();
@@ -155,27 +267,41 @@ export function parseCareerGoalText(raw: string): ExtractedCareerGoal {
       matchedIndustries.push(label);
     }
   }
+  if (matchedIndustries.length === 0) {
+    matchedIndustries.push("Technology", "SaaS");
+  }
   extracted.industries = uniqueTrimmed(matchedIndustries, MAX_INDUSTRIES);
 
   // 2. Roles
-  const rolesFound: string[] = [];
+  let rolesFound: string[] = [];
   const roleMatch =
-    text.match(/(?:aiming for|want to be(?:come)?|looking for(?: a(?:n)? (?:job|role) as)?|as a(?:n)?|role(?: of)?)\s+([^.,\n]+?)(?:\s+(?:at|in|within|for)\b|[.,\n]|$)/i) ??
-    text.match(/job opportunities in\s+([^.,\n]+?)(?:\s+(?:at|in|within|for)\b|[.,\n]|$)/i);
+    text.match(/(?:aiming for|want to be(?:come)?|looking for(?: a(?:n)? (?:job|role) as)?|as a(?:n)?|role(?: of)?)\s+([^.,\n]+?)(?:\s+(?:at|in|within|for|with|focusing on|specializing in)\b|[.,\n]|$)/i) ??
+    text.match(/job opportunities in\s+([^.,\n]+?)(?:\s+(?:at|in|within|for|with|focusing on|specializing in)\b|[.,\n]|$)/i);
   if (roleMatch?.[1]) {
-    const role = roleMatch[1]
+    const rawRole = roleMatch[1]
       .replace(/\b(?:jobs?|opportunities|roles?|company|startups?)\b/gi, "")
       .trim()
       .replace(/\s+/g, " ")
       .slice(0, MAX_ROLE);
-    if (role) {
-      rolesFound.push(role);
-      if (/product\s+manager/i.test(role)) {
-        if (!rolesFound.some((r) => /^sr\.?\s+product\s+manager/i.test(r))) rolesFound.unshift("Sr. Product Manager");
-        if (!rolesFound.includes("Product Manager")) rolesFound.push("Product Manager");
-      }
+    if (rawRole) {
+      rolesFound = inferRelatedRoles(rawRole);
     }
   }
+
+  if (rolesFound.length === 0) {
+    if (/lead\s+frontend\s+developer|frontend\s+lead/i.test(lower)) {
+      rolesFound = ["Lead Frontend Developer", "Senior Frontend Engineer", "Staff Frontend Engineer"];
+    } else if (/frontend\s+developer|frontend\s+engineer/i.test(lower)) {
+      rolesFound = ["Senior Frontend Developer", "Frontend Developer"];
+    } else if (/backend\s+developer|backend\s+engineer/i.test(lower)) {
+      rolesFound = ["Senior Backend Developer", "Backend Developer"];
+    } else if (/full\s*stack/i.test(lower)) {
+      rolesFound = ["Full Stack Developer", "Senior Full Stack Developer"];
+    } else if (/product\s+manager/i.test(lower)) {
+      rolesFound = ["Sr. Product Manager", "Product Manager"];
+    }
+  }
+
   extracted.target_roles = uniqueTrimmed(rolesFound, MAX_ROLES);
   extracted.target_role = extracted.target_roles[0] ?? null;
 
@@ -190,9 +316,26 @@ export function parseCareerGoalText(raw: string): ExtractedCareerGoal {
   if (skillMatch?.[1]) {
     skillsFound.push(...skillMatch[1].split(/\s*(?:,|and|&)\s*/));
   }
+
+  // If no skills explicitly stated, auto-suggest based on target role
+  if (skillsFound.length === 0 && extracted.target_roles.length > 0) {
+    skillsFound.push(...inferSkillsForRole(extracted.target_roles[0]));
+  }
+
   extracted.skills = uniqueTrimmed(skillsFound, MAX_SKILLS);
 
-  const companyMatch = text.match(/(?:at|like|companies?:?)\s+([A-Z][\w&.\-]+(?:\s*(?:,|and|&)\s*[A-Z][\w&.\-]+){0,8})/);
+  // 4. Default timeline if unset
+  if (!extracted.timeline) {
+    if (extracted.experience_level === "lead" || extracted.experience_level === "senior") {
+      extracted.timeline = "1_year";
+    } else {
+      extracted.timeline = "6_months";
+    }
+  }
+
+  const companyMatch =
+    text.match(/(?:work at|at company|at companies|target companies?:?|dream companies?:?)\s+([A-Z][\w&.\-]+(?:\s*(?:,|and|&|or)\s*[A-Z][\w&.\-]+){0,8})/i) ??
+    text.match(/\bat\s+([A-Z][\w&.\-]+(?:\s*(?:,|and|&|or)\s*[A-Z][\w&.\-]+){0,8})/);
   if (companyMatch?.[1]) {
     extracted.dream_companies = uniqueTrimmed(companyMatch[1].split(/\s*(?:,|and|&)\s*/), MAX_COMPANIES);
   }
