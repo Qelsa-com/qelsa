@@ -210,9 +210,10 @@ export function JobDetail() {
     });
   }, [id, isAuthenticated, job, recordJobView]);
 
+  const isRecruiter = isAuthenticated && user?.account_type === "recruiter";
   const sectionScrollLock = useRef(false);
   const [activeSection, setActiveSection] = useState("job-overview");
-  const [tabStickyTop, setTabStickyTop] = useState(64);
+  const [tabStickyTop, setTabStickyTop] = useState(() => (isRecruiter ? 0 : 64));
   const pageSections = useMemo(() => {
     const items: { id: string; label: string }[] = [{ id: "job-overview", label: "Overview" }];
     if (job?.description?.trim()) items.push({ id: "job-description", label: "Job description" });
@@ -226,15 +227,17 @@ export function JobDetail() {
 
   useEffect(() => {
     const applyStickyTop = () => {
-      const header = [...document.querySelectorAll("header")].find((el) => el.getBoundingClientRect().height > 0);
-      if (!header) return;
-      const next = Math.round(header.getBoundingClientRect().height);
+      const header = [...document.querySelectorAll("header")].find((el) => {
+        const rect = el.getBoundingClientRect();
+        return rect.height > 0 && rect.top <= 1;
+      });
+      const next = header ? Math.round(header.getBoundingClientRect().height) : 0;
       setTabStickyTop((prev) => (prev === next ? prev : next));
     };
     applyStickyTop();
     window.addEventListener("resize", applyStickyTop);
     return () => window.removeEventListener("resize", applyStickyTop);
-  }, []);
+  }, [isRecruiter]);
 
   useEffect(() => {
     let frame = 0;
@@ -902,9 +905,12 @@ function ShareButton({ children, onClick, active }: { children: React.ReactNode;
 
 /** Distance from the viewport top to just under the sticky section tabs. */
 function sectionScrollOffset() {
-  const header = [...document.querySelectorAll("header")].find((el) => el.getBoundingClientRect().height > 0);
+  const header = [...document.querySelectorAll("header")].find((el) => {
+    const rect = el.getBoundingClientRect();
+    return rect.height > 0 && rect.top <= 1;
+  });
   const nav = document.querySelector('nav[aria-label="Job sections"]');
-  const headerHeight = header?.getBoundingClientRect().height ?? 64;
+  const headerHeight = header ? header.getBoundingClientRect().height : 0;
   const navHeight = nav?.getBoundingClientRect().height ?? 48;
   return headerHeight + navHeight + 8;
 }
@@ -921,7 +927,11 @@ function JobSectionTabs({
   stickyTop: number;
 }) {
   return (
-    <nav aria-label="Job sections" className="sticky z-30 border-b border-white/[0.08] bg-[#06060f]" style={{ top: stickyTop }}>
+    <nav
+      aria-label="Job sections"
+      className="sticky z-30 -mx-4 border-b border-white/[0.08] bg-[#06060f] px-4 backdrop-blur-md sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
+      style={{ top: stickyTop }}
+    >
       <div className="flex gap-1 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {sections.map((section) => {
           const active = section.id === activeId;
