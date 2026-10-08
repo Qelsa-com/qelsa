@@ -110,18 +110,20 @@ const Settings = () => {
           </div>
         )}
 
-        <Link href="/settings/integrations" className="mb-8 flex items-center justify-between rounded-2xl border border-glass-border glass p-6 transition-colors hover:bg-white/5">
-          <div className="flex items-start gap-4">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-neon-purple/20">
-              <Plug className="h-5 w-5 text-neon-purple" />
+        {user && (user.account_type === "recruiter" || user.role === "admin") && (
+          <Link href="/settings/integrations" className="mb-8 flex items-center justify-between rounded-2xl border border-glass-border glass p-6 transition-colors hover:bg-white/5">
+            <div className="flex items-start gap-4">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-neon-purple/20">
+                <Plug className="h-5 w-5 text-neon-purple" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-white">Integrations</h2>
+                <p className="mt-1 text-sm text-muted-foreground">Connect your ATS (Greenhouse, Zoho Recruit, Lever…) to sync job requisitions and route candidates into your hiring pipeline.</p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-lg font-semibold text-white">Integrations</h2>
-              <p className="mt-1 text-sm text-muted-foreground">Connect your ATS (Greenhouse, Zoho Recruit, Lever…) to sync job requisitions and route candidates into your hiring pipeline.</p>
-            </div>
-          </div>
-          <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />
-        </Link>
+            <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />
+          </Link>
+        )}
 
         <section className="rounded-2xl border border-destructive/40 bg-destructive/5 p-6">
           <div className="mb-4 flex items-start gap-3">
