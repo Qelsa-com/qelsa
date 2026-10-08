@@ -18,12 +18,16 @@ export function ResumeUpload({
   onFile,
   onContinue,
   onSkip,
+  onBack,
+  onSignOut,
   disabled,
 }: {
   file: File | null;
   onFile: (file: File | null) => void;
   onContinue: () => void;
   onSkip?: () => void;
+  onBack?: () => void;
+  onSignOut?: () => void;
   disabled?: boolean;
 }) {
   const router = useRouter();
@@ -32,6 +36,10 @@ export function ResumeUpload({
   const [error, setError] = useState<string | null>(null);
 
   const handleSignOut = async () => {
+    if (onSignOut) {
+      onSignOut();
+      return;
+    }
     clearResumeDraft();
     await authClient.signOut();
     router.push("/auth");
@@ -60,23 +68,35 @@ export function ResumeUpload({
   };
 
   return (
-    <div className="relative flex min-h-screen flex-col items-center px-4 py-10" style={{ background: "var(--background)" }}>
+    <div className="relative flex min-h-screen flex-col items-center px-4 pb-16 pt-6 sm:py-10" style={{ background: "var(--background)" }}>
       <div className="pointer-events-none absolute inset-0 -z-10">
         <div className="absolute left-1/2 top-24 h-[420px] w-[420px] -translate-x-1/2 rounded-full bg-neon-purple/10 blur-[130px]" />
       </div>
 
-      <div className="absolute right-6 top-6">
+      <header className="flex w-full max-w-xl items-center justify-between">
+        <div className="flex items-center gap-3">
+          {onBack && (
+            <button
+              type="button"
+              onClick={onBack}
+              className="flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-white"
+            >
+              ← <span className="text-sm">Back</span>
+            </button>
+          )}
+          <Image src="/qelsa-logo.svg" alt="Qelsa" width={91} height={29} priority unoptimized className="h-[22px] sm:h-[24px] w-auto" />
+        </div>
+
         <button
           type="button"
           onClick={handleSignOut}
-          className="text-xs text-muted-foreground transition-colors hover:text-white"
+          className="text-xs sm:text-sm text-muted-foreground transition-colors hover:text-white"
         >
           Sign out
         </button>
-      </div>
+      </header>
 
-      <Image src="/qelsa-logo.svg" alt="Qelsa" width={91} height={29} priority unoptimized className="h-[24px] w-auto" />
-      <h1 className="mt-10 text-center text-4xl font-bold text-white">Start with your resume</h1>
+      <h1 className="mt-8 sm:mt-10 text-center text-3xl sm:text-4xl font-bold text-white">Start with your resume</h1>
       <p className="mt-3 max-w-md text-center text-[15px] text-muted-foreground">
         We read it and fill your profile automatically. Usually under 10 seconds.
       </p>
@@ -100,7 +120,7 @@ export function ResumeUpload({
           setDragOver(false);
           takeFile(event.dataTransfer.files?.[0]);
         }}
-        className={`mt-10 grid w-full max-w-xl rounded-3xl border border-dashed px-8 py-14 text-center transition-colors ${
+        className={`mt-6 sm:mt-10 grid w-full max-w-xl rounded-3xl border border-dashed px-6 py-8 sm:px-8 sm:py-12 text-center transition-colors ${
           dragOver || file ? "border-neon-cyan/70 bg-neon-cyan/5" : "border-white/15 bg-white/[0.02]"
         }`}
       >
@@ -139,13 +159,13 @@ export function ResumeUpload({
         </div>
       </div>
 
-      <p className="mt-4 min-h-5 text-center text-sm text-neon-pink">{error ?? ""}</p>
+      <p className="mt-3 sm:mt-4 min-h-5 text-center text-sm text-neon-pink">{error ?? ""}</p>
 
       <button
         type="button"
         onClick={onContinue}
         disabled={!file || disabled}
-        className={`mt-10 w-full max-w-xl ${PRIMARY_BTN} ${!file ? "opacity-40" : ""}`}
+        className={`mt-6 sm:mt-8 w-full max-w-xl ${PRIMARY_BTN} ${!file ? "opacity-40" : ""}`}
       >
         {file ? "Read my resume" : "Select a file to continue"}
         {file ? <ArrowRightIcon /> : null}

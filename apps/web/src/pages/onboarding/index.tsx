@@ -56,7 +56,7 @@ export default function OnboardingPage() {
 
   if (pickingRole || !accountType) {
     return (
-      <OnboardingShell onBack={handleSignOut}>
+      <OnboardingShell onBack={user.account_type ? () => setPickingRole(false) : undefined}>
         <RoleStep value={accountType} onChange={setAccountType} onContinue={handleRoleContinue} isSaving={isSavingRole} />
       </OnboardingShell>
     );

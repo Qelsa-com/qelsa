@@ -85,25 +85,13 @@ export function ResumeOnboardingFlow({
   }
 
   return (
-    <div>
-      <ResumeUpload file={file} onFile={setFile} onContinue={handleRead} onSkip={onSkip} />
-      <div className="fixed bottom-6 left-1/2 flex -translate-x-1/2 items-center gap-3 text-sm text-muted-foreground">
-        {onBack ? (
-          <>
-            <button type="button" onClick={onBack} className="hover:text-white">
-              ← Back
-            </button>
-            <span>·</span>
-          </>
-        ) : null}
-        <button
-          type="button"
-          onClick={handleSignOut}
-          className="hover:text-white"
-        >
-          Sign out
-        </button>
-      </div>
-    </div>
+    <ResumeUpload
+      file={file}
+      onFile={setFile}
+      onContinue={handleRead}
+      onSkip={onSkip}
+      onBack={onBack}
+      onSignOut={handleSignOut}
+    />
   );
 }
