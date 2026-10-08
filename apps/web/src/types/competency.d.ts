@@ -18,4 +18,5 @@ export type Competency = {
   matchedCount: number;
   totalCount: number;
   readiness: number;
+  career_alignment?: number | null;
 };

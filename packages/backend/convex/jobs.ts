@@ -38,6 +38,7 @@ import {
 } from "./lib/jobProfileMatch";
 import { withSkillAliases } from "./lib/skillCatalog";
 import { buildCompetencyFramework, clipPlainText } from "./lib/skillMatch";
+import { calculateCareerAlignment } from "./lib/careerAlignment";
 import { canonicalizeCatalogName, catalogKey, looksLikeConvexId, resolveCityRef, resolveNamedRef, type CityRefInput } from "./lib/resolve";
 
 type SkillCache = Map<Id<"skills">, Doc<"skills"> | null>;
@@ -50,6 +51,7 @@ type ListHydration = {
   skillCache: SkillCache;
   yearsExperience: number | null;
   educationCount: number;
+  careerGoal?: Doc<"career_goals"> | null;
 };
 
 async function jobSkillsFor(ctx: QueryCtx, jobId: Id<"jobs">, cache?: SkillCache) {
@@ -71,8 +73,8 @@ async function jobSkillsFor(ctx: QueryCtx, jobId: Id<"jobs">, cache?: SkillCache
 }
 
 async function listHydration(ctx: QueryCtx, user: Doc<"users"> | null, loadSaved = true): Promise<ListHydration> {
-  if (!user) return { userSkills: [], savedJobIds: new Set(), appliedJobIds: new Set(), skillCache: new Map(), yearsExperience: null, educationCount: 0 };
-  const [skillRows, saved, expRows, eduRows, appRows] = await Promise.all([
+  if (!user) return { userSkills: [], savedJobIds: new Set(), appliedJobIds: new Set(), skillCache: new Map(), yearsExperience: null, educationCount: 0, careerGoal: null };
+  const [skillRows, saved, expRows, eduRows, appRows, careerGoal] = await Promise.all([
     ctx.db
       .query("user_skills")
       .withIndex("by_user", (q) => q.eq("user_id", user._id))
@@ -95,6 +97,10 @@ async function listHydration(ctx: QueryCtx, user: Doc<"users"> | null, loadSaved
       .query("job_applications")
       .withIndex("by_user", (q) => q.eq("user_id", user._id))
       .collect(),
+    ctx.db
+      .query("career_goals")
+      .withIndex("by_user", (q) => q.eq("user_id", user._id))
+      .unique(),
   ]);
 
   const appliedJobIds = new Set(
@@ -117,6 +123,7 @@ async function listHydration(ctx: QueryCtx, user: Doc<"users"> | null, loadSaved
     skillCache: new Map(),
     yearsExperience,
     educationCount: eduRows.length,
+    careerGoal,
   };
 }
 
@@ -192,6 +199,32 @@ async function enrichJob(ctx: QueryCtx, job: Doc<"jobs">, user: Doc<"users"> | n
       has_applied = list.appliedJobIds.has(String(job._id));
     }
 
+    const careerGoal = list?.careerGoal !== undefined
+      ? list.careerGoal
+      : await ctx.db
+          .query("career_goals")
+          .withIndex("by_user", (q) => q.eq("user_id", user._id))
+          .unique();
+
+    const career_alignment = careerGoal
+      ? calculateCareerAlignment(
+          careerGoal,
+          {
+            title: job.title ?? job_title?.name,
+            industry: page?.industry,
+            company_name: job.company_name ?? page?.name,
+          },
+          job_skills.map((js) => js.skill?.name ?? ""),
+        )
+      : null;
+
+    if (competency) {
+      competency = {
+        ...competency,
+        career_alignment,
+      };
+    }
+
     if (has_applied) {
       is_bookmarked = false;
     }
@@ -211,6 +244,7 @@ async function enrichJob(ctx: QueryCtx, job: Doc<"jobs">, user: Doc<"users"> | n
     job_skills,
     is_bookmarked,
     competency,
+    career_alignment: competency?.career_alignment ?? null,
     title: job.title ?? job_title?.name,
     company_name: job.company_name ?? page?.name,
     company_logo: job.company_logo ?? page?.logo,

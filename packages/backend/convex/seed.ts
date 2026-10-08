@@ -540,6 +540,44 @@ export const jobTitles = query({
   },
 });
 
+const STANDARD_INDUSTRIES = [
+  "Technology",
+  "Fintech",
+  "Insurtech",
+  "SaaS",
+  "Artificial Intelligence",
+  "Healthcare",
+  "E-Commerce",
+  "Education",
+  "Cybersecurity",
+  "Cloud Computing",
+  "Gaming",
+  "Biotechnology",
+  "CleanTech",
+  "Media & Entertainment",
+  "Financial Services",
+  "Consulting",
+  "Aerospace & Defense",
+  "Retail",
+  "Consumer Goods",
+  "Hospitality",
+  "Real Estate",
+  "Telecommunications",
+  "Transportation & Logistics",
+];
+
+export const industries = query({
+  args: { search: v.optional(v.string()) },
+  returns: v.array(v.string()),
+  handler: async (ctx, args) => {
+    const queryStr = (args.search ?? "").trim().toLowerCase();
+    const results = queryStr
+      ? STANDARD_INDUSTRIES.filter((ind) => ind.toLowerCase().includes(queryStr))
+      : STANDARD_INDUSTRIES;
+    return results.slice(0, 16);
+  },
+});
+
 export const setUserRole = mutation({
   args: {
     email: v.string(),

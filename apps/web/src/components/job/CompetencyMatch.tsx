@@ -25,7 +25,7 @@ function typeBadgeClass(t?: JobSkillType) {
 /** Compact match indicator for job list / similar cards. Renders nothing when competency is absent. */
 export function CompetencySummary({ competency, className = "" }: { competency?: Competency | null; className?: string }) {
   if (!competency) return null;
-  const { readiness, matchedCount, totalCount, competencies } = competency;
+  const { readiness, career_alignment, matchedCount, totalCount, competencies } = competency;
   const missing = (competencies || []).filter((c) => !hasCandidate(c)).map((c) => c.skill_name);
 
   return (
@@ -35,9 +35,15 @@ export function CompetencySummary({ competency, className = "" }: { competency?:
           <div className="h-full rounded-full bg-neon-cyan" style={{ width: `${Math.max(0, Math.min(100, readiness))}%` }} />
         </div>
         <span className="text-xs font-semibold text-neon-cyan">{readiness}%</span>
-        <Badge variant="outline" className="text-[10px] border-neon-cyan/30 text-neon-cyan whitespace-nowrap">
-          {matchedCount}/{totalCount} skills
-        </Badge>
+        {career_alignment != null ? (
+          <Badge variant="outline" className="text-[10px] border-neon-purple/50 bg-neon-purple/10 text-neon-purple whitespace-nowrap">
+            {career_alignment}% Goal
+          </Badge>
+        ) : (
+          <Badge variant="outline" className="text-[10px] border-neon-cyan/30 text-neon-cyan whitespace-nowrap">
+            {matchedCount}/{totalCount} skills
+          </Badge>
+        )}
       </div>
       {missing.length > 0 && (
         <p className="text-[11px] text-muted-foreground truncate">
@@ -78,16 +84,26 @@ function FitRing({ value }: { value: number }) {
   );
 }
 
-function MatchBar({ label, value }: { label: string; value: number }) {
+function MatchBar({
+  label,
+  value,
+  barColor = "bg-neon-cyan",
+  textColor = "text-neon-cyan",
+}: {
+  label: string;
+  value: number;
+  barColor?: string;
+  textColor?: string;
+}) {
   const pct = Math.max(0, Math.min(100, value));
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between">
         <span className="text-sm text-muted-foreground">{label}</span>
-        <span className="text-sm font-semibold text-neon-cyan">{pct}%</span>
+        <span className={`text-sm font-semibold ${textColor}`}>{pct}%</span>
       </div>
       <div className="h-2 rounded-full bg-glass-border overflow-hidden">
-        <div className="h-full rounded-full bg-neon-cyan" style={{ width: `${pct}%` }} />
+        <div className={`h-full rounded-full ${barColor}`} style={{ width: `${pct}%` }} />
       </div>
     </div>
   );
@@ -165,6 +181,14 @@ export function CompetencyTable({
           <MatchBar label="Skills Match" value={skillsMatch} />
           {experienceMatch != null && <MatchBar label="Experience Match" value={experienceMatch} />}
           {educationMatch != null && <MatchBar label="Education Match" value={educationMatch} />}
+          {competency.career_alignment != null && (
+            <MatchBar
+              label="Career Goal Alignment"
+              value={competency.career_alignment}
+              barColor="bg-gradient-to-r from-neon-purple to-pink-500"
+              textColor="text-neon-purple"
+            />
+          )}
         </div>
       </div>
 

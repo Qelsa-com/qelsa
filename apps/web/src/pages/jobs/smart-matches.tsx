@@ -28,9 +28,11 @@ const SmartMatches = () => {
   const almost = data?.almost ?? [];
   const shown = ready.length + almost.length;
   const total = data ? data.readyTotal + data.almostTotal : undefined;
-  const goalRole = user?.career_goal?.target_role?.trim();
+  const goalRoles = user?.career_goal?.target_roles?.length
+    ? user.career_goal.target_roles.join(", ")
+    : user?.career_goal?.target_role?.trim();
   const readySubtitle = hasCareerGoal(user?.career_goal)
-    ? `These roles match your goal: ${goalRole}.`
+    ? `These roles match your goal: ${goalRoles}.`
     : MATCH_TIER.ready.subtitle;
 
   const openJob = (id: string | number) => router.push(`/jobs/${id}`);

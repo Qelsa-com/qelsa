@@ -4,8 +4,11 @@ import {
   careerGoalPublicValidator,
   experienceLevelValidator,
   MAX_COMPANIES,
+  MAX_INDUSTRIES,
+  MAX_ROLES,
   MAX_SKILLS,
   MAX_TAG,
+  MAX_ROLE,
   normalizeDescription,
   normalizeExperienceLevel,
   normalizeFocus,
@@ -32,8 +35,10 @@ export const getMine = authedQuery({
 export const upsert = authedMutation({
   args: {
     description: v.optional(v.string()),
-    target_role: v.string(),
+    target_role: v.optional(v.string()),
+    target_roles: v.optional(v.array(v.string())),
     dream_companies: v.optional(v.array(v.string())),
+    industries: v.optional(v.array(v.string())),
     timeline: v.optional(timelineValidator),
     experience_level: v.optional(experienceLevelValidator),
     skills: v.optional(v.array(v.string())),
@@ -41,7 +46,8 @@ export const upsert = authedMutation({
   },
   returns: careerGoalPublicValidator,
   handler: async (ctx, args) => {
-    const target_role = normalizeRole(args.target_role);
+    const roles = uniqueTrimmed(args.target_roles ?? (args.target_role ? [args.target_role] : []), MAX_ROLES, MAX_ROLE);
+    const target_role = roles[0] ? normalizeRole(roles[0]) : normalizeRole(args.target_role ?? "");
     if (!target_role) throw new Error("What role are you aiming for is required");
 
     const description = normalizeDescription(args.description);
@@ -51,7 +57,9 @@ export const upsert = authedMutation({
     const fields = {
       user_id: ctx.user._id,
       target_role,
+      target_roles: roles,
       dream_companies: uniqueTrimmed(args.dream_companies ?? [], MAX_COMPANIES, MAX_TAG),
+      industries: uniqueTrimmed(args.industries ?? [], MAX_INDUSTRIES, MAX_TAG),
       skills: uniqueTrimmed(args.skills ?? [], MAX_SKILLS, MAX_TAG),
       updated_at: Date.now(),
       ...(description ? { description } : {}),

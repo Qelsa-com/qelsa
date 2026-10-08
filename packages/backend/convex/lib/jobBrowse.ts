@@ -3,6 +3,7 @@ import type { QueryCtx } from "../_generated/server";
 import { iso, withId } from "./helpers";
 import { roundedReadiness, titleSimilarity, titleTokens, type UserRoleProfile } from "./jobProfileMatch";
 import { buildCompetencyFramework } from "./skillMatch";
+import { calculateCareerAlignment } from "./careerAlignment";
 
 /** Newest-open scan for ranked browse. Indexed `take`, not `.collect()`. */
 export const BROWSE_SCAN = 160;
@@ -160,6 +161,7 @@ export async function scoreReadiness(
 type ListHydration = {
   userSkills: Array<Pick<Doc<"user_skills">, "skill_id" | "proficiency">>;
   savedJobIds: Set<string>;
+  careerGoal?: Doc<"career_goals"> | null;
 };
 
 /**
@@ -190,6 +192,18 @@ export async function slimListJob(
   ]);
   const state = city ? await getCached(ctx, cache.states, city.state_id) : null;
 
+  const career_alignment = hydration.careerGoal
+    ? calculateCareerAlignment(
+        hydration.careerGoal,
+        {
+          title: job.title ?? job_title?.name,
+          industry: page?.industry,
+          company_name: job.company_name ?? page?.name,
+        },
+        [],
+      )
+    : null;
+
   return {
     _id: job._id,
     id: job._id,
@@ -219,7 +233,17 @@ export async function slimListJob(
     job_title: job_title ? withId(job_title) : null,
     job_skills: [],
     is_bookmarked: hydration.savedJobIds.has(job._id),
-    competency: readiness == null ? null : { readiness, competencies: [], matchedCount: 0, totalCount: 0 },
+    competency:
+      readiness == null
+        ? null
+        : {
+            readiness,
+            career_alignment,
+            competencies: [],
+            matchedCount: 0,
+            totalCount: 0,
+          },
+    career_alignment,
     application_count: job.application_count ?? 0,
     view_count: job.view_count ?? 0,
     has_applied: false,

@@ -6,7 +6,9 @@ export type CareerGoal = {
   id?: string;
   description?: string;
   target_role: string;
-  dream_companies: string[];
+  target_roles?: string[];
+  dream_companies?: string[];
+  industries?: string[];
   timeline?: CareerGoalTimeline;
   experience_level?: CareerGoalExperienceLevel;
   skills: string[];
@@ -16,7 +18,9 @@ export type CareerGoal = {
 
 export type ExtractedCareerGoal = {
   target_role: string | null;
-  dream_companies: string[];
+  target_roles?: string[];
+  dream_companies?: string[];
+  industries?: string[];
   timeline: CareerGoalTimeline | null;
   experience_level: CareerGoalExperienceLevel | null;
   skills: string[];
