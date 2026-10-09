@@ -37,6 +37,7 @@ import type * as lib_atsJobReconcile from "../lib/atsJobReconcile.js";
 import type * as lib_atsSyncEnabled from "../lib/atsSyncEnabled.js";
 import type * as lib_atsSyncInterval from "../lib/atsSyncInterval.js";
 import type * as lib_auth from "../lib/auth.js";
+import type * as lib_careerAlignment from "../lib/careerAlignment.js";
 import type * as lib_careerGoal from "../lib/careerGoal.js";
 import type * as lib_customFunctions from "../lib/customFunctions.js";
 import type * as lib_deleteUserData from "../lib/deleteUserData.js";
@@ -102,6 +103,7 @@ declare const fullApi: ApiFromModules<{
   "lib/atsSyncEnabled": typeof lib_atsSyncEnabled;
   "lib/atsSyncInterval": typeof lib_atsSyncInterval;
   "lib/auth": typeof lib_auth;
+  "lib/careerAlignment": typeof lib_careerAlignment;
   "lib/careerGoal": typeof lib_careerGoal;
   "lib/customFunctions": typeof lib_customFunctions;
   "lib/deleteUserData": typeof lib_deleteUserData;
