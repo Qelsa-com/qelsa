@@ -1,8 +1,7 @@
-/** Ready Now is strictly above 80. Almost There is 70–80 inclusive. */
-export const READY_MIN_EXCLUSIVE = 80;
-export const ALMOST_MIN = 70;
-export const ALMOST_MAX = 80;
-export const READY_LIST_MIN = ALMOST_MAX + 1;
+/** Ready Now is 80 or above. Almost There is 60–79. */
+export const READY_MIN = 80;
+export const ALMOST_MIN = 60;
+export const ALMOST_MAX = 79;
 
 export const MATCH_TIER = {
   ready: {
@@ -10,7 +9,7 @@ export const MATCH_TIER = {
     title: "Ready Now",
     subtitle: "These roles match your experience. It's go time for these roles.",
     dotColor: "#10b981",
-    minReadiness: READY_LIST_MIN,
+    minReadiness: READY_MIN,
     maxReadiness: undefined,
   },
   almost: {
@@ -26,7 +25,7 @@ export const MATCH_TIER = {
 export type MatchTierId = keyof typeof MATCH_TIER;
 
 export function matchRingColor(score: number): string {
-  if (score > READY_MIN_EXCLUSIVE) return "#10b981";
+  if (score >= READY_MIN) return "#10b981";
   if (score >= ALMOST_MIN) return "#f59e0b";
   return "#9ca3af";
 }

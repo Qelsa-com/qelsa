@@ -25,16 +25,17 @@ function typeBadgeClass(t?: JobSkillType) {
 /** Compact match indicator for job list / similar cards. Renders nothing when competency is absent. */
 export function CompetencySummary({ competency, className = "" }: { competency?: Competency | null; className?: string }) {
   if (!competency) return null;
-  const { readiness, career_alignment, matchedCount, totalCount, competencies } = competency;
+  const { readiness, career_alignment, smart_match, matchedCount, totalCount, competencies } = competency;
+  const shown = smart_match ?? readiness;
   const missing = (competencies || []).filter((c) => !hasCandidate(c)).map((c) => c.skill_name);
 
   return (
     <div className={`space-y-1.5 ${className}`}>
       <div className="flex items-center gap-2">
         <div className="flex-1 h-1.5 rounded-full bg-glass-border overflow-hidden">
-          <div className="h-full rounded-full bg-neon-cyan" style={{ width: `${Math.max(0, Math.min(100, readiness))}%` }} />
+          <div className="h-full rounded-full bg-neon-cyan" style={{ width: `${Math.max(0, Math.min(100, shown))}%` }} />
         </div>
-        <span className="text-xs font-semibold text-neon-cyan">{readiness}%</span>
+        <span className="text-xs font-semibold text-neon-cyan">{shown}%</span>
         {career_alignment != null ? (
           <Badge variant="outline" className="text-[10px] border-neon-purple/50 bg-neon-purple/10 text-neon-purple whitespace-nowrap">
             {career_alignment}% Goal
@@ -55,7 +56,7 @@ export function CompetencySummary({ competency, className = "" }: { competency?:
   );
 }
 
-function FitRing({ value }: { value: number }) {
+function FitRing({ value, label }: { value: number; label: string }) {
   const pct = Math.max(0, Math.min(100, value));
   const r = 52;
   const c = 2 * Math.PI * r;
@@ -78,7 +79,7 @@ function FitRing({ value }: { value: number }) {
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className="text-2xl font-bold text-white">{pct}%</span>
-        <span className="text-xs text-white/45">Match</span>
+        <span className="max-w-[4.5rem] text-center text-[10px] leading-tight text-white/45">{label}</span>
       </div>
     </div>
   );
@@ -166,7 +167,8 @@ export function CompetencyTable({
   const strong = withCandidate.filter((c) => statusOf(c) !== "gap");
 
   const skillsMatch = totalCount > 0 ? Math.round((matchedCount / totalCount) * 100) : 0;
-  const fit = overallMatch ?? readiness;
+  const smartMatch = competency.smart_match ?? overallMatch ?? readiness;
+  const ringLabel = competency.smart_match != null ? "Smart Match" : "Match";
 
   return (
     <div id="how-you-fit" className="glass border border-glass-border rounded-2xl p-4 lg:p-6 space-y-6 scroll-mt-24">
@@ -176,8 +178,9 @@ export function CompetencyTable({
       </div>
 
       <div className="flex flex-col sm:flex-row items-center gap-6">
-        <FitRing value={fit} />
+        <FitRing value={smartMatch} label={ringLabel} />
         <div className="flex-1 w-full space-y-4">
+          <MatchBar label="Readiness" value={readiness} barColor="bg-neon-green" textColor="text-neon-green" />
           <MatchBar label="Skills Match" value={skillsMatch} />
           {experienceMatch != null && <MatchBar label="Experience Match" value={experienceMatch} />}
           {educationMatch != null && <MatchBar label="Education Match" value={educationMatch} />}

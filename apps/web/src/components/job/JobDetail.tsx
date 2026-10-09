@@ -636,7 +636,7 @@ export function JobDetail() {
               </div>
             )}
 
-            {/* How you fit this role. The ring is the readiness score. */}
+            {/* How you fit this role. The ring is the Smart Match score. */}
             {!isOwner && competency && (
               <div id="how-you-fit" className="scroll-mt-36">
                 <CompetencyTable competency={competency} experienceMatch={matchSession?.analysis?.experience_match ?? experienceMatch} educationMatch={matchSession?.analysis?.education_match ?? educationMatch} />

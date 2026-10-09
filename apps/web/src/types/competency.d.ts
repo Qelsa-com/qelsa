@@ -13,10 +13,18 @@ export type CompetencyItem = {
   matched: boolean;
 };
 
+export type MatchGap = {
+  skills: string[];
+  reachesReady: boolean;
+  blocker: "skills" | "experience" | "education" | "profile";
+};
+
 export type Competency = {
   competencies: CompetencyItem[];
   matchedCount: number;
   totalCount: number;
   readiness: number;
   career_alignment?: number | null;
+  smart_match?: number | null;
+  gap?: MatchGap | null;
 };

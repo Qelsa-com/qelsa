@@ -1,9 +1,9 @@
 import type { Doc, Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
 import { iso, withId } from "./helpers";
-import { roundedReadiness, titleSimilarity, titleTokens, type UserRoleProfile } from "./jobProfileMatch";
-import { buildCompetencyFramework } from "./skillMatch";
-import { calculateCareerAlignment } from "./careerAlignment";
+import { calculateCareerAlignment, calculateSmartMatch } from "./careerAlignment";
+import { isAlmostThere, roundedReadiness, titleSimilarity, titleTokens, type UserRoleProfile } from "./jobProfileMatch";
+import { buildCompetencyFramework, closingGap, type ClosingGap } from "./skillMatch";
 
 /** Newest-open scan for ranked browse. Indexed `take`, not `.collect()`. */
 export const BROWSE_SCAN = 160;
@@ -24,6 +24,9 @@ const SEARCH_CANDIDATE_CAP = 160;
 export type BrowseCandidate = {
   job: Doc<"jobs">;
   readiness: number | null;
+  careerAlignment?: number | null;
+  smartMatch?: number | null;
+  gap?: ClosingGap | null;
 };
 
 export type RelationCache = {
@@ -83,6 +86,14 @@ export function rankCandidates(candidates: BrowseCandidate[], sortBy?: string) {
   }
   candidates.sort((a, b) => {
     const byScore = (b.readiness ?? -1) - (a.readiness ?? -1);
+    return byScore !== 0 ? byScore : publishedMs(b.job) - publishedMs(a.job);
+  });
+}
+
+/** Ready Now and Almost There only. All Jobs keeps `rankCandidates` (readiness). */
+export function rankBySmartMatch(candidates: BrowseCandidate[]) {
+  candidates.sort((a, b) => {
+    const byScore = (b.smartMatch ?? b.readiness ?? -1) - (a.smartMatch ?? a.readiness ?? -1);
     return byScore !== 0 ? byScore : publishedMs(b.job) - publishedMs(a.job);
   });
 }
@@ -158,6 +169,126 @@ export async function scoreReadiness(
   return new Map(entries);
 }
 
+type ScoreProfile = { yearsExperience?: number | null; educationCount?: number | null };
+
+type TierScoreCaches = {
+  skills: Map<Id<"skills">, Doc<"skills"> | null>;
+  pages: Map<Id<"pages">, Doc<"pages"> | null>;
+  titles: Map<Id<"job_titles">, Doc<"job_titles"> | null>;
+};
+
+export type TierScore = {
+  readiness: number | null;
+  careerAlignment: number | null;
+  smartMatch: number | null;
+  gap: ClosingGap | null;
+};
+
+/**
+ * Readiness plus career alignment for at most the jobs already chosen for scoring.
+ * Skill names and company pages are one deduped batch, reused by the card serializer.
+ */
+export async function scoreTierMatches(
+  ctx: QueryCtx,
+  jobs: Doc<"jobs">[],
+  userSkills: Array<{ skill_id: string; proficiency?: string; name?: string }>,
+  profileContext: ScoreProfile | undefined,
+  careerGoal: {
+    target_roles?: string[];
+    target_role?: string;
+    skills?: string[];
+    industries?: string[];
+    experience_level?: string;
+  } | null,
+  caches: TierScoreCaches,
+): Promise<Map<Id<"jobs">, TierScore>> {
+  const rowsByJob = await Promise.all(
+    jobs.map(async (job) => {
+      const rows = await ctx.db
+        .query("job_skills")
+        .withIndex("by_job", (q) => q.eq("job_id", job._id))
+        .take(SCORE_SKILL_TAKE);
+      return [job._id, rows] as const;
+    }),
+  );
+
+  const skillIds = new Set<Id<"skills">>();
+  const pageIds: Id<"pages">[] = [];
+  const titleIds: Id<"job_titles">[] = [];
+  const seenPages = new Set<Id<"pages">>();
+  const seenTitles = new Set<Id<"job_titles">>();
+  for (const job of jobs) {
+    if (careerGoal && job.page_id && !caches.pages.has(job.page_id) && !seenPages.has(job.page_id)) {
+      seenPages.add(job.page_id);
+      pageIds.push(job.page_id);
+    }
+    if (careerGoal && !job.title && job.job_title_id && !caches.titles.has(job.job_title_id) && !seenTitles.has(job.job_title_id)) {
+      seenTitles.add(job.job_title_id);
+      titleIds.push(job.job_title_id);
+    }
+  }
+  for (const [, rows] of rowsByJob) {
+    for (const row of rows) {
+      if (!caches.skills.has(row.skill_id)) skillIds.add(row.skill_id);
+    }
+  }
+
+  await Promise.all([
+    ...[...skillIds].map(async (id) => {
+      caches.skills.set(id, await ctx.db.get(id));
+    }),
+    ...pageIds.map((id) => getCached(ctx, caches.pages, id)),
+    ...titleIds.map((id) => getCached(ctx, caches.titles, id)),
+  ]);
+
+  const profile = profileContext
+    ? {
+        candidateYearsExperience: profileContext.yearsExperience,
+        candidateEducationCount: profileContext.educationCount,
+      }
+    : undefined;
+
+  const scores = new Map<Id<"jobs">, TierScore>();
+  for (const [jobId, rows] of rowsByJob) {
+    const job = jobs.find((item) => item._id === jobId);
+    if (!job) continue;
+    const framework = buildCompetencyFramework(
+      rows.map((row) => ({
+        skill_id: row.skill_id,
+        type: row.type,
+        proficiency: row.proficiency,
+        weight: row.weight,
+        skill: { name: caches.skills.get(row.skill_id)?.name },
+      })),
+      userSkills,
+      profile
+        ? {
+            ...profile,
+            requiredExperienceYears: job.experience,
+          }
+        : undefined,
+    );
+    const readiness = roundedReadiness(framework.readiness);
+    const page = job.page_id ? (caches.pages.get(job.page_id) ?? null) : null;
+    const titled = !job.title && job.job_title_id ? (caches.titles.get(job.job_title_id) ?? null) : null;
+    const careerAlignment = careerGoal
+      ? calculateCareerAlignment(
+          careerGoal,
+          {
+            title: job.title ?? titled?.name,
+            industry: page?.industry,
+            company_name: job.company_name ?? page?.name,
+          },
+          rows.map((row) => caches.skills.get(row.skill_id)?.name ?? "").filter(Boolean),
+        )
+      : null;
+    const smartMatch = readiness == null ? null : calculateSmartMatch(readiness, careerAlignment);
+    const gap = readiness != null && isAlmostThere(readiness) ? closingGap(framework) : null;
+    scores.set(jobId, { readiness, careerAlignment, smartMatch, gap });
+  }
+  return scores;
+}
+
 type ListHydration = {
   userSkills: Array<Pick<Doc<"user_skills">, "skill_id" | "proficiency">>;
   savedJobIds: Set<string>;
@@ -166,7 +297,7 @@ type ListHydration = {
 
 /**
  * Card payload only: no JD HTML, no skill-doc joins, no job_stats.
- * Cards need title, company, location, salary, chips, and readiness.
+ * Smart Match fields are whatever the score pass already computed.
  */
 function slimOtherInfo(info: unknown) {
   if (!info || typeof info !== "object") return null;
@@ -178,13 +309,9 @@ function slimOtherInfo(info: unknown) {
   };
 }
 
-export async function slimListJob(
-  ctx: QueryCtx,
-  job: Doc<"jobs">,
-  hydration: ListHydration,
-  readiness: number | null,
-  cache: RelationCache,
-) {
+export async function slimListJob(ctx: QueryCtx, candidate: BrowseCandidate, hydration: ListHydration, cache: RelationCache) {
+  const job = candidate.job;
+  const readiness = candidate.readiness;
   const [page, city, job_title] = await Promise.all([
     getCached(ctx, cache.pages, job.page_id),
     getCached(ctx, cache.cities, job.city_id),
@@ -192,17 +319,9 @@ export async function slimListJob(
   ]);
   const state = city ? await getCached(ctx, cache.states, city.state_id) : null;
 
-  const career_alignment = hydration.careerGoal
-    ? calculateCareerAlignment(
-        hydration.careerGoal,
-        {
-          title: job.title ?? job_title?.name,
-          industry: page?.industry,
-          company_name: job.company_name ?? page?.name,
-        },
-        [],
-      )
-    : null;
+  const career_alignment = candidate.careerAlignment ?? null;
+  const smart_match = candidate.smartMatch ?? null;
+  const gap = candidate.gap ?? null;
 
   return {
     _id: job._id,
@@ -239,11 +358,14 @@ export async function slimListJob(
         : {
             readiness,
             career_alignment,
+            smart_match,
+            gap,
             competencies: [],
             matchedCount: 0,
             totalCount: 0,
           },
     career_alignment,
+    smart_match,
     application_count: job.application_count ?? 0,
     view_count: job.view_count ?? 0,
     has_applied: false,
@@ -257,7 +379,7 @@ export async function slimListJobs(
   hydration: ListHydration,
   cache: RelationCache = emptyRelationCache(),
 ) {
-  return await Promise.all(candidates.map((item) => slimListJob(ctx, item.job, hydration, item.readiness, cache)));
+  return await Promise.all(candidates.map((item) => slimListJob(ctx, item, hydration, cache)));
 }
 
 const SIMILAR_MIN = 0.4;

@@ -19,7 +19,7 @@ import { formatCity } from "@/constants/city";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLazySearchCitiesQuery } from "@/features/api/seedApi";
 import { hasCareerGoal } from "@/lib/careerGoal";
-import { MATCH_TIER, matchRingColor, type MatchTierId } from "@/lib/matchTiers";
+import { ALMOST_MAX, ALMOST_MIN, MATCH_TIER, matchRingColor, type MatchTierId } from "@/lib/matchTiers";
 import { City } from "@/types/city";
 import { Job } from "@/types/job";
 import { Building2, Check, ChevronDown, MapPin, Search, Sparkles, X } from "lucide-react";
@@ -220,10 +220,28 @@ export function postedAgo(job: Job): string | null {
   return timeAgo(job.published_date ?? job.createdAt);
 }
 
+export function readinessScore(job: Job): number | null {
+  if (job.competency?.readiness != null) return Math.round(job.competency.readiness);
+  return null;
+}
+
 export function matchScore(job: Job): number | null {
+  if (job.competency?.smart_match != null) return Math.round(job.competency.smart_match);
   if (job.competency?.readiness != null) return Math.round(job.competency.readiness);
   if (typeof job.fitScore === "number") return Math.round(job.fitScore);
   return null;
+}
+
+export function gapLine(job: Job): string | null {
+  const readiness = readinessScore(job);
+  const gap = job.competency?.gap;
+  if (readiness == null || readiness < ALMOST_MIN || readiness > ALMOST_MAX || !gap) return null;
+  if (gap.blocker === "experience") return "You're close — experience is what keeps this below Ready Now.";
+  if (gap.blocker === "education") return "You're close — education is what keeps this below Ready Now.";
+  if (gap.blocker === "profile") return "You're close — experience and education keep this below Ready Now.";
+  if (gap.skills.length === 0) return null;
+  const names = gap.skills.join(", ");
+  return gap.reachesReady ? `You're close — missing: ${names} to reach Ready Now.` : `You're close — missing: ${names}.`;
 }
 
 function ringColor(score: number): string {
@@ -292,6 +310,9 @@ export function JobCard({ job, onClick }: { job: Job; onClick: () => void }) {
   const company = displayCompanyName(job.page?.name || job.company_name);
   const location = displayLocation(job);
   const score = matchScore(job);
+  const readiness = readinessScore(job);
+  const alignment = job.competency?.career_alignment;
+  const gap = gapLine(job);
   const chips = [experienceChip(job), workTypeChip(job), workplaceChip(job)].filter(Boolean) as string[];
   const salary = salaryText(job);
   const posted = postedAgo(job);
@@ -311,13 +332,18 @@ export function JobCard({ job, onClick }: { job: Job; onClick: () => void }) {
         >
           <CompanyLogo job={job} name={company} fallback={<Building2 className="size-4" style={{ color: tint }} />} />
         </div>
-        {score != null && <MatchRing value={score} />}
+        {score != null && <MatchRing value={score} tone={readiness ?? score} />}
       </div>
 
       <div className="flex flex-col gap-1">
         <p className="line-clamp-2 text-[15px] font-bold text-white">{title}</p>
         {company && <p className="line-clamp-1 text-[13px] text-white/55">{company}</p>}
         {location && <p className="line-clamp-1 text-xs text-white/40">{location}</p>}
+        {alignment != null && readiness != null && (
+          <p className="text-[11px] text-white/50">
+            {readiness}% Ready · {Math.round(alignment)}% Goal
+          </p>
+        )}
       </div>
 
       {chips.length > 0 && (
@@ -330,6 +356,8 @@ export function JobCard({ job, onClick }: { job: Job; onClick: () => void }) {
         </div>
       )}
 
+      {gap && <p className="text-[11px] leading-snug text-amber-200/90">{gap}</p>}
+
       <div className="mt-auto flex items-center justify-between gap-2">
         {salary && <span className="text-[13px] font-bold text-white">{salary}</span>}
         {posted && <span className="ml-auto text-[11px] text-white/40 sm:text-xs">{posted}</span>}
@@ -338,11 +366,11 @@ export function JobCard({ job, onClick }: { job: Job; onClick: () => void }) {
   );
 }
 
-export function MatchRing({ value }: { value: number }) {
+export function MatchRing({ value, tone }: { value: number; tone?: number }) {
   const r = 18;
   const circumference = 2 * Math.PI * r;
   const offset = circumference * (1 - Math.min(100, Math.max(0, value)) / 100);
-  const color = ringColor(value);
+  const color = ringColor(tone ?? value);
   return (
     // The ring itself stays 36px at every breakpoint (Figma 777:77 / 246:11) —
     // only the box around it shrinks, so the svg is centred rather than filled.

@@ -12,8 +12,10 @@ import {
   emptyRelationCache,
   prefetchCities,
   publishedMs,
+  rankBySmartMatch,
   rankCandidates,
   scoreReadiness,
+  scoreTierMatches,
   SCORE_CAP,
   slimListJobs,
   sortEnrichedJobs,
@@ -38,7 +40,7 @@ import {
 } from "./lib/jobProfileMatch";
 import { withSkillAliases } from "./lib/skillCatalog";
 import { buildCompetencyFramework, clipPlainText } from "./lib/skillMatch";
-import { calculateCareerAlignment } from "./lib/careerAlignment";
+import { calculateCareerAlignment, calculateSmartMatch } from "./lib/careerAlignment";
 import { canonicalizeCatalogName, catalogKey, looksLikeConvexId, resolveCityRef, resolveNamedRef, type CityRefInput } from "./lib/resolve";
 
 type SkillCache = Map<Id<"skills">, Doc<"skills"> | null>;
@@ -222,6 +224,7 @@ async function enrichJob(ctx: QueryCtx, job: Doc<"jobs">, user: Doc<"users"> | n
       competency = {
         ...competency,
         career_alignment,
+        smart_match: calculateSmartMatch(competency.readiness, career_alignment),
       };
     }
 
@@ -245,6 +248,7 @@ async function enrichJob(ctx: QueryCtx, job: Doc<"jobs">, user: Doc<"users"> | n
     is_bookmarked,
     competency,
     career_alignment: competency?.career_alignment ?? null,
+    smart_match: competency?.smart_match ?? null,
     title: job.title ?? job_title?.name,
     company_name: job.company_name ?? page?.name,
     company_logo: job.company_logo ?? page?.logo,
@@ -475,30 +479,56 @@ export const listPaginated = optionalAuthQuery({
         if (!shouldScore && stopAt != null && matched.length >= stopAt) break;
       }
       if (scoreFilter && !canScore) return [];
-      const scores = shouldScore
-        ? await scoreReadiness(ctx, matched, hydration.userSkills, {
-            yearsExperience: hydration.yearsExperience,
-            educationCount: hydration.educationCount,
-          })
-        : null;
+      const profileContext = {
+        yearsExperience: hydration.yearsExperience,
+        educationCount: hydration.educationCount,
+      };
       const candidates: BrowseCandidate[] = [];
+      if (shouldScore && scoreFilter) {
+        const scored = await scoreTierMatches(ctx, matched, hydration.userSkills, profileContext, hydration.careerGoal ?? null, {
+          skills: hydration.skillCache,
+          pages: cache.pages,
+          titles: cache.titles,
+        });
+        for (const job of matched) {
+          const row = scored.get(job._id);
+          const readiness = row?.readiness ?? null;
+          if (!scoreInRange(readiness, minReadiness, maxReadiness)) continue;
+          candidates.push({
+            job,
+            readiness,
+            careerAlignment: row?.careerAlignment ?? null,
+            smartMatch: row?.smartMatch ?? null,
+            gap: row?.gap ?? null,
+          });
+        }
+        return candidates;
+      }
+      const scores = shouldScore ? await scoreReadiness(ctx, matched, hydration.userSkills, profileContext) : null;
       for (const job of matched) {
         const readiness = scores?.get(job._id) ?? null;
-        if (scoreFilter && !scoreInRange(readiness, minReadiness, maxReadiness)) continue;
         candidates.push({ job, readiness });
         if (stopAt != null && candidates.length >= stopAt) break;
       }
       return candidates;
     };
 
+    const rankBrowse = (candidates: BrowseCandidate[]) => {
+      if (newestFirst) {
+        candidates.sort((a, b) => publishedMs(b.job) - publishedMs(a.job));
+        return;
+      }
+      if (scoreFilter && sortBy !== "salary") {
+        rankBySmartMatch(candidates);
+        return;
+      }
+      rankCandidates(candidates, sortBy);
+    };
+
     if (search) {
       const found = await jobsMatchingBrowseSearch(ctx, search);
       const candidates = await toCandidates(found);
-      if (newestFirst) {
-        candidates.sort((a, b) => publishedMs(b.job) - publishedMs(a.job));
-      } else {
-        rankCandidates(candidates, sortBy);
-      }
+      rankBrowse(candidates);
       const afterId = decodeRankCursor(paginationOpts.cursor);
       const afterIndex = afterId ? candidates.findIndex((item) => item.job._id === afterId) : -1;
       if (afterId && afterIndex < 0) {
@@ -522,7 +552,7 @@ export const listPaginated = optionalAuthQuery({
       const seen = new Set(titled.map((job) => job._id));
       const scanned = [...titled, ...newest.filter((job) => !seen.has(job._id))];
       const candidates = await toCandidates(scanned);
-      rankCandidates(candidates, sortBy);
+      rankBrowse(candidates);
       const afterId = decodeRankCursor(paginationOpts.cursor);
       const afterIndex = afterId ? candidates.findIndex((item) => item.job._id === afterId) : -1;
       if (afterId && afterIndex < 0) {
@@ -665,19 +695,38 @@ export const listMatchTiers = authedQuery({
       if (matched.length >= ROLE_SCAN.TITLE_MATCH_CAP) break;
     }
 
-    const scores = await scoreReadiness(ctx, matched, hydration.userSkills, {
-      yearsExperience: hydration.yearsExperience,
-      educationCount: hydration.educationCount,
-    });
+    const scores = await scoreTierMatches(
+      ctx,
+      matched,
+      hydration.userSkills,
+      {
+        yearsExperience: hydration.yearsExperience,
+        educationCount: hydration.educationCount,
+      },
+      hydration.careerGoal ?? null,
+      {
+        skills: hydration.skillCache,
+        pages: cache.pages,
+        titles: cache.titles,
+      },
+    );
     const readyJobs: BrowseCandidate[] = [];
     const almostJobs: BrowseCandidate[] = [];
     for (const job of matched) {
-      const readiness = scores.get(job._id) ?? null;
-      if (isReadyNow(readiness)) readyJobs.push({ job, readiness });
-      else if (isAlmostThere(readiness)) almostJobs.push({ job, readiness });
+      const row = scores.get(job._id);
+      const readiness = row?.readiness ?? null;
+      const scored = {
+        job,
+        readiness,
+        careerAlignment: row?.careerAlignment ?? null,
+        smartMatch: row?.smartMatch ?? null,
+        gap: row?.gap ?? null,
+      };
+      if (isReadyNow(readiness)) readyJobs.push(scored);
+      else if (isAlmostThere(readiness)) almostJobs.push(scored);
     }
-    rankCandidates(readyJobs, "relevance");
-    rankCandidates(almostJobs, "relevance");
+    rankBySmartMatch(readyJobs);
+    rankBySmartMatch(almostJobs);
 
     const readyTop = readyJobs.slice(0, 4);
     const almostTop = almostJobs.slice(0, 4);
@@ -772,16 +821,38 @@ export const listSimilar = optionalAuthQuery({
     const similar = await findSimilarOpenJobs(ctx, job, 4);
     if (similar.length === 0) return [];
     const hydration = await listHydration(ctx, ctx.user, false);
-    const readinessByJob = ctx.user
-      ? await scoreReadiness(ctx, similar.map((item) => item.job), hydration.userSkills, {
-          yearsExperience: hydration.yearsExperience,
-          educationCount: hydration.educationCount,
-        })
+    const cache = emptyRelationCache();
+    const scored = ctx.user
+      ? await scoreTierMatches(
+          ctx,
+          similar.map((item) => item.job),
+          hydration.userSkills,
+          {
+            yearsExperience: hydration.yearsExperience,
+            educationCount: hydration.educationCount,
+          },
+          hydration.careerGoal ?? null,
+          {
+            skills: hydration.skillCache,
+            pages: cache.pages,
+            titles: cache.titles,
+          },
+        )
       : null;
     return await slimListJobs(
       ctx,
-      similar.map((item) => ({ ...item, readiness: readinessByJob?.get(item.job._id) ?? null })),
+      similar.map((item) => {
+        const row = scored?.get(item.job._id);
+        return {
+          ...item,
+          readiness: row?.readiness ?? null,
+          careerAlignment: row?.careerAlignment ?? null,
+          smartMatch: row?.smartMatch ?? null,
+          gap: row?.gap ?? null,
+        };
+      }),
       hydration,
+      cache,
     );
   },
 });

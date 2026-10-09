@@ -1,10 +1,10 @@
 import type { Doc, Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
 
-/** Ready Now is strictly above this score. Almost There is 70–80 inclusive. */
-export const READY_MIN_EXCLUSIVE = 80;
-export const ALMOST_MIN = 70;
-export const ALMOST_MAX = 80;
+/** Ready Now is 80 or above. Almost There is 60–79. */
+export const READY_MIN = 80;
+export const ALMOST_MIN = 60;
+export const ALMOST_MAX = 79;
 
 const TITLE_SCAN_LIMIT = 160;
 const TITLE_MATCH_CAP = 48;
@@ -104,7 +104,7 @@ export function roundedReadiness(readiness: number | null | undefined): number |
 }
 
 export function isReadyNow(score: number | null): boolean {
-  return score != null && score > READY_MIN_EXCLUSIVE;
+  return score != null && score >= READY_MIN;
 }
 
 export function isAlmostThere(score: number | null): boolean {

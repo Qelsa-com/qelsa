@@ -21,7 +21,7 @@ import { ArrowLeft, Building2, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { navigateBackFromMyJobs } from "@/lib/jobNavigation";
 import { ReactNode, useMemo } from "react";
-import { experienceChip, MatchRing, matchScore, salaryText, TabButton, timeAgo, workplaceChip, workTypeChip } from "./jobBrowseShared";
+import { experienceChip, MatchRing, matchScore, readinessScore, salaryText, TabButton, timeAgo, workplaceChip, workTypeChip } from "./jobBrowseShared";
 
 export type MyJobsTab = "saved" | "in_progress" | "applied";
 
@@ -220,7 +220,7 @@ export function JobCardHeading({ job, score, badge, trailing }: { job: Job; scor
       </div>
 
       <div className="flex shrink-0 items-center gap-2">
-        {score != null && <MatchRing value={score} />}
+        {score != null && <MatchRing value={score} tone={readinessScore(job) ?? score} />}
         {trailing}
       </div>
     </div>

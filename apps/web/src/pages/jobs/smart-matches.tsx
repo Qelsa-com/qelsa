@@ -31,9 +31,8 @@ const SmartMatches = () => {
   const goalRoles = user?.career_goal?.target_roles?.length
     ? user.career_goal.target_roles.join(", ")
     : user?.career_goal?.target_role?.trim();
-  const readySubtitle = hasCareerGoal(user?.career_goal)
-    ? `These roles match your goal: ${goalRoles}.`
-    : MATCH_TIER.ready.subtitle;
+  const goalSet = hasCareerGoal(user?.career_goal);
+  const readySubtitle = goalSet ? `These roles match your goal: ${goalRoles}.` : MATCH_TIER.ready.subtitle;
 
   const openJob = (id: string | number) => router.push(`/jobs/${id}`);
 
@@ -78,9 +77,13 @@ const SmartMatches = () => {
                 ) : (
                   <MatchEmptyState
                     title="No ready matches yet."
-                    subtitle="Set a career goal so we can match roles to where you're headed."
-                    actionLabel="Set Goal"
-                    onAction={() => router.push("/goals")}
+                    subtitle={
+                      goalSet
+                        ? "No roles are at 80% readiness yet. The closest ones are in Almost There."
+                        : "Set a career goal so we can match roles to where you're headed."
+                    }
+                    actionLabel={goalSet ? "Update Skills" : "Set Goal"}
+                    onAction={() => (goalSet ? setSkillsOpen(true) : router.push("/goals"))}
                   />
                 )}
               </MatchSection>

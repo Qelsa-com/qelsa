@@ -81,3 +81,9 @@ export function calculateCareerAlignment(
   const rawAlignment = Math.round(roleScore * 0.45 + skillScore * 0.35 + industryScore * 0.20);
   return Math.max(0, Math.min(100, rawAlignment));
 }
+
+/** With a career goal, blend readiness and alignment. Otherwise the match is readiness. */
+export function calculateSmartMatch(readiness: number, careerAlignment: number | null | undefined): number {
+  if (careerAlignment == null || Number.isNaN(careerAlignment)) return Math.round(readiness);
+  return Math.round(0.6 * readiness + 0.4 * careerAlignment);
+}

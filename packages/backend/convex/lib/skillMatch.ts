@@ -1,3 +1,5 @@
+import { READY_MIN } from "./jobProfileMatch";
+
 export const PROFICIENCY_ORDER = ["beginner", "intermediate", "advance", "expert"] as const;
 
 /** Common spellings that should map onto PROFICIENCY_ORDER entries. */
@@ -102,6 +104,20 @@ export interface CompetencyProfileContext {
   candidateEducationCount?: number | null;
 }
 
+/** Same weights as `buildCompetencyFramework`. Ready Now is 80 or above. */
+export function composeReadiness(skillReadiness: number, experienceScore: number | null, educationScore: number | null) {
+  if (experienceScore !== null && educationScore !== null) {
+    return Math.round(0.5 * skillReadiness + 0.3 * experienceScore + 0.2 * educationScore);
+  }
+  if (experienceScore !== null) {
+    return Math.round(0.65 * skillReadiness + 0.35 * experienceScore);
+  }
+  if (educationScore !== null) {
+    return Math.round(0.75 * skillReadiness + 0.25 * educationScore);
+  }
+  return skillReadiness;
+}
+
 export function buildCompetencyFramework(
   jobSkills: Array<{
     skill_id: string;
@@ -171,15 +187,7 @@ export function buildCompetencyFramework(
     educationScore = count > 0 ? 100 : 70;
   }
 
-  // Composite readiness combining skill (50%), experience (30%), and education (20%)
-  let readiness = skillReadiness;
-  if (experienceScore !== null && educationScore !== null) {
-    readiness = Math.round(0.5 * skillReadiness + 0.3 * experienceScore + 0.2 * educationScore);
-  } else if (experienceScore !== null) {
-    readiness = Math.round(0.65 * skillReadiness + 0.35 * experienceScore);
-  } else if (educationScore !== null) {
-    readiness = Math.round(0.75 * skillReadiness + 0.25 * educationScore);
-  }
+  const readiness = composeReadiness(skillReadiness, experienceScore, educationScore);
 
   return {
     competencies,
@@ -190,4 +198,105 @@ export function buildCompetencyFramework(
     experienceScore,
     educationScore,
   };
+}
+
+export type ClosingGap = {
+  skills: string[];
+  /** True when `skills` alone would push readiness above Ready Now. */
+  reachesReady: boolean;
+  blocker: "skills" | "experience" | "education" | "profile";
+};
+
+type GapSkill = {
+  skill_name?: string | null;
+  type?: string;
+  weight?: number;
+  matched: boolean;
+};
+
+function skillPercent(matchedWeight: number, totalWeight: number, matchedCount: number, totalCount: number) {
+  if (totalWeight > 0) return Math.round((matchedWeight / totalWeight) * 100);
+  if (totalCount > 0) return Math.round((matchedCount / totalCount) * 100);
+  return 0;
+}
+
+function combinations<T>(items: T[], size: number): T[][] {
+  const out: T[][] = [];
+  const pick = (start: number, chosen: T[]) => {
+    if (chosen.length === size) {
+      out.push(chosen.slice());
+      return;
+    }
+    for (let i = start; i < items.length; i++) {
+      chosen.push(items[i]!);
+      pick(i + 1, chosen);
+      chosen.pop();
+    }
+  };
+  pick(0, []);
+  return out;
+}
+
+/**
+ * Smallest set of missing required skills (at most 3) that would cross into Ready Now.
+ * When perfect skills still cannot cross, the hold-back is experience or education.
+ */
+export function closingGap(input: {
+  readiness: number;
+  experienceScore: number | null;
+  educationScore: number | null;
+  competencies: GapSkill[];
+}): ClosingGap | null {
+  if (input.readiness >= READY_MIN) return null;
+
+  const { experienceScore, educationScore, competencies } = input;
+  const totalWeight = competencies.reduce((sum, skill) => sum + (skill.weight || 0), 0);
+  const totalCount = competencies.length;
+  const matchedWeight = competencies.filter((skill) => skill.matched).reduce((sum, skill) => sum + (skill.weight || 0), 0);
+  const matchedCount = competencies.filter((skill) => skill.matched).length;
+
+  const readinessAt = (nextSkill: number) => composeReadiness(nextSkill, experienceScore, educationScore);
+  if (readinessAt(100) < READY_MIN) {
+    const experienceFixed = experienceScore == null ? readinessAt(100) : composeReadiness(100, 100, educationScore);
+    const educationFixed = educationScore == null ? readinessAt(100) : composeReadiness(100, experienceScore, 100);
+    const experienceBlocks = experienceScore != null && experienceScore < 100 && experienceFixed >= READY_MIN;
+    const educationBlocks = educationScore != null && educationScore < 100 && educationFixed >= READY_MIN;
+    if (experienceBlocks && !educationBlocks) return { skills: [], reachesReady: false, blocker: "experience" };
+    if (educationBlocks && !experienceBlocks) return { skills: [], reachesReady: false, blocker: "education" };
+    return { skills: [], reachesReady: false, blocker: "profile" };
+  }
+
+  const named = competencies.filter((skill) => !skill.matched && skill.skill_name && (totalWeight === 0 || (skill.weight || 0) > 0));
+  const core = named.filter((skill) => !skill.type || skill.type === "core");
+  const preferred = named.filter((skill) => skill.type === "preferred");
+  const required = core.length + preferred.length > 0 ? [...core, ...preferred] : named;
+
+  const crosses = (subset: GapSkill[]) => {
+    const weight = matchedWeight + subset.reduce((sum, skill) => sum + (skill.weight || 0), 0);
+    const count = matchedCount + subset.length;
+    return readinessAt(skillPercent(weight, totalWeight, count, totalCount)) >= READY_MIN;
+  };
+
+  const smallest = (pool: GapSkill[]) => {
+    for (let size = 1; size <= 3; size++) {
+      let best: GapSkill[] | null = null;
+      let bestWeight = -1;
+      for (const combo of combinations(pool, size)) {
+        if (!crosses(combo)) continue;
+        const weight = combo.reduce((sum, skill) => sum + (skill.weight || 0), 0);
+        if (!best || weight > bestWeight) {
+          best = combo;
+          bestWeight = weight;
+        }
+      }
+      if (best) return best;
+    }
+    return null;
+  };
+
+  const found = (core.length > 0 ? smallest(core) : null) ?? smallest(required);
+  const chosen = found ?? [...required].sort((a, b) => (b.weight || 0) - (a.weight || 0)).slice(0, 3);
+  const skills = chosen.map((skill) => skill.skill_name).filter((name): name is string => Boolean(name));
+  if (skills.length === 0) return null;
+  return { skills, reachesReady: Boolean(found), blocker: "skills" };
 }
