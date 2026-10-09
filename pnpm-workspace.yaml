@@ -2,8 +2,8 @@ packages:
   - apps/*
   - packages/*
 catalog:
-  convex: ^1.44.0
+  convex: ^1.46.0
   better-auth: "~1.6.15"
   "@convex-dev/better-auth": "^0.12.5"
-  convex-helpers: "^0.1.123"
+  convex-helpers: "^0.1.128"
   typescript: "5.9.3"

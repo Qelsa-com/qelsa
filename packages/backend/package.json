@@ -16,12 +16,13 @@
     "./convex/_generated/dataModel": "./convex/_generated/dataModel.d.ts"
   },
   "dependencies": {
-    "@ai-sdk/provider-utils": "^4.0.45",
-    "@convex-dev/agent": "^0.6.4",
+    "@ai-sdk/provider": "^4.0.0",
+    "@ai-sdk/provider-utils": "^5.0.0",
+    "@convex-dev/agent": "^0.7.7",
     "@convex-dev/better-auth": "catalog:",
-    "@convex-dev/r2": "^0.10.2",
-    "@openrouter/ai-sdk-provider": "^2.10.0",
-    "ai": "^6.0.255",
+    "@convex-dev/r2": "^0.10.3",
+    "@openrouter/ai-sdk-provider": "^3.1.0",
+    "ai": "^7.0.0",
     "better-auth": "catalog:",
     "convex": "catalog:",
     "convex-helpers": "catalog:",

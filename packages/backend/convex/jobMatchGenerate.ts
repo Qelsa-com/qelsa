@@ -373,7 +373,7 @@ async function generateObjectRepaired<T>(
   generate: (args: {
     schema: z.ZodTypeAny;
     prompt: string;
-    experimental_repairText: (opts: { text: string }) => Promise<string>;
+    repairText: (opts: { text: string }) => Promise<string>;
   }) => Promise<{ object: unknown }>,
   schema: z.ZodTypeAny,
   coerce: (raw: unknown) => T,
@@ -383,7 +383,7 @@ async function generateObjectRepaired<T>(
     const result = await generate({
       schema,
       prompt: input.prompt,
-      experimental_repairText: async ({ text }) => {
+      repairText: async ({ text }) => {
         const parsed = parseJsonObject(text);
         return parsed ? JSON.stringify(coerce(parsed)) : text;
       },

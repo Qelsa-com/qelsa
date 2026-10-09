@@ -132,7 +132,7 @@ async function readProfile(
         { userId },
         {
           schema: parsedProfileSchema,
-          experimental_repairText: async ({ text }) => repairProfileJson(text) ?? text,
+          repairText: async ({ text }) => repairProfileJson(text) ?? text,
           ...input,
         },
       );
