@@ -7,8 +7,9 @@ import {
   useLazySearchIndustriesQuery,
   useUpsertCareerGoalMutation,
 } from "@/features/api/careerGoalsApi";
+import { useGetExperiencesQuery } from "@/features/api/experiencesApi";
 import { useLazySearchJobTitlesQuery } from "@/features/api/jobTitlesApi";
-import { useLazySearchSkillsQuery } from "@/features/api/userSkillsApi";
+import { useGetUserSkillsQuery, useLazySearchSkillsQuery } from "@/features/api/userSkillsApi";
 import {
   GOAL_EXPERIENCE_OPTIONS,
   GOAL_TIMELINE_OPTIONS,
@@ -63,10 +64,12 @@ function formFromSaved(goal: CareerGoal | null | undefined): GoalForm {
 
 export function GoalSettingPage() {
   const router = useRouter();
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const { data: savedGoal, isLoading: goalLoading } = useGetMyCareerGoalQuery({
     skip: !isAuthenticated,
   });
+  const { data: userSkillsData } = useGetUserSkillsQuery(undefined, { skip: !isAuthenticated });
+  const { data: userExperiencesData } = useGetExperiencesQuery(undefined, { skip: !isAuthenticated });
   const [upsertGoal, { isLoading: saving }] = useUpsertCareerGoalMutation();
   const extractGoalAction = useExtractCareerGoalAction();
 
@@ -74,6 +77,25 @@ export function GoalSettingPage() {
   const [searchJobTitles, { data: titleResults = [] }] = useLazySearchJobTitlesQuery();
   const [searchSkills, { data: skillResults = [] }] = useLazySearchSkillsQuery();
   const [searchIndustries, { data: industryResults = [] }] = useLazySearchIndustriesQuery();
+
+  const profileContext = useMemo(() => {
+    const existingSkills: string[] = [];
+    if (Array.isArray(userSkillsData)) {
+      for (const item of userSkillsData) {
+        const name = (item as { skill?: { name?: string }; name?: string })?.skill?.name || (item as { name?: string })?.name;
+        if (name && typeof name === "string") existingSkills.push(name);
+      }
+    }
+    const currentTitles: string[] = [];
+    if (user?.headline) currentTitles.push(user.headline);
+    if (Array.isArray(userExperiencesData)) {
+      for (const item of userExperiencesData) {
+        const title = (item as { job_title?: { name?: string }; title?: string })?.job_title?.name || (item as { title?: string })?.title;
+        if (title && typeof title === "string") currentTitles.push(title);
+      }
+    }
+    return { currentTitles, existingSkills };
+  }, [userSkillsData, userExperiencesData, user?.headline]);
 
   const [form, setForm] = useState<GoalForm>(EMPTY_FORM);
   const [hydrated, setHydrated] = useState(false);
@@ -124,7 +146,7 @@ export function GoalSettingPage() {
 
     setIsGenerating(true);
     // Instant deterministic parse for zero-latency preview
-    const rules = parseCareerGoalText(text);
+    const rules = parseCareerGoalText(text, profileContext);
 
     try {
       const result = await extractGoalAction({ description: text });

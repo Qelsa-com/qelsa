@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { internalQuery } from "./_generated/server";
 import { authedMutation, authedQuery } from "./lib/customFunctions";
 import {
   careerGoalPublicValidator,
@@ -86,3 +87,48 @@ export const upsert = authedMutation({
     return toCareerGoalPublic(created);
   },
 });
+
+export const loadProfileForGoalGeneration = internalQuery({
+  args: { authId: v.string() },
+  returns: v.object({
+    headline: v.optional(v.string()),
+    current_titles: v.array(v.string()),
+    existing_skills: v.array(v.string()),
+  }),
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authId", (q) => q.eq("authId", args.authId))
+      .unique();
+    if (!user) {
+      return { current_titles: [], existing_skills: [] };
+    }
+
+    const [skillRows, experienceRows] = await Promise.all([
+      ctx.db.query("user_skills").withIndex("by_user", (q) => q.eq("user_id", user._id)).take(50),
+      ctx.db.query("experiences").withIndex("by_user", (q) => q.eq("user_id", user._id)).take(10),
+    ]);
+
+    const existing_skills: string[] = [];
+    for (const row of skillRows) {
+      const skill = await ctx.db.get(row.skill_id);
+      if (skill?.name) existing_skills.push(skill.name);
+    }
+
+    const current_titles: string[] = [];
+    if (user.headline) current_titles.push(user.headline);
+    for (const row of experienceRows) {
+      if (row.job_title_id) {
+        const titleDoc = await ctx.db.get(row.job_title_id);
+        if (titleDoc?.name) current_titles.push(titleDoc.name);
+      }
+    }
+
+    return {
+      ...(user.headline ? { headline: user.headline } : {}),
+      current_titles,
+      existing_skills,
+    };
+  },
+});
+

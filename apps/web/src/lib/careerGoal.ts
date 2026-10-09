@@ -224,8 +224,215 @@ export function inferSkillsForRole(roleText: string): string[] {
   return [];
 }
 
+export function normalizeSkillKey(skill: string): string {
+  return skill
+    .toLowerCase()
+    .trim()
+    .replace(/\.js\b|js\b/g, "")
+    .replace(/[^a-z0-9]/g, "");
+}
+
+export function isSkillInList(skill: string, existingSkills: string[]): boolean {
+  const key = normalizeSkillKey(skill);
+  if (!key) return false;
+  return existingSkills.some((existing) => {
+    const existingKey = normalizeSkillKey(existing);
+    if (!existingKey) return false;
+    if (existingKey === key) return true;
+    if (key.length >= 4 && existingKey.includes(key)) return true;
+    if (existingKey.length >= 4 && key.includes(existingKey)) return true;
+    return false;
+  });
+}
+
+export function normalizeTitleKey(title: string): string {
+  return title
+    .toLowerCase()
+    .trim()
+    .replace(/\bsr\.?\b|\bsenior\b/g, "senior")
+    .replace(/\bjr\.?\b|\bjunior\b/g, "junior")
+    .replace(/\bdeveloper\b/g, "engineer")
+    .replace(/[^a-z0-9]/g, "");
+}
+
+export function isCurrentTitleMatch(targetRole: string, currentTitles: string[]): boolean {
+  const normTarget = normalizeTitleKey(targetRole);
+  if (!normTarget) return false;
+  return currentTitles.some((cur) => {
+    const normCur = normalizeTitleKey(cur);
+    if (!normCur) return false;
+    if (normTarget === normCur) return true;
+    if (normCur.includes("senior") && normTarget.includes("senior")) {
+      if (
+        (normCur.includes("frontend") || normCur.includes("ui")) &&
+        (normTarget.includes("frontend") || normTarget.includes("ui"))
+      ) {
+        return true;
+      }
+      if (normCur.includes("backend") && normTarget.includes("backend")) return true;
+      if (normCur.includes("fullstack") && normTarget.includes("fullstack")) return true;
+      if (normCur.includes("product") && normTarget.includes("product")) return true;
+    }
+    return false;
+  });
+}
+
+export function getAdvancedGapSkills(roleText: string): string[] {
+  const lower = roleText.toLowerCase();
+  if (/front\s*end|frontend/i.test(lower)) {
+    return [
+      "Frontend Architecture",
+      "System Design",
+      "Engineering Leadership",
+      "Web Performance",
+      "Micro-Frontends",
+      "Tech Strategy",
+      "Team Mentorship",
+      "Cross-Functional Leadership",
+      "CI/CD & DevOps",
+      "API Design",
+    ];
+  }
+  if (/back\s*end|backend/i.test(lower)) {
+    return [
+      "System Design",
+      "Distributed Systems",
+      "Cloud Architecture",
+      "Microservices",
+      "Engineering Leadership",
+      "Performance Tuning",
+      "Database Optimization",
+      "Security & Compliance",
+    ];
+  }
+  if (/full\s*stack|fullstack/i.test(lower)) {
+    return [
+      "System Architecture",
+      "Engineering Leadership",
+      "Scalability & Performance",
+      "API Design",
+      "Cloud Infrastructure",
+      "DevOps",
+    ];
+  }
+  if (/product\s*manager|\bpm\b/i.test(lower)) {
+    return [
+      "Product Strategy",
+      "Gen AI",
+      "AI Agents",
+      "Cross-Functional Leadership",
+      "Executive Communication",
+      "P&L Management",
+      "Go-To-Market Strategy",
+      "Data-Driven Roadmapping",
+    ];
+  }
+  if (/data\s*scien|machine\s*learn|\bml\b|\bai\b/i.test(lower)) {
+    return [
+      "MLOps",
+      "Deep Learning",
+      "LLM Fine-Tuning",
+      "Distributed ML Training",
+      "Model Evaluation",
+      "AI Safety & Governance",
+    ];
+  }
+  return [
+    "System Design",
+    "Engineering Leadership",
+    "Cross-Functional Leadership",
+    "Strategic Planning",
+  ];
+}
+
+export function filterSkillsAgainstProfile(
+  suggestedSkills: string[],
+  existingSkills: string[],
+  roleText?: string,
+): string[] {
+  if (!existingSkills || existingSkills.length === 0) {
+    return uniqueTrimmed(suggestedSkills, MAX_SKILLS);
+  }
+
+  const filtered = suggestedSkills.filter((s) => !isSkillInList(s, existingSkills));
+
+  if (filtered.length < 5 && roleText) {
+    const gapPool = getAdvancedGapSkills(roleText);
+    for (const gapSkill of gapPool) {
+      if (!isSkillInList(gapSkill, existingSkills) && !filtered.some((s) => s.toLowerCase() === gapSkill.toLowerCase())) {
+        filtered.push(gapSkill);
+        if (filtered.length >= 6) break;
+      }
+    }
+  }
+
+  return uniqueTrimmed(filtered.length > 0 ? filtered : suggestedSkills, MAX_SKILLS);
+}
+
+export function filterRolesAgainstProfile(
+  suggestedRoles: string[],
+  currentTitles: string[],
+  targetRole?: string,
+): string[] {
+  if (!currentTitles || currentTitles.length === 0) {
+    return uniqueTrimmed(suggestedRoles, MAX_ROLES);
+  }
+
+  const filtered = suggestedRoles.filter((role) => !isCurrentTitleMatch(role, currentTitles));
+
+  if (filtered.length < 3 && targetRole) {
+    const lower = targetRole.toLowerCase();
+    if (/front\s*end|frontend/i.test(lower)) {
+      const alternates = [
+        "Lead Frontend Developer",
+        "Staff Frontend Engineer",
+        "Frontend Architect",
+        "Principal Frontend Engineer",
+        "Engineering Manager - Frontend",
+      ];
+      for (const alt of alternates) {
+        if (!isCurrentTitleMatch(alt, currentTitles) && !filtered.some((r) => r.toLowerCase() === alt.toLowerCase())) {
+          filtered.push(alt);
+          if (filtered.length >= 4) break;
+        }
+      }
+    } else if (/back\s*end|backend/i.test(lower)) {
+      const alternates = [
+        "Lead Backend Developer",
+        "Staff Backend Engineer",
+        "Backend Architect",
+        "Principal Backend Engineer",
+      ];
+      for (const alt of alternates) {
+        if (!isCurrentTitleMatch(alt, currentTitles) && !filtered.some((r) => r.toLowerCase() === alt.toLowerCase())) {
+          filtered.push(alt);
+          if (filtered.length >= 4) break;
+        }
+      }
+    } else if (/product\s*manager|\bpm\b/i.test(lower)) {
+      const alternates = [
+        "Lead Product Manager",
+        "Principal Product Manager",
+        "Director of Product Management",
+        "Group Product Manager",
+      ];
+      for (const alt of alternates) {
+        if (!isCurrentTitleMatch(alt, currentTitles) && !filtered.some((r) => r.toLowerCase() === alt.toLowerCase())) {
+          filtered.push(alt);
+          if (filtered.length >= 4) break;
+        }
+      }
+    }
+  }
+
+  return uniqueTrimmed(filtered.length > 0 ? filtered : suggestedRoles, MAX_ROLES);
+}
+
 /** Instant, no-network fill from the free-text goal. Empty fields stay empty. */
-export function parseCareerGoalText(raw: string): ExtractedCareerGoal {
+export function parseCareerGoalText(
+  raw: string,
+  profileContext?: { currentTitles?: string[]; existingSkills?: string[] },
+): ExtractedCareerGoal {
   const text = raw.trim();
   const empty: ExtractedCareerGoal = {
     target_role: null,
@@ -305,6 +512,15 @@ export function parseCareerGoalText(raw: string): ExtractedCareerGoal {
   extracted.target_roles = uniqueTrimmed(rolesFound, MAX_ROLES);
   extracted.target_role = extracted.target_roles[0] ?? null;
 
+  if (profileContext?.currentTitles && profileContext.currentTitles.length > 0) {
+    extracted.target_roles = filterRolesAgainstProfile(
+      extracted.target_roles,
+      profileContext.currentTitles,
+      extracted.target_role ?? undefined,
+    );
+    extracted.target_role = extracted.target_roles[0] ?? null;
+  }
+
   // 3. Skills
   const skillsFound: string[] = [];
   for (const [pattern, label] of COMMON_SKILLS_KEYWORDS) {
@@ -323,6 +539,14 @@ export function parseCareerGoalText(raw: string): ExtractedCareerGoal {
   }
 
   extracted.skills = uniqueTrimmed(skillsFound, MAX_SKILLS);
+
+  if (profileContext?.existingSkills && profileContext.existingSkills.length > 0) {
+    extracted.skills = filterSkillsAgainstProfile(
+      extracted.skills,
+      profileContext.existingSkills,
+      extracted.target_role ?? undefined,
+    );
+  }
 
   // 4. Default timeline if unset
   if (!extracted.timeline) {

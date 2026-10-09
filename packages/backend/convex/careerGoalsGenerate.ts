@@ -3,11 +3,13 @@
 import { Agent } from "@convex-dev/agent";
 import { v } from "convex/values";
 import { z } from "zod/v3";
-import { components } from "./_generated/api";
+import { components, internal } from "./_generated/api";
 import { action } from "./_generated/server";
 import { AI_AGENT_MODEL, openRouter } from "./lib/ai";
 import {
   experienceLevelValidator,
+  filterRolesAgainstProfile,
+  filterSkillsAgainstProfile,
   inferSkillsForRole,
   MAX_COMPANIES,
   MAX_DESCRIPTION,
@@ -84,16 +86,45 @@ export const extractFromText = action({
     if (!identity) throw new Error("Not authenticated");
 
     const description = args.description.trim().slice(0, MAX_DESCRIPTION);
-    const fallback = sanitizeExtract(parseCareerGoalText(description), "rules");
+
+    let profileContext: { headline?: string; current_titles: string[]; existing_skills: string[] } = {
+      current_titles: [],
+      existing_skills: [],
+    };
+    try {
+      profileContext = await ctx.runQuery(internal.careerGoals.loadProfileForGoalGeneration, {
+        authId: identity.subject,
+      });
+    } catch (err) {
+      console.warn("Could not load user profile for goal generation:", err);
+    }
+
+    const fallback = sanitizeExtract(
+      parseCareerGoalText(description, {
+        currentTitles: profileContext.current_titles,
+        existingSkills: profileContext.existing_skills,
+      }),
+      "rules",
+    );
     if (!description || !openRouter) return fallback;
+
+    const currentTitlesList = [profileContext.headline, ...profileContext.current_titles].filter(Boolean);
+    const userContextSnippet = [
+      currentTitlesList.length ? `Current Role/Headline: ${currentTitlesList.join(", ")}` : null,
+      profileContext.existing_skills.length
+        ? `Existing Profile Skills (DO NOT RECOMMEND THESE): ${profileContext.existing_skills.slice(0, 30).join(", ")}`
+        : null,
+    ]
+      .filter(Boolean)
+      .join("\n");
 
     const agent = new Agent(components.agent, {
       name: "Career Goal Reader",
       languageModel: openRouter.chat(AI_AGENT_MODEL),
       instructions:
-        "You are Qelsa Career Goal Reader & Career Guide. From the user's natural language goal description, analyze their career aspiration and extract 5 structured dimensions:\n" +
-        "1) target_roles: 2-3 realistic, properly capitalized job titles the user should aim for (e.g. ['Lead Frontend Developer', 'Senior Frontend Engineer', 'Staff Frontend Engineer'] or ['AI Product Manager', 'Sr. Product Manager']).\n" +
-        "2) skills: 4-6 essential, modern high-impact skills required to achieve and excel in this target role. IF the user does not explicitly list skills, you MUST recommend the 4-6 most important skills required for their target role (e.g. for Lead Frontend: React, TypeScript, Frontend Architecture, System Design, Web Performance, Engineering Leadership). NEVER return an empty skills array when a target role is identified.\n" +
+        "You are Qelsa Career Goal Reader & Strategic Career Guide. From the user's natural language goal description, analyze their career aspiration and extract 5 structured dimensions:\n" +
+        "1) target_roles: 2-3 realistic, next-level job titles the user should aim for (e.g. ['Lead Frontend Developer', 'Staff Frontend Engineer', 'Frontend Architect']). CRITICAL: Do NOT suggest titles the user currently holds or lower seniority levels (e.g. if the user is already a Senior Frontend Engineer, do not suggest Senior Frontend Engineer; suggest Lead, Staff, Principal, or Architect roles).\n" +
+        "2) skills: 4-6 essential high-leverage skills the user should build/learn to bridge the gap between their current level and the target role. CRITICAL: DO NOT suggest skills the user already has on their profile. Instead, suggest the growth/gap skills required to step up (e.g. for a Senior transitioning to Lead Frontend: suggest Frontend Architecture, System Design, Engineering Leadership, Micro-Frontends, Web Performance at Scale — do NOT suggest React or TypeScript if they already have them).\n" +
         "3) industries: 2-4 relevant industries or domains they want to work in or that fit this role (e.g. ['Technology', 'SaaS', 'Fintech']).\n" +
         "4) timeline: realistic timeline ('3_months', '6_months', '1_year', '2_plus_years'). If unspecified, recommend '1_year' for senior/lead or '6_months' for mid/entry.\n" +
         "5) experience_level: target seniority ('entry', 'mid', 'senior', 'lead').",
@@ -101,20 +132,32 @@ export const extractFromText = action({
     });
 
     try {
+      const prompt = userContextSnippet
+        ? `User's Current Profile Context:\n${userContextSnippet}\n\nUser Goal Description:\n"${description}"\n\nAnalyze their goal, taking into account their current level and existing skills. Suggest next-level target roles (excluding their current title) and recommend 4-6 growth/gap skills to build (filtering out their existing skills).`
+        : `Analyze this user's career goal description and generate their goal profile with target roles, recommended skills to build, target industries, timeline, and level:\n\n"${description}"`;
+
       const result = await agent.generateObject(
         ctx,
         { userId: identity.subject },
         {
           schema: extractedSchema,
-          prompt: `Analyze this user's career goal description and generate their goal profile with target roles, recommended skills to build, target industries, timeline, and level:\n\n"${description}"`,
+          prompt,
         },
       );
       const ai = sanitizeExtract(result.object, "ai");
-      const targetRoles = ai.target_roles.length > 0 ? ai.target_roles : fallback.target_roles;
+      let targetRoles = ai.target_roles.length > 0 ? ai.target_roles : fallback.target_roles;
+      if (profileContext.current_titles.length > 0) {
+        targetRoles = filterRolesAgainstProfile(targetRoles, profileContext.current_titles, targetRoles[0]);
+      }
+
       let skills = ai.skills.length > 0 ? ai.skills : fallback.skills;
       if (skills.length === 0 && targetRoles.length > 0) {
         skills = uniqueTrimmed(inferSkillsForRole(targetRoles[0]), MAX_SKILLS, MAX_TAG);
       }
+      if (profileContext.existing_skills.length > 0) {
+        skills = filterSkillsAgainstProfile(skills, profileContext.existing_skills, targetRoles[0]);
+      }
+
       return {
         target_role: targetRoles[0] ?? ai.target_role ?? fallback.target_role,
         target_roles: targetRoles,
