@@ -19,12 +19,14 @@
  * Qelsa-locked title/location/company context; the recruiter reviews before publish.
  */
 
+import React from "react";
 import { Autocomplete } from "@/components/ui/autocomplete";
+import { GlassSelect, GlassSelectOption } from "@/components/ui/glass-select";
 import { formatCity } from "@/constants/city";
 import { JOB_SKILL_TYPES, JobSkillType, jobSkillTypeLabel, PROFICIENCY_LEVELS, ProficiencyLevel, proficiencyLabel } from "@/constants/skills";
 import { useCreateJobMutation, useEditJobMutation, useGenerateJobDraftAction, useGetJobByIdQuery } from "@/features/api/jobsApi";
 import { useLazySearchJobTitlesQuery } from "@/features/api/jobTitlesApi";
-import { useLazyGetMyPagesQuery } from "@/features/api/pagesApi";
+import { useGetMyPagesQuery, useLazyGetMyPagesQuery } from "@/features/api/pagesApi";
 import { useLazyGetSkillsQuery, useLazySearchCitiesQuery } from "@/features/api/seedApi";
 import { toastUnknownError } from "@/lib/errors";
 import { looksLikeConvexId } from "@/lib/catalogId";
@@ -197,7 +199,9 @@ export function JobPostingPage() {
   const router = useRouter();
   const [createJob, { isLoading }] = useCreateJobMutation();
   const generateDraft = useGenerateJobDraftAction();
-  const [searchMyPages, { data: pageResults = [] }] = useLazyGetMyPagesQuery();
+  const { data: myPages = [] } = useGetMyPagesQuery();
+  const [searchMyPages, { data: searchedPages = [] }] = useLazyGetMyPagesQuery();
+  const pageResults = myPages.length > 0 ? myPages : searchedPages;
 
   const [aiPrompt, setAiPrompt] = useState("");
   const [generating, setGenerating] = useState(false);
@@ -222,15 +226,30 @@ export function JobPostingPage() {
   const [searchCities, { data: cityResults = [] }] = useLazySearchCitiesQuery();
   const [searchSkills, { data: skillResults = [] }] = useLazyGetSkillsQuery();
 
-  // Jobs can only be posted on a page the user owns, so the search is scoped to
-  // their own pages. A name that matches none of them is sent as `page_name` and
-  // the backend creates the page in the same transaction as the job.
-  const companyOptions: CompanyOption[] = pageResults.flatMap((p) => (p.id == null ? [] : [{ id: p.id, name: p.name }]));
+  const companyOptions: CompanyOption[] = pageResults.flatMap((p) => {
+    const id = (p as { _id?: unknown; id?: unknown })._id || p.id;
+    return id == null ? [] : [{ id: String(id), name: p.name }];
+  });
 
   const searchParams = useSearchParams();
   const editJobId = searchParams.get("jobId") || searchParams.get("edit");
   const { data: existingJob, isLoading: isLoadingExisting } = useGetJobByIdQuery(editJobId ?? undefined, { skip: !editJobId });
   const [editJobMutation, { isLoading: isUpdatingJob }] = useEditJobMutation();
+
+  // Prefetch location DB cities so focus immediately shows suggestions
+  useEffect(() => {
+    searchCities("");
+  }, [searchCities]);
+
+  // Auto-bind employer company when posting from an account that owns a page
+  useEffect(() => {
+    if (company || existingJob) return;
+    if (companyOptions.length > 0) {
+      const defaultPage = companyOptions[0];
+      setCompany(defaultPage);
+      setCompanyName(defaultPage.name);
+    }
+  }, [companyOptions, company, existingJob]);
 
   useEffect(() => {
     if (!existingJob) return;
@@ -547,23 +566,50 @@ export function JobPostingPage() {
                 allowFreeText
               />
             </Field>
-            <Field label="Company" required>
-              <Autocomplete
-                value={company}
-                onChange={(page) => {
-                  setCompany(page);
-                  setCompanyName(page?.name ?? "");
-                }}
-                onSearch={(q) => searchMyPages({ search: q })}
-                onQueryChange={setCompanyName}
-                allowFreeText
-                options={companyOptions}
-                minChars={0}
-                placeholder="Pick one of your pages, or type a new company name"
-                icon={<Building2 className="h-4 w-4" />}
-                inputClassName={INPUT}
-              />
-            </Field>
+            {companyOptions.length === 1 ? (
+              <Field label="Company">
+                <div className="flex h-11 sm:h-12 items-center justify-between rounded-xl border border-glass-border bg-white/[0.04] px-4 text-sm font-medium text-white">
+                  <div className="flex items-center gap-2.5">
+                    <Building2 className="size-4 text-neon-cyan" />
+                    <span>{company?.name || companyOptions[0].name}</span>
+                  </div>
+                  <span className="rounded-full bg-neon-cyan/15 px-2.5 py-0.5 text-[11px] font-semibold text-neon-cyan">Company Account</span>
+                </div>
+              </Field>
+            ) : companyOptions.length > 1 ? (
+              <Field label="Company" required>
+                <GlassSelect
+                  value={String(company?.id ?? "")}
+                  onChange={(id) => {
+                    const p = companyOptions.find((page) => String(page.id) === id);
+                    if (p) {
+                      setCompany(p);
+                      setCompanyName(p.name);
+                    }
+                  }}
+                  options={companyOptions.map((p) => ({ value: String(p.id), label: p.name }))}
+                  placeholder="Select company page"
+                />
+              </Field>
+            ) : (
+              <Field label="Company" required>
+                <Autocomplete
+                  value={company}
+                  onChange={(page) => {
+                    setCompany(page);
+                    setCompanyName(page?.name ?? "");
+                  }}
+                  onSearch={(q) => searchMyPages({ search: q })}
+                  onQueryChange={setCompanyName}
+                  allowFreeText
+                  options={companyOptions}
+                  minChars={0}
+                  placeholder="Pick one of your pages, or type a new company name"
+                  icon={<Building2 className="h-4 w-4" />}
+                  inputClassName={INPUT}
+                />
+              </Field>
+            )}
             <Field label="City" required>
               <Autocomplete<City>
                 value={city}
@@ -576,6 +622,7 @@ export function JobPostingPage() {
                 getInputLabel={formatCity}
                 renderOption={(c) => formatCity(c)}
                 inputClassName={INPUT}
+                minChars={0}
                 allowFreeText
                 makeFreeTextValue={cityFromQuery}
               />
@@ -759,28 +806,20 @@ export function JobPostingPage() {
                       <GripVertical className="size-4 shrink-0 text-white/30" />
                       <span className="truncate rounded-lg border border-glass-border bg-white/[0.04] px-3 py-2 text-sm text-white">{s.name}</span>
                     </div>
-                    <select
+                    <GlassSelect
                       value={s.proficiency}
-                      onChange={(e) => updateSkillField(s.id, "proficiency", e.target.value as ProficiencyLevel)}
-                      className="col-span-6 rounded-lg border border-glass-border bg-white/[0.04] px-2 py-2 text-sm text-white focus:border-neon-cyan focus:outline-none md:col-span-3"
-                    >
-                      {PROFICIENCY_LEVELS.map((p) => (
-                        <option key={p.value} value={p.value} className="bg-[#0d0d1a]">
-                          {p.label}
-                        </option>
-                      ))}
-                    </select>
-                    <select
+                      onChange={(val) => updateSkillField(s.id, "proficiency", val as ProficiencyLevel)}
+                      options={PROFICIENCY_LEVELS.map((p) => ({ value: p.value, label: p.label }))}
+                      size="sm"
+                      className="col-span-6 md:col-span-3"
+                    />
+                    <GlassSelect
                       value={s.type}
-                      onChange={(e) => updateSkillField(s.id, "type", e.target.value as JobSkillType)}
-                      className="col-span-4 rounded-lg border border-glass-border bg-white/[0.04] px-2 py-2 text-sm text-white focus:border-neon-cyan focus:outline-none md:col-span-2"
-                    >
-                      {JOB_SKILL_TYPES.map((t) => (
-                        <option key={t.value} value={t.value} className="bg-[#0d0d1a]">
-                          {t.label}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(val) => updateSkillField(s.id, "type", val as JobSkillType)}
+                      options={JOB_SKILL_TYPES.map((t) => ({ value: t.value, label: t.label }))}
+                      size="sm"
+                      className="col-span-4 md:col-span-2"
+                    />
                     <div className="relative col-span-6 md:col-span-1">
                       <input
                         type="number"
@@ -982,23 +1021,25 @@ function Field({ label, required, hint, error, children }: { label: string; requ
   );
 }
 
-function SelectInput({ value, onChange, children, placeholder }: { value: string; onChange: (v: string) => void; children: React.ReactNode; placeholder?: string }) {
+function SelectInput({ value, onChange, children, placeholder = "Select..." }: { value: string; onChange: (v: string) => void; children: React.ReactNode; placeholder?: string }) {
+  const options: GlassSelectOption[] = [];
+  React.Children.forEach(children, (child) => {
+    if (React.isValidElement(child) && child.props) {
+      const val = String((child.props as { value?: unknown }).value ?? "");
+      const lbl = typeof (child.props as { children?: unknown }).children === "string"
+        ? String((child.props as { children?: unknown }).children)
+        : val;
+      options.push({ value: val, label: lbl });
+    }
+  });
+
   return (
-    <div className="relative">
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className={`${INPUT} cursor-pointer appearance-none pr-10 ${value ? "" : "text-white/45"}`}
-      >
-        {placeholder && (
-          <option value="" disabled className="bg-[#0d0d1a] text-white/45">
-            {placeholder}
-          </option>
-        )}
-        <>{children}</>
-      </select>
-      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-white/45" />
-    </div>
+    <GlassSelect
+      value={value}
+      onChange={onChange}
+      options={options}
+      placeholder={placeholder}
+    />
   );
 }
 
@@ -1017,7 +1058,6 @@ interface QuestionCardProps {
 
 function QuestionCard({ index, q, onChangeTitle, onChangeType, onChangeExpected, onToggleKnockout, onDelete, onOptionChange, onOptionAdd, onOptionRemove }: QuestionCardProps) {
   const isCustom = q.category === "custom";
-  const selectCls = `${INPUT} h-9 cursor-pointer appearance-none pr-9`;
   return (
     <div className="rounded-2xl border border-glass-border bg-white/[0.03] p-3">
       {/* top row */}
@@ -1047,26 +1087,30 @@ function QuestionCard({ index, q, onChangeTitle, onChangeType, onChangeExpected,
       <div className="mt-3 flex flex-wrap items-end gap-3">
         <div className="min-w-[180px] flex-1">
           <label className="mb-1 block text-xs text-white/45">Answer type</label>
-          <div className="relative">
-            <select value={q.type} onChange={(e) => onChangeType(e.target.value as QAnswerType)} className={selectCls}>
-              <option value="yes_no" className="bg-[#0d0d1a]">Yes / No</option>
-              <option value="multiple_choice" className="bg-[#0d0d1a]">Multiple choice</option>
-              <option value="short_text" className="bg-[#0d0d1a]">Short text</option>
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-white/45" />
-          </div>
+          <GlassSelect
+            value={q.type}
+            onChange={(val) => onChangeType(val as QAnswerType)}
+            options={[
+              { value: "yes_no", label: "Yes / No" },
+              { value: "multiple_choice", label: "Multiple choice" },
+              { value: "short_text", label: "Short text" },
+            ]}
+            size="sm"
+          />
         </div>
 
         {q.type === "yes_no" && (
           <div className="min-w-[180px] flex-1">
             <label className="mb-1 block text-xs text-white/45">Expected answer</label>
-            <div className="relative">
-              <select value={q.expected_answer ?? "yes"} onChange={(e) => onChangeExpected(e.target.value)} className={selectCls}>
-                <option value="yes" className="bg-[#0d0d1a]">Yes</option>
-                <option value="no" className="bg-[#0d0d1a]">No</option>
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-white/45" />
-            </div>
+            <GlassSelect
+              value={q.expected_answer ?? "yes"}
+              onChange={(val) => onChangeExpected(val)}
+              options={[
+                { value: "yes", label: "Yes" },
+                { value: "no", label: "No" },
+              ]}
+              size="sm"
+            />
           </div>
         )}
 

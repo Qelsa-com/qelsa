@@ -1270,7 +1270,13 @@ async function resolvePostedPage(ctx: MutationCtx, jobIn: Record<string, unknown
     String((jobIn.page_name as string | undefined) ?? (jobIn.company_name as string | undefined) ?? ""),
     "company",
   );
-  if (!name) return null;
+  if (!name) {
+    const mine = await ctx.db
+      .query("pages")
+      .withIndex("by_owner", (q) => q.eq("ownerId", userId))
+      .take(1);
+    return mine.length > 0 ? mine[0] : null;
+  }
   const needle = catalogKey(name);
   const searchHits = await ctx.db
     .query("pages")

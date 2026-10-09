@@ -13,7 +13,7 @@ import { CulturePreference, User } from "@/types/user";
 import { useConvex, useMutation } from "convex/react";
 import { ArrowLeft, BadgeCheck, Building2, Check, Download, Dribbble, FileText, Globe, Link2, Linkedin, Loader2, Lock, MapPin, Paperclip, Plus, ShieldCheck, Sparkles, Trash2, Twitter, Upload, User as UserIcon } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Autocomplete } from "../ui/autocomplete";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
@@ -112,8 +112,9 @@ export function ProfileEditor() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (sectionParam && SECTIONS.some((s) => s.id === sectionParam)) {
-      setActiveSection(sectionParam);
+    const param = sectionParam || (typeof window !== "undefined" ? (new URLSearchParams(window.location.search).get("section") as SectionId | null) : null);
+    if (param && SECTIONS.some((s) => s.id === param)) {
+      setActiveSection(param);
     }
   }, [sectionParam]);
 
@@ -130,15 +131,31 @@ export function ProfileEditor() {
 
   const photoInputRef = useRef<HTMLInputElement>(null);
   const resumeInputRef = useRef<HTMLInputElement>(null);
+  const mobileTabsContainerRef = useRef<HTMLDivElement>(null);
   const mobileTabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const [photoUploading, setPhotoUploading] = useState(false);
 
-  useEffect(() => {
-    const el = mobileTabRefs.current[activeSection];
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+  const scrollToActiveTab = useCallback((section: SectionId, smooth = true) => {
+    const container = mobileTabsContainerRef.current;
+    const el = mobileTabRefs.current[section];
+    if (container && el) {
+      const scrollLeft = el.offsetLeft - container.offsetWidth / 2 + el.offsetWidth / 2;
+      container.scrollTo({
+        left: Math.max(0, scrollLeft),
+        behavior: smooth ? "smooth" : "auto",
+      });
+    } else if (el) {
+      el.scrollIntoView({ behavior: smooth ? "smooth" : "auto", block: "nearest", inline: "center" });
     }
-  }, [activeSection]);
+  }, []);
+
+  useEffect(() => {
+    scrollToActiveTab(activeSection, false);
+    const timer = setTimeout(() => {
+      scrollToActiveTab(activeSection, true);
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [activeSection, scrollToActiveTab]);
 
   useEffect(() => {
     if (user && !profile) {
@@ -339,7 +356,7 @@ export function ProfileEditor() {
         </div>
 
         {/* Mobile Tab Navigation */}
-        <div className="mt-6 flex lg:hidden items-center gap-6 overflow-x-auto no-scrollbar border-b border-white/[0.08] -mx-4 px-4 sm:mx-0 sm:px-0">
+        <div ref={mobileTabsContainerRef} className="mt-6 flex lg:hidden items-center gap-6 overflow-x-auto no-scrollbar border-b border-white/[0.08] -mx-4 px-4 sm:mx-0 sm:px-0">
           {SECTIONS.map((item) => {
             const active = item.id === activeSection;
             return (
@@ -349,7 +366,14 @@ export function ProfileEditor() {
                   mobileTabRefs.current[item.id] = el;
                 }}
                 type="button"
-                onClick={() => setActiveSection(item.id)}
+                onClick={() => {
+                  setActiveSection(item.id);
+                  if (typeof window !== "undefined") {
+                    const url = new URL(window.location.href);
+                    url.searchParams.set("section", item.id);
+                    window.history.replaceState({}, "", url.toString());
+                  }
+                }}
                 className={`pb-3 text-sm font-semibold transition-colors relative whitespace-nowrap shrink-0 ${
                   active ? "text-neon-cyan" : "text-white/60 hover:text-white"
                 }`}
@@ -373,7 +397,14 @@ export function ProfileEditor() {
                 <button
                   key={item.id}
                   type="button"
-                  onClick={() => setActiveSection(item.id)}
+                  onClick={() => {
+                    setActiveSection(item.id);
+                    if (typeof window !== "undefined") {
+                      const url = new URL(window.location.href);
+                      url.searchParams.set("section", item.id);
+                      window.history.replaceState({}, "", url.toString());
+                    }
+                  }}
                   className={`flex items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors ${active ? "bg-neon-cyan/10 text-neon-cyan" : "text-white/55 hover:bg-white/[0.05] hover:text-white"}`}
                 >
                   <Icon className="size-[18px] shrink-0" />

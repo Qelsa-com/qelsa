@@ -503,15 +503,63 @@ export const cities = query({
   args: { search: v.string() },
   returns: v.any(),
   handler: async (ctx, args) => {
+    const raw = (args.search ?? "").trim();
+    if (!raw) {
+      const rows = await ctx.db.query("cities").take(20);
+      const stateCache = new Map();
+      const out = [];
+      for (const row of rows) {
+        let state = null;
+        if (row.state_id) {
+          if (!stateCache.has(row.state_id)) {
+            stateCache.set(row.state_id, await ctx.db.get(row.state_id));
+          }
+          state = stateCache.get(row.state_id);
+        }
+        out.push({ ...withId(row), state: state ? withId(state) : null });
+      }
+      return out;
+    }
+
     const rows = await ctx.db
       .query("cities")
-      .withSearchIndex("search_name", (q) => q.search("name", args.search))
+      .withSearchIndex("search_name", (q) => q.search("name", raw))
       .take(20);
+    const stateCache = new Map();
     const out = [];
     for (const row of rows) {
-      const state = row.state_id ? await ctx.db.get(row.state_id) : null;
+      let state = null;
+      if (row.state_id) {
+        if (!stateCache.has(row.state_id)) {
+          stateCache.set(row.state_id, await ctx.db.get(row.state_id));
+        }
+        state = stateCache.get(row.state_id);
+      }
       out.push({ ...withId(row), state: state ? withId(state) : null });
     }
+
+    if (out.length < 5) {
+      const lower = raw.toLowerCase();
+      const stateHits = await ctx.db
+        .query("states")
+        .withIndex("by_name")
+        .take(50);
+      const matchedStates = stateHits.filter((s) => s.name.toLowerCase().includes(lower));
+      for (const state of matchedStates) {
+        const stateCities = await ctx.db
+          .query("cities")
+          .withIndex("by_state", (q) => q.eq("state_id", state._id))
+          .take(10);
+        for (const sc of stateCities) {
+          if (!out.some((o) => o._id === sc._id)) {
+            out.push({ ...withId(sc), state: withId(state) });
+          }
+          if (out.length >= 20) break;
+        }
+        if (out.length >= 20) break;
+      }
+    }
+
     return out;
   },
 });

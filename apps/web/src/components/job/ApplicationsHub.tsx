@@ -202,7 +202,7 @@ export function ApplicationsHub() {
                           View Applications
                         </DropdownMenuItem>
                         <DropdownMenuItem
-                          onClick={() => router.push(`/jobs/edit/${job.id}`)}
+                          onClick={() => router.push(`/jobs/create-job?jobId=${job.id}`)}
                           className="cursor-pointer gap-2.5 text-sm"
                         >
                           <Pencil className="size-4" />

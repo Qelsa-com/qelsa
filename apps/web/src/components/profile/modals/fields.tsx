@@ -84,8 +84,33 @@ export function Field({ label, required, children, hint }: { label: string; requ
   );
 }
 
-/** Native select with a chevron, styled to match the dark inputs. */
+import React from "react";
+
+/** Sleek styled select with custom popover matching the dark glass inputs. */
 export function Select({ value, onChange, children, placeholder = "Select", disabled }: { value: string; onChange: (value: string) => void; children: ReactNode; placeholder?: string; disabled?: boolean }) {
+  const options: PopoverSelectOption[] = [];
+  React.Children.forEach(children, (child) => {
+    if (React.isValidElement(child) && child.props) {
+      const val = String((child.props as { value?: unknown }).value ?? "");
+      const lbl = typeof (child.props as { children?: unknown }).children === "string" ? String((child.props as { children?: unknown }).children) : val;
+      if (val !== "") {
+        options.push({ value: val, label: lbl });
+      }
+    }
+  });
+
+  if (options.length > 0) {
+    return (
+      <PopoverSelect
+        value={value}
+        onChange={onChange}
+        options={options}
+        placeholder={placeholder}
+        disabled={disabled}
+      />
+    );
+  }
+
   return (
     <div className="relative">
       <select value={value} onChange={(e) => onChange(e.target.value)} disabled={disabled} className={`${selectClass} disabled:opacity-50`}>
