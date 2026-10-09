@@ -122,11 +122,12 @@ export const extractFromText = action({
       name: "Career Goal Reader",
       languageModel: openRouter.chat(AI_AGENT_MODEL),
       instructions:
-        "You are Qelsa Career Goal Reader & Strategic Career Guide. From the user's natural language goal description, analyze their career aspiration and extract 5 structured dimensions:\n" +
-        "1) target_roles: 2-3 realistic, next-level job titles the user should aim for (e.g. ['Lead Frontend Developer', 'Staff Frontend Engineer', 'Frontend Architect']). CRITICAL: Do NOT suggest titles the user currently holds or lower seniority levels (e.g. if the user is already a Senior Frontend Engineer, do not suggest Senior Frontend Engineer; suggest Lead, Staff, Principal, or Architect roles).\n" +
-        "2) skills: 4-6 essential high-leverage skills the user should build/learn to bridge the gap between their current level and the target role. CRITICAL: DO NOT suggest skills the user already has on their profile. Instead, suggest the growth/gap skills required to step up (e.g. for a Senior transitioning to Lead Frontend: suggest Frontend Architecture, System Design, Engineering Leadership, Micro-Frontends, Web Performance at Scale — do NOT suggest React or TypeScript if they already have them).\n" +
-        "3) industries: 2-4 relevant industries or domains they want to work in or that fit this role (e.g. ['Technology', 'SaaS', 'Fintech']).\n" +
-        "4) timeline: realistic timeline ('3_months', '6_months', '1_year', '2_plus_years'). If unspecified, recommend '1_year' for senior/lead or '6_months' for mid/entry.\n" +
+        "You are Qelsa Career Goal Reader & Strategic Career Guide across ALL professions, domains, and verticals (Engineering, Healthcare, Finance, Marketing, Law, Design, Science, Education, Operations, Sales, etc.).\n" +
+        "From the user's natural language goal description, deeply understand their chosen profession and career aspiration, and generate 5 structured dimensions:\n" +
+        "1) target_roles: 2-3 realistic, next-level job titles in their specific profession/vertical that the user should aim for (e.g. for marketing: 'Director of Growth Marketing', 'VP of Marketing'; for healthcare: 'Nurse Practitioner', 'Clinical Nurse Specialist'; for engineering: 'Staff Engineer', 'Engineering Manager'). CRITICAL: Do NOT suggest titles the user currently holds or lower seniority levels. Always suggest upward or aspirational titles in their domain.\n" +
+        "2) skills: 5-8 essential domain-specific and leadership skills the user should build or master to achieve and succeed in this target role. CRITICAL: If existing profile skills are provided, DO NOT recommend skills the user already has. Suggest the true growth, specialization, or leadership gap skills needed to step up to the target role in their vertical.\n" +
+        "3) industries: 2-4 relevant industries or sectors matching this goal (e.g. 'Biotechnology', 'Healthcare', 'Fintech', 'Fashion & Luxury', 'Renewable Energy', 'Media & Entertainment', 'SaaS', etc.).\n" +
+        "4) timeline: realistic timeline to achieve this goal ('3_months', '6_months', '1_year', '2_plus_years'). Recommend '1_year' or '2_plus_years' for senior/lead/director roles, '6_months' for mid/entry roles.\n" +
         "5) experience_level: target seniority ('entry', 'mid', 'senior', 'lead').",
       maxSteps: 1,
     });

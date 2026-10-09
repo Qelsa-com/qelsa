@@ -78,22 +78,32 @@ function uniqueTrimmed(values: string[], maxItems: number): string[] {
 }
 
 const KNOWN_INDUSTRIES: [RegExp, string][] = [
-  [/\bfintech\b/i, "Fintech"],
-  [/\binsurtech\b/i, "Insurtech"],
-  [/\bsaas\b/i, "SaaS"],
-  [/\b(?:health(?:care)?|healthtech)\b/i, "Healthcare"],
-  [/\b(?:e-?commerce|retail)\b/i, "E-Commerce"],
-  [/\b(?:ai|genai|artificial intelligence|machine learning)\b/i, "Artificial Intelligence"],
-  [/\b(?:edtech|education)\b/i, "Education"],
-  [/\bgaming\b/i, "Gaming"],
+  [/\b(?:health(?:care)?|hospital|medical|clinical|nursing)\b/i, "Healthcare"],
   [/\bbiotech(?:nology)?\b/i, "Biotechnology"],
-  [/\b(?:cleantech|clean energy|renewables?)\b/i, "CleanTech"],
+  [/\b(?:pharma|pharmaceutical)\b/i, "Pharmaceuticals"],
+  [/\bfintech\b/i, "Fintech"],
+  [/\b(?:finance|banking|investment|hedge\s*fund|wealth\s*management|private\s*equity)\b/i, "Financial Services"],
+  [/\binsurtech|insurance\b/i, "Insurance"],
+  [/\b(?:e-?commerce|retail)\b/i, "Retail & E-Commerce"],
+  [/\b(?:fashion|apparel|luxury)\b/i, "Fashion & Luxury Goods"],
+  [/\b(?:media|entertainment|film|music|publishing)\b/i, "Media & Entertainment"],
+  [/\b(?:gaming|video\s*games)\b/i, "Gaming"],
+  [/\b(?:marketing|advertising|pr|public\s*relations)\b/i, "Marketing & Advertising"],
+  [/\b(?:legal|law\s*firm|attorney|counsel)\b/i, "Legal Services"],
+  [/\b(?:education|edtech|university|school|academic)\b/i, "Education"],
+  [/\b(?:real\s*estate|property|housing|construction|architecture)\b/i, "Real Estate & Construction"],
+  [/\b(?:supply\s*chain|logistics|transportation|freight|shipping)\b/i, "Supply Chain & Logistics"],
+  [/\b(?:hospitality|hotel|travel|restaurant|culinary)\b/i, "Hospitality & Tourism"],
+  [/\b(?:aerospace|aviation|defense)\b/i, "Aerospace & Defense"],
+  [/\b(?:energy|oil|gas|renewables?|solar|cleantech)\b/i, "Energy & CleanTech"],
+  [/\b(?:automotive|electric\s*vehicles?|ev)\b/i, "Automotive"],
+  [/\b(?:manufacturing|industrial)\b/i, "Manufacturing"],
+  [/\bconsulting\b/i, "Management Consulting"],
+  [/\bsaas\b/i, "SaaS"],
+  [/\b(?:ai|genai|artificial intelligence|machine learning)\b/i, "Artificial Intelligence"],
   [/\bcybersecurity\b/i, "Cybersecurity"],
   [/\bcloud\b/i, "Cloud Computing"],
-  [/\b(?:banking|financial services)\b/i, "Financial Services"],
-  [/\bconsulting\b/i, "Consulting"],
-  [/\b(?:aerospace|defense)\b/i, "Aerospace & Defense"],
-  [/\btech(?:nology)?\b/i, "Technology"],
+  [/\btech(?:nology)?|software\b/i, "Technology"],
 ];
 
 const COMMON_SKILLS_KEYWORDS: [RegExp, string][] = [
@@ -117,7 +127,7 @@ export function capitalizeTitle(str: string): string {
   return words
     .map((w) => {
       const lower = w.toLowerCase();
-      if (lower === "ai" || lower === "ux" || lower === "ui" || lower === "ml" || lower === "pm" || lower === "qa" || lower === "sre") {
+      if (lower === "ai" || lower === "ux" || lower === "ui" || lower === "ml" || lower === "pm" || lower === "qa" || lower === "sre" || lower === "vp" || lower === "cfo" || lower === "cmo" || lower === "cto" || lower === "ceo") {
         return lower.toUpperCase();
       }
       if (lower === "sr." || lower === "sr") return "Sr.";
@@ -132,6 +142,30 @@ export function inferRelatedRoles(roleText: string): string[] {
   const cap = capitalizeTitle(roleText);
   const roles = [cap];
 
+  // Universal cross-industry seniority progression
+  if (/\blead\b/i.test(lower)) {
+    const base = cap.replace(/\blead\s*/i, "").trim();
+    if (base) roles.push(`Senior ${base}`, `Staff ${base}`, `Principal ${base}`);
+  } else if (/\bsenior|sr\.?\b/i.test(lower)) {
+    const base = cap.replace(/\b(?:senior|sr\.?)\s*/i, "").trim();
+    if (base) roles.push(`Lead ${base}`, `Principal ${base}`, base);
+  } else if (/\bdirector\b/i.test(lower)) {
+    const base = cap.replace(/\bdirector(?:\s+of)?\s*/i, "").trim();
+    if (base) roles.push(`Senior Director of ${base}`, `VP of ${base}`, `Head of ${base}`);
+  } else if (/\bhead\s+of\b/i.test(lower)) {
+    const base = cap.replace(/\bhead\s+of\s*/i, "").trim();
+    if (base) roles.push(`Director of ${base}`, `VP of ${base}`);
+  } else if (/\bchief\b/i.test(lower)) {
+    const base = cap.replace(/\bchief\s+/i, "").replace(/\s+officer\b/i, "").trim();
+    if (base) roles.push(`VP of ${base}`, `Head of ${base}`, `Director of ${base}`);
+  } else if (/\bmanager\b/i.test(lower)) {
+    const base = cap.replace(/\bmanager(?:\s+of)?\s*/i, "").trim();
+    if (base) roles.push(`Senior ${base} Manager`, `Lead ${base} Manager`, `Director of ${base}`);
+  } else {
+    roles.push(`Senior ${cap}`, `Lead ${cap}`);
+  }
+
+  // Domain-specific enhancements when recognized
   if (/front\s*end|frontend/i.test(lower)) {
     if (/lead/i.test(lower)) {
       roles.push("Senior Frontend Engineer", "Staff Frontend Engineer", "Frontend Architect");
@@ -337,12 +371,72 @@ export function getAdvancedGapSkills(roleText: string): string[] {
       "AI Safety & Governance",
     ];
   }
-  return [
-    "System Design",
-    "Engineering Leadership",
-    "Cross-Functional Leadership",
-    "Strategic Planning",
-  ];
+  if (/marketing|growth/i.test(lower)) {
+    return [
+      "Growth Strategy",
+      "Brand Positioning",
+      "Customer Acquisition",
+      "Marketing Analytics",
+      "Budget & P&L Management",
+      "Cross-Functional Leadership",
+    ];
+  }
+  if (/sales|revenue|account\s*exec/i.test(lower)) {
+    return [
+      "Enterprise Sales Strategy",
+      "Revenue Operations",
+      "Executive Negotiation",
+      "Pipeline Forecasting",
+      "Sales Leadership",
+    ];
+  }
+  if (/finance|accounting|financial|banking|investment/i.test(lower)) {
+    return [
+      "Financial Modeling",
+      "Strategic Financial Planning",
+      "Capital Allocation",
+      "Risk Management",
+      "Corporate Finance",
+      "Executive Reporting",
+    ];
+  }
+  if (/health|clinical|nurs|medic|pharma/i.test(lower)) {
+    return [
+      "Clinical Leadership",
+      "Healthcare Administration",
+      "Patient Safety Protocols",
+      "Regulatory Compliance",
+      "Healthcare Operations",
+    ];
+  }
+  if (/design|creative|art\s*director/i.test(lower)) {
+    return [
+      "Creative Direction",
+      "Brand Strategy",
+      "Design Systems",
+      "User Experience Strategy",
+      "Creative Team Leadership",
+    ];
+  }
+  if (/legal|counsel|attorney|law/i.test(lower)) {
+    return [
+      "Legal Strategy",
+      "Corporate Governance",
+      "Regulatory Compliance",
+      "Risk Mitigation",
+      "Contract Negotiation",
+    ];
+  }
+  if (/operations|supply\s*chain|logistics/i.test(lower)) {
+    return [
+      "Supply Chain Optimization",
+      "Operations Strategy",
+      "Vendor Management",
+      "Process Engineering",
+      "Cost Optimization",
+    ];
+  }
+  return [];
 }
 
 export function filterSkillsAgainstProfile(
@@ -475,7 +569,9 @@ export function parseCareerGoalText(
     }
   }
   if (matchedIndustries.length === 0) {
-    matchedIndustries.push("Technology", "SaaS");
+    if (/tech|software|developer|engineer|code|frontend|backend|fullstack|data|cyber|devops|cloud|ai\b|ml\b/i.test(lower)) {
+      matchedIndustries.push("Technology", "SaaS");
+    }
   }
   extracted.industries = uniqueTrimmed(matchedIndustries, MAX_INDUSTRIES);
 
