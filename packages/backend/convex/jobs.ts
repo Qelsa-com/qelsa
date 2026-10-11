@@ -738,13 +738,9 @@ export const listMatchTiers = authedQuery({
         gap: row?.gap ?? null,
       };
       const primaryScore = smartMatch ?? readiness;
-      if (primaryScore != null && primaryScore >= 80) {
-        if (matchesUserRole(job, profile)) readyJobs.push(scored);
-      } else if (primaryScore != null && primaryScore >= 60) {
-        if (matchesUserRole(job, profile)) almostJobs.push(scored);
-      } else if (primaryScore != null) {
-        growthJobs.push(scored);
-      }
+      if (primaryScore != null && primaryScore >= 80) readyJobs.push(scored);
+      else if (primaryScore != null && primaryScore >= 60) almostJobs.push(scored);
+      else if (primaryScore != null) growthJobs.push(scored);
     }
     rankBySmartMatch(readyJobs);
     rankBySmartMatch(almostJobs);

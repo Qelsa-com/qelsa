@@ -233,9 +233,9 @@ export function matchScore(job: Job): number | null {
 }
 
 export function gapLine(job: Job): string | null {
-  const readiness = readinessScore(job);
+  const score = matchScore(job) ?? readinessScore(job);
   const gap = job.competency?.gap;
-  if (readiness == null || readiness < ALMOST_MIN || readiness > ALMOST_MAX || !gap) return null;
+  if (score == null || score < ALMOST_MIN || score > ALMOST_MAX || !gap) return null;
   if (gap.blocker === "experience") return "You're close — experience is what keeps this below Ready Now.";
   if (gap.blocker === "education") return "You're close — education is what keeps this below Ready Now.";
   if (gap.blocker === "profile") return "You're close — experience and education keep this below Ready Now.";
@@ -332,7 +332,7 @@ export function JobCard({ job, onClick }: { job: Job; onClick: () => void }) {
         >
           <CompanyLogo job={job} name={company} fallback={<Building2 className="size-4" style={{ color: tint }} />} />
         </div>
-        {score != null && <MatchRing value={score} tone={readiness ?? score} />}
+        {score != null && <MatchRing value={score} tone={score} />}
       </div>
 
       <div className="flex flex-col gap-1">
