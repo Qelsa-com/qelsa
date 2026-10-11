@@ -13,7 +13,7 @@ export default function App() {
   useEffect(() => {
     if (isLoading) return;
     if (!user) {
-      router.replace("/jobs");
+      router.replace("/candidates");
       return;
     }
     if (user.account_type === "recruiter") {

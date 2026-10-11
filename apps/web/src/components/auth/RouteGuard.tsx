@@ -67,7 +67,7 @@ export default function RouteGuard({ children }: { children: ReactNode }) {
     const isPublic = isPublicPath(path) || router.pathname === "/404";
 
     if (!session && !isPublic) {
-      router.replace("/jobs");
+      router.replace("/candidates");
       return;
     }
 

@@ -142,8 +142,7 @@ export function ProfileDrawer({ isOpen, onClose, activeSection }: ProfileDrawerP
                   console.error("Sign out error", e);
                 }
                 onClose();
-                const isEmployer = user?.account_type === "recruiter";
-                window.location.replace(isEmployer ? "/employers" : "/jobs");
+                window.location.replace("/candidates");
               }}
             />
           ) : (

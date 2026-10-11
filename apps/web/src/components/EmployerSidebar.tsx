@@ -72,7 +72,7 @@ export function EmployerSidebar({
       console.error("Sign out error", e);
     }
     onCloseMobile?.();
-    window.location.replace("/employers");
+    window.location.replace("/candidates");
   };
 
   const { isCollapsed: hookCollapsed, toggle: hookToggle } = useEmployerSidebar();
