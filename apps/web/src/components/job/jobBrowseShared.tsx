@@ -700,8 +700,8 @@ export function JobsBrowseHeader({
       {/* Smart Matches and My Jobs are account-only — guests stay on the public All Jobs list. */}
       {isAuthenticated && (
         <div className="flex items-center gap-2 sm:gap-0">
-          <TabButton active={activeTab === "smart-matches"} label="Smart Matches" onClick={() => router.push("/jobs/smart-matches")} />
           <TabButton active={activeTab === "all"} label="All Jobs" onClick={() => router.push("/jobs/all")} />
+          <TabButton active={activeTab === "smart-matches"} label="Smart Matches" onClick={() => router.push("/jobs/smart-matches")} />
           <TabButton active={activeTab === "my-jobs"} label="My Jobs" onClick={() => router.push("/jobs/my-jobs/saved")} />
         </div>
       )}

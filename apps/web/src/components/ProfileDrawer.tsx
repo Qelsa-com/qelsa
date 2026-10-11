@@ -28,7 +28,7 @@ const GUEST_ITEMS = [
 
 /** Items also in DesktopTopBar are hidden from `lg` so the drawer is account-only. */
 const AUTHED_ITEMS = [
-  { id: "jobs", label: "Jobs", href: "/jobs/smart-matches", icon: Briefcase, hideOnDesktop: true },
+  { id: "jobs", label: "Jobs", href: "/jobs/all", icon: Briefcase, hideOnDesktop: true },
   { id: "connections", label: "Network", href: "/network", icon: Users, hideOnDesktop: true },
   { id: "goals", label: "Goals", href: "/goals", icon: Target },
   { id: "match", label: "Job Match AI", href: "/jobs/match", icon: Sparkles },

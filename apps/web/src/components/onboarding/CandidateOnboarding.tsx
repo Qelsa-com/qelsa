@@ -38,7 +38,7 @@ const STATUS_OPTIONS: {
   },
 ];
 
-type Step = "resume" | "intent" | "ready";
+type Step = "resume" | "intent";
 
 export function CandidateOnboarding({ onBack, onComplete }: { onBack: () => void; onComplete: () => void }) {
   const router = useRouter();
@@ -83,7 +83,7 @@ export function CandidateOnboarding({ onBack, onComplete }: { onBack: () => void
     await complete({ job_seeking_status: status }).unwrap();
     clearResumeDraft();
     onComplete();
-    setStep("ready");
+    router.replace("/jobs/all");
   };
 
   const cardMotion = {
@@ -163,36 +163,7 @@ export function CandidateOnboarding({ onBack, onComplete }: { onBack: () => void
             </button>
           </motion.div>
         )}
-        {step === "ready" && (
-          <motion.div key="ready" {...cardMotion}>
-            <ReadyCard onContinue={() => router.push("/jobs/smart-matches")} />
-          </motion.div>
-        )}
       </AnimatePresence>
     </OnboardingShell>
-  );
-}
-
-function ReadyCard({ onContinue }: { onContinue: () => void }) {
-  return (
-    <div className={`${ONBOARDING_CARD} text-center`}>
-      <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full gradient-primary">
-        <CheckIcon />
-      </div>
-      <h2 className="mt-6 text-3xl font-bold text-white">You&apos;re ready to look.</h2>
-      <p className="mt-3 text-[15px] leading-relaxed text-muted-foreground">We&apos;ll match roles to your skills and keep your readiness signal current.</p>
-      <button type="button" onClick={onContinue} className={`mt-8 ${PRIMARY_BTN}`}>
-        See matching roles
-        <SparkleIcon />
-      </button>
-    </div>
-  );
-}
-
-function SparkleIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-      <path d="M12 2.5 13.4 8l5.6 1.4L13.4 10.8 12 16.5l-1.4-5.7L5 9.4 10.6 8 12 2.5Zm7 11 0.8 3.1 3.2.8-3.2.8-.8 3.1-.8-3.1-3.2-.8 3.2-.8.8-3.1Z" />
-    </svg>
   );
 }

@@ -131,10 +131,10 @@ export function MyJobsHeader({
         />
       </div>
 
-      {/* Primary tabs row: Smart Matches | All Jobs | My Jobs */}
+      {/* Primary tabs row: All Jobs | Smart Matches | My Jobs */}
       <div className="flex items-center gap-2 sm:gap-0">
-        <TabButton active={false} label="Smart Matches" onClick={() => router.push("/jobs/smart-matches")} />
         <TabButton active={false} label="All Jobs" onClick={() => router.push("/jobs/all")} />
+        <TabButton active={false} label="Smart Matches" onClick={() => router.push("/jobs/smart-matches")} />
         <TabButton active={true} label="My Jobs" onClick={() => router.push("/jobs/my-jobs/saved")} />
       </div>
 

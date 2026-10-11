@@ -69,16 +69,16 @@ const Layout = ({ active_job_page, children, jobs, filters, setFilters, query, s
           {/* View Mode Tabs */}
           <div className="mt-6">
             <div className="glass-strong border-glass-border w-fit p-0.5 rounded-2xl flex space-x-1">
+              <Button onClick={() => router.push("/jobs/all")} variant="outline" className={active_job_page === "all" ? "bg-neon-cyan/20 text-neon-cyan" : ""}>
+                <Filter className="w-4 h-4 mr-2" />
+                All Jobs
+              </Button>
               {user && isAuthenticated && (
                 <Button onClick={() => router.push("/jobs/smart-matches")} variant="outline" className={active_job_page === "smart-matches" ? "bg-neon-cyan/20 text-neon-cyan" : ""}>
                   <Sparkles className="w-4 h-4 mr-2" />
                   Smart Matches
                 </Button>
               )}
-              <Button onClick={() => router.push("/jobs/all")} variant="outline" className={active_job_page === "all" ? "bg-neon-cyan/20 text-neon-cyan" : ""}>
-                <Filter className="w-4 h-4 mr-2" />
-                All Jobs
-              </Button>
               {user && isAuthenticated && (
                 <Button onClick={() => router.push("/jobs/my-jobs/saved")} variant="outline" className={active_job_page === "my-jobs" ? "bg-neon-purple/20 text-neon-purple relative" : ""}>
                   <Briefcase className="w-4 h-4 mr-2" />
