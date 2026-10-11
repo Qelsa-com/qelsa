@@ -11,10 +11,10 @@ import Link from "next/link";
 
 export function ComingSoon() {
   return (
-    <div className="relative flex min-h-[70vh] items-center justify-center overflow-hidden px-6 py-20">
+    <div className="relative flex flex-1 min-h-[calc(100vh-4rem)] min-h-[calc(100dvh-4rem)] items-center justify-center overflow-hidden px-6 py-12 sm:py-20">
       {/* bg-glow-purple / bg-glow-cyan — a blurred solid disc each. */}
       <div aria-hidden="true" className="pointer-events-none absolute left-[-200px] top-[100px] size-[600px] rounded-full bg-neon-purple/15 blur-[75px]" />
-      <div aria-hidden="true" className="pointer-events-none absolute bottom-0 right-[-200px] size-[500px] rounded-full bg-neon-cyan/10 blur-[75px]" />
+      <div aria-hidden="true" className="pointer-events-none absolute -bottom-[100px] right-[-200px] size-[600px] rounded-full bg-neon-cyan/10 blur-[75px]" />
 
       {/* content-container */}
       <div className="relative flex flex-col items-center text-center">
