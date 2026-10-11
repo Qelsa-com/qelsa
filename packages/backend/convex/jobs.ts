@@ -493,7 +493,9 @@ export const listPaginated = optionalAuthQuery({
         for (const job of matched) {
           const row = scored.get(job._id);
           const readiness = row?.readiness ?? null;
-          if (!scoreInRange(readiness, minReadiness, maxReadiness)) continue;
+          const smartMatch = row?.smartMatch ?? null;
+          const primaryScore = smartMatch ?? readiness;
+          if (!scoreInRange(primaryScore, minReadiness, maxReadiness)) continue;
           candidates.push({
             job,
             readiness,
@@ -688,14 +690,23 @@ export const listMatchTiers = authedQuery({
     const cache = emptyRelationCache();
     if (needsCity) await prefetchCities(ctx, open, cache);
 
-    const matched: Doc<"jobs">[] = [];
+    const matchedRole: Doc<"jobs">[] = [];
+    const matchedOther: Doc<"jobs">[] = [];
     for (const job of open) {
       const cityName = needsCity && job.city_id ? (cache.cities.get(job.city_id)?.name ?? null) : null;
       if (!matchesFilters(job, cityName, { ...args, cities, search: undefined })) continue;
-      if (!matchesUserRole(job, profile)) continue;
-      matched.push(job);
-      if (matched.length >= ROLE_SCAN.TITLE_MATCH_CAP) break;
+      if (matchesUserRole(job, profile)) {
+        if (matchedRole.length < ROLE_SCAN.TITLE_MATCH_CAP) {
+          matchedRole.push(job);
+        }
+      } else {
+        if (matchedOther.length < ROLE_SCAN.TITLE_MATCH_CAP) {
+          matchedOther.push(job);
+        }
+      }
+      if (matchedRole.length >= ROLE_SCAN.TITLE_MATCH_CAP && matchedOther.length >= ROLE_SCAN.TITLE_MATCH_CAP) break;
     }
+    const matched = [...matchedRole, ...matchedOther];
 
     const scores = await scoreTierMatches(
       ctx,
@@ -727,9 +738,13 @@ export const listMatchTiers = authedQuery({
         gap: row?.gap ?? null,
       };
       const primaryScore = smartMatch ?? readiness;
-      if (primaryScore != null && primaryScore >= 80) readyJobs.push(scored);
-      else if (primaryScore != null && primaryScore >= 60) almostJobs.push(scored);
-      else if (primaryScore != null) growthJobs.push(scored);
+      if (primaryScore != null && primaryScore >= 80) {
+        if (matchesUserRole(job, profile)) readyJobs.push(scored);
+      } else if (primaryScore != null && primaryScore >= 60) {
+        if (matchesUserRole(job, profile)) almostJobs.push(scored);
+      } else if (primaryScore != null) {
+        growthJobs.push(scored);
+      }
     }
     rankBySmartMatch(readyJobs);
     rankBySmartMatch(almostJobs);
