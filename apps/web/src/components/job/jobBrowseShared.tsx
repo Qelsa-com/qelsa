@@ -22,7 +22,7 @@ import { hasCareerGoal } from "@/lib/careerGoal";
 import { ALMOST_MAX, ALMOST_MIN, MATCH_TIER, matchRingColor, type MatchTierId } from "@/lib/matchTiers";
 import { City } from "@/types/city";
 import { Job } from "@/types/job";
-import { Building2, Check, ChevronDown, MapPin, Search, Sparkles, X } from "lucide-react";
+import { BarChart3, Building2, Check, ChevronDown, MapPin, Search, Sparkle, Sparkles, Target, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
@@ -233,9 +233,9 @@ export function matchScore(job: Job): number | null {
 }
 
 export function gapLine(job: Job): string | null {
-  const readiness = readinessScore(job);
+  const score = matchScore(job) ?? readinessScore(job);
   const gap = job.competency?.gap;
-  if (readiness == null || readiness < ALMOST_MIN || readiness > ALMOST_MAX || !gap) return null;
+  if (score == null || score < ALMOST_MIN || score > ALMOST_MAX || !gap) return null;
   if (gap.blocker === "experience") return "You're close — experience is what keeps this below Ready Now.";
   if (gap.blocker === "education") return "You're close — education is what keeps this below Ready Now.";
   if (gap.blocker === "profile") return "You're close — experience and education keep this below Ready Now.";
@@ -332,7 +332,7 @@ export function JobCard({ job, onClick }: { job: Job; onClick: () => void }) {
         >
           <CompanyLogo job={job} name={company} fallback={<Building2 className="size-4" style={{ color: tint }} />} />
         </div>
-        {score != null && <MatchRing value={score} tone={readiness ?? score} />}
+        {score != null && <MatchRing value={score} tone={score} />}
       </div>
 
       <div className="flex flex-col gap-1">
@@ -812,29 +812,117 @@ export function MatchSection({
   );
 }
 
+export type SmartMatchTier = "strong" | "almost" | "growth";
+
 export function MatchEmptyState({
+  tier = "strong",
   title,
   subtitle,
   actionLabel,
   onAction,
 }: {
-  title: string;
-  subtitle: string;
-  actionLabel: string;
-  onAction: () => void;
+  tier?: SmartMatchTier;
+  title?: string;
+  subtitle?: string;
+  actionLabel?: string;
+  onAction?: () => void;
 }) {
+  if (title && !actionLabel && !onAction) {
+    // If just custom title was passed without tier, keep simple fallback
+    return (
+      <div className="flex flex-col items-center justify-center rounded-2xl border border-glass-border bg-white/[0.03] px-6 py-12 text-center sm:rounded-[20px] sm:px-10 sm:py-16">
+        <Sparkle className="size-6 text-neon-cyan sm:size-7" strokeWidth={1.75} />
+        <p className="mt-5 text-lg font-bold text-white sm:text-xl">{title}</p>
+        {subtitle && <p className="mt-2 max-w-md text-[13px] leading-relaxed text-white/45 sm:text-sm">{subtitle}</p>}
+      </div>
+    );
+  }
+
+  const content = {
+    strong: {
+      statusTitle: null,
+      statusSubtitle: null,
+      readinessText: "Your skills and experience align well with these roles. Keep building on your strengths to stay competitive.",
+      goalText: "Set a career goal that aligns with the roles and career path you're targeting.",
+    },
+    almost: {
+      statusTitle: "Your opportunities are taking shape",
+      statusSubtitle: "Jobs will appear here when your match score reaches 60%.",
+      readinessText: "You're close to meeting these roles requirements. Strengthen relevant skills and experience to improve your readiness.",
+      goalText: "Set a career goal that aligns with the roles and career path you're targeting.",
+    },
+    growth: {
+      statusTitle: "Discover new possibilities",
+      statusSubtitle: "Jobs will appear here when your match score reaches 60%.",
+      readinessText: "Build relevant skills, strengthen your experience, and validate your qualifications against role requirements.",
+      goalText: "Set a career goal that aligns with the roles and career path you're targeting.",
+    },
+  }[tier];
+
   return (
-    <div className="flex flex-col items-center justify-center rounded-2xl border border-glass-border bg-white/[0.03] px-6 py-12 text-center sm:rounded-[20px] sm:px-10 sm:py-16">
-      <Sparkles className="size-6 text-neon-cyan sm:size-7" strokeWidth={1.75} />
-      <p className="mt-5 text-lg font-bold text-white sm:text-xl">{title}</p>
-      <p className="mt-2 max-w-md text-[13px] leading-relaxed text-white/45 sm:text-sm">{subtitle}</p>
-      <button
-        type="button"
-        onClick={onAction}
-        className="mt-6 rounded-full border border-neon-cyan/50 px-5 py-2.5 text-[13px] font-semibold text-neon-cyan transition-colors hover:bg-neon-cyan/10 sm:px-6 sm:text-sm"
-      >
-        {actionLabel}
-      </button>
+    <div className="flex flex-col items-center justify-center rounded-2xl border border-glass-border bg-white/[0.02] p-6 text-center sm:rounded-[20px] sm:p-8 md:p-10">
+      <div className="flex size-11 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-neon-cyan">
+        <Sparkle className="size-5 fill-current" />
+      </div>
+
+      {content.statusTitle && (
+        <h3 className="mt-3.5 text-base font-semibold text-white sm:text-lg">
+          {content.statusTitle}
+        </h3>
+      )}
+      {content.statusSubtitle && (
+        <p className="mt-1 text-xs text-white/50 sm:text-sm">
+          {content.statusSubtitle}
+        </p>
+      )}
+
+      <h4 className={`${content.statusTitle ? "mt-4 sm:mt-5" : "mt-3.5"} text-base font-bold text-white sm:text-lg`}>
+        How to improve your match score
+      </h4>
+
+      {/* Two explanation boxes */}
+      <div className="mt-6 sm:mt-8 grid w-full grid-cols-1 gap-4 text-left md:grid-cols-2">
+        <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
+          <div className="flex items-center gap-2.5">
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-neon-cyan/25 bg-neon-cyan/10 text-neon-cyan">
+              <BarChart3 className="size-4" />
+            </div>
+            <span className="text-sm font-semibold text-neon-cyan">Readiness score</span>
+          </div>
+          <p className="mt-3 text-xs leading-relaxed text-white/60 sm:text-[13px]">
+            {content.readinessText}
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
+          <div className="flex items-center gap-2.5">
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-neon-cyan/25 bg-neon-cyan/10 text-neon-cyan">
+              <Target className="size-4" />
+            </div>
+            <span className="text-sm font-semibold text-neon-cyan">Career goal alignment</span>
+          </div>
+          <p className="mt-3 text-xs leading-relaxed text-white/60 sm:text-[13px]">
+            {content.goalText}
+          </p>
+        </div>
+      </div>
+
+      {/* Formula banner */}
+      <div className="mt-4 flex w-full flex-wrap items-center justify-center gap-3 rounded-2xl border border-white/10 bg-white/[0.02] px-6 py-4 sm:gap-6">
+        <div className="flex flex-col items-center leading-none">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-neon-cyan">READY</span>
+          <span className="mt-1 text-xs font-semibold text-white sm:text-sm">Readiness</span>
+        </div>
+        <span className="text-sm font-bold text-white/40">+</span>
+        <div className="flex flex-col items-center leading-none">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-neon-cyan">GOAL</span>
+          <span className="mt-1 text-xs font-semibold text-white sm:text-sm">Goal Alignment</span>
+        </div>
+        <span className="text-sm font-bold text-white/40">=</span>
+        <div className="rounded-xl border border-neon-cyan/40 bg-neon-cyan/10 px-4 py-2">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-neon-cyan sm:text-xs">YOUR MATCH SCORE</span>
+        </div>
+      </div>
     </div>
   );
 }

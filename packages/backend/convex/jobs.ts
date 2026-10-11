@@ -493,7 +493,9 @@ export const listPaginated = optionalAuthQuery({
         for (const job of matched) {
           const row = scored.get(job._id);
           const readiness = row?.readiness ?? null;
-          if (!scoreInRange(readiness, minReadiness, maxReadiness)) continue;
+          const smartMatch = row?.smartMatch ?? null;
+          const primaryScore = smartMatch ?? readiness;
+          if (!scoreInRange(primaryScore, minReadiness, maxReadiness)) continue;
           candidates.push({
             job,
             readiness,
@@ -663,14 +665,16 @@ export const listMatchTiers = authedQuery({
   returns: v.object({
     ready: v.array(matchTierJob),
     almost: v.array(matchTierJob),
+    growth: v.optional(v.array(matchTierJob)),
     readyTotal: v.number(),
     almostTotal: v.number(),
+    growthTotal: v.optional(v.number()),
     hasRoleProfile: v.boolean(),
   }),
   handler: async (ctx, args) => {
     const [profile, hydration] = await Promise.all([loadUserRoleProfile(ctx, ctx.user), listHydration(ctx, ctx.user, false)]);
     if (!hasRoleProfile(profile)) {
-      return { ready: [], almost: [], readyTotal: 0, almostTotal: 0, hasRoleProfile: false };
+      return { ready: [], almost: [], growth: [], readyTotal: 0, almostTotal: 0, growthTotal: 0, hasRoleProfile: false };
     }
 
     const search = ((args.search as string | undefined) ?? "").trim();
@@ -686,14 +690,23 @@ export const listMatchTiers = authedQuery({
     const cache = emptyRelationCache();
     if (needsCity) await prefetchCities(ctx, open, cache);
 
-    const matched: Doc<"jobs">[] = [];
+    const matchedRole: Doc<"jobs">[] = [];
+    const matchedOther: Doc<"jobs">[] = [];
     for (const job of open) {
       const cityName = needsCity && job.city_id ? (cache.cities.get(job.city_id)?.name ?? null) : null;
       if (!matchesFilters(job, cityName, { ...args, cities, search: undefined })) continue;
-      if (!matchesUserRole(job, profile)) continue;
-      matched.push(job);
-      if (matched.length >= ROLE_SCAN.TITLE_MATCH_CAP) break;
+      if (matchesUserRole(job, profile)) {
+        if (matchedRole.length < ROLE_SCAN.TITLE_MATCH_CAP) {
+          matchedRole.push(job);
+        }
+      } else {
+        if (matchedOther.length < ROLE_SCAN.TITLE_MATCH_CAP) {
+          matchedOther.push(job);
+        }
+      }
+      if (matchedRole.length >= ROLE_SCAN.TITLE_MATCH_CAP && matchedOther.length >= ROLE_SCAN.TITLE_MATCH_CAP) break;
     }
+    const matched = [...matchedRole, ...matchedOther];
 
     const scores = await scoreTierMatches(
       ctx,
@@ -712,34 +725,43 @@ export const listMatchTiers = authedQuery({
     );
     const readyJobs: BrowseCandidate[] = [];
     const almostJobs: BrowseCandidate[] = [];
+    const growthJobs: BrowseCandidate[] = [];
     for (const job of matched) {
       const row = scores.get(job._id);
       const readiness = row?.readiness ?? null;
+      const smartMatch = row?.smartMatch ?? null;
       const scored = {
         job,
         readiness,
         careerAlignment: row?.careerAlignment ?? null,
-        smartMatch: row?.smartMatch ?? null,
+        smartMatch,
         gap: row?.gap ?? null,
       };
-      if (isReadyNow(readiness)) readyJobs.push(scored);
-      else if (isAlmostThere(readiness)) almostJobs.push(scored);
+      const primaryScore = smartMatch ?? readiness;
+      if (primaryScore != null && primaryScore >= 80) readyJobs.push(scored);
+      else if (primaryScore != null && primaryScore >= 60) almostJobs.push(scored);
+      else if (primaryScore != null) growthJobs.push(scored);
     }
     rankBySmartMatch(readyJobs);
     rankBySmartMatch(almostJobs);
+    rankBySmartMatch(growthJobs);
 
     const readyTop = readyJobs.slice(0, 4);
     const almostTop = almostJobs.slice(0, 4);
-    const [ready, almost] = await Promise.all([
+    const growthTop = growthJobs.slice(0, 4);
+    const [ready, almost, growth] = await Promise.all([
       slimListJobs(ctx, readyTop, hydration, cache),
       slimListJobs(ctx, almostTop, hydration, cache),
+      slimListJobs(ctx, growthTop, hydration, cache),
     ]);
 
     return {
       ready,
       almost,
+      growth,
       readyTotal: readyJobs.length,
       almostTotal: almostJobs.length,
+      growthTotal: growthJobs.length,
       hasRoleProfile: true,
     };
   },

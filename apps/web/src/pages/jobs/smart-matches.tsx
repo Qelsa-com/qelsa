@@ -26,13 +26,9 @@ const SmartMatches = () => {
 
   const ready = data?.ready ?? [];
   const almost = data?.almost ?? [];
-  const shown = ready.length + almost.length;
-  const total = data ? data.readyTotal + data.almostTotal : undefined;
-  const goalRoles = user?.career_goal?.target_roles?.length
-    ? user.career_goal.target_roles.join(", ")
-    : user?.career_goal?.target_role?.trim();
-  const goalSet = hasCareerGoal(user?.career_goal);
-  const readySubtitle = goalSet ? `These roles match your goal: ${goalRoles}.` : MATCH_TIER.ready.subtitle;
+  const growth = data?.growth ?? [];
+  const shown = ready.length + almost.length + growth.length;
+  const total = data ? data.readyTotal + data.almostTotal + (data.growthTotal ?? 0) : undefined;
 
   const openJob = (id: string | number) => router.push(`/jobs/${id}`);
 
@@ -69,22 +65,13 @@ const SmartMatches = () => {
               <MatchSection
                 dotColor={MATCH_TIER.ready.dotColor}
                 title={MATCH_TIER.ready.title}
-                subtitle={readySubtitle}
+                subtitle={MATCH_TIER.ready.subtitle}
                 viewAllHref={ready.length > 0 ? MATCH_TIER.ready.href : undefined}
               >
                 {ready.length > 0 ? (
                   <JobGrid jobs={ready} onOpen={openJob} />
                 ) : (
-                  <MatchEmptyState
-                    title="No ready matches yet."
-                    subtitle={
-                      goalSet
-                        ? "No roles are at 80% readiness yet. The closest ones are in Almost There."
-                        : "Set a career goal so we can match roles to where you're headed."
-                    }
-                    actionLabel={goalSet ? "Update Skills" : "Set Goal"}
-                    onAction={() => (goalSet ? setSkillsOpen(true) : router.push("/goals"))}
-                  />
+                  <MatchEmptyState tier="strong" />
                 )}
               </MatchSection>
 
@@ -97,12 +84,20 @@ const SmartMatches = () => {
                 {almost.length > 0 ? (
                   <JobGrid jobs={almost} onOpen={openJob} />
                 ) : (
-                  <MatchEmptyState
-                    title="No close matches yet."
-                    subtitle="Add more skills and experience to surface roles where you're almost there."
-                    actionLabel="Update Skills"
-                    onAction={() => setSkillsOpen(true)}
-                  />
+                  <MatchEmptyState tier="almost" />
+                )}
+              </MatchSection>
+
+              <MatchSection
+                dotColor={MATCH_TIER.growth.dotColor}
+                title={MATCH_TIER.growth.title}
+                subtitle={MATCH_TIER.growth.subtitle}
+                viewAllHref={growth.length > 0 ? MATCH_TIER.growth.href : undefined}
+              >
+                {growth.length > 0 ? (
+                  <JobGrid jobs={growth} onOpen={openJob} />
+                ) : (
+                  <MatchEmptyState tier="growth" />
                 )}
               </MatchSection>
             </>
