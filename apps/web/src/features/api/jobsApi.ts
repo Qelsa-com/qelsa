@@ -71,8 +71,10 @@ export function useCountJobsQuery(filters?: JobFilters | Record<string, string> 
 export type MatchTiersResult = {
   ready: Job[];
   almost: Job[];
+  growth?: Job[];
   readyTotal: number;
   almostTotal: number;
+  growthTotal?: number;
   hasRoleProfile: boolean;
 };
 
@@ -113,6 +115,7 @@ export const RESERVED_JOB_SLUGS = new Set([
   "all",
   "almost",
   "ready",
+  "growth",
   "smart-matches",
   "smart_matches",
   "match",
