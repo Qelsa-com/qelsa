@@ -187,7 +187,13 @@ export default function AuthPage() {
       {step !== "role" && (
         <button
           type="button"
-          onClick={() => router.push(typeof window !== "undefined" && sessionStorage.getItem("qelsa.resumeDraft") ? "/start" : "/jobs")}
+          onClick={() => {
+            if (returnUrl) {
+              router.push(returnUrl);
+              return;
+            }
+            router.push(typeof window !== "undefined" && sessionStorage.getItem("qelsa.resumeDraft") ? "/start" : "/candidates");
+          }}
           className={`absolute left-4 top-4 z-10 flex items-center gap-2 sm:left-8 sm:top-8 ${QUIET_LINK}`}
         >
           <ArrowLeft /> Back

@@ -37,7 +37,7 @@ const Layout = ({ activeSection, children }: LayoutProps) => {
   const isRecruiter = isAuthenticated && user?.account_type === "recruiter";
 
   return (
-    <div className="min-h-screen relative">
+    <div className="min-h-screen relative flex flex-col">
       {/* Simplified background */}
       <div className="fixed inset-0 -z-10 bg-gradient-to-br from-background via-background to-background">
         {/* Subtle animated elements - reduced complexity */}
@@ -93,7 +93,9 @@ const Layout = ({ activeSection, children }: LayoutProps) => {
             <PublicNavbar activeSection={activeSection} onProfileClick={handleProfileClick} />
           )}
 
-          <ErrorBoundary label="this page">{children}</ErrorBoundary>
+          <div className="flex flex-1 flex-col">
+            <ErrorBoundary label="this page">{children}</ErrorBoundary>
+          </div>
         </>
       )}
 
