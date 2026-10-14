@@ -31,7 +31,6 @@ const GUEST_NAV_LINKS = [
   { id: "candidates", label: "For Candidates", href: "/candidates" },
   { id: "employers", label: "For Employers", href: "/employers" },
   { id: "jobs", label: "Jobs", href: "/jobs/all" },
-  { id: "blog", label: "Blogs", href: "/blogs" },
 ];
 
 export function DesktopTopBar({ activeSection, onProfileClick }: { activeSection?: string; onProfileClick?: () => void }) {
@@ -60,9 +59,22 @@ export function DesktopTopBar({ activeSection, onProfileClick }: { activeSection
         </nav>
 
         {!isAuthenticated ? (
-          <button type="button" onClick={() => router.push("/auth")} className="text-[15px] font-semibold text-white transition-colors hover:text-white/80">
-            Sign in
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => router.push("/auth?returnUrl=/profile")}
+              className="rounded-full border border-white/20 bg-white/[0.04] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/35 hover:bg-white/[0.08]"
+            >
+              Start your profile
+            </button>
+            <button
+              type="button"
+              onClick={() => router.push("/employers")}
+              className="rounded-full bg-gradient-to-r from-[#623dd6] via-[#8433ae] to-[#be2680] px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-purple-900/30 transition-opacity hover:opacity-95"
+            >
+              Hire talent
+            </button>
+          </div>
         ) : (
           <div className="flex items-center gap-6">
             <button type="button" aria-label="Search jobs" onClick={() => router.push("/jobs/all")} className="text-white/70 transition-colors hover:text-white">

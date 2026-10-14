@@ -1,14 +1,13 @@
 "use client";
 
+import { PublicNavbar } from "@/components/PublicNavbar";
 import { QelsaLogo } from "@/components/QelsaLogo";
-import { ArrowRight, Check, ChevronRight, Menu, ShieldCheck, X } from "lucide-react";
+import { ArrowRight, Check, ChevronRight, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
 
 export function LandingPage() {
   const router = useRouter();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-[#0a0c16] text-white selection:bg-neon-cyan/20 selection:text-neon-cyan font-sans relative overflow-hidden">
@@ -18,108 +17,7 @@ export function LandingPage() {
       <div aria-hidden="true" className="pointer-events-none absolute left-1/3 top-[2200px] size-[700px] rounded-full bg-indigo-600/[0.06] blur-[180px]" />
 
       {/* --------------------------- Navigation Bar --------------------------- */}
-      <header className="sticky top-0 z-50 border-b border-white/[0.08] bg-[#0a0c16]/85 backdrop-blur-md">
-        <div className="mx-auto flex h-20 w-full max-w-7xl items-center justify-between px-6">
-          <div className="flex items-center gap-10">
-            <Link href="/" className="flex items-center">
-              <QelsaLogo priority className="h-7 w-auto" />
-            </Link>
-
-            <nav className="hidden items-center gap-8 md:flex">
-              <Link
-                href="/candidates"
-                className="text-sm font-medium text-white/70 transition-colors hover:text-white"
-              >
-                For Candidates
-              </Link>
-              <Link
-                href="/employers"
-                className="text-sm font-medium text-white/70 transition-colors hover:text-white"
-              >
-                For Employers
-              </Link>
-              <Link
-                href="/jobs/all"
-                className="text-sm font-medium text-white/70 transition-colors hover:text-white"
-              >
-                Jobs
-              </Link>
-            </nav>
-          </div>
-
-          <div className="hidden items-center gap-3 sm:flex">
-            <Link
-              href="/auth?returnUrl=/profile"
-              className="rounded-full border border-white/20 bg-white/[0.04] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/35 hover:bg-white/[0.08]"
-            >
-              Start your profile
-            </Link>
-            <Link
-              href="/employers"
-              className="rounded-full bg-gradient-to-r from-[#623dd6] via-[#8433ae] to-[#be2680] px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-purple-900/30 transition-opacity hover:opacity-95"
-            >
-              Hire talent
-            </Link>
-          </div>
-
-          {/* Mobile hamburger */}
-          <div className="flex items-center sm:hidden">
-            <button
-              type="button"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="flex size-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/80"
-              aria-label="Toggle navigation"
-            >
-              {mobileMenuOpen ? <X className="size-5" /> : <Menu className="size-5" />}
-            </button>
-          </div>
-        </div>
-
-        {/* Mobile dropdown */}
-        {mobileMenuOpen && (
-          <div className="border-b border-white/10 bg-[#0d1020] px-6 py-6 sm:hidden">
-            <nav className="flex flex-col gap-4 text-base">
-              <Link
-                href="/candidates"
-                onClick={() => setMobileMenuOpen(false)}
-                className="font-medium text-white/80 hover:text-white"
-              >
-                For Candidates
-              </Link>
-              <Link
-                href="/employers"
-                onClick={() => setMobileMenuOpen(false)}
-                className="font-medium text-white/80 hover:text-white"
-              >
-                For Employers
-              </Link>
-              <Link
-                href="/jobs/all"
-                onClick={() => setMobileMenuOpen(false)}
-                className="font-medium text-white/80 hover:text-white"
-              >
-                Jobs
-              </Link>
-            </nav>
-            <div className="mt-6 flex flex-col gap-3">
-              <Link
-                href="/auth?returnUrl=/profile"
-                onClick={() => setMobileMenuOpen(false)}
-                className="rounded-full border border-white/20 bg-white/[0.04] py-3 text-center text-sm font-semibold text-white"
-              >
-                Start your profile
-              </Link>
-              <Link
-                href="/employers"
-                onClick={() => setMobileMenuOpen(false)}
-                className="rounded-full bg-gradient-to-r from-[#623dd6] via-[#8433ae] to-[#be2680] py-3 text-center text-sm font-semibold text-white shadow-lg"
-              >
-                Hire talent
-              </Link>
-            </div>
-          </div>
-        )}
-      </header>
+      <PublicNavbar activeSection="home" />
 
       {/* ------------------------------ Hero ---------------------------------- */}
       <section className="relative mx-auto w-full max-w-7xl px-6 pt-12 pb-20 sm:pt-16 sm:pb-28 lg:pt-24 lg:pb-32">
