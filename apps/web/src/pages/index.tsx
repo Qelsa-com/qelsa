@@ -1,5 +1,4 @@
-"use client";
-
+import { LandingPage } from "@/components/LandingPage";
 import { ProfilePage } from "@/components/profile/ProfilePage";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
@@ -7,21 +6,21 @@ import { useEffect } from "react";
 import Layout from "../layout";
 
 export default function App() {
-  const { user, isLoading } = useAuth();
+  const { user, isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
     if (isLoading) return;
-    if (!user) {
-      router.replace("/candidates");
-      return;
-    }
-    if (user.account_type === "recruiter") {
+    if (user && user.account_type === "recruiter") {
       router.replace(user.active_page_id ? `/pages/${user.active_page_id}` : "/pages");
     }
   }, [isLoading, router, user]);
 
-  if (isLoading || !user || user.account_type === "recruiter") return null;
+  if (isLoading) return null;
+
+  if (!isAuthenticated || !user) {
+    return <LandingPage />;
+  }
 
   return (
     <Layout activeSection={"profile"}>

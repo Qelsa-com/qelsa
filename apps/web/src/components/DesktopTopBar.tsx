@@ -42,7 +42,7 @@ export function DesktopTopBar({ activeSection, onProfileClick }: { activeSection
   return (
     <header className="sticky top-0 z-50 hidden border-b border-white/[0.08] bg-[#06060f] lg:block">
       <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-6 py-4">
-        <button type="button" onClick={() => router.push(isAuthenticated ? "/" : "/candidates")} className="flex items-center">
+        <button type="button" onClick={() => router.push("/")} className="flex items-center">
           <QelsaLogo priority className="h-[26px] w-auto" />
         </button>
 
