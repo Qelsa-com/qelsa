@@ -346,7 +346,7 @@ export function JobCard({
       </div>
 
       <div className="flex flex-col gap-1">
-        <p className="line-clamp-2 text-[15px] font-bold text-white">{title}</p>
+        <p className="line-clamp-1 text-[15px] font-bold text-white" title={title}>{title}</p>
         {company && <p className="line-clamp-1 text-[13px] text-white/55">{company}</p>}
         {location && <p className="line-clamp-1 text-xs text-white/40">{location}</p>}
       </div>
