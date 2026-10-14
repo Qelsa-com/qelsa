@@ -512,7 +512,7 @@ export const listPaginated = optionalAuthQuery({
         }
         return candidates;
       }
-      const scores = shouldScore ? await scoreReadiness(ctx, matched, hydration.userSkills, profileContext) : null;
+      const scores = shouldScore ? await scoreReadiness(ctx, matched, hydration.userSkills, profileContext, hydration.skillCache) : null;
       for (const job of matched) {
         const readiness = scores?.get(job._id) ?? null;
         candidates.push({ job, readiness });

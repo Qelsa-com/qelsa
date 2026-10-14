@@ -134,43 +134,67 @@ export function sortEnrichedJobs(
 export async function scoreReadiness(
   ctx: QueryCtx,
   jobs: Doc<"jobs">[],
-  userSkills: Array<{ skill_id: string; proficiency?: string }>,
+  userSkills: Array<{ skill_id: string; proficiency?: string; name?: string }>,
   profileContext?: { yearsExperience?: number | null; educationCount?: number | null },
+  skillCache: Map<Id<"skills">, Doc<"skills"> | null> = new Map(),
 ): Promise<Map<Id<"jobs">, number | null>> {
   const hasData = userSkills.length > 0 || profileContext?.yearsExperience != null || (profileContext?.educationCount != null && profileContext.educationCount > 0);
   if (!hasData) {
     return new Map(jobs.map((job) => [job._id, null]));
   }
 
-  const entries = await Promise.all(
+  const rowsByJob = await Promise.all(
     jobs.map(async (job) => {
       const rows = await ctx.db
         .query("job_skills")
         .withIndex("by_job", (q) => q.eq("job_id", job._id))
-        .take(SCORE_SKILL_TAKE);
-      return [
-        job._id,
-        roundedReadiness(
-          buildCompetencyFramework(
-            rows.map((row) => ({
-              skill_id: row.skill_id,
-              type: row.type,
-              proficiency: row.proficiency,
-              weight: row.weight,
-            })),
-            userSkills,
-            profileContext
-              ? {
-                  candidateYearsExperience: profileContext.yearsExperience,
-                  requiredExperienceYears: job.experience,
-                  candidateEducationCount: profileContext.educationCount,
-                }
-              : undefined,
-          ).readiness,
-        ),
-      ] as const;
+        .collect();
+      return [job._id, rows] as const;
     }),
   );
+
+  const missingSkillIds = new Set<Id<"skills">>();
+  for (const [, rows] of rowsByJob) {
+    for (const row of rows) {
+      if (!skillCache.has(row.skill_id)) {
+        missingSkillIds.add(row.skill_id);
+      }
+    }
+  }
+
+  if (missingSkillIds.size > 0) {
+    await Promise.all(
+      [...missingSkillIds].map(async (id) => {
+        skillCache.set(id, await ctx.db.get(id));
+      }),
+    );
+  }
+
+  const entries = rowsByJob.map(([jobId, rows]) => {
+    const job = jobs.find((item) => item._id === jobId);
+    return [
+      jobId,
+      roundedReadiness(
+        buildCompetencyFramework(
+          rows.map((row) => ({
+            skill_id: row.skill_id,
+            type: row.type,
+            proficiency: row.proficiency,
+            weight: row.weight,
+            skill: { name: skillCache.get(row.skill_id)?.name },
+          })),
+          userSkills,
+          profileContext && job
+            ? {
+                candidateYearsExperience: profileContext.yearsExperience,
+                requiredExperienceYears: job.experience,
+                candidateEducationCount: profileContext.educationCount,
+              }
+            : undefined,
+        ).readiness,
+      ),
+    ] as const;
+  });
   return new Map(entries);
 }
 
@@ -212,7 +236,7 @@ export async function scoreTierMatches(
       const rows = await ctx.db
         .query("job_skills")
         .withIndex("by_job", (q) => q.eq("job_id", job._id))
-        .take(SCORE_SKILL_TAKE);
+        .collect();
       return [job._id, rows] as const;
     }),
   );

@@ -18,7 +18,7 @@ export function MobileTopBar({ onMenuClick }: { onMenuClick?: () => void }) {
     <header className="sticky top-0 z-40 flex items-center justify-between border-b border-white/[0.12] bg-white/[0.06] px-4 py-3 backdrop-blur-xl lg:hidden">
       <button
         type="button"
-        onClick={() => router.push(isAuthenticated ? "/" : "/candidates")}
+        onClick={() => router.push("/")}
         className="flex items-center"
         aria-label="Qelsa home"
       >
