@@ -3,7 +3,7 @@
 import { useParseResume } from "@/features/api/onboardingApi";
 import { toastUnknownError } from "@/lib/errors";
 import { emptyParsedProfile, type ParsedProfile } from "@/lib/resumeDraft";
-import { Award, BookOpen, Briefcase, FileUp, GraduationCap, Heart, Languages, Pencil, Sparkles, Tag, Upload } from "lucide-react";
+import { Award, BookOpen, Briefcase, FileUp, GraduationCap, Heart, Languages, Sparkles, Tag, Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useRef, useState, type ReactNode } from "react";
 import { ResumeParsing } from "../onboarding/ResumeParsing";
@@ -17,8 +17,6 @@ interface ProfileEmptyStateProps {
   userName?: string;
   /** Called after resume is reviewed + saved. Should persist the profile. */
   onResumeSaved: (result: { profile: ParsedProfile; storageId?: string; filename?: string }) => Promise<void> | void;
-  /** Navigate to manually edit profile */
-  onManualEdit: () => void;
   /** Called when the user wants to add a specific section manually */
   onAddSection?: (section: string) => void;
 }
@@ -40,7 +38,7 @@ const EMPTY_SECTIONS: { id: string; icon: typeof Briefcase; title: string; descr
 /*  Main component                                                     */
 /* ------------------------------------------------------------------ */
 
-export function ProfileEmptyState({ userName, onResumeSaved, onManualEdit, onAddSection }: ProfileEmptyStateProps) {
+export function ProfileEmptyState({ userName, onResumeSaved, onAddSection }: ProfileEmptyStateProps) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
@@ -135,14 +133,6 @@ export function ProfileEmptyState({ userName, onResumeSaved, onManualEdit, onAdd
           >
             <Upload className="h-4 w-4" />
             Upload resume
-          </button>
-          <button
-            type="button"
-            onClick={onManualEdit}
-            className="flex items-center justify-center gap-2 rounded-full border border-white/12 bg-white/4 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/10"
-          >
-            <Pencil className="h-4 w-4" />
-            Do it manually
           </button>
         </div>
       </section>
