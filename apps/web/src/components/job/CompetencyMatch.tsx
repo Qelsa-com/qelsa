@@ -169,8 +169,8 @@ export function CompetencyTable({
   const strong = withCandidate.filter((c) => statusOf(c) !== "gap");
 
   const skillsMatch = totalCount > 0 ? Math.round((matchedCount / totalCount) * 100) : 0;
-  const resolvedExpMatch = experienceMatch != null ? Math.round(experienceMatch) : 72;
-  const resolvedEduMatch = educationMatch != null ? Math.round(educationMatch) : 68;
+  const resolvedExpMatch = experienceMatch != null ? Math.round(experienceMatch) : competency.experienceScore != null ? Math.round(competency.experienceScore) : 0;
+  const resolvedEduMatch = educationMatch != null ? Math.round(educationMatch) : competency.educationScore != null ? Math.round(competency.educationScore) : 0;
 
   return (
     <div className="glass border border-glass-border rounded-2xl p-4 sm:p-6 lg:p-7 space-y-6">

@@ -27,4 +27,6 @@ export type Competency = {
   career_alignment?: number | null;
   smart_match?: number | null;
   gap?: MatchGap | null;
+  experienceScore?: number | null;
+  educationScore?: number | null;
 };
