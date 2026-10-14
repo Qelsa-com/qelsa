@@ -55,7 +55,7 @@ const All = () => {
             <AllJobsGridSkeleton />
           ) : loaded > 0 ? (
             <>
-              <JobGrid jobs={jobs} onOpen={(id) => router.push(`/jobs/${id}`)} />
+              <JobGrid jobs={jobs} onOpen={(id) => router.push(`/jobs/${id}`)} variant="all" />
             </>
           ) : status === "Exhausted" ? (
             <div className="flex flex-col items-center gap-4 py-12 text-center sm:py-16">

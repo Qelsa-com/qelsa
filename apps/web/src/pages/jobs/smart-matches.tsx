@@ -87,7 +87,7 @@ const SmartMatches = () => {
                 viewAllHref={ready.length > 0 ? MATCH_TIER.ready.href : undefined}
               >
                 {ready.length > 0 ? (
-                  <JobGrid jobs={ready} onOpen={openJob} />
+                  <JobGrid jobs={ready} onOpen={openJob} variant="smart" />
                 ) : (
                   <MatchEmptyState tier="strong" />
                 )}
@@ -100,7 +100,7 @@ const SmartMatches = () => {
                 viewAllHref={almost.length > 0 ? MATCH_TIER.almost.href : undefined}
               >
                 {almost.length > 0 ? (
-                  <JobGrid jobs={almost} onOpen={openJob} />
+                  <JobGrid jobs={almost} onOpen={openJob} variant="smart" />
                 ) : (
                   <MatchEmptyState tier="almost" />
                 )}
@@ -113,7 +113,7 @@ const SmartMatches = () => {
                 viewAllHref={growth.length > 0 ? MATCH_TIER.growth.href : undefined}
               >
                 {growth.length > 0 ? (
-                  <JobGrid jobs={growth} onOpen={openJob} />
+                  <JobGrid jobs={growth} onOpen={openJob} variant="smart" />
                 ) : (
                   <MatchEmptyState tier="growth" />
                 )}

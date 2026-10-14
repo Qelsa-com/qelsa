@@ -39,7 +39,7 @@ export function JobTierListing({ tier }: { tier: MatchTierId }) {
             {isInitialLoading ? (
               <JobCardGridSkeleton count={20} columns={4} />
             ) : loaded > 0 ? (
-              <JobGrid jobs={jobs} onOpen={(id) => router.push(`/jobs/${id}`)} />
+              <JobGrid jobs={jobs} onOpen={(id) => router.push(`/jobs/${id}`)} variant="smart" />
             ) : status === "Exhausted" ? (
               <div className="flex flex-col items-center gap-4 py-12 text-center sm:py-16">
                 <div className="flex size-16 items-center justify-center rounded-full border border-glass-border bg-white/[0.04] sm:size-20">

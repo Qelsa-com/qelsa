@@ -306,14 +306,23 @@ export function useJobBrowseFilters(tier?: MatchTierId) {
 
 /* ------------------------------ job card ---------------------------------- */
 
-export function JobCard({ job, onClick }: { job: Job; onClick: () => void }) {
+export function JobCard({
+  job,
+  onClick,
+  variant = "all",
+}: {
+  job: Job;
+  onClick: () => void;
+  variant?: "all" | "smart";
+}) {
   const title = job.job_title?.name ?? job.title;
   const company = displayCompanyName(job.page?.name || job.company_name);
   const location = displayLocation(job);
-  const score = matchScore(job);
   const readiness = readinessScore(job);
   const alignment = job.competency?.career_alignment;
-  const gap = gapLine(job);
+  const smartMatch = job.competency?.smart_match != null ? Math.round(job.competency.smart_match) : null;
+  const score = variant === "smart" ? (smartMatch ?? readiness) : readiness;
+  const ringLabel = variant === "smart" ? "Match" : "Ready";
   const chips = [experienceChip(job), workTypeChip(job), workplaceChip(job)].filter(Boolean) as string[];
   const salary = salaryText(job);
   const posted = postedAgo(job);
@@ -333,19 +342,16 @@ export function JobCard({ job, onClick }: { job: Job; onClick: () => void }) {
         >
           <CompanyLogo job={job} name={company} fallback={<Building2 className="size-4" style={{ color: tint }} />} />
         </div>
-        {score != null && <MatchRing value={score} tone={score} />}
+        {score != null && <MatchRing value={score} tone={score} label={ringLabel} />}
       </div>
 
       <div className="flex flex-col gap-1">
         <p className="line-clamp-2 text-[15px] font-bold text-white">{title}</p>
         {company && <p className="line-clamp-1 text-[13px] text-white/55">{company}</p>}
         {location && <p className="line-clamp-1 text-xs text-white/40">{location}</p>}
-        {alignment != null && readiness != null && (
-          <p className="text-[11px] text-white/50">
-            {readiness}% Ready · {Math.round(alignment)}% Goal
-          </p>
-        )}
       </div>
+
+      {variant === "smart" && <div className="border-t border-glass-border/60 -my-1" />}
 
       {chips.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
@@ -357,7 +363,19 @@ export function JobCard({ job, onClick }: { job: Job; onClick: () => void }) {
         </div>
       )}
 
-      {gap && <p className="text-[11px] leading-snug text-amber-200/90">{gap}</p>}
+      {variant === "smart" && readiness != null && (
+        <div className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1 text-xs text-white/70 w-fit">
+          <span className="font-semibold text-white">Ready</span>
+          <span className="text-white">{readiness}%</span>
+          {alignment != null && (
+            <>
+              <span className="text-white/20 px-0.5">|</span>
+              <span className="font-semibold text-white">Goal</span>
+              <span className="text-white">{Math.round(alignment)}%</span>
+            </>
+          )}
+        </div>
+      )}
 
       <div className="mt-auto flex items-center justify-between gap-2">
         {salary && <span className="text-[13px] font-bold text-white">{salary}</span>}
@@ -367,7 +385,7 @@ export function JobCard({ job, onClick }: { job: Job; onClick: () => void }) {
   );
 }
 
-export function MatchRing({ value, tone }: { value: number; tone?: number }) {
+export function MatchRing({ value, tone, label = "Ready" }: { value: number; tone?: number; label?: string }) {
   const r = 18;
   const circumference = 2 * Math.PI * r;
   const offset = circumference * (1 - Math.min(100, Math.max(0, value)) / 100);
@@ -382,7 +400,7 @@ export function MatchRing({ value, tone }: { value: number; tone?: number }) {
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center leading-none">
         <span className="text-[10px] font-bold text-white sm:text-[11px]">{value}%</span>
-        <span className="text-[7px] font-medium text-white/60">Ready</span>
+        <span className="text-[7px] font-medium text-white/60">{label}</span>
       </div>
     </div>
   );
@@ -933,11 +951,19 @@ export function MatchEmptyState({
   );
 }
 
-export function JobGrid({ jobs, onOpen }: { jobs: Job[]; onOpen: (id: string | number) => void }) {
+export function JobGrid({
+  jobs,
+  onOpen,
+  variant = "all",
+}: {
+  jobs: Job[];
+  onOpen: (id: string | number) => void;
+  variant?: "all" | "smart";
+}) {
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
       {jobs.map((job) => (
-        <JobCard key={job.id} job={job} onClick={() => onOpen(job.id)} />
+        <JobCard key={job.id} job={job} onClick={() => onOpen(job.id)} variant={variant} />
       ))}
     </div>
   );
