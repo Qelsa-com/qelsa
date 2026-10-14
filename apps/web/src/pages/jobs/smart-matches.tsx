@@ -1,8 +1,10 @@
-import { JobGrid, JobsBrowseHeader, MatchEmptyState, MatchSection, SearchFilters, useJobBrowseFilters } from "@/components/job/jobBrowseShared";
+import { GoalSetupBanner } from "@/components/goals/GoalSetupBanner";
+import { JobGrid, JobsBrowseHeader, MatchEmptyState, MatchSection, ResumePromptBanner, SearchFilters, useJobBrowseFilters } from "@/components/job/jobBrowseShared";
 import { SmartMatchesSkeleton } from "@/components/job/jobSkeletons";
 import { SkillsModal } from "@/components/profile/modals/SkillsModal";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMatchTiersQuery } from "@/features/api/jobsApi";
+import { useGetMyResumesQuery } from "@/features/api/resumeApi";
 import { hasCareerGoal } from "@/lib/careerGoal";
 import { MATCH_TIER } from "@/lib/matchTiers";
 import { useRouter } from "next/navigation";
@@ -17,6 +19,10 @@ const SmartMatches = () => {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const { searchInput, setSearchInput, filters, applyFilters, discoverArgs, cityFilter, setCityFilter, commitSearch } = useJobBrowseFilters();
   const { data, isLoading } = useMatchTiersQuery(discoverArgs, { skip: !isAuthenticated });
+  const { data: myResumes } = useGetMyResumesQuery(undefined, { skip: !isAuthenticated });
+  const hasResume = Boolean(myResumes && myResumes.length > 0);
+  const showResumeBanner = isAuthenticated && myResumes !== undefined && !hasResume;
+  const showGoalBanner = isAuthenticated && Boolean(user) && !hasCareerGoal(user?.career_goal);
   const [skillsOpen, setSkillsOpen] = useState(false);
 
   useEffect(() => {
@@ -55,9 +61,21 @@ const SmartMatches = () => {
           cityFilter={cityFilter}
           setCityFilter={setCityFilter}
           resultsCount={shown > 0 ? { loaded: shown, total } : undefined}
+          suppressGoalBanner
         />
 
-        <div className="mt-6 flex flex-col gap-12 pb-16 sm:mt-12 sm:gap-16 sm:pb-24">
+        <div className="mt-6 flex flex-col gap-6 sm:mt-10 sm:gap-8 pb-16 sm:pb-24">
+          {showResumeBanner && (
+            <ResumePromptBanner
+              title="No matches yet"
+              description="Upload your resume, and Qelsa will match you with the right jobs based on your skills, experience, and career goals."
+              disclaimer="Review and edit everything before it is added to your profile."
+            />
+          )}
+          {showGoalBanner && (
+            <GoalSetupBanner onSetGoal={() => router.push("/goals")} />
+          )}
+
           {isLoading || data === undefined ? (
             <SmartMatchesSkeleton />
           ) : (

@@ -14,7 +14,7 @@ export function GoalSetupBanner({ onSetGoal, className }: GoalSetupBannerProps) 
         className,
       )}
     >
-      <p className="flex-1 text-[13px] text-white/50">You haven&apos;t set a career goal yet — define one and Qelsa will help you get there!</p>
+      <p className="flex-1 text-[13px] text-white/50 sm:text-sm">Define your career goal and let Qelsa match you with opportunities aligned with your ambitions.</p>
       <button type="button" onClick={onSetGoal} className="shrink-0 font-semibold text-neon-cyan transition-opacity hover:opacity-80">
         Set goal →
       </button>

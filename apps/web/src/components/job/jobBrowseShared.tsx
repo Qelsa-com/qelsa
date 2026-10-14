@@ -15,6 +15,7 @@
 
 import { GoalSetupBanner } from "@/components/goals/GoalSetupBanner";
 import { Autocomplete } from "@/components/ui/autocomplete";
+import { cn } from "@/components/ui/utils";
 import { formatCity } from "@/constants/city";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLazySearchCitiesQuery } from "@/features/api/seedApi";
@@ -22,7 +23,7 @@ import { hasCareerGoal } from "@/lib/careerGoal";
 import { ALMOST_MAX, ALMOST_MIN, MATCH_TIER, matchRingColor, type MatchTierId } from "@/lib/matchTiers";
 import { City } from "@/types/city";
 import { Job } from "@/types/job";
-import { BarChart3, Building2, Check, ChevronDown, MapPin, Search, Sparkle, Sparkles, Target, X } from "lucide-react";
+import { BarChart3, Building2, Check, ChevronDown, MapPin, Search, ShieldCheck, Sparkle, Sparkles, Target, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
@@ -379,7 +380,10 @@ export function MatchRing({ value, tone }: { value: number; tone?: number }) {
         <circle cx="20" cy="20" r={r} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="3" />
         <circle cx="20" cy="20" r={r} fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={offset} />
       </svg>
-      <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-white sm:text-[11px]">{value}%</span>
+      <div className="absolute inset-0 flex flex-col items-center justify-center leading-none">
+        <span className="text-[10px] font-bold text-white sm:text-[11px]">{value}%</span>
+        <span className="text-[7px] font-medium text-white/60">Ready</span>
+      </div>
     </div>
   );
 }
@@ -579,6 +583,7 @@ interface JobsBrowseHeaderProps {
   cityFilter: City | null;
   setCityFilter: (city: City | null) => void;
   resultsCount?: { loaded: number; total?: number };
+  suppressGoalBanner?: boolean;
 }
 
 export function JobsBrowseHeader({
@@ -591,10 +596,11 @@ export function JobsBrowseHeader({
   cityFilter,
   setCityFilter,
   resultsCount,
+  suppressGoalBanner = false,
 }: JobsBrowseHeaderProps) {
   const router = useRouter();
   const { user, isAuthenticated } = useAuth();
-  const showGoalBanner = isAuthenticated && Boolean(user) && !hasCareerGoal(user?.career_goal);
+  const showGoalBanner = !suppressGoalBanner && isAuthenticated && Boolean(user) && !hasCareerGoal(user?.career_goal);
   const [searchCities, { data: cityResults = [] }] = useLazySearchCitiesQuery();
   const isMobile = useIsMobile();
 
@@ -933,6 +939,45 @@ export function JobGrid({ jobs, onOpen }: { jobs: Job[]; onOpen: (id: string | n
       {jobs.map((job) => (
         <JobCard key={job.id} job={job} onClick={() => onOpen(job.id)} />
       ))}
+    </div>
+  );
+}
+
+export interface ResumePromptBannerProps {
+  title: string;
+  description: string;
+  disclaimer: string;
+  onUpload?: () => void;
+  className?: string;
+}
+
+export function ResumePromptBanner({
+  title,
+  description,
+  disclaimer,
+  onUpload,
+  className,
+}: ResumePromptBannerProps) {
+  const router = useRouter();
+  return (
+    <div className={cn("rounded-2xl border border-glass-border bg-white/[0.03] p-5 sm:p-6 space-y-4", className)}>
+      <div className="space-y-1.5">
+        <h2 className="text-lg sm:text-xl font-bold text-white">{title}</h2>
+        <p className="text-sm text-white/60">{description}</p>
+      </div>
+      <div>
+        <button
+          type="button"
+          onClick={onUpload ?? (() => router.push("/profile"))}
+          className="rounded-full bg-gradient-to-r from-[#7c2ff3] to-[#d73e9d] px-6 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+        >
+          Upload resume
+        </button>
+      </div>
+      <div className="flex items-center gap-2 rounded-xl bg-white/[0.02] border border-white/8 px-4 py-3 text-xs text-white/60">
+        <ShieldCheck className="size-4 text-neon-green shrink-0" />
+        <span>{disclaimer}</span>
+      </div>
     </div>
   );
 }
