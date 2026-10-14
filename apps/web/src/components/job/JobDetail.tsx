@@ -184,6 +184,10 @@ export function JobDetail() {
 
   const handleSave = () => {
     if (!id) return;
+    if (!isAuthenticated) {
+      router.push(`/auth?actionType=profile&returnUrl=${encodeURIComponent(`/jobs/${id}`)}`);
+      return;
+    }
     const next = !saved;
     setOptimisticSaved(next);
     void toggleSaveJob(id)
@@ -363,13 +367,16 @@ export function JobDetail() {
   const isExternalApply = Boolean(job.application_url);
 
   const handleApply = () => {
+    if (!isAuthenticated) {
+      router.push(`/auth?actionType=profile&returnUrl=${encodeURIComponent(`/jobs/${id}`)}`);
+      return;
+    }
     if (job.application_url) {
       window.open(job.application_url, "_blank", "noopener,noreferrer");
       setShowExternalConfirmModal(true);
       return;
     }
-    if (isAuthenticated) setShowQuickApplyModal(true);
-    else router.push(`/auth?actionType=profile&returnUrl=${encodeURIComponent(`/jobs/${id}`)}`);
+    setShowQuickApplyModal(true);
   };
 
   const handleConfirmExternalApply = async () => {
@@ -595,7 +602,13 @@ export function JobDetail() {
                 </div>
                 <Button
                   variant="outline"
-                  onClick={() => setResumeSelectOpen(true)}
+                  onClick={() => {
+                    if (!isAuthenticated) {
+                      router.push(`/auth?actionType=profile&returnUrl=${encodeURIComponent(`/jobs/${id}`)}`);
+                      return;
+                    }
+                    setResumeSelectOpen(true);
+                  }}
                   className="h-auto w-full shrink-0 rounded-full border-neon-cyan/50 bg-[#061820]/60 px-6 py-2.5 text-sm font-semibold text-neon-cyan hover:bg-neon-cyan/10 sm:w-auto"
                 >
                   Check match
