@@ -60,7 +60,6 @@ const SmartMatches = () => {
           onApplyFilters={applyFilters}
           cityFilter={cityFilter}
           setCityFilter={setCityFilter}
-          resultsCount={shown > 0 ? { loaded: shown, total } : undefined}
           suppressGoalBanner
         />
 

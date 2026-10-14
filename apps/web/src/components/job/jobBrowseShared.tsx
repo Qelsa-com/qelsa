@@ -391,16 +391,14 @@ export function MatchRing({ value, tone, label = "Ready" }: { value: number; ton
   const offset = circumference * (1 - Math.min(100, Math.max(0, value)) / 100);
   const color = ringColor(tone ?? value);
   return (
-    // The ring itself stays 36px at every breakpoint (Figma 777:77 / 246:11) —
-    // only the box around it shrinks, so the svg is centred rather than filled.
     <div className="relative size-11 sm:size-12">
-      <svg className="absolute left-1/2 top-1/2 size-10 -translate-x-1/2 -translate-y-1/2 -rotate-90" viewBox="0 0 40 40">
+      <svg className="absolute inset-0 size-full -rotate-90" viewBox="0 0 40 40">
         <circle cx="20" cy="20" r={r} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="3" />
         <circle cx="20" cy="20" r={r} fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={offset} />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center leading-none">
-        <span className="text-[10px] font-bold text-white sm:text-[11px]">{value}%</span>
-        <span className="text-[7px] font-medium text-white/60">{label}</span>
+        <span className="text-[11px] font-bold text-white sm:text-xs">{value}%</span>
+        <span className="mt-0.5 text-[8px] font-medium text-white/60">{label}</span>
       </div>
     </div>
   );
@@ -724,8 +722,8 @@ export function JobsBrowseHeader({
       {/* Smart Matches and My Jobs are account-only — guests stay on the public All Jobs list. */}
       {isAuthenticated && (
         <div className="flex items-center gap-2 sm:gap-0">
-          <TabButton active={activeTab === "all"} label="All Jobs" onClick={() => router.push("/jobs/all")} />
           <TabButton active={activeTab === "smart-matches"} label="Smart Matches" onClick={() => router.push("/jobs/smart-matches")} />
+          <TabButton active={activeTab === "all"} label="All Jobs" onClick={() => router.push("/jobs/all")} />
           <TabButton active={activeTab === "my-jobs"} label="My Jobs" onClick={() => router.push("/jobs/my-jobs/saved")} />
         </div>
       )}
@@ -771,17 +769,22 @@ export function JobsBrowseHeader({
           )}
           inputClassName="h-[34px] rounded-full border-glass-border pl-7 pr-2.5 text-xs font-medium text-white placeholder:text-white/45 sm:h-[42px] sm:pl-9 sm:pr-4 sm:text-[13px]"
         />
-        {resultsCount && resultsCount.loaded > 0 && (
-          <p className="w-full text-right text-xs text-white/40 sm:ml-auto sm:w-auto sm:text-[13px]">
-            {typeof resultsCount.total === "number"
-              ? `Showing ${resultsCount.loaded} of ${resultsCount.total}`
-              : `Showing ${resultsCount.loaded}`}
-          </p>
-        )}
       </div>
 
       {/* Applied filter chips */}
       <AppliedFilters chips={appliedChips} onClear={clearAll} />
+
+      {resultsCount && resultsCount.loaded > 0 && (
+        <p className="text-xs font-semibold text-white/80 sm:text-sm">
+          {typeof resultsCount.total === "number"
+            ? resultsCount.loaded === 1
+              ? `Showing 1 of ${resultsCount.total} jobs`
+              : `Showing 1-${resultsCount.loaded} of ${resultsCount.total} jobs`
+            : resultsCount.loaded === 1
+              ? "Showing 1 job"
+              : `Showing 1-${resultsCount.loaded} jobs`}
+        </p>
+      )}
 
       {showGoalBanner && <GoalSetupBanner onSetGoal={() => router.push("/goals")} />}
     </div>
@@ -1001,7 +1004,7 @@ export function ResumePromptBanner({
         </button>
       </div>
       <div className="flex items-center gap-2 rounded-xl bg-white/[0.02] border border-white/8 px-4 py-3 text-xs text-white/60">
-        <ShieldCheck className="size-4 text-neon-green shrink-0" />
+        <ShieldCheck className="size-4 text-neon-cyan shrink-0" />
         <span>{disclaimer}</span>
       </div>
     </div>
