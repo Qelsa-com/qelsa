@@ -137,6 +137,11 @@ export async function scoreReadiness(
   userSkills: Array<{ skill_id: string; proficiency?: string }>,
   profileContext?: { yearsExperience?: number | null; educationCount?: number | null },
 ): Promise<Map<Id<"jobs">, number | null>> {
+  const hasData = userSkills.length > 0 || profileContext?.yearsExperience != null || (profileContext?.educationCount != null && profileContext.educationCount > 0);
+  if (!hasData) {
+    return new Map(jobs.map((job) => [job._id, null]));
+  }
+
   const entries = await Promise.all(
     jobs.map(async (job) => {
       const rows = await ctx.db
@@ -247,6 +252,36 @@ export async function scoreTierMatches(
         candidateEducationCount: profileContext.educationCount,
       }
     : undefined;
+
+  const hasData = userSkills.length > 0 || profileContext?.yearsExperience != null || (profileContext?.educationCount != null && profileContext.educationCount > 0);
+  if (!hasData) {
+    return new Map(
+      jobs.map((job) => {
+        const page = job.page_id ? (caches.pages.get(job.page_id) ?? null) : null;
+        const titled = !job.title && job.job_title_id ? (caches.titles.get(job.job_title_id) ?? null) : null;
+        const careerAlignment = careerGoal
+          ? calculateCareerAlignment(
+              careerGoal,
+              {
+                title: job.title ?? titled?.name,
+                industry: page?.industry,
+                company_name: job.company_name ?? page?.name,
+              },
+              [],
+            )
+          : null;
+        return [
+          job._id,
+          {
+            readiness: null,
+            careerAlignment,
+            smartMatch: null,
+            gap: null,
+          },
+        ];
+      }),
+    );
+  }
 
   const scores = new Map<Id<"jobs">, TierScore>();
   for (const [jobId, rows] of rowsByJob) {

@@ -1,7 +1,9 @@
-import { JobGrid, JobsBrowseHeader, useJobBrowseFilters } from "@/components/job/jobBrowseShared";
+import { JobGrid, JobsBrowseHeader, ResumePromptBanner, useJobBrowseFilters } from "@/components/job/jobBrowseShared";
 import { JOBS_PAGE_SIZE, JobsFeedPager } from "@/components/job/JobsFeedPager";
 import { AllJobsGridSkeleton } from "@/components/job/jobSkeletons";
+import { useAuth } from "@/contexts/AuthContext";
 import { useCountJobsQuery, usePaginatedJobsQuery } from "@/features/api/jobsApi";
+import { useGetMyResumesQuery } from "@/features/api/resumeApi";
 import { Job } from "@/types/job";
 import { Search } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -11,9 +13,14 @@ import Layout from "../../layout";
 
 const All = () => {
   const router = useRouter();
+  const { isAuthenticated } = useAuth();
   const { searchInput, setSearchInput, filters, applyFilters, discoverArgs, cityFilter, setCityFilter, commitSearch } = useJobBrowseFilters();
   const { results, status, isLoading, loadMore } = usePaginatedJobsQuery(discoverArgs, JOBS_PAGE_SIZE);
   const { data: filteredTotal } = useCountJobsQuery(discoverArgs);
+  const { data: myResumes } = useGetMyResumesQuery(undefined, { skip: !isAuthenticated });
+  const hasResume = Boolean(myResumes && myResumes.length > 0);
+  const showResumeBanner = isAuthenticated && myResumes !== undefined && !hasResume;
+
   const jobs = (results as Job[]) ?? [];
   const loaded = jobs.length;
   const total = typeof filteredTotal === "number" ? filteredTotal : undefined;
@@ -32,15 +39,23 @@ const All = () => {
           cityFilter={cityFilter}
           setCityFilter={setCityFilter}
           resultsCount={{ loaded, total }}
+          suppressGoalBanner
         />
 
         {/* ----------------------------- All jobs ------------------------------ */}
         <div className="mt-6 flex flex-col gap-4 pb-16 sm:mt-10 sm:gap-6 sm:pb-24">
+          {showResumeBanner && (
+            <ResumePromptBanner
+              title="Discover your readiness for every role"
+              description="Upload your resume and Qelsa will build your profile to show how well your skills and experience align with different roles, and where you can improve."
+              disclaimer="Review and edit your profile before saving. Your resume is just the starting point."
+            />
+          )}
           {isInitialLoading ? (
             <AllJobsGridSkeleton />
           ) : loaded > 0 ? (
             <>
-              <JobGrid jobs={jobs} onOpen={(id) => router.push(`/jobs/${id}`)} />
+              <JobGrid jobs={jobs} onOpen={(id) => router.push(`/jobs/${id}`)} variant="all" />
             </>
           ) : status === "Exhausted" ? (
             <div className="flex flex-col items-center gap-4 py-12 text-center sm:py-16">

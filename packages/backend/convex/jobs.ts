@@ -54,6 +54,7 @@ type ListHydration = {
   yearsExperience: number | null;
   educationCount: number;
   careerGoal?: Doc<"career_goals"> | null;
+  hasProfile: boolean;
 };
 
 async function jobSkillsFor(ctx: QueryCtx, jobId: Id<"jobs">, cache?: SkillCache) {
@@ -75,7 +76,7 @@ async function jobSkillsFor(ctx: QueryCtx, jobId: Id<"jobs">, cache?: SkillCache
 }
 
 async function listHydration(ctx: QueryCtx, user: Doc<"users"> | null, loadSaved = true): Promise<ListHydration> {
-  if (!user) return { userSkills: [], savedJobIds: new Set(), appliedJobIds: new Set(), skillCache: new Map(), yearsExperience: null, educationCount: 0, careerGoal: null };
+  if (!user) return { userSkills: [], savedJobIds: new Set(), appliedJobIds: new Set(), skillCache: new Map(), yearsExperience: null, educationCount: 0, careerGoal: null, hasProfile: false };
   const [skillRows, saved, expRows, eduRows, appRows, careerGoal] = await Promise.all([
     ctx.db
       .query("user_skills")
@@ -117,6 +118,7 @@ async function listHydration(ctx: QueryCtx, user: Doc<"users"> | null, loadSaved
   const hasCurrent = expRows.some((r) => r.is_current || !r.end_date);
   const latest = hasCurrent ? now : starts.length ? Math.max(...expRows.map((r) => r.end_date ?? r.start_date)) : now;
   const yearsExperience = earliest ? Math.max(0, Math.floor((Math.min(latest, now) - earliest) / (1000 * 60 * 60 * 24 * 365))) : null;
+  const hasProfile = skillRows.length > 0 || expRows.length > 0 || eduRows.length > 0;
 
   return {
     userSkills: await withSkillAliases(ctx, skillRows),
@@ -126,6 +128,7 @@ async function listHydration(ctx: QueryCtx, user: Doc<"users"> | null, loadSaved
     yearsExperience,
     educationCount: eduRows.length,
     careerGoal,
+    hasProfile,
   };
 }
 
@@ -176,21 +179,24 @@ async function enrichJob(ctx: QueryCtx, job: Doc<"jobs">, user: Doc<"users"> | n
       yearsExp = earliest ? Math.max(0, Math.floor((Math.min(latest, now) - earliest) / (1000 * 60 * 60 * 24 * 365))) : null;
       eduCount = eduRows.length;
     }
-    competency = buildCompetencyFramework(
-      job_skills.map((js) => ({
-        skill_id: js.skill_id,
-        type: js.type,
-        proficiency: js.proficiency,
-        weight: js.weight,
-        skill: js.skill,
-      })),
-      userSkills,
-      {
-        candidateYearsExperience: yearsExp ?? null,
-        requiredExperienceYears: job.experience ?? null,
-        candidateEducationCount: eduCount ?? null,
-      },
-    );
+    const hasProfile = list ? list.hasProfile : (userSkills.length > 0 || yearsExp != null || (eduCount != null && eduCount > 0));
+    if (hasProfile) {
+      competency = buildCompetencyFramework(
+        job_skills.map((js) => ({
+          skill_id: js.skill_id,
+          type: js.type,
+          proficiency: js.proficiency,
+          weight: js.weight,
+          skill: js.skill,
+        })),
+        userSkills,
+        {
+          candidateYearsExperience: yearsExp ?? null,
+          requiredExperienceYears: job.experience ?? null,
+          candidateEducationCount: eduCount ?? null,
+        },
+      );
+    }
     if (!list) {
       const mine = await ctx.db
         .query("job_applications")
@@ -454,7 +460,7 @@ export const listPaginated = optionalAuthQuery({
     ]);
 
     const sortBy = typeof filterArgs.sort_by === "string" ? filterArgs.sort_by : undefined;
-    const canScore = Boolean(ctx.user);
+    const canScore = Boolean(ctx.user && hydration.hasProfile);
     const shouldScore = canScore && (scoreFilter || (sortBy !== "date" && sortBy !== "salary"));
     const newestFirst = sortBy === "date" || (!shouldScore && sortBy !== "salary");
     const cities = (filterArgs.cities as string[] | undefined) ?? (filterArgs.city ? [filterArgs.city] : []);
@@ -673,8 +679,8 @@ export const listMatchTiers = authedQuery({
   }),
   handler: async (ctx, args) => {
     const [profile, hydration] = await Promise.all([loadUserRoleProfile(ctx, ctx.user), listHydration(ctx, ctx.user, false)]);
-    if (!hasRoleProfile(profile)) {
-      return { ready: [], almost: [], growth: [], readyTotal: 0, almostTotal: 0, growthTotal: 0, hasRoleProfile: false };
+    if (!hasRoleProfile(profile) || !hydration.hasProfile) {
+      return { ready: [], almost: [], growth: [], readyTotal: 0, almostTotal: 0, growthTotal: 0, hasRoleProfile: hasRoleProfile(profile) };
     }
 
     const search = ((args.search as string | undefined) ?? "").trim();
@@ -844,7 +850,7 @@ export const listSimilar = optionalAuthQuery({
     if (similar.length === 0) return [];
     const hydration = await listHydration(ctx, ctx.user, false);
     const cache = emptyRelationCache();
-    const scored = ctx.user
+    const scored = ctx.user && hydration.hasProfile
       ? await scoreTierMatches(
           ctx,
           similar.map((item) => item.job),

@@ -184,6 +184,10 @@ export function JobDetail() {
 
   const handleSave = () => {
     if (!id) return;
+    if (!isAuthenticated) {
+      router.push(`/auth?actionType=profile&returnUrl=${encodeURIComponent(`/jobs/${id}`)}`);
+      return;
+    }
     const next = !saved;
     setOptimisticSaved(next);
     void toggleSaveJob(id)
@@ -355,7 +359,9 @@ export function JobDetail() {
         { label: "Applications", value: `${job.application_count ?? job.applications?.length ?? 0}` },
       ]
     : [
-        { label: "Readiness score", value: competency ? `${competency.readiness}%` : "—" },
+        ...(competency && competency.readiness != null
+          ? [{ label: "Readiness score", value: `${competency.readiness}%` }]
+          : []),
         { label: "Views", value: formatCount(job.view_count ?? 0) },
         { label: "Applications", value: `${job.application_count ?? job.applications?.length ?? 0}` },
       ];
@@ -363,13 +369,16 @@ export function JobDetail() {
   const isExternalApply = Boolean(job.application_url);
 
   const handleApply = () => {
+    if (!isAuthenticated) {
+      router.push(`/auth?actionType=profile&returnUrl=${encodeURIComponent(`/jobs/${id}`)}`);
+      return;
+    }
     if (job.application_url) {
       window.open(job.application_url, "_blank", "noopener,noreferrer");
       setShowExternalConfirmModal(true);
       return;
     }
-    if (isAuthenticated) setShowQuickApplyModal(true);
-    else router.push(`/auth?actionType=profile&returnUrl=${encodeURIComponent(`/jobs/${id}`)}`);
+    setShowQuickApplyModal(true);
   };
 
   const handleConfirmExternalApply = async () => {
@@ -557,8 +566,8 @@ export function JobDetail() {
 
           <h1 className="text-2xl font-bold leading-8 text-white lg:text-[32px] lg:leading-10">{title}</h1>
 
-          {/* 3 metric cards */}
-          <div className="grid grid-cols-3 gap-3 lg:gap-4">
+          {/* metric cards */}
+          <div className={`grid gap-3 lg:gap-4 ${metrics.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
             {metrics.map((m) => (
               <div key={m.label} className="flex min-w-0 flex-col gap-1 rounded-xl border border-glass-border bg-white/[0.03] p-3 lg:gap-1.5 lg:rounded-2xl lg:p-4">
                 <span className="text-xs leading-tight text-white/45 lg:leading-4">{m.label}</span>
@@ -595,7 +604,13 @@ export function JobDetail() {
                 </div>
                 <Button
                   variant="outline"
-                  onClick={() => setResumeSelectOpen(true)}
+                  onClick={() => {
+                    if (!isAuthenticated) {
+                      router.push(`/auth?actionType=profile&returnUrl=${encodeURIComponent(`/jobs/${id}`)}`);
+                      return;
+                    }
+                    setResumeSelectOpen(true);
+                  }}
                   className="h-auto w-full shrink-0 rounded-full border-neon-cyan/50 bg-[#061820]/60 px-6 py-2.5 text-sm font-semibold text-neon-cyan hover:bg-neon-cyan/10 sm:w-auto"
                 >
                   Check match

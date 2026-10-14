@@ -178,7 +178,6 @@ export function ProfilePage({ isOwner = false, username }: ProfilePageProps) {
           <ProfileEmptyState
             userName={user?.name ?? undefined}
             onResumeSaved={handleResumeSaved}
-            onManualEdit={() => setModal({ kind: "experience", item: null })}
             onAddSection={handleAddSection}
           />
         </div>

@@ -177,7 +177,7 @@ export function ForCandidatesPage() {
             <p className="max-w-[420px] text-sm leading-relaxed text-white/55 lg:text-[15px]">{HERO.body}</p>
             <div>
               <Link
-                href="/start"
+                href="/auth"
                 className="gradient-primary inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-semibold text-white transition-opacity hover:opacity-90"
               >
                 {HERO.cta}

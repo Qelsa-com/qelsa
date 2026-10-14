@@ -432,7 +432,7 @@ export function JobsPage({ searchQuery, filters, aiJobResults, onSearchChange, o
             <AvatarFallback className="bg-gradient-to-br from-neon-cyan to-neon-purple text-black font-bold text-sm">{job.jobDetails?.company?.[0] || "C"}</AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
-            <h3 className="font-bold text-white text-base line-clamp-2 group-hover:text-neon-cyan transition-colors mb-1">{job.title}</h3>
+            <h3 className="font-bold text-white text-base line-clamp-1 group-hover:text-neon-cyan transition-colors mb-1">{job.title}</h3>
             <p className="text-neon-cyan font-medium text-sm">{job.jobDetails?.company}</p>
           </div>
         </div>

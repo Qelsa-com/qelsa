@@ -166,10 +166,10 @@ export function buildCompetencyFramework(
   const totalWeight = competencies.reduce((sum, c) => sum + (c.weight || 0), 0);
   const skillReadiness = totalWeight > 0 ? Math.round((competencies.filter((c) => c.matched).reduce((sum, c) => sum + (c.weight || 0), 0) / totalWeight) * 100) : totalCount > 0 ? Math.round((matchedCount / totalCount) * 100) : 0;
 
-  // Calculate experience score when experience context is available
+  // Calculate experience score when candidate experience is available
   let experienceScore: number | null = null;
-  if (profileContext?.candidateYearsExperience !== undefined || profileContext?.requiredExperienceYears !== undefined) {
-    const candidateYears = profileContext?.candidateYearsExperience ?? 0;
+  if (profileContext?.candidateYearsExperience !== undefined && profileContext?.candidateYearsExperience !== null) {
+    const candidateYears = profileContext.candidateYearsExperience;
     const requiredYears = profileContext?.requiredExperienceYears ?? 0;
     if (requiredYears <= 0) {
       experienceScore = 100;
@@ -180,14 +180,14 @@ export function buildCompetencyFramework(
     }
   }
 
-  // Calculate education score when education context is available
+  // Calculate education score when candidate education is available
   let educationScore: number | null = null;
-  if (profileContext?.candidateEducationCount !== undefined && profileContext?.candidateEducationCount !== null) {
-    const count = profileContext.candidateEducationCount;
-    educationScore = count > 0 ? 100 : 70;
+  if (profileContext?.candidateEducationCount !== undefined && profileContext?.candidateEducationCount !== null && profileContext.candidateEducationCount > 0) {
+    educationScore = 100;
   }
 
-  const readiness = composeReadiness(skillReadiness, experienceScore, educationScore);
+  const hasData = userSkills.length > 0 || experienceScore !== null || educationScore !== null;
+  const readiness = hasData ? composeReadiness(skillReadiness, experienceScore, educationScore) : 0;
 
   return {
     competencies,

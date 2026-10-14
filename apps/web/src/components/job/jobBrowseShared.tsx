@@ -15,6 +15,7 @@
 
 import { GoalSetupBanner } from "@/components/goals/GoalSetupBanner";
 import { Autocomplete } from "@/components/ui/autocomplete";
+import { cn } from "@/components/ui/utils";
 import { formatCity } from "@/constants/city";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLazySearchCitiesQuery } from "@/features/api/seedApi";
@@ -22,7 +23,7 @@ import { hasCareerGoal } from "@/lib/careerGoal";
 import { ALMOST_MAX, ALMOST_MIN, MATCH_TIER, matchRingColor, type MatchTierId } from "@/lib/matchTiers";
 import { City } from "@/types/city";
 import { Job } from "@/types/job";
-import { BarChart3, Building2, Check, ChevronDown, MapPin, Search, Sparkle, Sparkles, Target, X } from "lucide-react";
+import { BarChart3, Building2, Check, ChevronDown, MapPin, Search, ShieldCheck, Sparkle, Sparkles, Target, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
@@ -305,14 +306,23 @@ export function useJobBrowseFilters(tier?: MatchTierId) {
 
 /* ------------------------------ job card ---------------------------------- */
 
-export function JobCard({ job, onClick }: { job: Job; onClick: () => void }) {
+export function JobCard({
+  job,
+  onClick,
+  variant = "all",
+}: {
+  job: Job;
+  onClick: () => void;
+  variant?: "all" | "smart";
+}) {
   const title = job.job_title?.name ?? job.title;
   const company = displayCompanyName(job.page?.name || job.company_name);
   const location = displayLocation(job);
-  const score = matchScore(job);
   const readiness = readinessScore(job);
   const alignment = job.competency?.career_alignment;
-  const gap = gapLine(job);
+  const smartMatch = job.competency?.smart_match != null ? Math.round(job.competency.smart_match) : null;
+  const score = variant === "smart" ? (smartMatch ?? readiness) : readiness;
+  const ringLabel = variant === "smart" ? "Match" : "Ready";
   const chips = [experienceChip(job), workTypeChip(job), workplaceChip(job)].filter(Boolean) as string[];
   const salary = salaryText(job);
   const posted = postedAgo(job);
@@ -332,19 +342,16 @@ export function JobCard({ job, onClick }: { job: Job; onClick: () => void }) {
         >
           <CompanyLogo job={job} name={company} fallback={<Building2 className="size-4" style={{ color: tint }} />} />
         </div>
-        {score != null && <MatchRing value={score} tone={score} />}
+        {score != null && <MatchRing value={score} tone={score} label={ringLabel} />}
       </div>
 
       <div className="flex flex-col gap-1">
-        <p className="line-clamp-2 text-[15px] font-bold text-white">{title}</p>
+        <p className="line-clamp-1 text-[15px] font-bold text-white" title={title}>{title}</p>
         {company && <p className="line-clamp-1 text-[13px] text-white/55">{company}</p>}
         {location && <p className="line-clamp-1 text-xs text-white/40">{location}</p>}
-        {alignment != null && readiness != null && (
-          <p className="text-[11px] text-white/50">
-            {readiness}% Ready · {Math.round(alignment)}% Goal
-          </p>
-        )}
       </div>
+
+      {variant === "smart" && <div className="border-t border-glass-border/60 -my-1" />}
 
       {chips.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
@@ -356,7 +363,19 @@ export function JobCard({ job, onClick }: { job: Job; onClick: () => void }) {
         </div>
       )}
 
-      {gap && <p className="text-[11px] leading-snug text-amber-200/90">{gap}</p>}
+      {variant === "smart" && readiness != null && (
+        <div className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1 text-xs text-white/70 w-fit">
+          <span className="font-semibold text-white">Ready</span>
+          <span className="text-white">{readiness}%</span>
+          {alignment != null && (
+            <>
+              <span className="text-white/20 px-0.5">|</span>
+              <span className="font-semibold text-white">Goal</span>
+              <span className="text-white">{Math.round(alignment)}%</span>
+            </>
+          )}
+        </div>
+      )}
 
       <div className="mt-auto flex items-center justify-between gap-2">
         {salary && <span className="text-[13px] font-bold text-white">{salary}</span>}
@@ -366,20 +385,21 @@ export function JobCard({ job, onClick }: { job: Job; onClick: () => void }) {
   );
 }
 
-export function MatchRing({ value, tone }: { value: number; tone?: number }) {
+export function MatchRing({ value, tone, label = "Ready" }: { value: number; tone?: number; label?: string }) {
   const r = 18;
   const circumference = 2 * Math.PI * r;
   const offset = circumference * (1 - Math.min(100, Math.max(0, value)) / 100);
   const color = ringColor(tone ?? value);
   return (
-    // The ring itself stays 36px at every breakpoint (Figma 777:77 / 246:11) —
-    // only the box around it shrinks, so the svg is centred rather than filled.
     <div className="relative size-11 sm:size-12">
-      <svg className="absolute left-1/2 top-1/2 size-10 -translate-x-1/2 -translate-y-1/2 -rotate-90" viewBox="0 0 40 40">
+      <svg className="absolute inset-0 size-full -rotate-90" viewBox="0 0 40 40">
         <circle cx="20" cy="20" r={r} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="3" />
         <circle cx="20" cy="20" r={r} fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={offset} />
       </svg>
-      <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-white sm:text-[11px]">{value}%</span>
+      <div className="absolute inset-0 flex flex-col items-center justify-center leading-none">
+        <span className="text-[11px] font-bold text-white sm:text-xs">{value}%</span>
+        <span className="mt-0.5 text-[8px] font-medium text-white/60">{label}</span>
+      </div>
     </div>
   );
 }
@@ -579,6 +599,7 @@ interface JobsBrowseHeaderProps {
   cityFilter: City | null;
   setCityFilter: (city: City | null) => void;
   resultsCount?: { loaded: number; total?: number };
+  suppressGoalBanner?: boolean;
 }
 
 export function JobsBrowseHeader({
@@ -591,10 +612,11 @@ export function JobsBrowseHeader({
   cityFilter,
   setCityFilter,
   resultsCount,
+  suppressGoalBanner = false,
 }: JobsBrowseHeaderProps) {
   const router = useRouter();
   const { user, isAuthenticated } = useAuth();
-  const showGoalBanner = isAuthenticated && Boolean(user) && !hasCareerGoal(user?.career_goal);
+  const showGoalBanner = !suppressGoalBanner && isAuthenticated && Boolean(user) && !hasCareerGoal(user?.career_goal);
   const [searchCities, { data: cityResults = [] }] = useLazySearchCitiesQuery();
   const isMobile = useIsMobile();
 
@@ -700,8 +722,8 @@ export function JobsBrowseHeader({
       {/* Smart Matches and My Jobs are account-only — guests stay on the public All Jobs list. */}
       {isAuthenticated && (
         <div className="flex items-center gap-2 sm:gap-0">
-          <TabButton active={activeTab === "all"} label="All Jobs" onClick={() => router.push("/jobs/all")} />
           <TabButton active={activeTab === "smart-matches"} label="Smart Matches" onClick={() => router.push("/jobs/smart-matches")} />
+          <TabButton active={activeTab === "all"} label="All Jobs" onClick={() => router.push("/jobs/all")} />
           <TabButton active={activeTab === "my-jobs"} label="My Jobs" onClick={() => router.push("/jobs/my-jobs/saved")} />
         </div>
       )}
@@ -747,17 +769,22 @@ export function JobsBrowseHeader({
           )}
           inputClassName="h-[34px] rounded-full border-glass-border pl-7 pr-2.5 text-xs font-medium text-white placeholder:text-white/45 sm:h-[42px] sm:pl-9 sm:pr-4 sm:text-[13px]"
         />
-        {resultsCount && resultsCount.loaded > 0 && (
-          <p className="w-full text-right text-xs text-white/40 sm:ml-auto sm:w-auto sm:text-[13px]">
-            {typeof resultsCount.total === "number"
-              ? `Showing ${resultsCount.loaded} of ${resultsCount.total}`
-              : `Showing ${resultsCount.loaded}`}
-          </p>
-        )}
       </div>
 
       {/* Applied filter chips */}
       <AppliedFilters chips={appliedChips} onClear={clearAll} />
+
+      {resultsCount && resultsCount.loaded > 0 && (
+        <p className="text-xs font-semibold text-white/80 sm:text-sm">
+          {typeof resultsCount.total === "number"
+            ? resultsCount.loaded === 1
+              ? `Showing 1 of ${resultsCount.total} jobs`
+              : `Showing 1-${resultsCount.loaded} of ${resultsCount.total} jobs`
+            : resultsCount.loaded === 1
+              ? "Showing 1 job"
+              : `Showing 1-${resultsCount.loaded} jobs`}
+        </p>
+      )}
 
       {showGoalBanner && <GoalSetupBanner onSetGoal={() => router.push("/goals")} />}
     </div>
@@ -927,12 +954,59 @@ export function MatchEmptyState({
   );
 }
 
-export function JobGrid({ jobs, onOpen }: { jobs: Job[]; onOpen: (id: string | number) => void }) {
+export function JobGrid({
+  jobs,
+  onOpen,
+  variant = "all",
+}: {
+  jobs: Job[];
+  onOpen: (id: string | number) => void;
+  variant?: "all" | "smart";
+}) {
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
       {jobs.map((job) => (
-        <JobCard key={job.id} job={job} onClick={() => onOpen(job.id)} />
+        <JobCard key={job.id} job={job} onClick={() => onOpen(job.id)} variant={variant} />
       ))}
+    </div>
+  );
+}
+
+export interface ResumePromptBannerProps {
+  title: string;
+  description: string;
+  disclaimer: string;
+  onUpload?: () => void;
+  className?: string;
+}
+
+export function ResumePromptBanner({
+  title,
+  description,
+  disclaimer,
+  onUpload,
+  className,
+}: ResumePromptBannerProps) {
+  const router = useRouter();
+  return (
+    <div className={cn("rounded-2xl border border-glass-border bg-white/[0.03] p-5 sm:p-6 space-y-4", className)}>
+      <div className="space-y-1.5">
+        <h2 className="text-lg sm:text-xl font-bold text-white">{title}</h2>
+        <p className="text-sm text-white/60">{description}</p>
+      </div>
+      <div>
+        <button
+          type="button"
+          onClick={onUpload ?? (() => router.push("/profile"))}
+          className="rounded-full bg-gradient-to-r from-[#7c2ff3] to-[#d73e9d] px-6 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+        >
+          Upload resume
+        </button>
+      </div>
+      <div className="flex items-center gap-2 rounded-xl bg-white/[0.02] border border-white/8 px-4 py-3 text-xs text-white/60">
+        <ShieldCheck className="size-4 text-neon-cyan shrink-0" />
+        <span>{disclaimer}</span>
+      </div>
     </div>
   );
 }
