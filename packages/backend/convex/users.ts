@@ -18,30 +18,50 @@ export const me = optionalAuthQuery({
     // Returns null instead of throwing when the app user has not been
     // provisioned yet; the client calls auth.ensureCurrentAppUser to create it.
     if (!ctx.user) return null;
+    const user = ctx.user;
     const [city, culture, resumes, careerGoal] = await Promise.all([
-      ctx.user.city_id ? ctx.db.get(ctx.user.city_id) : Promise.resolve(null),
+      user.city_id ? ctx.db.get(user.city_id) : Promise.resolve(null),
       ctx.db
         .query("culture_preferences")
-        .withIndex("by_user", (q) => q.eq("user_id", ctx.user._id))
+        .withIndex("by_user", (q) => q.eq("user_id", user._id))
         .unique(),
       ctx.db
         .query("resumes")
-        .withIndex("by_user", (q) => q.eq("user_id", ctx.user._id))
+        .withIndex("by_user", (q) => q.eq("user_id", user._id))
         .collect(),
       ctx.db
         .query("career_goals")
-        .withIndex("by_user", (q) => q.eq("user_id", ctx.user._id))
+        .withIndex("by_user", (q) => q.eq("user_id", user._id))
         .unique(),
     ]);
     const state = city ? await ctx.db.get(city.state_id) : null;
     const effectiveDefaultResumeId =
-      ctx.user.default_resume_id && resumes.some((r) => r._id === ctx.user.default_resume_id)
-        ? ctx.user.default_resume_id
+      user.default_resume_id && resumes.some((r) => r._id === user.default_resume_id)
+        ? user.default_resume_id
         : (resumes[0]?._id ?? undefined);
+
+    const hasHeaderDetails = Boolean(
+      user.headline?.trim() ||
+      user.professional_summary?.trim() ||
+      user.about?.trim()
+    );
+
+    let hasProfile = hasHeaderDetails;
+    if (!hasProfile) {
+      const [hasExp, hasEdu, hasSkill, hasCert] = await Promise.all([
+        ctx.db.query("experiences").withIndex("by_user", (q) => q.eq("user_id", user._id)).first(),
+        ctx.db.query("educations").withIndex("by_user", (q) => q.eq("user_id", user._id)).first(),
+        ctx.db.query("user_skills").withIndex("by_user", (q) => q.eq("user_id", user._id)).first(),
+        ctx.db.query("user_certifications").withIndex("by_user", (q) => q.eq("user_id", user._id)).first(),
+      ]);
+      hasProfile = Boolean(hasExp || hasEdu || hasSkill || hasCert);
+    }
+
     return {
-      ...asUserJson(ctx.user),
+      ...asUserJson(user),
+      has_profile: hasProfile,
       default_resume_id: effectiveDefaultResumeId,
-      profile_image: (await signedFileUrl(r2, ctx.user.profile_image_storage_id)) ?? ctx.user.profile_image,
+      profile_image: (await signedFileUrl(r2, user.profile_image_storage_id)) ?? user.profile_image,
       city: city ? { ...withId(city), state: state ? withId(state) : null } : null,
       culture_preference: culture ? withId(culture) : null,
       career_goal: careerGoal

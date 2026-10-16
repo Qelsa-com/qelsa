@@ -13,13 +13,27 @@ import Layout from "../../layout";
 
 const All = () => {
   const router = useRouter();
-  const { isAuthenticated } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const { searchInput, setSearchInput, filters, applyFilters, discoverArgs, cityFilter, setCityFilter, commitSearch } = useJobBrowseFilters();
   const { results, status, isLoading, loadMore } = usePaginatedJobsQuery(discoverArgs, JOBS_PAGE_SIZE);
   const { data: filteredTotal } = useCountJobsQuery(discoverArgs);
   const { data: myResumes } = useGetMyResumesQuery(undefined, { skip: !isAuthenticated });
   const hasResume = Boolean(myResumes && myResumes.length > 0);
+  const hasProfile = Boolean(
+    user?.has_profile ||
+    user?.headline?.trim() ||
+    user?.professional_summary?.trim() ||
+    user?.about?.trim()
+  );
   const showResumeBanner = isAuthenticated && myResumes !== undefined && !hasResume;
+
+  const handleBannerUpload = () => {
+    if (hasProfile) {
+      router.push("/profile/edit?section=media");
+    } else {
+      router.push("/profile");
+    }
+  };
 
   const jobs = (results as Job[]) ?? [];
   const loaded = jobs.length;
@@ -46,9 +60,18 @@ const All = () => {
         <div className="mt-6 flex flex-col gap-4 pb-16 sm:mt-10 sm:gap-6 sm:pb-24">
           {showResumeBanner && (
             <ResumePromptBanner
-              title="Discover your readiness for every role"
-              description="Upload your resume and Qelsa will build your profile to show how well your skills and experience align with different roles, and where you can improve."
-              disclaimer="Review and edit your profile before saving. Your resume is just the starting point."
+              title={hasProfile ? "Upload your resume" : "Discover your readiness for every role"}
+              description={
+                hasProfile
+                  ? "Upload a resume to easily apply to jobs and manage your application materials."
+                  : "Upload your resume and Qelsa will build your profile to show how well your skills and experience align with different roles, and where you can improve."
+              }
+              disclaimer={
+                hasProfile
+                  ? "Your resume will be saved to your profile and used for job applications."
+                  : "Review and edit your profile before saving. Your resume is just the starting point."
+              }
+              onUpload={handleBannerUpload}
             />
           )}
           {isInitialLoading ? (
