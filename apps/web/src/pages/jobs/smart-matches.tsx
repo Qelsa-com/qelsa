@@ -21,9 +21,23 @@ const SmartMatches = () => {
   const { data, isLoading } = useMatchTiersQuery(discoverArgs, { skip: !isAuthenticated });
   const { data: myResumes } = useGetMyResumesQuery(undefined, { skip: !isAuthenticated });
   const hasResume = Boolean(myResumes && myResumes.length > 0);
+  const hasProfile = Boolean(
+    user?.has_profile ||
+    user?.headline?.trim() ||
+    user?.professional_summary?.trim() ||
+    user?.about?.trim()
+  );
   const showResumeBanner = isAuthenticated && myResumes !== undefined && !hasResume;
   const showGoalBanner = isAuthenticated && Boolean(user) && !hasCareerGoal(user?.career_goal);
   const [skillsOpen, setSkillsOpen] = useState(false);
+
+  const handleBannerUpload = () => {
+    if (hasProfile) {
+      router.push("/profile/edit?section=media");
+    } else {
+      router.push("/profile");
+    }
+  };
 
   useEffect(() => {
     if (authLoading || isAuthenticated) return;
@@ -66,9 +80,18 @@ const SmartMatches = () => {
         <div className="mt-6 flex flex-col gap-6 sm:mt-10 sm:gap-8 pb-16 sm:pb-24">
           {showResumeBanner && (
             <ResumePromptBanner
-              title="No matches yet"
-              description="Upload your resume, and Qelsa will match you with the right jobs based on your skills, experience, and career goals."
-              disclaimer="Review and edit everything before it is added to your profile."
+              title={hasProfile ? "Upload your resume" : "No matches yet"}
+              description={
+                hasProfile
+                  ? "Upload a resume to easily apply to jobs and manage your application materials."
+                  : "Upload your resume, and Qelsa will match you with the right jobs based on your skills, experience, and career goals."
+              }
+              disclaimer={
+                hasProfile
+                  ? "Your resume will be saved to your profile and used for job applications."
+                  : "Review and edit everything before it is added to your profile."
+              }
+              onUpload={handleBannerUpload}
             />
           )}
           {showGoalBanner && (
