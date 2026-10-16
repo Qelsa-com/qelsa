@@ -1,6 +1,7 @@
 import { GoalSetupBanner } from "@/components/goals/GoalSetupBanner";
 import { JobGrid, JobsBrowseHeader, MatchEmptyState, MatchSection, ResumePromptBanner, SearchFilters, useJobBrowseFilters } from "@/components/job/jobBrowseShared";
 import { SmartMatchesSkeleton } from "@/components/job/jobSkeletons";
+import { ResumeCreateProfileModal } from "@/components/profile/ResumeCreateProfileModal";
 import { SkillsModal } from "@/components/profile/modals/SkillsModal";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMatchTiersQuery } from "@/features/api/jobsApi";
@@ -8,7 +9,7 @@ import { useGetMyResumesQuery } from "@/features/api/resumeApi";
 import { hasCareerGoal } from "@/lib/careerGoal";
 import { MATCH_TIER } from "@/lib/matchTiers";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Layout from "../../layout";
 
 // Re-exported so other jobs pages can keep importing the type from this route.
@@ -21,9 +22,32 @@ const SmartMatches = () => {
   const { data, isLoading } = useMatchTiersQuery(discoverArgs, { skip: !isAuthenticated });
   const { data: myResumes } = useGetMyResumesQuery(undefined, { skip: !isAuthenticated });
   const hasResume = Boolean(myResumes && myResumes.length > 0);
-  const showResumeBanner = isAuthenticated && myResumes !== undefined && !hasResume;
+  const hasProfile = Boolean(
+    user?.has_profile ||
+    user?.headline?.trim() ||
+    user?.professional_summary?.trim() ||
+    user?.about?.trim()
+  );
+  const showResumeBanner = isAuthenticated && myResumes !== undefined && !hasResume && !hasProfile;
   const showGoalBanner = isAuthenticated && Boolean(user) && !hasCareerGoal(user?.career_goal);
   const [skillsOpen, setSkillsOpen] = useState(false);
+
+  const [createProfileOpen, setCreateProfileOpen] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleStartUpload = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      e.target.value = "";
+      setSelectedFile(file);
+      setCreateProfileOpen(true);
+    }
+  };
 
   useEffect(() => {
     if (authLoading || isAuthenticated) return;
@@ -64,11 +88,19 @@ const SmartMatches = () => {
         />
 
         <div className="mt-6 flex flex-col gap-6 sm:mt-10 sm:gap-8 pb-16 sm:pb-24">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf,.docx,.doc,.png,.jpg,.jpeg,.webp"
+            className="hidden"
+            onChange={handleFileChange}
+          />
           {showResumeBanner && (
             <ResumePromptBanner
               title="No matches yet"
               description="Upload your resume, and Qelsa will match you with the right jobs based on your skills, experience, and career goals."
               disclaimer="Review and edit everything before it is added to your profile."
+              onUpload={handleStartUpload}
             />
           )}
           {showGoalBanner && (
@@ -122,6 +154,14 @@ const SmartMatches = () => {
         </div>
       </div>
       <SkillsModal open={skillsOpen} onClose={() => setSkillsOpen(false)} />
+      <ResumeCreateProfileModal
+        isOpen={createProfileOpen}
+        initialFile={selectedFile}
+        onClose={() => {
+          setCreateProfileOpen(false);
+          setSelectedFile(null);
+        }}
+      />
     </Layout>
   );
 };

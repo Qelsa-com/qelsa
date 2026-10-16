@@ -1,25 +1,50 @@
 import { JobGrid, JobsBrowseHeader, ResumePromptBanner, useJobBrowseFilters } from "@/components/job/jobBrowseShared";
 import { JOBS_PAGE_SIZE, JobsFeedPager } from "@/components/job/JobsFeedPager";
 import { AllJobsGridSkeleton } from "@/components/job/jobSkeletons";
+import { ResumeCreateProfileModal } from "@/components/profile/ResumeCreateProfileModal";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCountJobsQuery, usePaginatedJobsQuery } from "@/features/api/jobsApi";
 import { useGetMyResumesQuery } from "@/features/api/resumeApi";
 import { Job } from "@/types/job";
 import { Search } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useRef, useState } from "react";
 import Layout from "../../layout";
 
 /* --------------------------------- page ----------------------------------- */
 
 const All = () => {
   const router = useRouter();
-  const { isAuthenticated } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const { searchInput, setSearchInput, filters, applyFilters, discoverArgs, cityFilter, setCityFilter, commitSearch } = useJobBrowseFilters();
   const { results, status, isLoading, loadMore } = usePaginatedJobsQuery(discoverArgs, JOBS_PAGE_SIZE);
   const { data: filteredTotal } = useCountJobsQuery(discoverArgs);
   const { data: myResumes } = useGetMyResumesQuery(undefined, { skip: !isAuthenticated });
   const hasResume = Boolean(myResumes && myResumes.length > 0);
-  const showResumeBanner = isAuthenticated && myResumes !== undefined && !hasResume;
+  const hasProfile = Boolean(
+    user?.has_profile ||
+    user?.headline?.trim() ||
+    user?.professional_summary?.trim() ||
+    user?.about?.trim()
+  );
+  const showResumeBanner = isAuthenticated && myResumes !== undefined && !hasResume && !hasProfile;
+
+  const [createProfileOpen, setCreateProfileOpen] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleStartUpload = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      e.target.value = "";
+      setSelectedFile(file);
+      setCreateProfileOpen(true);
+    }
+  };
 
   const jobs = (results as Job[]) ?? [];
   const loaded = jobs.length;
@@ -44,11 +69,19 @@ const All = () => {
 
         {/* ----------------------------- All jobs ------------------------------ */}
         <div className="mt-6 flex flex-col gap-4 pb-16 sm:mt-10 sm:gap-6 sm:pb-24">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf,.docx,.doc,.png,.jpg,.jpeg,.webp"
+            className="hidden"
+            onChange={handleFileChange}
+          />
           {showResumeBanner && (
             <ResumePromptBanner
               title="Discover your readiness for every role"
               description="Upload your resume and Qelsa will build your profile to show how well your skills and experience align with different roles, and where you can improve."
               disclaimer="Review and edit your profile before saving. Your resume is just the starting point."
+              onUpload={handleStartUpload}
             />
           )}
           {isInitialLoading ? (
@@ -70,6 +103,15 @@ const All = () => {
           <JobsFeedPager status={status} loadMore={loadMore} loadedCount={loaded} />
         </div>
       </div>
+
+      <ResumeCreateProfileModal
+        isOpen={createProfileOpen}
+        initialFile={selectedFile}
+        onClose={() => {
+          setCreateProfileOpen(false);
+          setSelectedFile(null);
+        }}
+      />
     </Layout>
   );
 };
