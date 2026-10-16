@@ -102,8 +102,6 @@ export type User = {
   experiences?: Experience[];
   culture_preference?: CulturePreference | null;
   career_goal?: CareerGoal | null;
-  has_profile?: boolean;
-  has_resume?: boolean;
 
   // Extended UI fields
   avatar?: string | null;
