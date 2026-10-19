@@ -147,6 +147,27 @@ export const agentStatus = query({
   }),
 });
 
+/** Today's message budget for the signed-in user, shown in the conversation rail. */
+export const agentUsage = query({
+  args: {},
+  returns: v.object({ used: v.number(), limit: v.number(), remaining: v.number() }),
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return { used: 0, limit: DAILY_PROMPT_LIMIT, remaining: DAILY_PROMPT_LIMIT };
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
+      .unique();
+    if (!user) return { used: 0, limit: DAILY_PROMPT_LIMIT, remaining: DAILY_PROMPT_LIMIT };
+    const usage = await ctx.db
+      .query("qelsa_agent_usage")
+      .withIndex("by_user_and_day", (q) => q.eq("user_id", user._id).eq("day", dayKey()))
+      .unique();
+    const used = usage?.count ?? 0;
+    return { used, limit: DAILY_PROMPT_LIMIT, remaining: Math.max(0, DAILY_PROMPT_LIMIT - used) };
+  },
+});
+
 /**
  * Resolves display labels for job ids that appear in agent tool calls, so the
  * UI can show "Apply to Senior Engineer at Acme" on an approval card instead of

@@ -22,6 +22,7 @@ import {
   MessageSquarePlus,
   PanelLeft,
   Plus,
+  RotateCcw,
   Sparkles,
   Trash2,
   WifiOff,
@@ -92,13 +93,29 @@ function MessageBubble({
   resolvingApprovalId,
   onApprove,
   onDeny,
+  onRetry,
 }: {
   message: AgentUIMessage;
   resolvingApprovalId: string | null;
   onApprove: (approvalId: string) => void;
   onDeny: (approvalId: string) => void;
+  onRetry?: () => void;
 }) {
   const parts = (message.parts ?? []) as any[];
+  const createdAt = typeof message._creationTime === "number" ? message._creationTime : Date.now();
+  const waitingForReply =
+    message.role === "assistant" && (message.status === "streaming" || message.status === "pending");
+  const [, forceRender] = useState(0);
+
+  // Wake up after two minutes so a silently failed run surfaces a retry affordance
+  // instead of leaving the typing dots on screen forever.
+  useEffect(() => {
+    if (!waitingForReply) return;
+    const remaining = 120_000 - (Date.now() - createdAt);
+    if (remaining <= 0) return;
+    const timer = setTimeout(() => forceRender((value) => value + 1), remaining + 50);
+    return () => clearTimeout(timer);
+  }, [waitingForReply, createdAt]);
 
   if (message.role === "user") {
     const text =
@@ -118,17 +135,14 @@ function MessageBubble({
   if (message.role !== "assistant") return null;
 
   const streaming = message.status === "streaming";
+  const waiting = streaming || message.status === "pending";
   const visibleParts = parts.filter((part) => {
     if (isTextPart(part)) return part.text.trim().length > 0;
     return isToolPart(part);
   });
   // A provider hiccup can leave an empty placeholder behind. Don't stream dots
-  // forever: surface a retry hint once the message has clearly gone stale.
-  const stalled =
-    streaming &&
-    visibleParts.length === 0 &&
-    typeof message._creationTime === "number" &&
-    Date.now() - message._creationTime > 120_000;
+  // forever: surface a retry affordance once the message has clearly gone stale.
+  const stalled = waiting && Date.now() - createdAt > 120_000;
 
   return (
     <div className="flex gap-3">
@@ -158,7 +172,23 @@ function MessageBubble({
         })}
         {streaming && visibleParts.length === 0 && !stalled && <TypingDots />}
         {stalled && (
-          <p className="text-[12px] text-white/40">No response came back — send that again and I&apos;ll retry.</p>
+          <div className="flex flex-wrap items-center gap-2 text-[12px] text-white/40">
+            <span>
+              {visibleParts.length
+                ? "The agent stopped before finishing."
+                : "No response came back — the AI provider may have timed out."}
+            </span>
+            {onRetry && (
+              <button
+                type="button"
+                onClick={onRetry}
+                className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 font-medium text-white/65 transition-colors hover:border-neon-purple/40 hover:text-white"
+              >
+                <RotateCcw className="size-3" />
+                Retry
+              </button>
+            )}
+          </div>
         )}
       </div>
     </div>
@@ -254,7 +284,7 @@ function RailHeader({ onClose }: { onClose?: () => void }) {
   );
 }
 
-export function QelsaAgentChat() {
+export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
   const router = useRouter();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
 
@@ -267,6 +297,7 @@ export function QelsaAgentChat() {
 
   const conversationQuery = useQuery(api.qelsaAgent.listConversations, isAuthenticated ? {} : "skip");
   const agentStatus = useQuery(api.qelsaAgent.agentStatus, {});
+  const usage = useQuery(api.qelsaAgent.agentUsage, isAuthenticated ? {} : "skip");
   const createConversation = useMutation(api.qelsaAgent.createConversation);
   const deleteConversation = useMutation(api.qelsaAgent.deleteConversation);
   const sendPrompt = useMutation(api.qelsaAgent.sendPrompt);
@@ -274,6 +305,7 @@ export function QelsaAgentChat() {
 
   const conversations = useMemo(() => (conversationQuery ?? []) as Conversation[], [conversationQuery]);
   const configured = agentStatus?.configured ?? true;
+  const quotaExhausted = (usage?.remaining ?? 1) <= 0;
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -281,6 +313,9 @@ export function QelsaAgentChat() {
   const stickToBottom = useRef(true);
   const initializedRail = useRef(false);
   const pendingThread = useRef<string | null>(null);
+  const createdThreads = useRef<Set<string>>(new Set());
+  const composingRef = useRef(false);
+  composingRef.current = input.trim().length > 0 || sending;
 
   // Restore the last opened conversation, then reconcile stale local state.
   useEffect(() => {
@@ -294,6 +329,20 @@ export function QelsaAgentChat() {
     window.localStorage.setItem("qelsa-agent-thread", activeThreadId);
   }, [activeThreadId]);
 
+  // Deep links from job pages prefill the composer once, then the page strips the query.
+  const consumedInitialPrompt = useRef(false);
+  useEffect(() => {
+    if (consumedInitialPrompt.current || !initialPrompt) return;
+    consumedInitialPrompt.current = true;
+    setInput(initialPrompt);
+    requestAnimationFrame(() => {
+      const element = textareaRef.current;
+      if (!element) return;
+      element.focus();
+      element.setSelectionRange(initialPrompt.length, initialPrompt.length);
+    });
+  }, [initialPrompt]);
+
   useEffect(() => {
     if (!conversationQuery) return;
     if (pendingThread.current && conversations.some((item) => item.threadId === pendingThread.current)) {
@@ -306,9 +355,14 @@ export function QelsaAgentChat() {
       return;
     }
     // A conversation deleted elsewhere should not leave the chat pointed at it.
+    // Never yank the user out of a thread they just created or are actively
+    // composing in — another device creating a conversation can otherwise steal
+    // focus between rendering the composer and pressing send.
     if (
       activeThreadId &&
       activeThreadId !== pendingThread.current &&
+      !createdThreads.current.has(activeThreadId) &&
+      !composingRef.current &&
       !conversations.some((item) => item.threadId === activeThreadId)
     ) {
       setActiveThreadId(conversations[0]?.threadId ?? null);
@@ -328,6 +382,18 @@ export function QelsaAgentChat() {
   const messageStatus = (messagesQuery as any)?.status as string | undefined;
   const loadMore = (messagesQuery as any)?.loadMore as ((count: number) => void) | undefined;
   const streaming = messages.some((message) => message.status === "streaming");
+
+  const lastUserPrompt = useMemo(() => {
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      const message = messages[index];
+      if (message.role !== "user") continue;
+      if (typeof message.text === "string" && message.text.trim()) return message.text;
+      const parts = (message.parts ?? []) as any[];
+      const text = parts.filter(isTextPart).map((part) => part.text).join("\n");
+      if (text.trim()) return text;
+    }
+    return "";
+  }, [messages]);
 
   // Clear the "agent is thinking" indicator once anything starts streaming back.
   useEffect(() => {
@@ -369,6 +435,7 @@ export function QelsaAgentChat() {
     if (activeThreadId) return activeThreadId;
     const { threadId } = await createConversation({});
     pendingThread.current = threadId;
+    createdThreads.current.add(threadId);
     setActiveThreadId(threadId);
     return threadId;
   }, [activeThreadId, createConversation]);
@@ -376,7 +443,7 @@ export function QelsaAgentChat() {
   const handleSend = useCallback(
     async (override?: string) => {
       const text = (override ?? input).trim();
-      if (!text || sending) return;
+      if (!text || sending || quotaExhausted) return;
       setSending(true);
       setInput("");
       stickToBottom.current = true;
@@ -391,13 +458,14 @@ export function QelsaAgentChat() {
         setSending(false);
       }
     },
-    [ensureThread, input, sendPrompt, sending],
+    [ensureThread, input, sendPrompt, sending, quotaExhausted],
   );
 
   const handleNewChat = useCallback(async () => {
     try {
       const { threadId } = await createConversation({});
       pendingThread.current = threadId;
+    createdThreads.current.add(threadId);
       setActiveThreadId(threadId);
       setInput("");
       setMobileRailOpen(false);
@@ -469,15 +537,22 @@ export function QelsaAgentChat() {
           onDelete={(threadId) => void handleDelete(threadId)}
         />
       </div>
-      <div className="border-t border-white/[0.08] px-4 py-3 text-[10px] text-white/30">
-        {agentStatus?.configured ? agentStatus.model : "AI not configured"}
+      <div className="border-t border-white/[0.08] px-4 py-3">
+        <div className="flex items-center justify-between gap-2 text-[10px] text-white/30">
+          <span className="truncate">{agentStatus?.configured ? agentStatus.model : "AI not configured"}</span>
+          {usage && (
+            <span className={cn("shrink-0 tabular-nums", quotaExhausted ? "text-amber-300/80" : "")}>
+              {usage.remaining} left today
+            </span>
+          )}
+        </div>
       </div>
     </>
   );
 
   if (authLoading) {
     return (
-      <div className="flex h-[calc(100dvh-47px)] items-center justify-center lg:h-[calc(100dvh-59px)]">
+      <div className="flex h-[calc(100dvh-61px)] items-center justify-center lg:h-[calc(100dvh-59px)]">
         <Loader2 className="size-6 animate-spin text-white/40" />
       </div>
     );
@@ -485,7 +560,7 @@ export function QelsaAgentChat() {
 
   if (!isAuthenticated) {
     return (
-      <div className="flex h-[calc(100dvh-47px)] items-center justify-center px-4 lg:h-[calc(100dvh-59px)]">
+      <div className="flex h-[calc(100dvh-61px)] items-center justify-center px-4 lg:h-[calc(100dvh-59px)]">
         <div className="w-full max-w-md rounded-2xl border border-white/[0.1] bg-white/[0.04] p-8 text-center backdrop-blur-xl">
           <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-neon-cyan via-neon-purple to-neon-pink shadow-lg shadow-purple-900/30">
             <Sparkles className="size-7 text-black" />
@@ -508,7 +583,7 @@ export function QelsaAgentChat() {
   }
 
   return (
-    <div className="flex h-[calc(100dvh-47px)] w-full overflow-hidden lg:h-[calc(100dvh-59px)]">
+    <div className="flex h-[calc(100dvh-61px)] w-full overflow-hidden lg:h-[calc(100dvh-59px)]">
       <aside className="hidden w-72 shrink-0 flex-col border-r border-white/[0.08] bg-[#080812]/80 lg:flex">
         {renderRail()}
       </aside>
@@ -600,7 +675,7 @@ export function QelsaAgentChat() {
                       <button
                         key={suggestion.prompt}
                         type="button"
-                        disabled={!configured}
+                        disabled={!configured || quotaExhausted}
                         onClick={() => void handleSend(suggestion.prompt)}
                         className="group flex items-center gap-3 rounded-xl border border-white/[0.08] bg-white/[0.03] px-3.5 py-3 transition-all hover:-translate-y-0.5 hover:border-neon-purple/40 hover:bg-white/[0.06] disabled:pointer-events-none disabled:opacity-50"
                       >
@@ -618,13 +693,18 @@ export function QelsaAgentChat() {
               </div>
             ) : (
               <div className="space-y-5">
-                {messages.map((message) => (
+                {messages.map((message, index) => (
                   <MessageBubble
                     key={message.key}
                     message={message}
                     resolvingApprovalId={resolvingApprovalId}
                     onApprove={(approvalId) => void handleApproval(approvalId, true)}
                     onDeny={(approvalId) => void handleApproval(approvalId, false)}
+                    onRetry={
+                      lastUserPrompt && index === messages.length - 1
+                        ? () => void handleSend(lastUserPrompt)
+                        : undefined
+                    }
                   />
                 ))}
               </div>
@@ -645,17 +725,24 @@ export function QelsaAgentChat() {
 
         <div className="shrink-0 border-t border-white/[0.08] bg-[#06060f]/85 px-3 py-3 backdrop-blur-xl sm:px-6">
           <div className="mx-auto w-full max-w-3xl">
+            {quotaExhausted && (
+              <p className="mb-2 rounded-xl border border-amber-400/20 bg-amber-400/[0.07] px-3 py-2 text-center text-[11px] text-amber-200">
+                You&apos;ve used all {usage?.limit ?? 60} messages for today. It resets at midnight UTC.
+              </p>
+            )}
             <div
               className={cn(
                 "flex items-end gap-2 rounded-2xl border bg-white/[0.04] p-2 pl-3 transition-colors",
-                configured ? "border-white/[0.1] focus-within:border-neon-purple/50" : "border-white/[0.06] opacity-60",
+                configured && !quotaExhausted
+                  ? "border-white/[0.1] focus-within:border-neon-purple/50"
+                  : "border-white/[0.06] opacity-60",
               )}
             >
               <textarea
                 ref={textareaRef}
                 rows={1}
                 value={input}
-                disabled={!configured}
+                disabled={!configured || quotaExhausted}
                 onChange={(event) => setInput(event.target.value)}
                 onKeyDown={(event) => {
                   if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
@@ -663,13 +750,19 @@ export function QelsaAgentChat() {
                     void handleSend();
                   }
                 }}
-                placeholder={configured ? "Ask Qelsa Agent anything…" : "AI is not configured on this deployment"}
+                placeholder={
+                  quotaExhausted
+                    ? "Daily message limit reached"
+                    : configured
+                      ? "Ask Qelsa Agent anything…"
+                      : "AI is not configured on this deployment"
+                }
                 className="max-h-[152px] min-h-[36px] flex-1 resize-none bg-transparent py-1.5 text-[14px] leading-relaxed text-white/90 placeholder:text-white/30 focus:outline-none disabled:cursor-not-allowed"
               />
               <button
                 type="button"
                 aria-label="Send message"
-                disabled={!configured || sending || !input.trim()}
+                disabled={!configured || sending || quotaExhausted || !input.trim()}
                 onClick={() => void handleSend()}
                 className="mb-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#623dd6] via-[#8433ae] to-[#be2680] text-white shadow-lg shadow-purple-900/25 transition-all hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-40"
               >
