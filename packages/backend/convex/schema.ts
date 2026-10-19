@@ -636,4 +636,24 @@ export default defineSchema({
   admin_settings: defineTable({
     ats_sync_enabled: v.boolean(),
   }),
+
+  // Sidecar rows for Qelsa Agent conversations. The Agent component owns the
+  // thread itself; this table powers the in-app conversation list, ordering,
+  // and per-user access checks without scanning the component's tables.
+  qelsa_agent_threads: defineTable({
+    user_id: v.id("users"),
+    thread_id: v.string(),
+    title: v.string(),
+    created_at: v.number(),
+    last_message_at: v.number(),
+  })
+    .index("by_user", ["user_id", "last_message_at"])
+    .index("by_thread", ["thread_id"]),
+
+  // Per-day prompt counter so one user cannot run unbounded agent cost.
+  qelsa_agent_usage: defineTable({
+    user_id: v.id("users"),
+    day: v.string(),
+    count: v.number(),
+  }).index("by_user_and_day", ["user_id", "day"]),
 });

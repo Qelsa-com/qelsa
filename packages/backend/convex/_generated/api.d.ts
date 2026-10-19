@@ -59,6 +59,8 @@ import type * as lib_skillMatch from "../lib/skillMatch.js";
 import type * as onboarding from "../onboarding.js";
 import type * as pageMembers from "../pageMembers.js";
 import type * as pages from "../pages.js";
+import type * as qelsaAgent from "../qelsaAgent.js";
+import type * as qelsaAgentTools from "../qelsaAgentTools.js";
 import type * as resumeParse from "../resumeParse.js";
 import type * as resumes from "../resumes.js";
 import type * as seed from "../seed.js";
@@ -125,6 +127,8 @@ declare const fullApi: ApiFromModules<{
   onboarding: typeof onboarding;
   pageMembers: typeof pageMembers;
   pages: typeof pages;
+  qelsaAgent: typeof qelsaAgent;
+  qelsaAgentTools: typeof qelsaAgentTools;
   resumeParse: typeof resumeParse;
   resumes: typeof resumes;
   seed: typeof seed;
