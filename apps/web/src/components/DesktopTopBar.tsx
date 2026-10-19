@@ -22,6 +22,7 @@ import { useRouter } from "next/navigation";
 const AUTHED_NAV_LINKS = [
   { id: "profile", label: "My Space", href: "/" },
   { id: "jobs", label: "Jobs", href: "/jobs/all" },
+  { id: "agent", label: "Qelsa Agent", href: "/agent" },
   { id: "connections", label: "Network", href: "/network" },
   { id: "courses", label: "Courses", href: "/courses" },
   { id: "blog", label: "Blog", href: "/blogs" },
