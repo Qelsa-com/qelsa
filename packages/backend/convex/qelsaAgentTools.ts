@@ -163,11 +163,18 @@ export const getJobDetailsInternal = internalQuery({
   args: { authId: v.string(), jobId: v.id("jobs") },
   returns: v.any(),
   handler: async (ctx, args) => {
-    await appUser(ctx, args.authId);
+    const user = await appUser(ctx, args.authId);
     const job = await ctx.db.get(args.jobId);
     if (!job) throw new Error("That job no longer exists.");
 
     const page = job.page_id ? await ctx.db.get(job.page_id) : null;
+    const existingApplications = await ctx.db
+      .query("job_applications")
+      .withIndex("by_job_and_user", (q) => q.eq("job_id", args.jobId).eq("user_id", user._id))
+      .collect();
+    const alreadyApplied = existingApplications.some(
+      (application) => application.status !== "rejected" && application.status !== "cancelled",
+    );
     const links = await ctx.db
       .query("job_skills")
       .withIndex("by_job", (q) => q.eq("job_id", args.jobId))
@@ -189,6 +196,7 @@ export const getJobDetailsInternal = internalQuery({
       responsibilities: (job.other_info as { responsibilities?: string[] } | undefined)?.responsibilities ?? [],
       apply_inside_qelsa: !job.application_url,
       application_url: job.application_url ?? null,
+      already_applied: alreadyApplied,
       page: page ? { name: page.name, type: page.type ?? null, website: page.website ?? null } : null,
     };
   },
@@ -769,7 +777,7 @@ export const prepareExternalApplicationTool = createTool({
         "Submit the form on the external site.",
         "Come back here and tell the agent you applied so it can record the application.",
       ],
-      already_applied: false,
+      already_applied: Boolean(job.already_applied),
     };
   },
 });

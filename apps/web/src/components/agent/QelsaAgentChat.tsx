@@ -23,6 +23,7 @@ import {
   PanelLeft,
   Plus,
   RotateCcw,
+  Search,
   Sparkles,
   Trash2,
   WifiOff,
@@ -199,12 +200,14 @@ function ConversationList({
   conversations,
   activeThreadId,
   loading,
+  emptyLabel = "No conversations yet.",
   onSelect,
   onDelete,
 }: {
   conversations: Conversation[];
   activeThreadId: string | null;
   loading: boolean;
+  emptyLabel?: string;
   onSelect: (threadId: string) => void;
   onDelete: (threadId: string) => void;
 }) {
@@ -218,7 +221,7 @@ function ConversationList({
     );
   }
   if (!conversations.length) {
-    return <p className="px-3 py-2 text-[12px] text-white/35">No conversations yet.</p>;
+    return <p className="px-3 py-2 text-[12px] text-white/35">{emptyLabel}</p>;
   }
   return (
     <div className="space-y-0.5">
@@ -290,6 +293,7 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
 
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [mobileRailOpen, setMobileRailOpen] = useState(false);
+  const [railSearch, setRailSearch] = useState("");
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [awaitingReply, setAwaitingReply] = useState(false);
@@ -304,6 +308,10 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
   const submitApproval = useMutation(api.qelsaAgent.submitApproval);
 
   const conversations = useMemo(() => (conversationQuery ?? []) as Conversation[], [conversationQuery]);
+  const visibleConversations = useMemo(() => {
+    const query = railSearch.trim().toLowerCase();
+    return query ? conversations.filter((conversation) => conversation.title.toLowerCase().includes(query)) : conversations;
+  }, [conversations, railSearch]);
   const configured = agentStatus?.configured ?? true;
   const quotaExhausted = (usage?.remaining ?? 1) <= 0;
 
@@ -523,12 +531,37 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
           New chat
         </Button>
       </div>
+      {conversations.length > 3 && (
+        <div className="px-3 pb-2">
+          <div className="flex items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-2.5">
+            <Search className="size-3.5 shrink-0 text-white/30" />
+            <input
+              value={railSearch}
+              onChange={(event) => setRailSearch(event.target.value)}
+              placeholder="Search chats"
+              aria-label="Search conversations"
+              className="h-8 min-w-0 flex-1 bg-transparent text-[12px] text-white/80 placeholder:text-white/30 focus:outline-none"
+            />
+            {railSearch && (
+              <button
+                type="button"
+                aria-label="Clear search"
+                onClick={() => setRailSearch("")}
+                className="text-white/30 transition-colors hover:text-white/60"
+              >
+                <X className="size-3" />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
       <div className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-white/30">Recent</div>
       <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
         <ConversationList
-          conversations={conversations}
+          conversations={visibleConversations}
           activeThreadId={activeThreadId}
           loading={!conversationQuery}
+          emptyLabel={railSearch.trim() ? "No conversations match." : undefined}
           onSelect={(threadId) => {
             setActiveThreadId(threadId);
             stickToBottom.current = true;

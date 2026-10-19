@@ -8,6 +8,8 @@
 
 import { api } from "@/lib/convexApi";
 import { cn } from "@/components/ui/utils";
+import { useCreateJobApplicationMutation } from "@/features/api/jobApplicationsApi";
+import { toastUnknownError } from "@/lib/errors";
 import { useQuery } from "convex/react";
 import {
   AlertCircle,
@@ -20,7 +22,7 @@ import {
   Loader2,
   ShieldQuestion,
 } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   type AgentJobSummary,
@@ -230,12 +232,61 @@ function ApprovalBody({
   );
 }
 
+function RecordAppliedButton({ jobId, coverLetter }: { jobId?: string; coverLetter?: string }) {
+  const [createApplication, { isLoading }] = useCreateJobApplicationMutation();
+  const [recorded, setRecorded] = useState(false);
+
+  if (!jobId) return null;
+
+  if (recorded) {
+    return (
+      <a
+        href="/jobs/my-jobs/applied"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-400/25 bg-emerald-400/[0.08] px-3 py-1.5 text-[12px] font-semibold text-emerald-200 transition-colors hover:bg-emerald-400/[0.14]"
+      >
+        <Check className="size-3.5" />
+        Application recorded — track it in My Jobs
+      </a>
+    );
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <button
+        type="button"
+        disabled={isLoading}
+        onClick={async () => {
+          try {
+            await createApplication({
+              id: jobId,
+              applicationData: coverLetter ? { cover_letter: coverLetter } : undefined,
+            }).unwrap();
+            setRecorded(true);
+            toast.success("Application recorded in your tracker.");
+          } catch (error) {
+            toastUnknownError(error, "Couldn't record that application.");
+          }
+        }}
+        className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-400/25 bg-emerald-400/[0.08] px-3 py-1.5 text-[12px] font-semibold text-emerald-200 transition-colors hover:bg-emerald-400/[0.14] disabled:opacity-60"
+      >
+        {isLoading ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />}
+        I&apos;ve applied — record it
+      </button>
+      <span className="text-[10px] text-white/35">Adds it to your application tracker.</span>
+    </div>
+  );
+}
+
 function ToolBody({
   name,
+  input,
   output,
   labels,
 }: {
   name: string;
+  input: Record<string, any> | null;
   output: Record<string, any> | null;
   labels: Map<string, { title: string; company: string | null }>;
 }) {
@@ -353,6 +404,7 @@ function ToolBody({
 
   if (name === "prepare_external_application") {
     const checklist = asArray(output.checklist).filter((item) => typeof item === "string");
+    const jobId = typeof input?.job_id === "string" ? input.job_id : undefined;
     return (
       <div className="mt-2 space-y-2.5">
         <div className="flex flex-wrap gap-2">
@@ -389,6 +441,12 @@ function ToolBody({
               </li>
             ))}
           </ol>
+        )}
+        {!output.already_applied && (
+          <RecordAppliedButton
+            jobId={jobId}
+            coverLetter={typeof output.cover_letter === "string" ? output.cover_letter : undefined}
+          />
         )}
       </div>
     );
@@ -555,7 +613,7 @@ export function AgentToolCard({
         />
       )}
 
-      {!awaitingApproval && !failed && !denied && <ToolBody name={name} output={output} labels={labelMap} />}
+      {!awaitingApproval && !failed && !denied && <ToolBody name={name} input={input} output={output} labels={labelMap} />}
     </div>
   );
 }
