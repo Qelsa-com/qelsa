@@ -14,10 +14,12 @@ import { cn } from "@/components/ui/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { api } from "@/lib/convexApi";
 import { toastUnknownError } from "@/lib/errors";
+import { homeForAccount } from "@/lib/onboarding";
 import { useUIMessages } from "@convex-dev/agent/react";
 import { useMutation, useQuery } from "convex/react";
 import {
   ArrowUp,
+  Briefcase,
   Loader2,
   MessageSquarePlus,
   PanelLeft,
@@ -787,6 +789,30 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
             className="mt-6 h-10 w-full rounded-xl bg-gradient-to-r from-[#623dd6] via-[#8433ae] to-[#be2680] text-sm font-semibold text-white shadow-lg shadow-purple-900/25"
           >
             Sign in
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (user?.account_type === "recruiter") {
+    return (
+      <div className="flex h-[calc(100dvh-61px)] items-center justify-center px-4 lg:h-[calc(100dvh-59px)]">
+        <div className="w-full max-w-md rounded-2xl border border-white/[0.1] bg-white/[0.04] p-8 text-center backdrop-blur-xl">
+          <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-neon-cyan via-neon-purple to-neon-pink shadow-lg shadow-purple-900/30">
+            <Briefcase className="size-7 text-black" />
+          </div>
+          <h1 className="mt-5 text-xl font-semibold text-white">Qelsa Agent for hiring is next</h1>
+          <p className="mt-2 text-sm leading-relaxed text-white/55">
+            The current agent is built for job seekers — it searches roles, checks fit, and prepares applications.
+            A dedicated hiring agent will work with your jobs and applicants.
+          </p>
+          <Button
+            type="button"
+            onClick={() => router.push(homeForAccount(user))}
+            className="mt-6 h-10 w-full rounded-xl bg-gradient-to-r from-[#623dd6] via-[#8433ae] to-[#be2680] text-sm font-semibold text-white shadow-lg shadow-purple-900/25"
+          >
+            Go to hiring dashboard
           </Button>
         </div>
       </div>
