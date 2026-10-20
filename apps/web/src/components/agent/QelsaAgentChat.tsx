@@ -362,8 +362,19 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
       pendingThread.current = null;
     }
     if (!initializedRail.current) {
+      // Wait for the first page before deciding. On a fresh session the query
+      // can briefly return [] while auth is still hydrating; marking the rail
+      // initialized then would drop the restored thread.
+      if (conversations.length === 0) return;
       initializedRail.current = true;
-      if (activeThreadId && conversations.some((item) => item.threadId === activeThreadId)) return;
+      if (
+        activeThreadId &&
+        (conversations.some((item) => item.threadId === activeThreadId) ||
+          pendingThread.current === activeThreadId ||
+          createdThreads.current.has(activeThreadId))
+      ) {
+        return;
+      }
       setActiveThreadId(conversations[0]?.threadId ?? null);
       return;
     }
