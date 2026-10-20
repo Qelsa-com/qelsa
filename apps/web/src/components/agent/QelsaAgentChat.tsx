@@ -36,6 +36,7 @@ import { AgentToolCard } from "./AgentToolCard";
 import {
   type AgentToolPart,
   type AgentUIMessage,
+  fallbackFollowUps,
   SUGGESTIONS,
   toolNameOf,
 } from "./agentToolMeta";
@@ -302,6 +303,10 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
   const conversationQuery = useQuery(api.qelsaAgent.listConversations, isAuthenticated ? {} : "skip");
   const agentStatus = useQuery(api.qelsaAgent.agentStatus, {});
   const usage = useQuery(api.qelsaAgent.agentUsage, isAuthenticated ? {} : "skip");
+  const followUps = useQuery(
+    api.qelsaAgent.getFollowUps,
+    isAuthenticated && activeThreadId ? { threadId: activeThreadId } : "skip",
+  );
   const createConversation = useMutation(api.qelsaAgent.createConversation);
   const deleteConversation = useMutation(api.qelsaAgent.deleteConversation);
   const sendPrompt = useMutation(api.qelsaAgent.sendPrompt);
@@ -390,6 +395,42 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
   const messageStatus = (messagesQuery as any)?.status as string | undefined;
   const loadMore = (messagesQuery as any)?.loadMore as ((count: number) => void) | undefined;
   const streaming = messages.some((message) => message.status === "streaming");
+  const lastMessage = messages[messages.length - 1];
+  const lastAssistant = useMemo(() => {
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      if (messages[index].role === "assistant") return messages[index];
+    }
+    return undefined;
+  }, [messages]);
+  const pendingApproval = useMemo(
+    () => Boolean(lastAssistant?.parts?.some((part) => isToolPart(part) && part.state === "approval-requested")),
+    [lastAssistant],
+  );
+  const lastToolNames = useMemo(
+    () =>
+      lastAssistant
+        ? (lastAssistant.parts ?? []).filter(isToolPart).map((part) => toolNameOf(part))
+        : [],
+    [lastAssistant],
+  );
+  const suggestions = useMemo(() => {
+    const fallback = fallbackFollowUps(lastToolNames);
+    if (!followUps?.suggestions.length) return fallback;
+    const lastCreated = lastMessage?._creationTime ?? 0;
+    // A row written before the newest reply belongs to the previous turn.
+    if (followUps.createdAt < lastCreated) return fallback;
+    return followUps.suggestions;
+  }, [followUps, lastMessage, lastToolNames]);
+  const showFollowUps =
+    Boolean(activeThreadId) &&
+    !sending &&
+    !awaitingReply &&
+    !streaming &&
+    !pendingApproval &&
+    lastMessage?.role === "assistant" &&
+    lastMessage.status !== "streaming" &&
+    lastMessage.status !== "pending" &&
+    suggestions.length > 0;
 
   const lastUserPrompt = useMemo(() => {
     for (let index = messages.length - 1; index >= 0; index -= 1) {
@@ -424,7 +465,7 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
   useEffect(() => {
     if (!stickToBottom.current) return;
     bottomRef.current?.scrollIntoView({ block: "end" });
-  }, [messages, awaitingReply, activeThreadId]);
+  }, [messages, awaitingReply, activeThreadId, suggestions]);
 
   useEffect(() => {
     const element = textareaRef.current;
@@ -740,6 +781,28 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
                     }
                   />
                 ))}
+
+                {showFollowUps && (
+                  <div aria-label="Suggested follow-up questions" className="sm:pl-11">
+                    <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/30">
+                      <Sparkles className="size-3 text-neon-purple/70" />
+                      Suggested next
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {suggestions.map((suggestion) => (
+                        <button
+                          key={suggestion}
+                          type="button"
+                          disabled={!configured || quotaExhausted}
+                          onClick={() => void handleSend(suggestion)}
+                          className="max-w-full rounded-full border border-white/[0.1] bg-white/[0.04] px-3 py-1.5 text-left text-[12px] font-medium leading-snug text-white/65 transition-all hover:border-neon-purple/40 hover:bg-white/[0.07] hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          {suggestion}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

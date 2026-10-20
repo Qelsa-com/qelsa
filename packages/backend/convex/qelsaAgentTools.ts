@@ -539,7 +539,7 @@ export const saveCareerGoalInternal = internalMutation({
 /* ------------------------------------------------------------------ */
 
 export const generateCoverLetterInternal = internalAction({
-  args: { authId: v.string(), jobId: v.id("jobs") },
+  args: { authId: v.string(), jobId: v.id("jobs"), instructions: v.optional(v.string()) },
   returns: v.any(),
   handler: async (ctx, args): Promise<any> => {
     requireOpenRouter();
@@ -563,7 +563,7 @@ Candidate Profile:
 - Key Skills: ${context.skills.join(", ") || "Relevant domain skills"}
 - Key Experience: ${context.experiences.map((e: { title: string; company: string }) => `${e.title} at ${e.company}`).join("; ") || "Relevant past experience"}
 - Education: ${context.educations.join("; ") || "Relevant background"}
-
+${args.instructions ? `\nAdditional instructions from the user (follow these):\n${clipPlainText(args.instructions, 600)}\n` : ""}
 Requirements:
 - Start directly with "Dear Hiring Team at ${context.companyName}," (no date, no placeholder address).
 - Write in first person ("I").
@@ -688,14 +688,19 @@ export const getJobReadinessTool = createTool({
 
 export const writeCoverLetterTool = createTool({
   description:
-    "Write a tailored cover letter for a job using the user's profile. This only drafts text and stores nothing. Use apply_to_job or record_external_application afterwards if the user wants to apply with it.",
+    "Write or refine a tailored cover letter for a job using the user's profile. This only drafts text and stores nothing. Pass instructions to refine a draft (for example, make it more technical or keep it under 150 words). Use apply_to_job or record_external_application afterwards if the user wants to apply with it.",
   inputSchema: z.object({
     job_id: z.string().describe("The job_id to write the cover letter for."),
+    instructions: z
+      .string()
+      .optional()
+      .describe("Optional refinement instructions, e.g. 'make it more technical' or 'shorten it to 150 words'."),
   }),
   execute: async (ctx, args): Promise<any> =>
     ctx.runAction(internal.qelsaAgentTools.generateCoverLetterInternal, {
       authId: authIdOf(ctx),
       jobId: args.job_id as Id<"jobs">,
+      instructions: args.instructions,
     }),
 });
 

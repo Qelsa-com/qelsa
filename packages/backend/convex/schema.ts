@@ -656,4 +656,13 @@ export default defineSchema({
     day: v.string(),
     count: v.number(),
   }).index("by_user_and_day", ["user_id", "day"]),
+
+  // Latest contextual follow-up prompts for a thread. One row per thread,
+  // patched in place so the table stays bounded as conversations grow.
+  qelsa_agent_followups: defineTable({
+    user_id: v.id("users"),
+    thread_id: v.string(),
+    suggestions: v.array(v.string()),
+    created_at: v.number(),
+  }).index("by_thread", ["thread_id"]),
 });

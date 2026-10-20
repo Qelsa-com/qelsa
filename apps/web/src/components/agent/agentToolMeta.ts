@@ -145,3 +145,45 @@ export const SUGGESTIONS: Array<{
     icon: Sparkles,
   },
 ];
+
+/**
+ * Instant chips while the backend's contextual suggestion call is in flight.
+ * Mirrors the server fallback so every completed reply always has a next step.
+ */
+export function fallbackFollowUps(toolNames: string[]): string[] {
+  const names = new Set(toolNames);
+  if (names.has("write_cover_letter")) {
+    return ["Make the cover letter more technical", "Shorten the cover letter", "Prepare my application"];
+  }
+  if (names.has("prepare_external_application")) {
+    return ["I've applied — record it", "Check my fit for this job", "Find similar jobs"];
+  }
+  if (names.has("get_job_readiness")) {
+    return ["Draft a cover letter for this job", "What should I improve?", "Find similar jobs"];
+  }
+  if (names.has("apply_to_job")) {
+    return ["What should I prepare for the interview?", "Find similar roles", "Show my applications"];
+  }
+  if (names.has("list_my_applications")) {
+    return ["Which applications should I follow up on?", "Find jobs matching my skills", "Show my saved jobs"];
+  }
+  if (names.has("list_saved_jobs")) {
+    return ["Check my fit for the best saved job", "Apply to the best match", "Find similar jobs"];
+  }
+  if (names.has("get_job_details")) {
+    return ["Check my fit for this job", "Draft a cover letter", "Prepare my application"];
+  }
+  if (names.has("search_jobs")) {
+    return ["Check my fit for the top match", "Only show remote roles", "Save the best match"];
+  }
+  if (names.has("save_job")) {
+    return ["Apply to this job", "Draft a cover letter", "Find similar jobs"];
+  }
+  if (names.has("update_career_goal")) {
+    return ["Find jobs that fit this goal", "Review my profile", "Draft a cover letter"];
+  }
+  if (names.has("get_my_profile")) {
+    return ["Find jobs for me", "Draft a cover letter", "Set a career goal"];
+  }
+  return ["Find jobs for me", "Review my applications", "Draft a cover letter"];
+}
