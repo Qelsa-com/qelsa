@@ -40,15 +40,7 @@ const STATUS_OPTIONS: {
 
 type Step = "resume" | "intent";
 
-export function CandidateOnboarding({
-  onBack,
-  onComplete,
-  nextPath,
-}: {
-  onBack: () => void;
-  onComplete: () => void;
-  nextPath?: string;
-}) {
+export function CandidateOnboarding({ onBack, onComplete, nextPath }: { onBack: () => void; onComplete: () => void; nextPath?: string }) {
   const router = useRouter();
   const { user } = useAuth();
   const [step, setStep] = useState<Step | null>(null);
@@ -91,7 +83,7 @@ export function CandidateOnboarding({
     await complete({ job_seeking_status: status }).unwrap();
     clearResumeDraft();
     onComplete();
-    router.replace(nextPath ?? "/jobs/all");
+    router.replace(nextPath ?? "/");
   };
 
   const cardMotion = {
