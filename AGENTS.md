@@ -1,8 +1,17 @@
 # Qelsa
 
-pnpm + Turborepo monorepo. `apps/web` is a Next.js 16 app (Pages Router under `apps/web/src/pages`, plus one App-Router auth API route). `packages/backend` is a Convex backend (schema, functions, crons) with Better Auth, an AI agent, and R2 file storage components. The web app imports `@qelsa/backend`.
+pnpm + Turborepo monorepo. `apps/web` is a Next.js 16 app (Pages Router under `apps/web/src/pages`, plus one App-Router auth API route). `apps/admin` is a separate Next.js 16 App-Router app for platform administrators. `packages/backend` is a Convex backend (schema, functions, crons) with Better Auth, an AI agent, and R2 file storage components. Both apps import `@qelsa/backend`.
 
-See `README.md` for the canonical setup/dev commands. Package scripts live in the root `package.json`, `apps/web/package.json`, and `packages/backend/package.json`.
+See `README.md` for the canonical setup/dev commands. Package scripts live in the root `package.json`, `apps/web/package.json`, `apps/admin/package.json`, and `packages/backend/package.json`.
+
+## Admin app
+
+`apps/admin` is admin-only. It shares the Convex deployment and Better Auth identities with `apps/web` but runs on its own origin, so its session cookie is scoped separately. Access is gated by `users.role === "admin"`.
+
+- Every admin data function lives in `packages/backend/convex/admin.ts` and uses the `adminQuery` / `adminMutation` wrappers from `convex/lib/customFunctions.ts`, which re-check the role server side. Never expose privileged data through a plain `query` / `mutation`.
+- The admin app runs on a separate origin, so the Convex deployment needs that origin in `TRUSTED_ORIGINS`.
+- Dashboard totals come from the `admin_stats` counter table, updated in the same mutation as the source write (see `convex/lib/adminStats.ts`). Do not replace those counters with `.collect().length` scans.
+- Admin mutations write an `admin_audit_log` row so every privileged action stays attributable.
 
 ## Performance is a first-pass requirement
 

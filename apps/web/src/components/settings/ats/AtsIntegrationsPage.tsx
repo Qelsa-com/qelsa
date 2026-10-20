@@ -9,7 +9,7 @@ import { Button } from "../../ui/button";
 import { ATS_PROVIDERS, relativeTime, type AtsIntegration, type AtsProviderMeta } from "./catalog";
 import { ApiKeyConnectDialog, BoardConnectDialog, ConnectionSuccessDialog, DisconnectDialog, ErrorIntegrationDialog, ManageIntegrationDialog, OAuthConnectDialog, ReconnectApiKeyDialog, RequestAccessDialog } from "./IntegrationDialogs";
 import { IntegrationCardSkeleton } from "./atsSkeletons";
-import { PublicBoardsSection } from "./PublicBoardsSection";
+import { ADMIN_APP_URL } from "@/constants/admin";
 
 type DialogState =
   | { kind: "connect"; provider: AtsProviderMeta }
@@ -176,13 +176,25 @@ const AtsIntegrationsPage = () => {
       <h1 className="text-3xl font-bold">Integrations</h1>
       <p className="mt-2 max-w-2xl text-sm text-muted-foreground">Connect your ATS to sync job requisitions and route qualified candidates with readiness scores directly into your hiring pipeline.</p>
 
-      {isAdmin && <h2 className="mt-8 text-lg font-semibold text-white">Your ATS</h2>}
+      {isAdmin && (
+        <div className="mt-6 rounded-2xl border border-glass-border glass p-5">
+          <p className="text-sm font-semibold text-white">Admin tools moved</p>
+          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+            Public job boards, platform sync controls, job moderation, and user
+            management now live in the Qelsa admin panel.
+          </p>
+          <a
+            href={ADMIN_APP_URL}
+            className="mt-4 inline-flex items-center rounded-full bg-gradient-to-r from-neon-purple to-neon-pink px-5 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90"
+          >
+            Open the admin panel
+          </a>
+        </div>
+      )}
 
       <ErrorBoundary variant="section" label="ATS integrations">
         <EmployerAtsSection compact={isAdmin} />
       </ErrorBoundary>
-
-      {isAdmin && <PublicBoardsSection />}
     </div>
   );
 };

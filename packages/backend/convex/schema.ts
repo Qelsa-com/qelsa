@@ -83,7 +83,17 @@ export default defineSchema({
     .index("by_email", ["email"])
     .index("by_username", ["username"])
     .index("by_phone", ["phone"])
-    .index("by_custom_profile_url", ["custom_profile_url"]),
+    .index("by_custom_profile_url", ["custom_profile_url"])
+    // Admin panel: filter and count users by role / activity without scanning.
+    .index("by_role", ["role"])
+    .index("by_role_and_active", ["role", "isActive"])
+    .index("by_account_type", ["account_type"])
+    .index("by_active", ["isActive"])
+    // Search indexes for the admin user search. `name` and `username` are
+    // optional, which Convex supports for search indexes.
+    .searchIndex("search_name", { searchField: "name" })
+    .searchIndex("search_email", { searchField: "email" })
+    .searchIndex("search_username", { searchField: "username" }),
 
   culture_preferences: defineTable({
     user_id: v.id("users"),
@@ -298,6 +308,14 @@ export default defineSchema({
 
   // Denormalized browse totals. countFiltered reads this instead of scanning every open job.
   job_browse_stats: defineTable({
+    key: v.string(),
+    count: v.number(),
+  }).index("by_key", ["key"]),
+
+  // Platform-wide totals for the admin dashboard. Kept as counter rows so the
+  // dashboard never scans a growing table. Each key is updated in the same
+  // mutation as the source write (see lib/adminStats.ts).
+  admin_stats: defineTable({
     key: v.string(),
     count: v.number(),
   }).index("by_key", ["key"]),
@@ -636,6 +654,26 @@ export default defineSchema({
   admin_settings: defineTable({
     ats_sync_enabled: v.boolean(),
   }),
+
+  // Append-only trail of admin actions. One row per mutation an admin made,
+  // so a privileged change is always attributable and revertable.
+  admin_audit_log: defineTable({
+    admin_user_id: v.id("users"),
+    // Coarse action verb, e.g. "user.role_changed" / "user.suspended".
+    action: v.string(),
+    // The user the action targeted, when the action is user-scoped.
+    target_user_id: v.optional(v.id("users")),
+    target_job_id: v.optional(v.id("jobs")),
+    // Small, human-readable before/after values for the change.
+    before: v.optional(v.any()),
+    after: v.optional(v.any()),
+    // Free-form reason supplied by the admin (e.g. a moderation note).
+    note: v.optional(v.string()),
+    created_at: v.number(),
+  })
+    .index("by_created_at", ["created_at"])
+    .index("by_admin", ["admin_user_id", "created_at"])
+    .index("by_target_user", ["target_user_id", "created_at"]),
 
   // Sidecar rows for Qelsa Agent conversations. The Agent component owns the
   // thread itself; this table powers the in-app conversation list, ordering,

@@ -4,6 +4,7 @@
   "scripts": {
     "dev": "turbo dev",
     "dev:web": "turbo -F web dev",
+    "dev:admin": "turbo -F admin dev",
     "dev:server": "turbo -F @qelsa/backend dev",
     "build": "turbo build",
     "lint": "turbo lint",

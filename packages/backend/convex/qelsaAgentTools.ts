@@ -16,6 +16,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { internalAction, internalMutation, internalQuery } from "./_generated/server";
 import { createAgentChatModel, requireOpenRouter } from "./lib/ai";
 import { bumpJobCount } from "./lib/jobCounts";
+import { ADMIN_STAT_KEYS, bumpAdminStat } from "./lib/adminStats";
 import { clipPlainText } from "./lib/skillMatch";
 
 const SEARCH_LIMIT_DEFAULT = 8;
@@ -393,6 +394,7 @@ async function insertApplication(
     status: "applied",
     applied_at: Date.now(),
   });
+  await bumpAdminStat(ctx, ADMIN_STAT_KEYS.applications, 1);
   await bumpJobCount(ctx, job._id, "application_count", 1);
 
   const savedRows = await ctx.db

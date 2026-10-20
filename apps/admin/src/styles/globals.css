@@ -1,0 +1,623 @@
+@import "tailwindcss";
+@source "../../../../../node_modules/streamdown/dist/*.js";
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --font-size: 16px;
+  --background: #06060f;
+  --foreground: #ffffff;
+  --card: rgba(255, 255, 255, 0.05);
+  --card-foreground: #ffffff;
+  --popover: rgba(10, 10, 15, 0.95);
+  --popover-foreground: #ffffff;
+  --primary: linear-gradient(135deg, #0ea5e9 0%, #7c3aed 50%, #ec4899 100%);
+  --primary-foreground: #000000;
+  --secondary: rgba(255, 255, 255, 0.1);
+  --secondary-foreground: #ffffff;
+  --muted: rgba(255, 255, 255, 0.05);
+  --muted-foreground: rgba(255, 255, 255, 0.6);
+  --accent: rgba(0, 245, 255, 0.1);
+  --accent-foreground: #00f5ff;
+  --destructive: #ff006e;
+  --destructive-foreground: #ffffff;
+  --border: rgba(255, 255, 255, 0.1);
+  --input: transparent;
+  --input-background: rgba(255, 255, 255, 0.05);
+  --switch-background: rgba(255, 255, 255, 0.2);
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
+  --ring: #00f5ff;
+  --chart-1: #00f5ff;
+  --chart-2: #8b5cf6;
+  --chart-3: #ff006e;
+  --chart-4: #00ff88;
+  --chart-5: #ffd700;
+  --radius: 1rem;
+  --sidebar: rgba(10, 10, 15, 0.8);
+  --sidebar-foreground: #ffffff;
+  --sidebar-primary: #00f5ff;
+  --sidebar-primary-foreground: #000000;
+  --sidebar-accent: rgba(255, 255, 255, 0.1);
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: rgba(255, 255, 255, 0.1);
+  --sidebar-ring: #00f5ff;
+  
+  /* Professional modern colors */
+  --neon-cyan: #0ea5e9;
+  --neon-purple: #7c3aed;
+  --neon-pink: #ec4899;
+  --neon-green: #10b981;
+  --neon-yellow: #f59e0b;
+  --glass-bg: rgba(255, 255, 255, 0.08);
+  --glass-border: rgba(255, 255, 255, 0.15);
+  --glow-cyan: 0 0 12px rgba(14, 165, 233, 0.2);
+  --glow-purple: 0 0 12px rgba(124, 58, 237, 0.2);
+  --glow-pink: 0 0 12px rgba(236, 72, 153, 0.2);
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.145 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.145 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.985 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.396 0.141 25.723);
+  --destructive-foreground: oklch(0.637 0.237 25.331);
+  --border: oklch(0.269 0 0);
+  --input: oklch(0.269 0 0);
+  --ring: oklch(0.439 0 0);
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(0.269 0 0);
+  --sidebar-ring: oklch(0.439 0 0);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-input-background: var(--input-background);
+  --color-switch-background: var(--switch-background);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-neon-cyan: var(--neon-cyan);
+  --color-neon-purple: var(--neon-purple);
+  --color-neon-pink: var(--neon-pink);
+  --color-neon-green: var(--neon-green);
+  --color-neon-yellow: var(--neon-yellow);
+  --color-glass-bg: var(--glass-bg);
+  --color-glass-border: var(--glass-border);
+  
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  /* Tailwind v3's Preflight set `cursor: pointer` on buttons; v4 dropped it, so
+     they fall back to the UA default arrow. Restore it for anything that acts
+     like a button, minus disabled controls. Wrapped in :where() so it carries
+     zero specificity and any explicit cursor-* utility still wins — the build
+     flattens cascade layers, so layer order alone would not guarantee that. */
+  :where(button:not(:disabled), [role="button"]:not([aria-disabled="true"]), label[for], summary) {
+    cursor: pointer;
+  }
+
+  html,
+  body {
+    @apply bg-background text-foreground;
+    background-color: #06060f;
+  }
+
+  .safe-area-bottom,
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  /* Professional glassmorphism utilities */
+  .glass {
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+  }
+
+  .glass-strong {
+    background: rgba(255, 255, 255, 0.12);
+    backdrop-filter: blur(24px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+
+  /* Professional glow effects */
+  .glow-cyan {
+    box-shadow: 0 0 12px rgba(14, 165, 233, 0.2), 0 4px 20px rgba(14, 165, 233, 0.1);
+  }
+
+  .glow-purple {
+    box-shadow: 0 0 12px rgba(124, 58, 237, 0.2), 0 4px 20px rgba(124, 58, 237, 0.1);
+  }
+
+  .glow-pink {
+    box-shadow: 0 0 12px rgba(236, 72, 153, 0.2), 0 4px 20px rgba(236, 72, 153, 0.1);
+  }
+
+  .glow-green {
+    box-shadow: 0 0 12px rgba(16, 185, 129, 0.2), 0 4px 20px rgba(16, 185, 129, 0.1);
+  }
+
+  .glow-yellow {
+    box-shadow: 0 0 12px rgba(245, 158, 11, 0.2), 0 4px 20px rgba(245, 158, 11, 0.1);
+  }
+
+  /* Primary action fill. Every gradient CTA in the app uses this one class, so
+     the brand gradient is defined in exactly one place. It is dark enough that
+     the label on top must be white. */
+  .gradient-primary {
+    background-image: linear-gradient(90deg, #4d33cc 0%, #802ebf 50%, #bf1f66 100%);
+  }
+
+  /* Professional gradient backgrounds */
+  .gradient-animated {
+    background: linear-gradient(135deg, #0ea5e9 0%, #7c3aed 50%, #ec4899 100%);
+  }
+
+  .gradient-subtle {
+    background: linear-gradient(135deg, rgba(14, 165, 233, 0.1) 0%, rgba(124, 58, 237, 0.1) 50%, rgba(236, 72, 153, 0.1) 100%);
+  }
+
+  /* Subtle animation effects */
+  .pulse-glow {
+    animation: pulseGlow 4s ease-in-out infinite alternate;
+  }
+
+  @keyframes pulseGlow {
+    from { box-shadow: 0 0 8px rgba(14, 165, 233, 0.15), 0 2px 12px rgba(14, 165, 233, 0.1); }
+    to { box-shadow: 0 0 16px rgba(14, 165, 233, 0.25), 0 4px 20px rgba(14, 165, 233, 0.15); }
+  }
+
+  /* Simplified floating animation */
+  .float {
+    animation: float 4s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-5px); }
+  }
+
+  /* Professional neon color utilities */
+  .text-neon-cyan { color: var(--neon-cyan); }
+  .text-neon-purple { color: var(--neon-purple); }
+  .text-neon-pink { color: var(--neon-pink); }
+  .text-neon-green { color: var(--neon-green); }
+  .text-neon-yellow { color: var(--neon-yellow); }
+  
+  .bg-neon-cyan { background-color: var(--neon-cyan); }
+  .bg-neon-purple { background-color: var(--neon-purple); }
+  .bg-neon-pink { background-color: var(--neon-pink); }
+  .bg-neon-green { background-color: var(--neon-green); }
+  .bg-neon-yellow { background-color: var(--neon-yellow); }
+  
+  .border-neon-cyan { border-color: var(--neon-cyan); }
+  .border-neon-purple { border-color: var(--neon-purple); }
+  .border-neon-pink { border-color: var(--neon-pink); }
+  .border-neon-green { border-color: var(--neon-green); }
+  .border-neon-yellow { border-color: var(--neon-yellow); }
+  
+  .border-glass-border { border-color: var(--glass-border); }
+
+  /* Hover states with neon effects */
+  .hover\:text-neon-cyan:hover { color: var(--neon-cyan); }
+  .hover\:text-neon-purple:hover { color: var(--neon-purple); }
+  .hover\:text-neon-pink:hover { color: var(--neon-pink); }
+  .hover\:text-neon-green:hover { color: var(--neon-green); }
+  .hover\:text-neon-yellow:hover { color: var(--neon-yellow); }
+  
+  .hover\:bg-neon-cyan:hover { background-color: var(--neon-cyan); }
+  .hover\:bg-neon-purple:hover { background-color: var(--neon-purple); }
+  .hover\:bg-neon-pink:hover { background-color: var(--neon-pink); }
+  .hover\:bg-neon-green:hover { background-color: var(--neon-green); }
+  .hover\:bg-neon-yellow:hover { background-color: var(--neon-yellow); }
+  
+  .hover\:border-neon-cyan:hover { border-color: var(--neon-cyan); }
+  .hover\:border-neon-purple:hover { border-color: var(--neon-purple); }
+  .hover\:border-neon-pink:hover { border-color: var(--neon-pink); }
+  .hover\:border-neon-green:hover { border-color: var(--neon-green); }
+  .hover\:border-neon-yellow:hover { border-color: var(--neon-yellow); }
+
+  .hover\:glow-cyan:hover { box-shadow: 0 0 16px rgba(14, 165, 233, 0.25), 0 4px 20px rgba(14, 165, 233, 0.15); }
+  .hover\:glow-purple:hover { box-shadow: 0 0 16px rgba(124, 58, 237, 0.25), 0 4px 20px rgba(124, 58, 237, 0.15); }
+  .hover\:glow-pink:hover { box-shadow: 0 0 16px rgba(236, 72, 153, 0.25), 0 4px 20px rgba(236, 72, 153, 0.15); }
+  .hover\:glow-green:hover { box-shadow: 0 0 16px rgba(16, 185, 129, 0.25), 0 4px 20px rgba(16, 185, 129, 0.15); }
+  .hover\:glow-yellow:hover { box-shadow: 0 0 16px rgba(245, 158, 11, 0.25), 0 4px 20px rgba(245, 158, 11, 0.15); }
+
+  /* Aspect ratio utilities */
+  .aspect-square {
+    aspect-ratio: 1 / 1;
+  }
+  
+  .aspect-video {
+    aspect-ratio: 16 / 9;
+  }
+  
+  .aspect-auto {
+    aspect-ratio: auto;
+  }
+
+  /* Job card specific styles */
+  .job-card-height {
+    min-height: 400px;
+  }
+
+  @media (max-width: 768px) {
+    .job-card-height {
+      min-height: 350px;
+    }
+  }
+
+  /* Line clamp utilities */
+  .line-clamp-1 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+  }
+
+  .line-clamp-2 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .line-clamp-3 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+  }
+
+  /* Hide scrollbar but keep functionality */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Agent trace shimmer: the label of a step that is still running. */
+  @keyframes agent-trace-shimmer {
+    0% {
+      background-position: 200% 0;
+    }
+    100% {
+      background-position: -200% 0;
+    }
+  }
+
+  .agent-trace-shimmer {
+    background-image: linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.42) 0%,
+      rgba(186, 230, 253, 0.98) 45%,
+      rgba(255, 255, 255, 0.42) 100%
+    );
+    background-size: 200% 100%;
+    color: transparent;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: agent-trace-shimmer 1.8s linear infinite;
+  }
+
+  /* Smooth height changes for agent trace disclosures. Animating the height
+     keeps the chat's bottom-follow from jumping when a trace collapses. */
+  @keyframes agent-collapsible-down {
+    from {
+      height: 0;
+    }
+    to {
+      height: var(--radix-collapsible-content-height);
+    }
+  }
+
+  @keyframes agent-collapsible-up {
+    from {
+      height: var(--radix-collapsible-content-height);
+    }
+    to {
+      height: 0;
+    }
+  }
+
+  .agent-collapsible-content {
+    overflow: hidden;
+  }
+
+  .agent-collapsible-content[data-state="open"] {
+    animation: agent-collapsible-down 200ms ease-out;
+  }
+
+  .agent-collapsible-content[data-state="closed"] {
+    animation: agent-collapsible-up 180ms ease-in;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .agent-trace-shimmer {
+      background: none;
+      color: rgba(255, 255, 255, 0.72);
+      -webkit-text-fill-color: currentColor;
+      animation: none;
+    }
+
+    .agent-collapsible-content[data-state="open"],
+    .agent-collapsible-content[data-state="closed"] {
+      animation: none;
+    }
+  }
+}
+
+/**
+ * Base typography. This is not applied to elements which have an ancestor with a Tailwind text class.
+ */
+@layer base {
+  :where(:not(:has([class*=" text-"]), :not(:has([class^="text-"])))) {
+    h1 {
+      font-size: var(--text-2xl);
+      font-weight: var(--font-weight-medium);
+      line-height: 1.5;
+    }
+
+    h2 {
+      font-size: var(--text-xl);
+      font-weight: var(--font-weight-medium);
+      line-height: 1.5;
+    }
+
+    h3 {
+      font-size: var(--text-lg);
+      font-weight: var(--font-weight-medium);
+      line-height: 1.5;
+    }
+
+    h4 {
+      font-size: var(--text-base);
+      font-weight: var(--font-weight-medium);
+      line-height: 1.5;
+    }
+
+    p {
+      font-size: var(--text-base);
+      font-weight: var(--font-weight-normal);
+      line-height: 1.5;
+    }
+
+    label {
+      font-size: var(--text-base);
+      font-weight: var(--font-weight-medium);
+      line-height: 1.5;
+    }
+
+    button {
+      font-size: var(--text-base);
+      font-weight: var(--font-weight-medium);
+      line-height: 1.5;
+    }
+
+    input {
+      font-size: var(--text-base);
+      font-weight: var(--font-weight-normal);
+      line-height: 1.5;
+    }
+  }
+}
+
+html {
+  font-size: var(--font-size);
+}
+
+.ai-markdown {
+  color: inherit;
+  font-size: 0.875rem;
+  line-height: 1.65;
+}
+
+.ai-markdown > *:first-child {
+  margin-top: 0;
+}
+
+.ai-markdown > *:last-child {
+  margin-bottom: 0;
+}
+
+.ai-markdown p {
+  margin: 0.55em 0;
+}
+
+.ai-markdown [data-streamdown="heading-1"],
+.ai-markdown [data-streamdown="heading-2"],
+.ai-markdown [data-streamdown="heading-3"],
+.ai-markdown [data-streamdown="heading-4"] {
+  color: #fff;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  margin: 0.9em 0 0.35em;
+}
+
+.ai-markdown [data-streamdown="heading-1"] { font-size: 1.15rem; }
+.ai-markdown [data-streamdown="heading-2"] { font-size: 1.05rem; }
+.ai-markdown [data-streamdown="heading-3"],
+.ai-markdown [data-streamdown="heading-4"] { font-size: 0.95rem; }
+
+.ai-markdown [data-streamdown="unordered-list"],
+.ai-markdown [data-streamdown="ordered-list"] {
+  margin: 0.4em 0;
+  padding-left: 1.15rem;
+}
+
+.ai-markdown [data-streamdown="list-item"] {
+  margin: 0.2em 0;
+}
+
+.ai-markdown [data-streamdown="strong"] {
+  color: #fff;
+  font-weight: 650;
+}
+
+.ai-markdown [data-streamdown="link"] {
+  color: #0ea5e9;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.ai-markdown [data-streamdown="inline-code"] {
+  border-radius: 0.35rem;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 0.1rem 0.35rem;
+  font-size: 0.8em;
+}
+
+.ai-markdown [data-streamdown="code-block"] {
+  margin: 0.7em 0;
+  overflow-x: auto;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.ai-markdown [data-streamdown="blockquote"] {
+  margin: 0.6em 0;
+  border-left: 2px solid rgba(124, 58, 237, 0.7);
+  padding-left: 0.85rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.ai-markdown [data-streamdown="table-wrapper"] {
+  margin: 0.7em 0;
+  overflow-x: auto;
+}
+
+.ai-markdown [data-streamdown="table"] {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.ai-markdown [data-streamdown="table-header-cell"],
+.ai-markdown [data-streamdown="table-cell"] {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 0.4rem 0.55rem;
+  text-align: left;
+}
+
+/* ==========================================================================
+   Global Mobile Readability & Typography (iOS / Android Standards)
+   Applies across all pages on mobile devices (<= 768px)
+   ========================================================================== */
+@media (max-width: 768px) {
+  /* Prevent iOS font inflation on orientation change */
+  html,
+  body {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  /* Standard 16px mobile inputs: prevents iOS Safari auto-zoom
+     and matches native iOS / Android input sizing across every page */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+    line-height: 1.4 !important;
+  }
+
+  /* Scale micro-text so nothing on phones falls below readable thresholds */
+  .text-\[10px\],
+  .text-\[11px\] {
+    font-size: 12px !important;
+    line-height: 1.35 !important;
+  }
+
+  .text-\[12px\],
+  .text-xs {
+    font-size: 13px !important;
+    line-height: 1.4 !important;
+  }
+
+  .text-\[13px\] {
+    font-size: 14px !important;
+    line-height: 1.45 !important;
+  }
+
+  /* Improve low-contrast muted text on mobile dark backgrounds (WCAG AA) */
+  .text-white\/30,
+  .text-white\/35,
+  .text-white\/40 {
+    color: rgba(255, 255, 255, 0.55) !important;
+  }
+
+  .text-white\/45,
+  .text-white\/50 {
+    color: rgba(255, 255, 255, 0.65) !important;
+  }
+
+  /* Comfortable reading line height on mobile */
+  p,
+  li {
+    line-height: 1.55;
+  }
+}
+
