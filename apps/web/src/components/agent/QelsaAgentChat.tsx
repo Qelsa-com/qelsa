@@ -183,6 +183,10 @@ function MessageBubble({
   });
   const hasReasoningText = parts.some((part) => isReasoningPart(part) && part.text.trim().length > 0);
   const jobResults = jobResultsIn(renderParts);
+  // Tool results are ready before the final reply starts streaming. Hold the
+  // cards until the reply settles so they don't appear first and then get
+  // pushed down by text streaming in above them.
+  const showJobResults = jobResults.length > 0 && (!waiting || stalled);
   // Before the first token (or if a provider never emits reasoning), show one
   // flat thinking row. Once reasoning exists, its own trace row owns the state.
   const showThinking = waiting && !stalled && visibleParts.length === 0 && !hasReasoningText;
@@ -230,9 +234,9 @@ function MessageBubble({
             />
           );
         })}
-        {jobResults.map((group) => (
-          <AgentJobResults key={group.key} label={group.label} jobs={group.jobs} />
-        ))}
+        {showJobResults
+          ? jobResults.map((group) => <AgentJobResults key={group.key} label={group.label} jobs={group.jobs} />)
+          : null}
         {showThinking && <AgentThinkingLine />}
         {showRetry && (
           <div className="flex flex-wrap items-center gap-2 text-[12px] text-white/40">
