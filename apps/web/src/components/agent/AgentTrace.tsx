@@ -123,7 +123,7 @@ export function AgentReasoningTrace({ text, running }: { text: string; running: 
       >
         {line}
       </CollapsibleTrigger>
-      <CollapsibleContent>
+      <CollapsibleContent className="agent-collapsible-content">
         <p className="ml-8 mt-0.5 max-h-60 overflow-y-auto whitespace-pre-wrap border-l border-white/[0.08] py-0.5 pl-3 text-[11px] leading-relaxed text-white/40">
           {text}
         </p>

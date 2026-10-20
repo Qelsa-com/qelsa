@@ -363,7 +363,21 @@ function ToolBody({
 
   if (name === "get_job_readiness") {
     if (!output.available) {
-      return <p className="mt-2 text-xs text-white/50">{output.note}</p>;
+      return (
+        <div className="mt-2 space-y-2">
+          <p className="text-xs text-white/50">{output.note}</p>
+          {typeof output.job_url_path === "string" && (
+            <a
+              href={output.job_url_path}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-[11px] font-semibold text-sky-300 hover:text-sky-200"
+            >
+              Open job page <ArrowUpRight className="size-3" />
+            </a>
+          )}
+        </div>
+      );
     }
     const score = typeof output.overall === "number" ? Math.round(output.overall) : null;
     const tone =
@@ -602,6 +616,7 @@ export function AgentToolCard({
     for (const label of labels ?? []) map.set(label.jobId, { title: label.title, company: label.company });
     return map;
   }, [labels]);
+  const singleJob = jobIds.length === 1 ? labelMap.get(jobIds[0]) : undefined;
 
   const state = part.state;
   const failed = state === "output-error";
@@ -653,7 +668,19 @@ export function AgentToolCard({
         : running
           ? meta.running
           : meta.done;
+  const traceTitle =
+    singleJob && name === "get_job_readiness" ? (
+      <>
+        {label}
+        <span className="font-normal text-white/35"> · {singleJob.title}</span>
+      </>
+    ) : (
+      label
+    );
+  const traceDescription =
+    name === "get_job_readiness" && output?.available === false ? "No analysis yet" : undefined;
   const showBody = Boolean(output) && !failed && !denied;
+  const bodyDefaultOpen = name === "get_job_readiness" ? output?.available === true : true;
   const stateIcon = failed ? (
     <AlertCircle className="size-3.5 text-rose-300" />
   ) : denied ? (
@@ -665,21 +692,22 @@ export function AgentToolCard({
   return (
     <div className="min-w-0">
       {showBody ? (
-        <Collapsible defaultOpen className="group/tool w-full">
+        <Collapsible defaultOpen={bodyDefaultOpen} className="group/tool w-full">
           <CollapsibleTrigger
             type="button"
             className="flex w-full rounded-lg text-left transition-colors hover:bg-white/[0.03]"
           >
             <AgentTraceLine
               icon={Icon}
-              title={label}
+              title={traceTitle}
               status={status}
+              description={traceDescription}
               trailing={
                 <ChevronDown className="size-3.5 transition-transform group-data-[state=open]/tool:rotate-180" />
               }
             />
           </CollapsibleTrigger>
-          <CollapsibleContent>
+          <CollapsibleContent className="agent-collapsible-content">
             <div className="ml-8 mt-1 rounded-xl border border-white/[0.07] bg-white/[0.02] px-3 py-2.5 [&>*:first-child]:mt-0">
               <ToolBody
                 part={part}
@@ -694,7 +722,13 @@ export function AgentToolCard({
         </Collapsible>
       ) : (
         <div>
-          <AgentTraceLine icon={Icon} title={label} status={status} trailing={stateIcon} />
+          <AgentTraceLine
+            icon={Icon}
+            title={traceTitle}
+            status={status}
+            description={traceDescription}
+            trailing={stateIcon}
+          />
           {failed && part.errorText && (
             <p className="ml-8 mt-1 rounded-lg border border-rose-400/20 bg-rose-400/[0.06] px-2.5 py-1.5 text-[11px] text-rose-200">
               {part.errorText}

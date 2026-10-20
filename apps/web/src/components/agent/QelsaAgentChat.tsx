@@ -412,9 +412,10 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
   const quotaExhausted = (usage?.remaining ?? 1) <= 0;
 
   const scrollRef = useRef<HTMLDivElement>(null);
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const stickToBottom = useRef(true);
+  const followFrame = useRef<number | null>(null);
 
   const syncThreadUrl = useCallback(
     (threadId: string | null) => {
@@ -614,11 +615,128 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
     return () => window.clearTimeout(timeout);
   }, [awaitingReply]);
 
-  // Keep the view pinned to the newest content unless the user scrolled up.
-  useEffect(() => {
+  // Follow the newest content with a capped, eased scroll instead of running
+  // `scrollIntoView` synchronously on every streamed token. A single rAF loop
+  // coalesces token bursts, and the cap keeps large tool cards from jumping.
+  const following = useRef(false);
+  const programmaticTop = useRef<number | null>(null);
+  const snapToBottomNext = useRef(true);
+
+  const stopFollowing = useCallback(() => {
+    following.current = false;
+    programmaticTop.current = null;
+    if (followFrame.current != null) {
+      cancelAnimationFrame(followFrame.current);
+      followFrame.current = null;
+    }
+  }, []);
+
+  const snapToBottom = useCallback(() => {
+    stopFollowing();
+    const element = scrollRef.current;
+    if (element) element.scrollTop = element.scrollHeight;
+  }, [stopFollowing]);
+
+  const followBottom = useCallback(() => {
     if (!stickToBottom.current) return;
-    bottomRef.current?.scrollIntoView({ block: "end" });
-  }, [messages, awaitingReply, activeThreadId, suggestions]);
+    const element = scrollRef.current;
+    if (!element) return;
+
+    if (snapToBottomNext.current) {
+      snapToBottomNext.current = false;
+      snapToBottom();
+      return;
+    }
+
+    if (following.current) return;
+
+    const pending = element.scrollHeight - element.scrollTop - element.clientHeight;
+    if (pending <= 1) return;
+
+    // Thread switches and new messages can be far away; don't animate a long
+    // scroll from the top of a conversation.
+    if (pending > 800) {
+      snapToBottom();
+      return;
+    }
+
+    following.current = true;
+    programmaticTop.current = element.scrollTop;
+
+    const tick = () => {
+      const currentElement = scrollRef.current;
+      if (!currentElement || !stickToBottom.current || !following.current) {
+        stopFollowing();
+        return;
+      }
+
+      // If the position is no longer where this loop left it, the user (or
+      // the browser clamping a shrinking conversation) took over. Stop
+      // pulling, but stay pinned when the clamp left us at the new bottom.
+      if (
+        programmaticTop.current != null &&
+        Math.abs(currentElement.scrollTop - programmaticTop.current) > 4
+      ) {
+        const distanceNow =
+          currentElement.scrollHeight - currentElement.scrollTop - currentElement.clientHeight;
+        following.current = false;
+        programmaticTop.current = null;
+        followFrame.current = null;
+        stickToBottom.current = distanceNow < 64;
+        if (stickToBottom.current) followBottom();
+        return;
+      }
+
+      const target = currentElement.scrollHeight - currentElement.clientHeight;
+      const current = currentElement.scrollTop;
+      const distance = target - current;
+      if (Math.abs(distance) <= 1) {
+        currentElement.scrollTop = target;
+        following.current = false;
+        programmaticTop.current = null;
+        followFrame.current = null;
+        return;
+      }
+
+      // Ease into the new content, capping each step so a large job card or
+      // tool result slides in rather than jumping.
+      const step = Math.min(24, Math.max(1.5, Math.abs(distance) * 0.18));
+      currentElement.scrollTop = current + Math.sign(distance) * Math.min(Math.abs(distance), step);
+      programmaticTop.current = currentElement.scrollTop;
+      followFrame.current = requestAnimationFrame(tick);
+    };
+
+    followFrame.current = requestAnimationFrame(tick);
+  }, [snapToBottom, stopFollowing]);
+
+  // Opening or switching conversations should land at the latest message
+  // immediately; streaming updates after that ease into place.
+  useEffect(() => {
+    snapToBottomNext.current = true;
+    stickToBottom.current = true;
+  }, [activeThreadId]);
+
+  useEffect(() => {
+    if (stickToBottom.current) followBottom();
+  }, [messages, awaitingReply, activeThreadId, suggestions, followBottom]);
+
+  // Streaming text and expanding tool results change the content height
+  // without necessarily changing the message list, so follow those too.
+  useEffect(() => {
+    const content = contentRef.current;
+    if (!content) return;
+    const observer = new ResizeObserver(() => {
+      if (stickToBottom.current) followBottom();
+    });
+    observer.observe(content);
+    return () => observer.disconnect();
+  }, [followBottom]);
+
+  useEffect(() => {
+    return () => {
+      if (followFrame.current != null) cancelAnimationFrame(followFrame.current);
+    };
+  }, []);
 
   useEffect(() => {
     const element = textareaRef.current;
@@ -628,10 +746,13 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
   }, [input]);
 
   const handleScroll = useCallback(() => {
+    if (following.current) return;
     const element = scrollRef.current;
     if (!element) return;
-    stickToBottom.current = element.scrollHeight - element.scrollTop - element.clientHeight < 120;
-  }, []);
+    const nearBottom = element.scrollHeight - element.scrollTop - element.clientHeight < 64;
+    stickToBottom.current = nearBottom;
+    if (nearBottom) followBottom();
+  }, [followBottom]);
 
   const ensureThread = useCallback(async () => {
     if (activeThreadId) return activeThreadId;
@@ -699,6 +820,7 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
           const next = conversations.find((item) => item.threadId !== threadId)?.threadId ?? null;
           setActiveThreadId(next);
           setAwaitingReply(false);
+          stickToBottom.current = true;
           syncThreadUrl(next);
         }
         toast.success("Conversation deleted");
@@ -910,7 +1032,7 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
         )}
 
         <div ref={scrollRef} onScroll={handleScroll} className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-          <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
+          <div ref={contentRef} className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
             {messageStatus === "CanLoadMore" && (
               <div className="mb-4 flex justify-center">
                 <button
@@ -1020,8 +1142,6 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
                 </div>
               </div>
             )}
-
-            <div ref={bottomRef} className="h-1" />
           </div>
         </div>
 
