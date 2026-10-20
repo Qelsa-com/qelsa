@@ -5,6 +5,7 @@ import { useGetProfileQuery, useGoogleLoginMutation, useRequestOtpMutation, useR
 import { authClient } from "@/lib/auth-client";
 import { toastUnknownError } from "@/lib/errors";
 import { clearResumeDraft } from "@/lib/resumeDraft";
+import { safeReturnUrl } from "@/lib/returnUrl";
 import type { User } from "@/types/user";
 import { AnimatePresence, motion } from "motion/react";
 import Image from "next/image";
@@ -65,7 +66,8 @@ export default function AuthPage() {
   const { data: profile } = useGetProfileQuery(undefined, { skip: !session });
 
   const searchParams = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
-  const returnUrl = searchParams.get("returnUrl") || undefined;
+  const returnUrl = safeReturnUrl(searchParams.get("returnUrl"));
+  const onboardingUrl = returnUrl ? `/onboarding?returnUrl=${encodeURIComponent(returnUrl)}` : "/onboarding";
   const isSwitching = searchParams.get("switch") === "true" || searchParams.get("logout") === "true";
 
   // Resend cooldown ticker.
@@ -91,9 +93,9 @@ export default function AuthPage() {
    */
   const finishAuth = useCallback(
     (isNewUser: boolean) => {
-      router.push(isNewUser ? "/onboarding" : returnUrl || "/");
+      router.push(isNewUser ? onboardingUrl : returnUrl || "/");
     },
-    [router, returnUrl]
+    [router, returnUrl, onboardingUrl]
   );
 
   useEffect(() => {
@@ -216,7 +218,7 @@ export default function AuthPage() {
 
               <button
                 type="button"
-                onClick={() => router.push("/onboarding")}
+                onClick={() => router.push(onboardingUrl)}
                 className={`mt-7 ${PRIMARY_BTN}`}
               >
                 Continue onboarding

@@ -2,9 +2,15 @@
 
 import { PublicNavbar } from "@/components/PublicNavbar";
 import { QelsaLogo } from "@/components/QelsaLogo";
-import { ArrowRight, Check, ChevronRight, ShieldCheck } from "lucide-react";
+import { ArrowRight, Check, ChevronRight, ShieldCheck, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+
+const AGENT_HIGHLIGHTS = [
+  "Find roles matched to your skills and preferences",
+  "See the gap between you and a role before you apply",
+  "Draft a cover letter and prepare applications in one thread",
+];
 
 export function LandingPage() {
   const router = useRouter();
@@ -383,6 +389,160 @@ export function LandingPage() {
                   <span>See how it works for hiring teams</span>
                   <ArrowRight className="size-4" />
                 </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ------------------------------ Qelsa Agent ---------------------------- */}
+      <section className="relative overflow-hidden border-t border-white/[0.06] py-20 lg:py-28">
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+          <div className="absolute left-1/2 top-0 h-[420px] w-[720px] -translate-x-1/2 rounded-full bg-[#5ee3f2]/[0.05] blur-[140px]" />
+        </div>
+
+        <div className="relative mx-auto w-full max-w-7xl px-6">
+          <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-12 lg:gap-12">
+            {/* Left copy */}
+            <div className="lg:col-span-5">
+              <div className="inline-flex items-center gap-2 rounded-full border border-[#5ee3f2]/25 bg-[#5ee3f2]/[0.06] px-3 py-1.5">
+                <Sparkles className="size-3.5 text-[#5ee3f2]" />
+                <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-[#5ee3f2]">
+                  QELSA AGENT
+                </span>
+              </div>
+
+              <h2 className="mt-5 text-3xl font-bold tracking-[-0.02em] text-white sm:text-4xl lg:text-5xl">
+                Your job search, with an agent that can act.
+              </h2>
+
+              <p className="mt-4 max-w-xl text-sm leading-relaxed text-white/55 sm:text-base">
+                Ask for roles, compare your fit, draft a cover letter, or prepare an application. Qelsa Agent works
+                from your verified profile — and pauses for your approval before anything changes.
+              </p>
+
+              <ul className="mt-6 space-y-3">
+                {AGENT_HIGHLIGHTS.map((highlight) => (
+                  <li key={highlight} className="flex items-start gap-2.5 text-sm leading-relaxed text-white/70">
+                    <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border border-[#5ee3f2]/30 bg-[#5ee3f2]/[0.08]">
+                      <Check className="size-2.5 text-[#5ee3f2]" />
+                    </span>
+                    <span>{highlight}</span>
+                  </li>
+                ))}
+              </ul>
+
+              <div className="mt-8 flex flex-col items-start gap-3">
+                <Link
+                  href="/auth?returnUrl=/agent"
+                  className="inline-flex items-center gap-2 whitespace-nowrap rounded-full bg-gradient-to-r from-[#623dd6] via-[#8433ae] to-[#be2680] px-7 py-3.5 text-sm font-semibold text-white shadow-xl shadow-purple-950/40 transition-all hover:opacity-95 sm:text-base"
+                >
+                  <Sparkles className="size-4" />
+                  <span>Open Qelsa Agent</span>
+                  <ArrowRight className="size-4" />
+                </Link>
+                <span className="text-xs leading-relaxed text-white/40">
+                  Sign in first. Your agent picks up right after.
+                </span>
+              </div>
+
+              <p className="mt-5 text-xs text-white/35">Currently built for job seekers.</p>
+            </div>
+
+            {/* Right agent preview */}
+            <div className="lg:col-span-7">
+              <div className="relative">
+                <div
+                  aria-hidden="true"
+                  className="absolute -inset-3 rounded-[36px] bg-gradient-to-br from-[#5ee3f2]/10 via-purple-600/10 to-pink-600/10 blur-2xl"
+                />
+
+                <div className="relative overflow-hidden rounded-[28px] border border-white/[0.08] bg-[#0d1020]/85 shadow-2xl backdrop-blur-xl">
+                  <div className="flex items-center justify-between border-b border-white/[0.06] px-5 py-4">
+                    <div className="flex items-center gap-3">
+                      <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-neon-cyan via-neon-purple to-neon-pink shadow-lg shadow-purple-900/30">
+                        <Sparkles className="size-4 text-black" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-white">Qelsa Agent</p>
+                        <p className="truncate text-[11px] text-white/45">Working with your verified profile</p>
+                      </div>
+                    </div>
+                    <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/[0.06] px-2.5 py-1 text-[10px] font-medium text-emerald-300">
+                      <span className="size-1.5 rounded-full bg-emerald-400" />
+                      Ready
+                    </span>
+                  </div>
+
+                  <div className="space-y-4 p-5 sm:p-6">
+                    <div className="ml-auto max-w-[85%] rounded-2xl rounded-br-md border border-white/[0.06] bg-white/[0.06] px-4 py-3 text-sm text-white/80">
+                      Find remote React roles and check my fit.
+                    </div>
+
+                    <div className="max-w-[92%] space-y-3">
+                      <p className="text-sm leading-relaxed text-white/60">
+                        I found 3 roles. Your strongest match is{" "}
+                        <span className="font-semibold text-white">Senior Frontend Engineer at Northstar</span> —{" "}
+                        <span className="font-semibold text-emerald-400">87% match</span>.
+                      </p>
+
+                      <div className="rounded-2xl border border-white/[0.08] bg-[#070913] p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-white">Senior Frontend Engineer</p>
+                            <p className="mt-0.5 truncate text-xs text-white/45">Northstar · Remote</p>
+                          </div>
+                          <span className="shrink-0 rounded-full border border-emerald-500/25 bg-emerald-500/[0.08] px-2.5 py-1 font-mono text-[11px] font-bold text-emerald-300">
+                            87%
+                          </span>
+                        </div>
+
+                        <div className="mt-3 flex flex-wrap gap-1.5">
+                          {["React", "TypeScript", "Accessibility"].map((skill) => (
+                            <span
+                              key={skill}
+                              className="rounded-full border border-white/12 bg-white/[0.04] px-2.5 py-1 text-[11px] text-white/75"
+                            >
+                              {skill}
+                            </span>
+                          ))}
+                        </div>
+
+                        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-white/[0.06] pt-3">
+                          <span className="text-[11px] text-white/40">One gap: web performance</span>
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#5ee3f2]">
+                            Draft cover letter <ArrowRight className="size-3" />
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="rounded-2xl border border-[#5ee3f2]/20 bg-[#5ee3f2]/[0.04] p-4">
+                        <div className="flex items-center gap-2">
+                          <ShieldCheck className="size-4 shrink-0 text-[#5ee3f2]" />
+                          <p className="text-xs font-semibold text-white">Ready to apply</p>
+                        </div>
+                        <p className="mt-1.5 text-xs leading-relaxed text-white/50">
+                          Qelsa Agent pauses before changing your profile. You review every action.
+                        </p>
+                        <div className="mt-3 flex flex-wrap items-center gap-2">
+                          <span className="rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-[11px] font-semibold text-white/75">
+                            Review application
+                          </span>
+                          <span className="text-[11px] text-white/35">Needs your approval</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="border-t border-white/[0.06] px-5 py-3">
+                    <div className="flex items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.02] px-3 py-2.5">
+                      <span className="text-xs text-white/30">Ask Qelsa Agent anything…</span>
+                      <span className="ml-auto flex size-6 items-center justify-center rounded-lg bg-gradient-to-br from-[#623dd6] to-[#be2680]">
+                        <ArrowRight className="size-3.5 text-white" />
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
