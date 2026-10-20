@@ -21,6 +21,7 @@ import {
   Loader2,
   MessageSquarePlus,
   PanelLeft,
+  PanelRight,
   Plus,
   RotateCcw,
   Search,
@@ -32,6 +33,8 @@ import {
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { AgentArtifactPanel } from "./AgentArtifactPanel";
+import { documentArtifact, type AgentArtifact } from "./agentArtifacts";
 import { AgentToolCard } from "./AgentToolCard";
 import {
   type AgentToolPart,
@@ -96,12 +99,14 @@ function MessageBubble({
   onApprove,
   onDeny,
   onRetry,
+  onOpenArtifact,
 }: {
   message: AgentUIMessage;
   resolvingApprovalId: string | null;
   onApprove: (approvalId: string) => void;
   onDeny: (approvalId: string) => void;
   onRetry?: () => void;
+  onOpenArtifact?: (artifact: AgentArtifact) => void;
 }) {
   const parts = (message.parts ?? []) as any[];
   const createdAt = typeof message._creationTime === "number" ? message._creationTime : Date.now();
@@ -152,13 +157,25 @@ function MessageBubble({
       <div className="min-w-0 flex-1 space-y-2.5">
         {visibleParts.map((part, index) => {
           if (isTextPart(part)) {
+            const canOpenAsArtifact = Boolean(onOpenArtifact) && !waiting && part.text.trim().length >= 600;
             return (
-              <AiMarkdown
-                key={`text-${index}`}
-                markdown={part.text}
-                newTabLinks
-                className="max-w-none text-[14px] leading-relaxed text-white/85"
-              />
+              <div key={`text-${index}`}>
+                <AiMarkdown
+                  markdown={part.text}
+                  newTabLinks
+                  className="max-w-none text-[14px] leading-relaxed text-white/85"
+                />
+                {canOpenAsArtifact && onOpenArtifact && (
+                  <button
+                    type="button"
+                    onClick={() => onOpenArtifact(documentArtifact(`${message.key}-${index}`, part.text))}
+                    className="mt-1.5 inline-flex items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.03] px-2.5 py-1 text-[10px] font-semibold text-white/40 transition-colors hover:border-neon-purple/40 hover:text-white/70"
+                  >
+                    <PanelRight className="size-3" />
+                    Open in artifact panel
+                  </button>
+                )}
+              </div>
             );
           }
           const tool = part as AgentToolPart;
@@ -169,6 +186,7 @@ function MessageBubble({
               resolving={Boolean(tool.approval?.id && tool.approval.id === resolvingApprovalId)}
               onApprove={onApprove}
               onDeny={onDeny}
+              onOpenArtifact={onOpenArtifact}
             />
           );
         })}
@@ -299,6 +317,7 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
   const [sending, setSending] = useState(false);
   const [awaitingReply, setAwaitingReply] = useState(false);
   const [resolvingApprovalId, setResolvingApprovalId] = useState<string | null>(null);
+  const [activeArtifact, setActiveArtifact] = useState<AgentArtifact | null>(null);
 
   const conversationQuery = useQuery(api.qelsaAgent.listConversations, isAuthenticated ? {} : "skip");
   const agentStatus = useQuery(api.qelsaAgent.agentStatus, {});
@@ -340,6 +359,11 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
   useEffect(() => {
     if (typeof window === "undefined" || !activeThreadId) return;
     window.localStorage.setItem("qelsa-agent-thread", activeThreadId);
+  }, [activeThreadId]);
+
+  // An artifact belongs to the conversation it came from.
+  useEffect(() => {
+    setActiveArtifact(null);
   }, [activeThreadId]);
 
   // Deep links from job pages prefill the composer once, then the page strips the query.
@@ -568,6 +592,10 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
     [activeThreadId, submitApproval],
   );
 
+  const handleOpenArtifact = useCallback((artifact: AgentArtifact) => {
+    setActiveArtifact(artifact);
+  }, []);
+
   const activeConversation = conversations.find((item) => item.threadId === activeThreadId);
   const title = activeConversation?.title ?? "Qelsa Agent";
   const renderRail = (onClose?: () => void) => (
@@ -790,6 +818,7 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
                         ? () => void handleSend(lastUserPrompt)
                         : undefined
                     }
+                    onOpenArtifact={handleOpenArtifact}
                   />
                 ))}
 
@@ -882,6 +911,14 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
           </div>
         </div>
       </main>
+
+      {activeArtifact && (
+        <AgentArtifactPanel
+          key={activeArtifact.id}
+          artifact={activeArtifact}
+          onClose={() => setActiveArtifact(null)}
+        />
+      )}
     </div>
   );
 }

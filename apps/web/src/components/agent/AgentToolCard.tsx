@@ -19,11 +19,14 @@ import {
   Check,
   Copy,
   ExternalLink,
+  FileText,
   Loader2,
+  PanelRight,
   ShieldQuestion,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import { artifactFromToolPart, type AgentArtifact } from "./agentArtifacts";
 import {
   type AgentJobSummary,
   type AgentToolPart,
@@ -179,6 +182,19 @@ function CopyButton({ text, label }: { text: string; label: string }) {
   );
 }
 
+function ArtifactButton({ onClick, label }: { onClick: () => void; label: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex items-center gap-1.5 rounded-lg border border-sky-400/25 bg-sky-400/[0.08] px-2.5 py-1.5 text-[11px] font-semibold text-sky-200 transition-colors hover:border-sky-400/40 hover:bg-sky-400/[0.14]"
+    >
+      <PanelRight className="size-3.5" />
+      {label}
+    </button>
+  );
+}
+
 function ApprovalBody({
   name,
   input,
@@ -280,17 +296,28 @@ function RecordAppliedButton({ jobId, coverLetter }: { jobId?: string; coverLett
 }
 
 function ToolBody({
+  part,
   name,
   input,
   output,
   labels,
+  onOpenArtifact,
 }: {
+  part: AgentToolPart;
   name: string;
   input: Record<string, any> | null;
   output: Record<string, any> | null;
   labels: Map<string, { title: string; company: string | null }>;
+  onOpenArtifact?: (artifact: AgentArtifact) => void;
 }) {
   if (!output) return null;
+
+  const jobId = typeof input?.job_id === "string" ? input.job_id : undefined;
+  const jobLabel = jobId ? labels.get(jobId) : undefined;
+  const artifact = artifactFromToolPart(
+    part,
+    jobLabel ? { jobTitle: jobLabel.title, company: jobLabel.company } : undefined,
+  );
 
   if (name === "search_jobs" || name === "list_saved_jobs") {
     const jobs = asArray(output.jobs) as AgentJobSummary[];
@@ -347,16 +374,21 @@ function ToolBody({
         <ChipList label="Strong" items={asArray(output.strong)} tone="border-emerald-400/25 bg-emerald-400/10 text-emerald-300" />
         <ChipList label="Partial" items={asArray(output.partial)} tone="border-amber-400/25 bg-amber-400/10 text-amber-300" />
         <ChipList label="Missing" items={asArray(output.missing)} tone="border-rose-400/25 bg-rose-400/10 text-rose-300" />
-        {typeof output.match_url_path === "string" && (
-          <a
-            href={output.match_url_path}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-[11px] font-semibold text-sky-300 hover:text-sky-200"
-          >
-            Open full analysis <ArrowUpRight className="size-3" />
-          </a>
-        )}
+        <div className="flex flex-wrap items-center gap-3">
+          {artifact && onOpenArtifact && (
+            <ArtifactButton onClick={() => onOpenArtifact(artifact)} label="Open fit report" />
+          )}
+          {typeof output.match_url_path === "string" && (
+            <a
+              href={output.match_url_path}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-[11px] font-semibold text-sky-300 hover:text-sky-200"
+            >
+              Open full analysis <ArrowUpRight className="size-3" />
+            </a>
+          )}
+        </div>
       </div>
     );
   }
@@ -367,37 +399,52 @@ function ToolBody({
       return <p className="mt-2 text-xs text-white/45">No applications yet.</p>;
     }
     return (
-      <div className="mt-2 space-y-1.5">
-        {applications.map((row: any) => (
-          <div
-            key={row.application_id}
-            className="flex items-center gap-3 rounded-lg border border-white/[0.07] bg-white/[0.03] px-3 py-2"
-          >
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-[13px] font-semibold text-white/90">{row.job?.title ?? "Job"}</p>
-              <p className="truncate text-[11px] text-white/45">
-                {[row.job?.company, relativeTime(row.applied_at)].filter(Boolean).join(" · ")}
-              </p>
+      <div className="mt-2 space-y-2.5">
+        <div className="space-y-1.5">
+          {applications.map((row: any) => (
+            <div
+              key={row.application_id}
+              className="flex items-center gap-3 rounded-lg border border-white/[0.07] bg-white/[0.03] px-3 py-2"
+            >
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[13px] font-semibold text-white/90">{row.job?.title ?? "Job"}</p>
+                <p className="truncate text-[11px] text-white/45">
+                  {[row.job?.company, relativeTime(row.applied_at)].filter(Boolean).join(" · ")}
+                </p>
+              </div>
+              <StatusChip status={String(row.status ?? "applied")} />
             </div>
-            <StatusChip status={String(row.status ?? "applied")} />
-          </div>
-        ))}
+          ))}
+        </div>
+        {artifact && onOpenArtifact && (
+          <ArtifactButton onClick={() => onOpenArtifact(artifact)} label="Open application tracker" />
+        )}
       </div>
     );
   }
 
   if (name === "write_cover_letter" && typeof output.cover_letter === "string") {
+    const preview = output.cover_letter.replace(/\s+/g, " ").trim().slice(0, 200);
+    const truncated = output.cover_letter.replace(/\s+/g, " ").trim().length > 200;
+    const letterTitle = typeof output.job_title === "string" ? output.job_title : "this role";
     return (
-      <div className="mt-2 space-y-2">
-        <details className="rounded-lg border border-white/[0.08] bg-black/25">
-          <summary className="cursor-pointer px-3 py-2 text-[11px] font-semibold text-sky-300">
-            View draft
-          </summary>
-          <div className="max-h-64 overflow-y-auto whitespace-pre-wrap border-t border-white/[0.06] px-3 py-2 text-xs leading-relaxed text-white/70">
-            {output.cover_letter}
-          </div>
-        </details>
-        <CopyButton text={output.cover_letter} label="Copy letter" />
+      <div className="mt-2 rounded-lg border border-white/[0.08] bg-black/20 p-3">
+        <div className="flex items-center gap-2">
+          <FileText className="size-3.5 shrink-0 text-sky-300" />
+          <p className="min-w-0 flex-1 truncate text-[11px] font-semibold text-white/70">
+            Draft for {letterTitle} is ready
+          </p>
+        </div>
+        <p className="mt-1.5 line-clamp-2 text-[11px] leading-relaxed text-white/45">
+          {preview}
+          {truncated ? "…" : ""}
+        </p>
+        <div className="mt-2.5 flex flex-wrap gap-2">
+          {artifact && onOpenArtifact && (
+            <ArtifactButton onClick={() => onOpenArtifact(artifact)} label="Open cover letter" />
+          )}
+          <CopyButton text={output.cover_letter} label="Copy letter" />
+        </div>
       </div>
     );
   }
@@ -427,6 +474,9 @@ function ToolBody({
             >
               Resume <ExternalLink className="size-3" />
             </a>
+          )}
+          {artifact && onOpenArtifact && (
+            <ArtifactButton onClick={() => onOpenArtifact(artifact)} label="Open application kit" />
           )}
           {typeof output.cover_letter === "string" && (
             <CopyButton text={output.cover_letter} label="Copy cover letter" />
@@ -522,11 +572,13 @@ export function AgentToolCard({
   resolving,
   onApprove,
   onDeny,
+  onOpenArtifact,
 }: {
   part: AgentToolPart;
   resolving: boolean;
   onApprove: (approvalId: string) => void;
   onDeny: (approvalId: string) => void;
+  onOpenArtifact?: (artifact: AgentArtifact) => void;
 }) {
   const name = toolNameOf(part);
   const meta = toolMetaFor(name);
@@ -613,7 +665,16 @@ export function AgentToolCard({
         />
       )}
 
-      {!awaitingApproval && !failed && !denied && <ToolBody name={name} input={input} output={output} labels={labelMap} />}
+      {!awaitingApproval && !failed && !denied && (
+        <ToolBody
+          part={part}
+          name={name}
+          input={input}
+          output={output}
+          labels={labelMap}
+          onOpenArtifact={onOpenArtifact}
+        />
+      )}
     </div>
   );
 }
