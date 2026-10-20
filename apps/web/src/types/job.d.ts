@@ -68,6 +68,9 @@ export type Job = {
 
   // Seeker-side match data (optional-auth; null when logged out)
   competency?: Competency | null;
+  /** Career alignment can exist without a readiness score (goal-first mode). */
+  career_alignment?: number | null;
+  smart_match?: number | null;
 
   /** Distinct signed-in users who have opened this posting. */
   view_count?: number;

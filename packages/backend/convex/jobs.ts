@@ -12,6 +12,7 @@ import {
   emptyRelationCache,
   prefetchCities,
   publishedMs,
+  rankByCareerAlignment,
   rankBySmartMatch,
   rankCandidates,
   scoreReadiness,
@@ -32,6 +33,7 @@ import {
   hasRoleProfile,
   isAlmostThere,
   isReadyNow,
+  isSeniorityCompatible,
   jobMatchesUserRole,
   loadUserRoleProfile,
   ROLE_SCAN,
@@ -55,6 +57,7 @@ type ListHydration = {
   educationCount: number;
   careerGoal?: Doc<"career_goals"> | null;
   hasProfile: boolean;
+  hasWorkExperience: boolean;
 };
 
 async function jobSkillsFor(ctx: QueryCtx, jobId: Id<"jobs">, cache?: SkillCache) {
@@ -76,7 +79,19 @@ async function jobSkillsFor(ctx: QueryCtx, jobId: Id<"jobs">, cache?: SkillCache
 }
 
 async function listHydration(ctx: QueryCtx, user: Doc<"users"> | null, loadSaved = true): Promise<ListHydration> {
-  if (!user) return { userSkills: [], savedJobIds: new Set(), appliedJobIds: new Set(), skillCache: new Map(), yearsExperience: null, educationCount: 0, careerGoal: null, hasProfile: false };
+  if (!user) {
+    return {
+      userSkills: [],
+      savedJobIds: new Set(),
+      appliedJobIds: new Set(),
+      skillCache: new Map(),
+      yearsExperience: null,
+      educationCount: 0,
+      careerGoal: null,
+      hasProfile: false,
+      hasWorkExperience: false,
+    };
+  }
   const [skillRows, saved, expRows, eduRows, appRows, careerGoal] = await Promise.all([
     ctx.db
       .query("user_skills")
@@ -129,6 +144,7 @@ async function listHydration(ctx: QueryCtx, user: Doc<"users"> | null, loadSaved
     educationCount: eduRows.length,
     careerGoal,
     hasProfile,
+    hasWorkExperience: expRows.length > 0,
   };
 }
 
@@ -664,8 +680,16 @@ export const countFiltered = optionalAuthQuery({
 });
 
 const matchTierJob = v.any();
+const GOAL_MATCH_LIMIT = 12;
 
-/** Homepage rails: top Ready Now / Almost There jobs for the signed-in user. */
+/**
+ * Homepage rails: top matches for the signed-in user.
+ *
+ * Two scoring modes:
+ * - profile: readiness + career alignment for users with work experience.
+ * - goal: career alignment only for early-career users with no work experience
+ *   yet. A goal alone is enough to rank roles; readiness unlocks later.
+ */
 export const listMatchTiers = authedQuery({
   args: browseFilterArgs,
   returns: v.object({
@@ -675,22 +699,45 @@ export const listMatchTiers = authedQuery({
     readyTotal: v.number(),
     almostTotal: v.number(),
     growthTotal: v.optional(v.number()),
+    goalMatches: v.array(matchTierJob),
+    goalTotal: v.number(),
+    matchMode: v.union(v.literal("profile"), v.literal("goal"), v.literal("none")),
     hasRoleProfile: v.boolean(),
   }),
   handler: async (ctx, args) => {
     const [profile, hydration] = await Promise.all([loadUserRoleProfile(ctx, ctx.user), listHydration(ctx, ctx.user, false)]);
-    if (!hasRoleProfile(profile) || !hydration.hasProfile) {
-      return { ready: [], almost: [], growth: [], readyTotal: 0, almostTotal: 0, growthTotal: 0, hasRoleProfile: hasRoleProfile(profile) };
+    const careerGoal = hydration.careerGoal ?? null;
+    const goalReady = Boolean(careerGoal?.target_role?.trim() || careerGoal?.target_roles?.length);
+    const hasRole = hasRoleProfile(profile);
+    const goalFirst = goalReady && !hydration.hasWorkExperience;
+
+    if (!hasRole || (!hydration.hasProfile && !goalReady)) {
+      return {
+        ready: [],
+        almost: [],
+        growth: [],
+        readyTotal: 0,
+        almostTotal: 0,
+        growthTotal: 0,
+        goalMatches: [],
+        goalTotal: 0,
+        matchMode: "none" as const,
+        hasRoleProfile: hasRole,
+      };
     }
 
     const search = ((args.search as string | undefined) ?? "").trim();
     const [newest, titled, searched] = await Promise.all([
-      search ? Promise.resolve([] as Doc<"jobs">[]) : openJobs(ctx, ROLE_SCAN.TITLE_SCAN_LIMIT),
+      search || goalFirst ? Promise.resolve([] as Doc<"jobs">[]) : openJobs(ctx, ROLE_SCAN.TITLE_SCAN_LIMIT),
       search ? Promise.resolve([] as Doc<"jobs">[]) : jobsMatchingRoleTitles(ctx, profile),
       search ? jobsMatchingBrowseSearch(ctx, search) : Promise.resolve([] as Doc<"jobs">[]),
     ]);
     const seen = new Set(titled.map((job) => job._id));
-    const open = search ? searched : [...titled, ...newest.filter((job) => !seen.has(job._id))];
+    const open = search
+      ? searched
+      : goalFirst
+        ? titled
+        : [...titled, ...newest.filter((job) => !seen.has(job._id))];
     const cities = args.cities ?? (args.city ? [args.city] : []);
     const needsCity = cities.length > 0;
     const cache = emptyRelationCache();
@@ -712,8 +759,48 @@ export const listMatchTiers = authedQuery({
       }
       if (matchedRole.length >= ROLE_SCAN.TITLE_MATCH_CAP && matchedOther.length >= ROLE_SCAN.TITLE_MATCH_CAP) break;
     }
-    const matched = [...matchedRole, ...matchedOther];
 
+    if (goalFirst) {
+      const goalPool = (search ? [...matchedRole, ...matchedOther] : matchedRole).filter((job) =>
+        isSeniorityCompatible(job, careerGoal?.experience_level),
+      );
+      const scores = await scoreTierMatches(
+        ctx,
+        goalPool,
+        [],
+        undefined,
+        careerGoal,
+        {
+          skills: hydration.skillCache,
+          pages: cache.pages,
+          titles: cache.titles,
+        },
+      );
+      const goalJobs: BrowseCandidate[] = [];
+      for (const job of goalPool) {
+        const row = scores.get(job._id);
+        const careerAlignment = row?.careerAlignment ?? null;
+        if (careerAlignment == null) continue;
+        goalJobs.push({ job, readiness: null, careerAlignment, smartMatch: null, gap: null });
+      }
+      rankByCareerAlignment(goalJobs);
+      const goalTop = goalJobs.slice(0, GOAL_MATCH_LIMIT);
+      const goalMatches = await slimListJobs(ctx, goalTop, hydration, cache);
+      return {
+        ready: [],
+        almost: [],
+        growth: [],
+        readyTotal: 0,
+        almostTotal: 0,
+        growthTotal: 0,
+        goalMatches,
+        goalTotal: goalJobs.length,
+        matchMode: "goal" as const,
+        hasRoleProfile: true,
+      };
+    }
+
+    const matched = [...matchedRole, ...matchedOther];
     const scores = await scoreTierMatches(
       ctx,
       matched,
@@ -722,7 +809,7 @@ export const listMatchTiers = authedQuery({
         yearsExperience: hydration.yearsExperience,
         educationCount: hydration.educationCount,
       },
-      hydration.careerGoal ?? null,
+      careerGoal,
       {
         skills: hydration.skillCache,
         pages: cache.pages,
@@ -768,6 +855,9 @@ export const listMatchTiers = authedQuery({
       readyTotal: readyJobs.length,
       almostTotal: almostJobs.length,
       growthTotal: growthJobs.length,
+      goalMatches: [],
+      goalTotal: 0,
+      matchMode: "profile" as const,
       hasRoleProfile: true,
     };
   },

@@ -98,6 +98,14 @@ export function rankBySmartMatch(candidates: BrowseCandidate[]) {
   });
 }
 
+/** Goal-first ranking for early-career users who do not have readiness data yet. */
+export function rankByCareerAlignment(candidates: BrowseCandidate[]) {
+  candidates.sort((a, b) => {
+    const byScore = (b.careerAlignment ?? -1) - (a.careerAlignment ?? -1);
+    return byScore !== 0 ? byScore : publishedMs(b.job) - publishedMs(a.job);
+  });
+}
+
 export function sortEnrichedJobs(
   jobs: Array<{
     competency?: { readiness?: number } | null;
@@ -279,10 +287,15 @@ export async function scoreTierMatches(
 
   const hasData = userSkills.length > 0 || profileContext?.yearsExperience != null || (profileContext?.educationCount != null && profileContext.educationCount > 0);
   if (!hasData) {
+    const rowsById = new Map(rowsByJob);
     return new Map(
       jobs.map((job) => {
         const page = job.page_id ? (caches.pages.get(job.page_id) ?? null) : null;
         const titled = !job.title && job.job_title_id ? (caches.titles.get(job.job_title_id) ?? null) : null;
+        // Goal skills still matter when there is no readiness profile.
+        const jobSkillNames = (rowsById.get(job._id) ?? [])
+          .map((row) => caches.skills.get(row.skill_id)?.name ?? "")
+          .filter(Boolean);
         const careerAlignment = careerGoal
           ? calculateCareerAlignment(
               careerGoal,
@@ -291,7 +304,7 @@ export async function scoreTierMatches(
                 industry: page?.industry,
                 company_name: job.company_name ?? page?.name,
               },
-              [],
+              jobSkillNames,
             )
           : null;
         return [

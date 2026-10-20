@@ -33,6 +33,14 @@ export const MATCH_TIER = {
 
 export type MatchTierId = keyof typeof MATCH_TIER;
 
+/** Goal-first mode for early-career users without readiness data. */
+export const GOAL_MATCH = {
+  title: "Goal matches",
+  subtitle: "Ranked by how well each role fits your target role, skills, and industries.",
+  dotColor: "#22d3ee",
+  color: "#22d3ee",
+} as const;
+
 export function matchRingColor(score: number): string {
   if (score >= READY_MIN) return "#10b981";
   if (score >= ALMOST_MIN) return "#f59e0b";
