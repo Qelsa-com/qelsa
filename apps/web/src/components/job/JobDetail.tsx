@@ -27,7 +27,7 @@ import { toast } from "sonner";
 import { jobDescriptionToHtml } from "@/lib/jobDescription";
 import { Job } from "@/types/job";
 import DOMPurify from "dompurify";
-import { ArrowLeft, ArrowUpRight, Bookmark, BookmarkCheck, BookOpen, Briefcase, Building2, CheckCircle2, FileText, Linkedin, Link as LinkIcon, MessageCircle, Pencil, Share2, Twitter, Users } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, Bookmark, BookmarkCheck, BookOpen, Briefcase, Building2, CheckCircle2, FileText, Linkedin, Link as LinkIcon, MessageCircle, Pencil, Share2, Sparkles, Twitter, Users } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { goBackJobs } from "@/lib/jobNavigation";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -381,8 +381,12 @@ export function JobDetail() {
     setShowQuickApplyModal(true);
   };
 
-  const handleConfirmExternalApply = async () => {
-    if (!isAuthenticated) {
+  const handleAskAgent = () => {
+    const prompt = `Help me apply to "${title}"${companyName ? ` at ${companyName}` : ""}. Job id: ${job.id}. Check how well I fit and prepare everything I need to apply.`;
+    router.push(`/agent?prompt=${encodeURIComponent(prompt)}`);
+  };
+
+  const handleConfirmExternalApply = async () => {    if (!isAuthenticated) {
       setShowExternalConfirmModal(false);
       router.push(`/auth?actionType=profile&returnUrl=${encodeURIComponent(`/jobs/${id}`)}`);
       return;
@@ -546,6 +550,19 @@ export function JobDetail() {
                   {isAuthenticated && !applied && (
                     <Button type="button" variant="outline" onClick={handleSave} className="h-auto flex-1 rounded-full border-[1.5px] border-white/20 bg-transparent px-4 py-3 text-sm text-white hover:bg-white/5 lg:flex-none lg:px-6 lg:py-3.5">
                       {saved ? "Saved" : "Save job"}
+                    </Button>
+                  )}
+                  {isAuthenticated && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleAskAgent}
+                      aria-label="Ask Qelsa Agent about this job"
+                      title="Ask Qelsa Agent about this job"
+                      className="h-auto shrink-0 rounded-full border-[1.5px] border-white/20 bg-transparent px-4 py-3 text-sm text-white hover:bg-white/5 lg:px-4 lg:py-3.5"
+                    >
+                      <Sparkles className="size-4 text-neon-cyan xl:mr-2" />
+                      <span className="hidden xl:inline">Ask Qelsa Agent</span>
                     </Button>
                   )}
                   {applied ? (
@@ -846,6 +863,17 @@ export function JobDetail() {
                     className="h-auto flex-1 rounded-full border-[1.5px] border-white/20 bg-transparent px-5 py-3.5 text-sm font-semibold text-white hover:bg-white/5"
                   >
                     {saved ? "Saved" : "Save job"}
+                  </Button>
+                )}
+                {isAuthenticated && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleAskAgent}
+                    aria-label="Ask Qelsa Agent about this job"
+                    className="size-[46px] shrink-0 rounded-full border-[1.5px] border-white/20 bg-transparent p-0 text-neon-cyan hover:bg-white/5"
+                  >
+                    <Sparkles className="size-5" />
                   </Button>
                 )}
                 {applied ? (

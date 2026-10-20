@@ -25,7 +25,7 @@ export const loadContextForCoverLetter = internalQuery({
       const page = await ctx.db.get(job.page_id);
       companyName = page?.name;
     }
-    companyName = companyName || "Company";
+    companyName = companyName || "Qelsa";
 
     // Experiences
     const expRows = await ctx.db
