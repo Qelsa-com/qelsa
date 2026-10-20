@@ -337,6 +337,40 @@
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+
+  /* Agent trace shimmer: the label of a step that is still running. */
+  @keyframes agent-trace-shimmer {
+    0% {
+      background-position: 200% 0;
+    }
+    100% {
+      background-position: -200% 0;
+    }
+  }
+
+  .agent-trace-shimmer {
+    background-image: linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.42) 0%,
+      rgba(186, 230, 253, 0.98) 45%,
+      rgba(255, 255, 255, 0.42) 100%
+    );
+    background-size: 200% 100%;
+    color: transparent;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: agent-trace-shimmer 1.8s linear infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .agent-trace-shimmer {
+      background: none;
+      color: rgba(255, 255, 255, 0.72);
+      -webkit-text-fill-color: currentColor;
+      animation: none;
+    }
+  }
 }
 
 /**

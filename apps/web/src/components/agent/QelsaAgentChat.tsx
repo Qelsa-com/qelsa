@@ -38,10 +38,12 @@ import { toast } from "sonner";
 import { AgentArtifactPanel } from "./AgentArtifactPanel";
 import { documentArtifact, type AgentArtifact } from "./agentArtifacts";
 import { AgentToolCard } from "./AgentToolCard";
+import { AgentReasoningTrace, AgentThinkingLine } from "./AgentTrace";
 import {
   type AgentToolPart,
   type AgentUIMessage,
   fallbackFollowUps,
+  isReasoningPart,
   SUGGESTIONS,
   toolNameOf,
 } from "./agentToolMeta";
@@ -93,25 +95,6 @@ function AssistantAvatar() {
   return (
     <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-neon-cyan via-neon-purple to-neon-pink shadow-lg shadow-purple-900/25">
       <Sparkles className="size-4 text-black" />
-    </div>
-  );
-}
-
-function TypingDots() {
-  return (
-    <div className="flex items-center gap-1">
-      <span className="size-1.5 animate-pulse rounded-full bg-neon-cyan" />
-      <span className="size-1.5 animate-pulse rounded-full bg-neon-purple [animation-delay:150ms]" />
-      <span className="size-1.5 animate-pulse rounded-full bg-neon-pink [animation-delay:300ms]" />
-    </div>
-  );
-}
-
-function ThinkingIndicator({ reasoning = false }: { reasoning?: boolean }) {
-  return (
-    <div className="flex items-center gap-2 py-1.5 text-[12px] text-white/40">
-      <TypingDots />
-      <span>{reasoning ? "Thinking through the details…" : "Thinking…"}</span>
     </div>
   );
 }
@@ -186,10 +169,17 @@ function MessageBubble({
       (generationActive === false && !backendActive && Date.now() - createdAt > 120_000));
   const isError = failed || stalled;
   const showRetry = isError && Boolean(onRetry);
-  const hasReasoning = parts.some((part) => part?.type === "reasoning");
-  const lastMeaningfulPart = [...parts].reverse().find((part) => part?.type !== "step-start");
-  const reasoningActive = waiting && lastMeaningfulPart?.type === "reasoning";
-  const showThinking = waiting && !stalled && (visibleParts.length === 0 || reasoningActive);
+  const renderParts = parts.filter((part) => {
+    if (isTextPart(part)) return part.text.trim().length > 0;
+    if (isReasoningPart(part)) return part.text.trim().length > 0;
+    return isToolPart(part);
+  });
+  const hasReasoningText = parts.some(
+    (part) => isReasoningPart(part) && part.text.trim().length > 0,
+  );
+  // Before the first token (or if a provider never emits reasoning), show one
+  // flat thinking row. Once reasoning exists, its own trace row owns the state.
+  const showThinking = waiting && !stalled && visibleParts.length === 0 && !hasReasoningText;
 
   // A failed placeholder that has been superseded by a newer turn should not
   // leave an empty bubble (or a dead error banner) in the transcript.
@@ -199,7 +189,16 @@ function MessageBubble({
     <div className="flex gap-3">
       <AssistantAvatar />
       <div className="min-w-0 flex-1 space-y-2.5">
-        {visibleParts.map((part, index) => {
+        {renderParts.map((part, index) => {
+          if (isReasoningPart(part)) {
+            return (
+              <AgentReasoningTrace
+                key={`reasoning-${index}`}
+                text={part.text}
+                running={waiting && !stalled && part.state !== "done"}
+              />
+            );
+          }
           if (isTextPart(part)) {
             const canOpenAsArtifact = Boolean(onOpenArtifact) && !waiting && part.text.trim().length >= 600;
             return (
@@ -235,7 +234,7 @@ function MessageBubble({
             />
           );
         })}
-        {showThinking && <ThinkingIndicator reasoning={hasReasoning} />}
+        {showThinking && <AgentThinkingLine />}
         {showRetry && (
           <div className="flex flex-wrap items-center gap-2 text-[12px] text-white/40">
             <span>
@@ -1016,9 +1015,8 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
             {awaitingReply && !streaming && generationState?.status !== "failed" && (
               <div className="mt-5 flex gap-3">
                 <AssistantAvatar />
-                <div className="flex items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-1.5">
-                  <TypingDots />
-                  <span className="text-[12px] text-white/40">Thinking…</span>
+                <div className="min-w-0 flex-1 pt-1">
+                  <AgentThinkingLine />
                 </div>
               </div>
             )}

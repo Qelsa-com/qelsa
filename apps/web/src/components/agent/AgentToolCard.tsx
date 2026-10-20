@@ -8,6 +8,11 @@
 
 import { api } from "@/lib/convexApi";
 import { cn } from "@/components/ui/utils";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { useCreateJobApplicationMutation } from "@/features/api/jobApplicationsApi";
 import { toastUnknownError } from "@/lib/errors";
 import { useQuery } from "convex/react";
@@ -17,6 +22,7 @@ import {
   Ban,
   BriefcaseBusiness,
   Check,
+  ChevronDown,
   Copy,
   ExternalLink,
   FileText,
@@ -33,6 +39,7 @@ import {
   toolMetaFor,
   toolNameOf,
 } from "./agentToolMeta";
+import { AgentTraceLine } from "./AgentTrace";
 
 function asRecord(value: unknown): Record<string, any> | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
@@ -607,80 +614,93 @@ export function AgentToolCard({
   const stopped = interrupted && wasRunning && !awaitingApproval;
   const running = wasRunning && !stopped;
 
-  const label = awaitingApproval
-    ? "Needs your approval"
-    : failed
-      ? "Action failed"
-      : denied
-        ? "Action denied"
-        : stopped
-          ? "Action interrupted"
-          : running
-            ? meta.running
-            : meta.done;
+  // Approval is a question for the person, not a trace step, so it stays a
+  // standalone card. Every other state becomes a flat trace row with the rich
+  // result tucked behind its own disclosure.
+  if (awaitingApproval) {
+    return (
+      <div className="rounded-xl border border-amber-400/25 bg-amber-400/[0.06] px-3 py-2.5">
+        <div className="flex items-center gap-2">
+          <div className="flex size-6 shrink-0 items-center justify-center rounded-md border border-amber-400/25 bg-amber-400/10 text-amber-300">
+            <Icon className="size-3.5" />
+          </div>
+          <p className="min-w-0 flex-1 truncate text-[12px] font-semibold text-amber-200">
+            Needs your approval
+          </p>
+          <ShieldQuestion className="size-3.5 text-amber-300" />
+        </div>
+        {part.approval?.id && (
+          <ApprovalBody
+            name={name}
+            input={input}
+            labels={labelMap}
+            resolving={resolving}
+            onApprove={() => onApprove(part.approval!.id)}
+            onDeny={() => onDeny(part.approval!.id)}
+          />
+        )}
+      </div>
+    );
+  }
 
-  const tone = awaitingApproval
-    ? "border-amber-400/25 bg-amber-400/[0.06]"
-    : failed
-      ? "border-rose-400/25 bg-rose-400/[0.05]"
-      : denied || stopped
-        ? "border-white/10 bg-white/[0.03]"
-        : "border-white/[0.08] bg-white/[0.03]";
+  const status = failed ? "error" : stopped ? "pending" : running ? "running" : undefined;
+  const label = failed
+    ? meta.failed
+    : denied
+      ? "Action denied"
+      : stopped
+        ? "Action interrupted"
+        : running
+          ? meta.running
+          : meta.done;
+  const showBody = Boolean(output) && !failed && !denied;
+  const stateIcon = failed ? (
+    <AlertCircle className="size-3.5 text-rose-300" />
+  ) : denied ? (
+    <Ban className="size-3.5 text-white/30" />
+  ) : stopped ? (
+    <AlertCircle className="size-3.5 text-white/30" />
+  ) : null;
 
   return (
-    <div className={cn("rounded-xl border px-3 py-2.5", tone)}>
-      <div className="flex items-center gap-2">
-        <div
-          className={cn(
-            "flex size-6 shrink-0 items-center justify-center rounded-md border",
-            awaitingApproval
-              ? "border-amber-400/25 bg-amber-400/10 text-amber-300"
-              : "border-white/10 bg-white/[0.05] text-white/55",
+    <div className="min-w-0">
+      {showBody ? (
+        <Collapsible defaultOpen className="group/tool w-full">
+          <CollapsibleTrigger
+            type="button"
+            className="flex w-full rounded-lg text-left transition-colors hover:bg-white/[0.03]"
+          >
+            <AgentTraceLine
+              icon={Icon}
+              title={label}
+              status={status}
+              trailing={
+                <ChevronDown className="size-3.5 transition-transform group-data-[state=open]/tool:rotate-180" />
+              }
+            />
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="ml-8 mt-1 rounded-xl border border-white/[0.07] bg-white/[0.02] px-3 py-2.5 [&>*:first-child]:mt-0">
+              <ToolBody
+                part={part}
+                name={name}
+                input={input}
+                output={output}
+                labels={labelMap}
+                onOpenArtifact={onOpenArtifact}
+              />
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+      ) : (
+        <div>
+          <AgentTraceLine icon={Icon} title={label} status={status} trailing={stateIcon} />
+          {failed && part.errorText && (
+            <p className="ml-8 mt-1 rounded-lg border border-rose-400/20 bg-rose-400/[0.06] px-2.5 py-1.5 text-[11px] text-rose-200">
+              {part.errorText}
+            </p>
           )}
-        >
-          <Icon className="size-3.5" />
         </div>
-        <p
-          className={cn(
-            "min-w-0 flex-1 truncate text-[12px] font-semibold",
-            awaitingApproval ? "text-amber-200" : "text-white/70",
-          )}
-        >
-          {label}
-        </p>
-        {running && !awaitingApproval && <Loader2 className="size-3.5 animate-spin text-white/35" />}
-        {failed && <AlertCircle className="size-3.5 text-rose-300" />}
-        {denied && <Ban className="size-3.5 text-white/30" />}
-        {stopped && <AlertCircle className="size-3.5 text-white/30" />}
-        {awaitingApproval && <ShieldQuestion className="size-3.5 text-amber-300" />}
-      </div>
-
-      {failed && part.errorText && (
-        <p className="mt-2 rounded-lg border border-rose-400/20 bg-rose-400/[0.06] px-2.5 py-1.5 text-[11px] text-rose-200">
-          {part.errorText}
-        </p>
-      )}
-
-      {awaitingApproval && part.approval?.id && (
-        <ApprovalBody
-          name={name}
-          input={input}
-          labels={labelMap}
-          resolving={resolving}
-          onApprove={() => onApprove(part.approval!.id)}
-          onDeny={() => onDeny(part.approval!.id)}
-        />
-      )}
-
-      {!awaitingApproval && !failed && !denied && (!stopped || Boolean(output)) && (
-        <ToolBody
-          part={part}
-          name={name}
-          input={input}
-          output={output}
-          labels={labelMap}
-          onOpenArtifact={onOpenArtifact}
-        />
       )}
     </div>
   );

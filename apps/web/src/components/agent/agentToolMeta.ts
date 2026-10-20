@@ -72,7 +72,17 @@ export type AgentToolPart = {
 
 export type AgentTextPart = { type: "text"; text: string };
 
-export type AgentUIPart = AgentTextPart | AgentToolPart | { type: string; [key: string]: unknown };
+export type AgentReasoningPart = {
+  type: "reasoning";
+  text: string;
+  state?: "streaming" | "done";
+};
+
+export type AgentUIPart =
+  | AgentTextPart
+  | AgentReasoningPart
+  | AgentToolPart
+  | { type: string; [key: string]: unknown };
 
 export type AgentUIMessage = {
   key: string;
@@ -83,27 +93,82 @@ export type AgentUIMessage = {
   _creationTime?: number;
 };
 
-export const TOOL_META: Record<string, { done: string; running: string; icon: LucideIcon }> = {
-  search_jobs: { done: "Searched jobs", running: "Searching jobs", icon: Search },
-  get_job_details: { done: "Read job details", running: "Reading job details", icon: FileSearch },
-  get_my_profile: { done: "Read your profile", running: "Reading your profile", icon: UserRound },
-  list_my_applications: { done: "Checked your applications", running: "Checking your applications", icon: ClipboardList },
-  list_saved_jobs: { done: "Checked saved jobs", running: "Checking saved jobs", icon: Bookmark },
-  get_job_readiness: { done: "Checked your fit", running: "Checking your fit", icon: Target },
-  write_cover_letter: { done: "Drafted a cover letter", running: "Drafting a cover letter", icon: PenLine },
-  save_job: { done: "Updated saved jobs", running: "Updating saved jobs", icon: Bookmark },
-  apply_to_job: { done: "Submitted application", running: "Submitting application", icon: Send },
+export const TOOL_META: Record<
+  string,
+  { done: string; running: string; failed: string; icon: LucideIcon }
+> = {
+  search_jobs: {
+    done: "Searched jobs",
+    running: "Searching jobs",
+    failed: "Couldn't search jobs",
+    icon: Search,
+  },
+  get_job_details: {
+    done: "Read job details",
+    running: "Reading job details",
+    failed: "Couldn't read job details",
+    icon: FileSearch,
+  },
+  get_my_profile: {
+    done: "Read your profile",
+    running: "Reading your profile",
+    failed: "Couldn't read your profile",
+    icon: UserRound,
+  },
+  list_my_applications: {
+    done: "Checked your applications",
+    running: "Checking your applications",
+    failed: "Couldn't check your applications",
+    icon: ClipboardList,
+  },
+  list_saved_jobs: {
+    done: "Checked saved jobs",
+    running: "Checking saved jobs",
+    failed: "Couldn't check saved jobs",
+    icon: Bookmark,
+  },
+  get_job_readiness: {
+    done: "Checked your fit",
+    running: "Checking your fit",
+    failed: "Couldn't check your fit",
+    icon: Target,
+  },
+  write_cover_letter: {
+    done: "Drafted a cover letter",
+    running: "Drafting a cover letter",
+    failed: "Couldn't draft the cover letter",
+    icon: PenLine,
+  },
+  save_job: {
+    done: "Updated saved jobs",
+    running: "Updating saved jobs",
+    failed: "Couldn't update saved jobs",
+    icon: Bookmark,
+  },
+  apply_to_job: {
+    done: "Submitted application",
+    running: "Submitting application",
+    failed: "Couldn't submit the application",
+    icon: Send,
+  },
   prepare_external_application: {
     done: "Prepared external application",
     running: "Preparing external application",
+    failed: "Couldn't prepare the application",
     icon: ExternalLink,
   },
   record_external_application: {
     done: "Recorded external application",
     running: "Recording external application",
+    failed: "Couldn't record the application",
     icon: CheckCircle2,
   },
-  update_career_goal: { done: "Updated career goal", running: "Updating career goal", icon: Target },
+  update_career_goal: {
+    done: "Updated career goal",
+    running: "Updating career goal",
+    failed: "Couldn't update the career goal",
+    icon: Target,
+  },
 };
 
 export function toolNameOf(part: AgentToolPart) {
@@ -111,7 +176,18 @@ export function toolNameOf(part: AgentToolPart) {
 }
 
 export function toolMetaFor(name: string) {
-  return TOOL_META[name] ?? { done: "Ran action", running: "Running action", icon: Wrench };
+  return (
+    TOOL_META[name] ?? {
+      done: "Ran action",
+      running: "Running action",
+      failed: "Couldn't complete that action",
+      icon: Wrench,
+    }
+  );
+}
+
+export function isReasoningPart(part: any): part is AgentReasoningPart {
+  return part?.type === "reasoning" && typeof part.text === "string";
 }
 
 export const SUGGESTIONS: Array<{
