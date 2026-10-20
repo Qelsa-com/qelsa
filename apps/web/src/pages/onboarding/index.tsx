@@ -11,11 +11,14 @@ import { authClient } from "@/lib/auth-client";
 import { toastUnknownError } from "@/lib/errors";
 import { homeForAccount } from "@/lib/onboarding";
 import { clearResumeDraft } from "@/lib/resumeDraft";
-import { useRouter } from "next/navigation";
+import { safeReturnUrl } from "@/lib/returnUrl";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 export default function OnboardingPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const returnUrl = safeReturnUrl(searchParams.get("returnUrl"));
   const { user, isLoading } = useAuth();
   const [accountType, setAccountType] = useState<AccountType | null>(null);
   const [pickingRole, setPickingRole] = useState(false);
@@ -66,5 +69,5 @@ export default function OnboardingPage() {
     return <HrOnboarding onBack={() => setPickingRole(true)} onComplete={() => setJustFinished(true)} />;
   }
 
-  return <CandidateOnboarding onBack={() => setPickingRole(true)} onComplete={() => setJustFinished(true)} />;
+  return <CandidateOnboarding onBack={() => setPickingRole(true)} onComplete={() => setJustFinished(true)} nextPath={returnUrl} />;
 }
