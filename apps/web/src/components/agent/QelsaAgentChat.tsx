@@ -30,7 +30,7 @@ import {
   WifiOff,
   X,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "next/router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { AgentArtifactPanel } from "./AgentArtifactPanel";
@@ -65,6 +65,18 @@ function relativeStamp(timestamp: number) {
   const days = Math.floor(seconds / 86_400);
   if (days < 7) return `${days}d ago`;
   return new Date(timestamp).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function threadFromQuery(value: string | string[] | undefined): string | null {
+  const raw = Array.isArray(value) ? value[0] : value;
+  return typeof raw === "string" && raw.trim() ? raw.trim() : null;
+}
+
+/** Reloads and history traversal should keep the user where they were. */
+function shouldRestoreThread() {
+  if (typeof performance === "undefined") return false;
+  const entry = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined;
+  return entry?.type === "reload" || entry?.type === "back_forward";
 }
 
 function isTextPart(part: any): part is { type: "text"; text: string } {
@@ -320,18 +332,41 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
   const [activeArtifact, setActiveArtifact] = useState<AgentArtifact | null>(null);
 
   const conversationQuery = useQuery(api.qelsaAgent.listConversations, isAuthenticated ? {} : "skip");
+  const conversations = useMemo(() => (conversationQuery ?? []) as Conversation[], [conversationQuery]);
   const agentStatus = useQuery(api.qelsaAgent.agentStatus, {});
   const usage = useQuery(api.qelsaAgent.agentUsage, isAuthenticated ? {} : "skip");
+
+  const initializedRail = useRef(false);
+  const threadReady = useRef(false);
+  const pendingThread = useRef<string | null>(null);
+  const createdThreads = useRef<Set<string>>(new Set());
+  const composingRef = useRef(false);
+  composingRef.current = input.trim().length > 0 || sending;
+  const initialPromptRef = useRef(initialPrompt);
+  if (initialPrompt) initialPromptRef.current = initialPrompt;
+
+  // Only query a thread once the rail confirmed it, or when this tab just
+  // created it. URL/storage ids are unverified and may point at a deleted
+  // conversation, which the backend rejects with an error.
+  const activeThreadIsKnown = useMemo(() => {
+    if (!activeThreadId) return false;
+    return (
+      conversations.some((item) => item.threadId === activeThreadId) ||
+      createdThreads.current.has(activeThreadId) ||
+      pendingThread.current === activeThreadId
+    );
+  }, [activeThreadId, conversations]);
+  const threadResolving = Boolean(activeThreadId) && !activeThreadIsKnown;
+
   const followUps = useQuery(
     api.qelsaAgent.getFollowUps,
-    isAuthenticated && activeThreadId ? { threadId: activeThreadId } : "skip",
+    isAuthenticated && activeThreadId && activeThreadIsKnown ? { threadId: activeThreadId } : "skip",
   );
   const createConversation = useMutation(api.qelsaAgent.createConversation);
   const deleteConversation = useMutation(api.qelsaAgent.deleteConversation);
   const sendPrompt = useMutation(api.qelsaAgent.sendPrompt);
   const submitApproval = useMutation(api.qelsaAgent.submitApproval);
 
-  const conversations = useMemo(() => (conversationQuery ?? []) as Conversation[], [conversationQuery]);
   const visibleConversations = useMemo(() => {
     const query = railSearch.trim().toLowerCase();
     return query ? conversations.filter((conversation) => conversation.title.toLowerCase().includes(query)) : conversations;
@@ -343,22 +378,71 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const stickToBottom = useRef(true);
-  const initializedRail = useRef(false);
-  const pendingThread = useRef<string | null>(null);
-  const createdThreads = useRef<Set<string>>(new Set());
-  const composingRef = useRef(false);
-  composingRef.current = input.trim().length > 0 || sending;
 
-  // Restore the last opened conversation, then reconcile stale local state.
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const stored = window.localStorage.getItem("qelsa-agent-thread");
-    if (stored) setActiveThreadId(stored);
-  }, []);
+  const syncThreadUrl = useCallback(
+    (threadId: string | null) => {
+      if (!router.isReady) return;
+      const current = threadFromQuery(router.query.thread);
+      if (threadId) {
+        if (current === threadId) return;
+        void router.replace(
+          { pathname: router.pathname, query: { ...router.query, thread: threadId } },
+          undefined,
+          { shallow: true },
+        );
+        return;
+      }
+      if (!current) return;
+      const query = { ...router.query };
+      delete query.thread;
+      void router.replace({ pathname: router.pathname, query }, undefined, { shallow: true });
+    },
+    [router],
+  );
 
+  // Decide the starting conversation once the router is ready. Opening the
+  // agent fresh starts a new chat; a reload/back restores the last thread; an
+  // explicit ?thread= link always wins.
   useEffect(() => {
-    if (typeof window === "undefined" || !activeThreadId) return;
-    window.localStorage.setItem("qelsa-agent-thread", activeThreadId);
+    if (!router.isReady || threadReady.current) return;
+    threadReady.current = true;
+
+    const queryThread = threadFromQuery(router.query.thread);
+    if (queryThread) {
+      setActiveThreadId(queryThread);
+      return;
+    }
+
+    // Job-page deep links are new requests, even if the user was mid-conversation.
+    if (initialPromptRef.current) {
+      window.sessionStorage.removeItem("qelsa-agent-thread");
+      setActiveThreadId(null);
+      return;
+    }
+
+    if (shouldRestoreThread()) {
+      const stored = window.sessionStorage.getItem("qelsa-agent-thread");
+      if (stored) {
+        setActiveThreadId(stored);
+        syncThreadUrl(stored);
+      }
+      return;
+    }
+
+    // A fresh navigation from the app or a bookmark starts clean; recent
+    // conversations stay one click away in the rail.
+    window.sessionStorage.removeItem("qelsa-agent-thread");
+    setActiveThreadId(null);
+  }, [router.isReady, router.query.thread, syncThreadUrl]);
+
+  // Persist the open thread for reloads and history traversal.
+  useEffect(() => {
+    if (!threadReady.current) return;
+    if (activeThreadId) {
+      window.sessionStorage.setItem("qelsa-agent-thread", activeThreadId);
+    } else {
+      window.sessionStorage.removeItem("qelsa-agent-thread");
+    }
   }, [activeThreadId]);
 
   // An artifact belongs to the conversation it came from.
@@ -380,46 +464,55 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
     });
   }, [initialPrompt]);
 
+  // If the router was ready a beat before the prompt query arrived, make sure
+  // a restored thread is not reused for a job-page deep link.
   useEffect(() => {
-    if (!conversationQuery) return;
-    if (pendingThread.current && conversations.some((item) => item.threadId === pendingThread.current)) {
+    if (!initialPrompt || !threadReady.current) return;
+    if (threadFromQuery(router.query.thread)) return;
+    window.sessionStorage.removeItem("qelsa-agent-thread");
+    setActiveThreadId(null);
+  }, [initialPrompt, router.query.thread]);
+
+  useEffect(() => {
+    if (!conversationQuery || !threadReady.current) return;
+    const pendingId = pendingThread.current;
+    if (pendingId && conversations.some((item) => item.threadId === pendingId)) {
+      // The rail now owns this id; stop letting the creation shortcut outlive it.
+      createdThreads.current.delete(pendingId);
       pendingThread.current = null;
     }
+
+    const activeIsKnown =
+      Boolean(activeThreadId) &&
+      (conversations.some((item) => item.threadId === activeThreadId) ||
+        pendingThread.current === activeThreadId ||
+        createdThreads.current.has(activeThreadId));
+
     if (!initializedRail.current) {
-      // Wait for the first page before deciding. On a fresh session the query
-      // can briefly return [] while auth is still hydrating; marking the rail
-      // initialized then would drop the restored thread.
-      if (conversations.length === 0) return;
+      // On a reload the conversation query can briefly return [] while auth
+      // hydrates. Keep waiting for a real page before judging a restored thread.
+      if (activeThreadId && conversations.length === 0) return;
       initializedRail.current = true;
-      if (
-        activeThreadId &&
-        (conversations.some((item) => item.threadId === activeThreadId) ||
-          pendingThread.current === activeThreadId ||
-          createdThreads.current.has(activeThreadId))
-      ) {
-        return;
+      if (activeThreadId && !activeIsKnown) {
+        setActiveThreadId(null);
+        syncThreadUrl(null);
       }
-      setActiveThreadId(conversations[0]?.threadId ?? null);
       return;
     }
+
     // A conversation deleted elsewhere should not leave the chat pointed at it.
     // Never yank the user out of a thread they just created or are actively
     // composing in — another device creating a conversation can otherwise steal
     // focus between rendering the composer and pressing send.
-    if (
-      activeThreadId &&
-      activeThreadId !== pendingThread.current &&
-      !createdThreads.current.has(activeThreadId) &&
-      !composingRef.current &&
-      !conversations.some((item) => item.threadId === activeThreadId)
-    ) {
-      setActiveThreadId(conversations[0]?.threadId ?? null);
+    if (activeThreadId && !activeIsKnown && !composingRef.current) {
+      setActiveThreadId(null);
+      syncThreadUrl(null);
     }
-  }, [conversationQuery, conversations, activeThreadId]);
+  }, [conversationQuery, conversations, activeThreadId, syncThreadUrl]);
 
   const messagesQuery = useUIMessages(
     api.qelsaAgent.listMessages,
-    isAuthenticated && activeThreadId ? { threadId: activeThreadId } : "skip",
+    isAuthenticated && activeThreadId && activeThreadIsKnown ? { threadId: activeThreadId } : "skip",
     { initialNumItems: 20, stream: true },
   );
 
@@ -521,13 +614,14 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
     pendingThread.current = threadId;
     createdThreads.current.add(threadId);
     setActiveThreadId(threadId);
+    syncThreadUrl(threadId);
     return threadId;
-  }, [activeThreadId, createConversation]);
+  }, [activeThreadId, createConversation, syncThreadUrl]);
 
   const handleSend = useCallback(
     async (override?: string) => {
       const text = (override ?? input).trim();
-      if (!text || sending || quotaExhausted) return;
+      if (!text || sending || quotaExhausted || threadResolving) return;
       setSending(true);
       setInput("");
       stickToBottom.current = true;
@@ -542,37 +636,38 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
         setSending(false);
       }
     },
-    [ensureThread, input, sendPrompt, sending, quotaExhausted],
+    [ensureThread, input, sendPrompt, sending, quotaExhausted, threadResolving],
   );
 
-  const handleNewChat = useCallback(async () => {
-    try {
-      const { threadId } = await createConversation({});
-      pendingThread.current = threadId;
-    createdThreads.current.add(threadId);
-      setActiveThreadId(threadId);
-      setInput("");
-      setMobileRailOpen(false);
-      stickToBottom.current = true;
-    } catch (error) {
-      toastUnknownError(error, "Couldn't start a new chat.");
-    }
-  }, [createConversation]);
+  const handleNewChat = useCallback(() => {
+    if (sending) return;
+    setActiveThreadId(null);
+    setAwaitingReply(false);
+    setInput("");
+    setMobileRailOpen(false);
+    stickToBottom.current = true;
+    syncThreadUrl(null);
+    window.sessionStorage.removeItem("qelsa-agent-thread");
+  }, [sending, syncThreadUrl]);
 
   const handleDelete = useCallback(
     async (threadId: string) => {
       try {
         await deleteConversation({ threadId });
+        createdThreads.current.delete(threadId);
+        if (pendingThread.current === threadId) pendingThread.current = null;
         if (threadId === activeThreadId) {
           const next = conversations.find((item) => item.threadId !== threadId)?.threadId ?? null;
           setActiveThreadId(next);
+          setAwaitingReply(false);
+          syncThreadUrl(next);
         }
         toast.success("Conversation deleted");
       } catch (error) {
         toastUnknownError(error, "Couldn't delete that conversation.");
       }
     },
-    [activeThreadId, conversations, deleteConversation],
+    [activeThreadId, conversations, deleteConversation, syncThreadUrl],
   );
 
   const handleApproval = useCallback(
@@ -604,8 +699,9 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
       <div className="px-3 py-3">
         <Button
           type="button"
-          onClick={() => void handleNewChat()}
-          className="h-9 w-full justify-start gap-2 rounded-xl border border-white/[0.08] bg-white/[0.05] px-3 text-[13px] font-semibold text-white/80 shadow-none hover:bg-white/[0.08] hover:text-white"
+          disabled={sending}
+          onClick={handleNewChat}
+          className="h-9 w-full justify-start gap-2 rounded-xl border border-white/[0.08] bg-white/[0.05] px-3 text-[13px] font-semibold text-white/80 shadow-none hover:bg-white/[0.08] hover:text-white disabled:opacity-40"
         >
           <Plus className="size-4" />
           New chat
@@ -643,9 +739,11 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
           loading={!conversationQuery}
           emptyLabel={railSearch.trim() ? "No conversations match." : undefined}
           onSelect={(threadId) => {
+            if (threadId !== activeThreadId) setAwaitingReply(false);
             setActiveThreadId(threadId);
             stickToBottom.current = true;
             setMobileRailOpen(false);
+            syncThreadUrl(threadId);
           }}
           onDelete={(threadId) => void handleDelete(threadId)}
         />
@@ -733,8 +831,9 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
           <button
             type="button"
             aria-label="New chat"
-            onClick={() => void handleNewChat()}
-            className="flex size-9 items-center justify-center rounded-full border border-white/[0.1] bg-white/[0.04] text-white/70 lg:hidden"
+            disabled={sending}
+            onClick={handleNewChat}
+            className="flex size-9 items-center justify-center rounded-full border border-white/[0.1] bg-white/[0.04] text-white/70 disabled:opacity-40 lg:hidden"
           >
             <MessageSquarePlus className="size-4" />
           </button>
@@ -761,7 +860,11 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
               </div>
             )}
 
-            {activeThreadId && messageStatus === "LoadingFirstPage" && messages.length === 0 ? (
+            {threadResolving ? (
+              <div className="flex justify-center py-16">
+                <Loader2 className="size-5 animate-spin text-white/35" />
+              </div>
+            ) : activeThreadId && messageStatus === "LoadingFirstPage" && messages.length === 0 ? (
               <div className="flex justify-center py-16">
                 <Loader2 className="size-5 animate-spin text-white/35" />
               </div>
@@ -790,14 +893,14 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
                         type="button"
                         disabled={!configured || quotaExhausted}
                         onClick={() => void handleSend(suggestion.prompt)}
-                        className="group flex items-center gap-3 rounded-xl border border-white/[0.08] bg-white/[0.03] px-3.5 py-3 transition-all hover:-translate-y-0.5 hover:border-neon-purple/40 hover:bg-white/[0.06] disabled:pointer-events-none disabled:opacity-50"
+                        className="group flex items-center gap-3 rounded-xl border border-white/[0.08] bg-white/[0.03] px-3.5 py-3 text-left transition-all hover:-translate-y-0.5 hover:border-neon-purple/40 hover:bg-white/[0.06] disabled:pointer-events-none disabled:opacity-50"
                       >
                         <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-white/[0.08] bg-white/[0.05] text-neon-cyan">
                           <Icon className="size-4" />
                         </div>
-                        <div className="min-w-0">
-                          <p className="truncate text-[13px] font-semibold text-white/85">{suggestion.title}</p>
-                          <p className="truncate text-[11px] text-white/40">{suggestion.subtitle}</p>
+                        <div className="min-w-0 flex-1 text-left">
+                          <p className="truncate text-left text-[13px] font-semibold text-white/85">{suggestion.title}</p>
+                          <p className="truncate text-left text-[11px] text-white/40">{suggestion.subtitle}</p>
                         </div>
                       </button>
                     );
@@ -869,7 +972,7 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
             <div
               className={cn(
                 "flex items-end gap-2 rounded-2xl border bg-white/[0.04] p-2 pl-3 transition-colors",
-                configured && !quotaExhausted
+                configured && !quotaExhausted && !threadResolving
                   ? "border-white/[0.1] focus-within:border-neon-purple/50"
                   : "border-white/[0.06] opacity-60",
               )}
@@ -878,7 +981,7 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
                 ref={textareaRef}
                 rows={1}
                 value={input}
-                disabled={!configured || quotaExhausted}
+                disabled={!configured || quotaExhausted || threadResolving}
                 onChange={(event) => setInput(event.target.value)}
                 onKeyDown={(event) => {
                   if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
@@ -887,18 +990,20 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
                   }
                 }}
                 placeholder={
-                  quotaExhausted
-                    ? "Daily message limit reached"
-                    : configured
-                      ? "Ask Qelsa Agent anything…"
-                      : "AI is not configured on this deployment"
+                  threadResolving
+                    ? "Loading conversation…"
+                    : quotaExhausted
+                      ? "Daily message limit reached"
+                      : configured
+                        ? "Ask Qelsa Agent anything…"
+                        : "AI is not configured on this deployment"
                 }
                 className="max-h-[152px] min-h-[36px] flex-1 resize-none bg-transparent py-1.5 text-[14px] leading-relaxed text-white/90 placeholder:text-white/30 focus:outline-none disabled:cursor-not-allowed"
               />
               <button
                 type="button"
                 aria-label="Send message"
-                disabled={!configured || sending || quotaExhausted || !input.trim()}
+                disabled={!configured || sending || quotaExhausted || threadResolving || !input.trim()}
                 onClick={() => void handleSend()}
                 className="mb-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#623dd6] via-[#8433ae] to-[#be2680] text-white shadow-lg shadow-purple-900/25 transition-all hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-40"
               >
