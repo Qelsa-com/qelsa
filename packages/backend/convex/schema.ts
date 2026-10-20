@@ -646,6 +646,19 @@ export default defineSchema({
     title: v.string(),
     created_at: v.number(),
     last_message_at: v.number(),
+    // Generation lifecycle. The Agent component owns messages/streams; these
+    // fields let the app distinguish a live run from one that timed out, and
+    // retry the failed prompt without replaying the user's message.
+    generation_seq: v.optional(v.number()),
+    active_generation_id: v.optional(v.string()),
+    active_generation_started_at: v.optional(v.number()),
+    last_generation_id: v.optional(v.string()),
+    last_generation_status: v.optional(
+      v.union(v.literal("running"), v.literal("succeeded"), v.literal("failed")),
+    ),
+    last_generation_error: v.optional(v.string()),
+    last_prompt_message_id: v.optional(v.string()),
+    last_prompt_text: v.optional(v.string()),
   })
     .index("by_user", ["user_id", "last_message_at"])
     .index("by_thread", ["thread_id"]),

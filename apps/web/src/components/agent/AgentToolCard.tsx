@@ -570,12 +570,14 @@ function ToolBody({
 export function AgentToolCard({
   part,
   resolving,
+  interrupted = false,
   onApprove,
   onDeny,
   onOpenArtifact,
 }: {
   part: AgentToolPart;
   resolving: boolean;
+  interrupted?: boolean;
   onApprove: (approvalId: string) => void;
   onDeny: (approvalId: string) => void;
   onOpenArtifact?: (artifact: AgentArtifact) => void;
@@ -598,10 +600,12 @@ export function AgentToolCard({
   const failed = state === "output-error";
   const denied = state === "output-denied" || (state === "approval-responded" && part.approval?.approved === false);
   const awaitingApproval = state === "approval-requested";
-  const running =
+  const wasRunning =
     state === "input-streaming" ||
     state === "input-available" ||
     (state === "approval-responded" && part.approval?.approved !== false);
+  const stopped = interrupted && wasRunning && !awaitingApproval;
+  const running = wasRunning && !stopped;
 
   const label = awaitingApproval
     ? "Needs your approval"
@@ -609,15 +613,17 @@ export function AgentToolCard({
       ? "Action failed"
       : denied
         ? "Action denied"
-        : running
-          ? meta.running
-          : meta.done;
+        : stopped
+          ? "Action interrupted"
+          : running
+            ? meta.running
+            : meta.done;
 
   const tone = awaitingApproval
     ? "border-amber-400/25 bg-amber-400/[0.06]"
     : failed
       ? "border-rose-400/25 bg-rose-400/[0.05]"
-      : denied
+      : denied || stopped
         ? "border-white/10 bg-white/[0.03]"
         : "border-white/[0.08] bg-white/[0.03]";
 
@@ -645,6 +651,7 @@ export function AgentToolCard({
         {running && !awaitingApproval && <Loader2 className="size-3.5 animate-spin text-white/35" />}
         {failed && <AlertCircle className="size-3.5 text-rose-300" />}
         {denied && <Ban className="size-3.5 text-white/30" />}
+        {stopped && <AlertCircle className="size-3.5 text-white/30" />}
         {awaitingApproval && <ShieldQuestion className="size-3.5 text-amber-300" />}
       </div>
 
@@ -665,7 +672,7 @@ export function AgentToolCard({
         />
       )}
 
-      {!awaitingApproval && !failed && !denied && (
+      {!awaitingApproval && !failed && !denied && (!stopped || Boolean(output)) && (
         <ToolBody
           part={part}
           name={name}

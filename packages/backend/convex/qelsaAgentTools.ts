@@ -14,7 +14,7 @@ import { z } from "zod/v3";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { internalAction, internalMutation, internalQuery } from "./_generated/server";
-import { AI_AGENT_MODEL, requireOpenRouter } from "./lib/ai";
+import { createAgentChatModel, requireOpenRouter } from "./lib/ai";
 import { bumpJobCount } from "./lib/jobCounts";
 import { clipPlainText } from "./lib/skillMatch";
 
@@ -573,9 +573,11 @@ Requirements:
 - Output ONLY the cover letter text, no explanations, no markdown formatting or quotes.`;
 
     const response = await generateText({
-      model: requireOpenRouter().chat(AI_AGENT_MODEL),
+      model: createAgentChatModel("low"),
       prompt,
       temperature: 0.7,
+      maxRetries: 2,
+      timeout: { totalMs: 90_000 },
     });
     const text = response.text.trim();
     if (!text || text.length < 50) throw new Error("The cover letter came back empty. Try again.");
