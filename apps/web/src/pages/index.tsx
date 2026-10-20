@@ -1,5 +1,5 @@
 import { LandingPage } from "@/components/LandingPage";
-import { ProfilePage } from "@/components/profile/ProfilePage";
+import { MySpaceDashboard } from "@/components/space/MySpaceDashboard";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
@@ -23,8 +23,8 @@ export default function App() {
   }
 
   return (
-    <Layout activeSection={"profile"}>
-      <ProfilePage isOwner />
+    <Layout activeSection={"space"}>
+      <MySpaceDashboard />
     </Layout>
   );
 }

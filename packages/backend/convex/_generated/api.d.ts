@@ -19,6 +19,7 @@ import type * as careerGoalsGenerate from "../careerGoalsGenerate.js";
 import type * as certifications from "../certifications.js";
 import type * as coverLetter from "../coverLetter.js";
 import type * as crons from "../crons.js";
+import type * as dashboard from "../dashboard.js";
 import type * as educations from "../educations.js";
 import type * as experiences from "../experiences.js";
 import type * as files from "../files.js";
@@ -87,6 +88,7 @@ declare const fullApi: ApiFromModules<{
   certifications: typeof certifications;
   coverLetter: typeof coverLetter;
   crons: typeof crons;
+  dashboard: typeof dashboard;
   educations: typeof educations;
   experiences: typeof experiences;
   files: typeof files;
