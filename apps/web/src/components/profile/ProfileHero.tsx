@@ -32,9 +32,14 @@ export function ProfileHero({ user, experiences, isOwner, isFollowing, mutualLab
   const avatarUrl = user.profile_image || user.avatar || undefined;
 
   return (
-    <section className="relative w-full shadow-[0_40px_120px_rgba(0,212,255,0.08)]" style={{ backgroundImage: "linear-gradient(19deg, rgb(6, 6, 15) 25%, rgba(0, 212, 255, 0.094) 50%, rgba(168, 85, 247, 0.071) 75%)" }}>
-      {/* Fades the hero back into the page background along its bottom edge. */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40" style={{ backgroundImage: "linear-gradient(173deg, rgba(6, 6, 15, 0) 25%, rgb(6, 6, 15) 75%)" }} />
+    <section className="relative w-full" style={{ backgroundImage: "linear-gradient(19deg, rgb(6, 6, 15) 25%, rgba(0, 212, 255, 0.094) 50%, rgba(168, 85, 247, 0.071) 75%)" }}>
+      {/* Fades the hero back into the page background along its bottom edge.
+          Keep this vertical: an angled gradient leaves the bottom corners
+          semi-transparent, which shows up as a hard seam against #06060f. */}
+      <div
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-44"
+        style={{ backgroundImage: "linear-gradient(to bottom, rgba(6, 6, 15, 0) 0%, rgba(6, 6, 15, 0.65) 52%, rgb(6, 6, 15) 100%)" }}
+      />
 
       <div className="relative mx-auto flex w-full max-w-[1280px] flex-col items-center gap-10 px-6 py-12 sm:flex-row sm:items-center md:px-12 lg:px-20 lg:py-16">
         <Avatar className="size-[140px] shrink-0">

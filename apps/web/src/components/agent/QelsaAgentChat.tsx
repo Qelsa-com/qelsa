@@ -17,36 +17,15 @@ import { toastUnknownError } from "@/lib/errors";
 import { homeForAccount } from "@/lib/onboarding";
 import { useUIMessages } from "@convex-dev/agent/react";
 import { useMutation, useQuery } from "convex/react";
-import {
-  ArrowUp,
-  Briefcase,
-  Loader2,
-  MessageSquarePlus,
-  PanelLeft,
-  PanelRight,
-  Plus,
-  RotateCcw,
-  Search,
-  Sparkles,
-  Trash2,
-  WifiOff,
-  X,
-} from "lucide-react";
+import { ArrowUp, Briefcase, Loader2, MessageSquarePlus, PanelLeft, PanelRight, Plus, RotateCcw, Search, Sparkles, Trash2, WifiOff, X } from "lucide-react";
 import { useRouter } from "next/router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { AgentArtifactPanel } from "./AgentArtifactPanel";
 import { documentArtifact, type AgentArtifact } from "./agentArtifacts";
 import { AgentToolCard } from "./AgentToolCard";
+import { fallbackFollowUps, isReasoningPart, SUGGESTIONS, toolNameOf, type AgentToolPart, type AgentUIMessage } from "./agentToolMeta";
 import { AgentReasoningTrace, AgentThinkingLine } from "./AgentTrace";
-import {
-  type AgentToolPart,
-  type AgentUIMessage,
-  fallbackFollowUps,
-  isReasoningPart,
-  SUGGESTIONS,
-  toolNameOf,
-} from "./agentToolMeta";
 
 type Conversation = { threadId: string; title: string; updatedAt: number };
 
@@ -120,8 +99,7 @@ function MessageBubble({
 }) {
   const parts = (message.parts ?? []) as any[];
   const createdAt = typeof message._creationTime === "number" ? message._creationTime : Date.now();
-  const waitingForReply =
-    message.role === "assistant" && (message.status === "streaming" || message.status === "pending");
+  const waitingForReply = message.role === "assistant" && (message.status === "streaming" || message.status === "pending");
   const [, forceRender] = useState(0);
 
   // Wake up after two minutes so a silently failed run surfaces a retry affordance
@@ -139,13 +117,14 @@ function MessageBubble({
     const text =
       typeof message.text === "string" && message.text.trim()
         ? message.text
-        : parts.filter(isTextPart).map((part) => part.text).join("\n");
+        : parts
+            .filter(isTextPart)
+            .map((part) => part.text)
+            .join("\n");
     if (!text.trim()) return null;
     return (
       <div className="flex justify-end">
-        <div className="max-w-[85%] rounded-2xl rounded-br-md border border-sky-400/20 bg-gradient-to-br from-sky-500/[0.14] to-purple-500/[0.14] px-4 py-2.5 text-[14px] leading-relaxed text-white/90 whitespace-pre-wrap">
-          {text}
-        </div>
+        <div className="max-w-[85%] rounded-2xl rounded-br-md border border-sky-400/20 bg-gradient-to-br from-sky-500/[0.14] to-purple-500/[0.14] px-4 py-2.5 text-[14px] leading-relaxed text-white/90 whitespace-pre-wrap">{text}</div>
       </div>
     );
   }
@@ -163,10 +142,7 @@ function MessageBubble({
   // the message itself failed, when the backend flagged the run failed, or when
   // the stream is stale and no generation is active anymore. A slow reasoning
   // pass stays in the "thinking" state instead of looking broken.
-  const stalled =
-    waiting &&
-    (generationStatus === "failed" ||
-      (generationActive === false && !backendActive && Date.now() - createdAt > 120_000));
+  const stalled = waiting && (generationStatus === "failed" || (generationActive === false && !backendActive && Date.now() - createdAt > 120_000));
   const isError = failed || stalled;
   const showRetry = isError && Boolean(onRetry);
   const renderParts = parts.filter((part) => {
@@ -174,9 +150,7 @@ function MessageBubble({
     if (isReasoningPart(part)) return part.text.trim().length > 0;
     return isToolPart(part);
   });
-  const hasReasoningText = parts.some(
-    (part) => isReasoningPart(part) && part.text.trim().length > 0,
-  );
+  const hasReasoningText = parts.some((part) => isReasoningPart(part) && part.text.trim().length > 0);
   // Before the first token (or if a provider never emits reasoning), show one
   // flat thinking row. Once reasoning exists, its own trace row owns the state.
   const showThinking = waiting && !stalled && visibleParts.length === 0 && !hasReasoningText;
@@ -191,23 +165,13 @@ function MessageBubble({
       <div className="min-w-0 flex-1 space-y-2.5">
         {renderParts.map((part, index) => {
           if (isReasoningPart(part)) {
-            return (
-              <AgentReasoningTrace
-                key={`reasoning-${index}`}
-                text={part.text}
-                running={waiting && !stalled && part.state !== "done"}
-              />
-            );
+            return <AgentReasoningTrace key={`reasoning-${index}`} text={part.text} running={waiting && !stalled && part.state !== "done"} />;
           }
           if (isTextPart(part)) {
             const canOpenAsArtifact = Boolean(onOpenArtifact) && !waiting && part.text.trim().length >= 600;
             return (
               <div key={`text-${index}`}>
-                <AiMarkdown
-                  markdown={part.text}
-                  newTabLinks
-                  className="max-w-none text-[14px] leading-relaxed text-white/85"
-                />
+                <AiMarkdown markdown={part.text} newTabLinks className="max-w-none text-[14px] leading-relaxed text-white/85" />
                 {canOpenAsArtifact && onOpenArtifact && (
                   <button
                     type="button"
@@ -237,11 +201,7 @@ function MessageBubble({
         {showThinking && <AgentThinkingLine />}
         {showRetry && (
           <div className="flex flex-wrap items-center gap-2 text-[12px] text-white/40">
-            <span>
-              {visibleParts.length
-                ? "The agent stopped before finishing."
-                : "No response came back — the AI provider may have timed out."}
-            </span>
+            <span>{visibleParts.length ? "The agent stopped before finishing." : "No response came back — the AI provider may have timed out."}</span>
             {onRetry && (
               <button
                 type="button"
@@ -291,21 +251,9 @@ function ConversationList({
       {conversations.map((conversation) => {
         const active = conversation.threadId === activeThreadId;
         return (
-          <div
-            key={conversation.threadId}
-            className={cn(
-              "group flex items-center gap-1 rounded-lg transition-colors",
-              active ? "bg-white/[0.07]" : "hover:bg-white/[0.04]",
-            )}
-          >
-            <button
-              type="button"
-              onClick={() => onSelect(conversation.threadId)}
-              className="flex min-w-0 flex-1 flex-col items-start px-2.5 py-2 text-left"
-            >
-              <span className={cn("w-full truncate text-[13px] font-medium", active ? "text-white" : "text-white/65")}>
-                {conversation.title}
-              </span>
+          <div key={conversation.threadId} className={cn("group flex items-center gap-1 rounded-lg transition-colors", active ? "bg-white/[0.07]" : "hover:bg-white/[0.04]")}>
+            <button type="button" onClick={() => onSelect(conversation.threadId)} className="flex min-w-0 flex-1 flex-col items-start px-2.5 py-2 text-left">
+              <span className={cn("w-full truncate text-[13px] font-medium", active ? "text-white" : "text-white/65")}>{conversation.title}</span>
               <span className="text-[10px] text-white/30">{relativeStamp(conversation.updatedAt)}</span>
             </button>
             <button
@@ -337,12 +285,7 @@ function RailHeader({ onClose }: { onClose?: () => void }) {
         <p className="truncate text-[11px] text-white/45">Your career copilot</p>
       </div>
       {onClose && (
-        <button
-          type="button"
-          aria-label="Close conversations"
-          onClick={onClose}
-          className="flex size-8 shrink-0 items-center justify-center rounded-full border border-white/[0.1] bg-white/[0.04] text-white/60"
-        >
+        <button type="button" aria-label="Close conversations" onClick={onClose} className="flex size-8 shrink-0 items-center justify-center rounded-full border border-white/[0.1] bg-white/[0.04] text-white/60">
           <X className="size-4" />
         </button>
       )}
@@ -382,22 +325,12 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
   // conversation, which the backend rejects with an error.
   const activeThreadIsKnown = useMemo(() => {
     if (!activeThreadId) return false;
-    return (
-      conversations.some((item) => item.threadId === activeThreadId) ||
-      createdThreads.current.has(activeThreadId) ||
-      pendingThread.current === activeThreadId
-    );
+    return conversations.some((item) => item.threadId === activeThreadId) || createdThreads.current.has(activeThreadId) || pendingThread.current === activeThreadId;
   }, [activeThreadId, conversations]);
   const threadResolving = Boolean(activeThreadId) && !activeThreadIsKnown;
 
-  const followUps = useQuery(
-    api.qelsaAgent.getFollowUps,
-    isAuthenticated && activeThreadId && activeThreadIsKnown ? { threadId: activeThreadId } : "skip",
-  );
-  const generationState = useQuery(
-    api.qelsaAgent.getGenerationStatus,
-    isAuthenticated && activeThreadId && activeThreadIsKnown ? { threadId: activeThreadId } : "skip",
-  );
+  const followUps = useQuery(api.qelsaAgent.getFollowUps, isAuthenticated && activeThreadId && activeThreadIsKnown ? { threadId: activeThreadId } : "skip");
+  const generationState = useQuery(api.qelsaAgent.getGenerationStatus, isAuthenticated && activeThreadId && activeThreadIsKnown ? { threadId: activeThreadId } : "skip");
   const createConversation = useMutation(api.qelsaAgent.createConversation);
   const deleteConversation = useMutation(api.qelsaAgent.deleteConversation);
   const sendPrompt = useMutation(api.qelsaAgent.sendPrompt);
@@ -423,11 +356,7 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
       const current = threadFromQuery(router.query.thread);
       if (threadId) {
         if (current === threadId) return;
-        void router.replace(
-          { pathname: router.pathname, query: { ...router.query, thread: threadId } },
-          undefined,
-          { shallow: true },
-        );
+        void router.replace({ pathname: router.pathname, query: { ...router.query, thread: threadId } }, undefined, { shallow: true });
         return;
       }
       if (!current) return;
@@ -520,11 +449,7 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
       pendingThread.current = null;
     }
 
-    const activeIsKnown =
-      Boolean(activeThreadId) &&
-      (conversations.some((item) => item.threadId === activeThreadId) ||
-        pendingThread.current === activeThreadId ||
-        createdThreads.current.has(activeThreadId));
+    const activeIsKnown = Boolean(activeThreadId) && (conversations.some((item) => item.threadId === activeThreadId) || pendingThread.current === activeThreadId || createdThreads.current.has(activeThreadId));
 
     if (!initializedRail.current) {
       // On a reload the conversation query can briefly return [] while auth
@@ -548,16 +473,9 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
     }
   }, [conversationQuery, conversations, activeThreadId, syncThreadUrl]);
 
-  const messagesQuery = useUIMessages(
-    api.qelsaAgent.listMessages,
-    isAuthenticated && activeThreadId && activeThreadIsKnown ? { threadId: activeThreadId } : "skip",
-    { initialNumItems: 20, stream: true },
-  );
+  const messagesQuery = useUIMessages(api.qelsaAgent.listMessages, isAuthenticated && activeThreadId && activeThreadIsKnown ? { threadId: activeThreadId } : "skip", { initialNumItems: 20, stream: true });
 
-  const messages = useMemo(
-    () => (((messagesQuery as any)?.results ?? []) as AgentUIMessage[]),
-    [messagesQuery],
-  );
+  const messages = useMemo(() => ((messagesQuery as any)?.results ?? []) as AgentUIMessage[], [messagesQuery]);
   const messageStatus = (messagesQuery as any)?.status as string | undefined;
   const loadMore = (messagesQuery as any)?.loadMore as ((count: number) => void) | undefined;
   const streaming = messages.some((message) => message.status === "streaming");
@@ -568,17 +486,8 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
     }
     return undefined;
   }, [messages]);
-  const pendingApproval = useMemo(
-    () => Boolean(lastAssistant?.parts?.some((part) => isToolPart(part) && part.state === "approval-requested")),
-    [lastAssistant],
-  );
-  const lastToolNames = useMemo(
-    () =>
-      lastAssistant
-        ? (lastAssistant.parts ?? []).filter(isToolPart).map((part) => toolNameOf(part))
-        : [],
-    [lastAssistant],
-  );
+  const pendingApproval = useMemo(() => Boolean(lastAssistant?.parts?.some((part) => isToolPart(part) && part.state === "approval-requested")), [lastAssistant]);
+  const lastToolNames = useMemo(() => (lastAssistant ? (lastAssistant.parts ?? []).filter(isToolPart).map((part) => toolNameOf(part)) : []), [lastAssistant]);
   const suggestions = useMemo(() => {
     const fallback = fallbackFollowUps(lastToolNames);
     if (!followUps?.suggestions.length) return fallback;
@@ -588,15 +497,7 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
     return followUps.suggestions;
   }, [followUps, lastMessage, lastToolNames]);
   const showFollowUps =
-    Boolean(activeThreadId) &&
-    !sending &&
-    !awaitingReply &&
-    !streaming &&
-    !pendingApproval &&
-    lastMessage?.role === "assistant" &&
-    lastMessage.status !== "streaming" &&
-    lastMessage.status !== "pending" &&
-    suggestions.length > 0;
+    Boolean(activeThreadId) && !sending && !awaitingReply && !streaming && !pendingApproval && lastMessage?.role === "assistant" && lastMessage.status !== "streaming" && lastMessage.status !== "pending" && suggestions.length > 0;
 
   // Clear the "agent is thinking" indicator once anything starts streaming back.
   useEffect(() => {
@@ -673,12 +574,8 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
       // If the position is no longer where this loop left it, the user (or
       // the browser clamping a shrinking conversation) took over. Stop
       // pulling, but stay pinned when the clamp left us at the new bottom.
-      if (
-        programmaticTop.current != null &&
-        Math.abs(currentElement.scrollTop - programmaticTop.current) > 4
-      ) {
-        const distanceNow =
-          currentElement.scrollHeight - currentElement.scrollTop - currentElement.clientHeight;
+      if (programmaticTop.current != null && Math.abs(currentElement.scrollTop - programmaticTop.current) > 4) {
+        const distanceNow = currentElement.scrollHeight - currentElement.scrollTop - currentElement.clientHeight;
         following.current = false;
         programmaticTop.current = null;
         followFrame.current = null;
@@ -880,12 +777,7 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
               className="h-8 min-w-0 flex-1 bg-transparent text-[12px] text-white/80 placeholder:text-white/30 focus:outline-none"
             />
             {railSearch && (
-              <button
-                type="button"
-                aria-label="Clear search"
-                onClick={() => setRailSearch("")}
-                className="text-white/30 transition-colors hover:text-white/60"
-              >
+              <button type="button" aria-label="Clear search" onClick={() => setRailSearch("")} className="text-white/30 transition-colors hover:text-white/60">
                 <X className="size-3" />
               </button>
             )}
@@ -912,11 +804,7 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
       <div className="border-t border-white/[0.08] px-4 py-3">
         <div className="flex items-center justify-between gap-2 text-[10px] text-white/30">
           <span className="truncate">{agentStatus?.configured ? agentStatus.model : "AI not configured"}</span>
-          {usage && (
-            <span className={cn("shrink-0 tabular-nums", quotaExhausted ? "text-amber-300/80" : "")}>
-              {usage.remaining} left today
-            </span>
-          )}
+          {usage && <span className={cn("shrink-0 tabular-nums", quotaExhausted ? "text-amber-300/80" : "")}>{usage.remaining} left today</span>}
         </div>
       </div>
     </>
@@ -938,10 +826,7 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
             <Sparkles className="size-7 text-black" />
           </div>
           <h1 className="mt-5 text-xl font-semibold text-white">Sign in to use Qelsa Agent</h1>
-          <p className="mt-2 text-sm leading-relaxed text-white/55">
-            Qelsa Agent works inside your account — it can search jobs, check your fit, and prepare applications.
-            Anything that changes your data needs your approval.
-          </p>
+          <p className="mt-2 text-sm leading-relaxed text-white/55">Qelsa Agent works inside your account — it can search jobs, check your fit, and prepare applications. Anything that changes your data needs your approval.</p>
           <Button
             type="button"
             onClick={() => router.push("/auth?returnUrl=/agent")}
@@ -962,10 +847,7 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
             <Briefcase className="size-7 text-black" />
           </div>
           <h1 className="mt-5 text-xl font-semibold text-white">Qelsa Agent for hiring is next</h1>
-          <p className="mt-2 text-sm leading-relaxed text-white/55">
-            The current agent is built for job seekers — it searches roles, checks fit, and prepares applications.
-            A dedicated hiring agent will work with your jobs and applicants.
-          </p>
+          <p className="mt-2 text-sm leading-relaxed text-white/55">The current agent is built for job seekers — it searches roles, checks fit, and prepares applications. A dedicated hiring agent will work with your jobs and applicants.</p>
           <Button
             type="button"
             onClick={() => router.push(homeForAccount(user))}
@@ -980,38 +862,23 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
 
   return (
     <div className="flex h-[calc(100dvh-61px)] w-full overflow-hidden lg:h-[calc(100dvh-59px)]">
-      <aside className="hidden w-72 shrink-0 flex-col border-r border-white/[0.08] bg-[#080812]/80 lg:flex">
-        {renderRail()}
-      </aside>
+      <aside className="hidden w-72 shrink-0 flex-col border-r border-white/[0.08] bg-[#080812]/80 lg:flex">{renderRail()}</aside>
 
       {mobileRailOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
-          <div
-            className="absolute inset-0 bg-black/65 backdrop-blur-sm"
-            onClick={() => setMobileRailOpen(false)}
-            aria-hidden
-          />
-          <div className="absolute inset-y-0 left-0 flex w-[86%] max-w-xs flex-col border-r border-white/[0.1] bg-[#080812] shadow-2xl">
-            {renderRail(() => setMobileRailOpen(false))}
-          </div>
+          <div className="absolute inset-0 bg-black/65 backdrop-blur-sm" onClick={() => setMobileRailOpen(false)} aria-hidden />
+          <div className="absolute inset-y-0 left-0 flex w-[86%] max-w-xs flex-col border-r border-white/[0.1] bg-[#080812] shadow-2xl">{renderRail(() => setMobileRailOpen(false))}</div>
         </div>
       )}
 
       <main className="flex min-w-0 flex-1 flex-col">
         <header className="flex h-14 shrink-0 items-center gap-2 border-b border-white/[0.08] bg-[#06060f]/80 px-3 backdrop-blur-xl sm:px-4">
-          <button
-            type="button"
-            aria-label="Open conversations"
-            onClick={() => setMobileRailOpen(true)}
-            className="flex size-9 items-center justify-center rounded-full border border-white/[0.1] bg-white/[0.04] text-white/70 lg:hidden"
-          >
+          <button type="button" aria-label="Open conversations" onClick={() => setMobileRailOpen(true)} className="flex size-9 items-center justify-center rounded-full border border-white/[0.1] bg-white/[0.04] text-white/70 lg:hidden">
             <PanelLeft className="size-4" />
           </button>
           <div className="min-w-0 flex-1">
             <p className="truncate text-[13px] font-semibold text-white sm:text-sm">{title}</p>
-            <p className="truncate text-[10px] text-white/40 sm:text-[11px]">
-              {configured ? "Can search jobs, check fit, and prepare applications" : "AI is not configured"}
-            </p>
+            <p className="truncate text-[10px] text-white/40 sm:text-[11px]">{configured ? "Can search jobs, check fit, and prepare applications" : "AI is not configured"}</p>
           </div>
           <button
             type="button"
@@ -1027,7 +894,7 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
         {!configured && (
           <div className="flex items-center justify-center gap-2 border-b border-amber-400/20 bg-amber-400/[0.07] px-4 py-2 text-[11px] text-amber-200">
             <WifiOff className="size-3.5" />
-            Qelsa Agent needs OPENROUTER_API_KEY on this deployment.
+            Qelsa Agent needs API_KEY on this deployment.
           </div>
         )}
 
@@ -1035,11 +902,7 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
           <div ref={contentRef} className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
             {messageStatus === "CanLoadMore" && (
               <div className="mb-4 flex justify-center">
-                <button
-                  type="button"
-                  onClick={() => loadMore?.(20)}
-                  className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] font-medium text-white/55 hover:text-white"
-                >
+                <button type="button" onClick={() => loadMore?.(20)} className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] font-medium text-white/55 hover:text-white">
                   Load earlier messages
                 </button>
               </div>
@@ -1059,14 +922,10 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
                   <Sparkles className="size-8 text-black" />
                 </div>
                 <h1 className="mt-5 text-2xl font-semibold text-white sm:text-3xl">
-                  Hi {firstNameOf(user?.name)},{" "}
-                  <span className="bg-gradient-to-r from-neon-cyan via-neon-purple to-neon-pink bg-clip-text text-transparent">
-                    what&apos;s next?
-                  </span>
+                  Hi {firstNameOf(user?.name)}, <span className="bg-gradient-to-r from-neon-cyan via-neon-purple to-neon-pink bg-clip-text text-transparent">what&apos;s next?</span>
                 </h1>
                 <p className="mt-2 max-w-md text-[13px] leading-relaxed text-white/50 sm:text-sm">
-                  Search jobs, check your fit, draft a cover letter, or prepare an application. I&apos;ll do the work —
-                  you approve anything that changes your account.
+                  Search jobs, check your fit, draft a cover letter, or prepare an application. I&apos;ll do the work — you approve anything that changes your account.
                 </p>
 
                 <div className="mt-6 grid w-full gap-2 text-left sm:grid-cols-2">
@@ -1103,9 +962,7 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
                     generationStatus={generationState?.status ?? null}
                     onApprove={(approvalId) => void handleApproval(approvalId, true)}
                     onDeny={(approvalId) => void handleApproval(approvalId, false)}
-                    onRetry={
-                      index === messages.length - 1 ? () => void handleRetry() : undefined
-                    }
+                    onRetry={index === messages.length - 1 ? () => void handleRetry() : undefined}
                     onOpenArtifact={handleOpenArtifact}
                   />
                 ))}
@@ -1148,16 +1005,12 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
         <div className="shrink-0 border-t border-white/[0.08] bg-[#06060f]/85 px-3 py-3 backdrop-blur-xl sm:px-6">
           <div className="mx-auto w-full max-w-3xl">
             {quotaExhausted && (
-              <p className="mb-2 rounded-xl border border-amber-400/20 bg-amber-400/[0.07] px-3 py-2 text-center text-[11px] text-amber-200">
-                You&apos;ve used all {usage?.limit ?? 60} messages for today. It resets at midnight UTC.
-              </p>
+              <p className="mb-2 rounded-xl border border-amber-400/20 bg-amber-400/[0.07] px-3 py-2 text-center text-[11px] text-amber-200">You&apos;ve used all {usage?.limit ?? 60} messages for today. It resets at midnight UTC.</p>
             )}
             <div
               className={cn(
                 "flex items-end gap-2 rounded-2xl border bg-white/[0.04] p-2 pl-3 transition-colors",
-                configured && !quotaExhausted && !threadResolving
-                  ? "border-white/[0.1] focus-within:border-neon-purple/50"
-                  : "border-white/[0.06] opacity-60",
+                configured && !quotaExhausted && !threadResolving ? "border-white/[0.1] focus-within:border-neon-purple/50" : "border-white/[0.06] opacity-60",
               )}
             >
               <textarea
@@ -1172,15 +1025,7 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
                     void handleSend();
                   }
                 }}
-                placeholder={
-                  threadResolving
-                    ? "Loading conversation…"
-                    : quotaExhausted
-                      ? "Daily message limit reached"
-                      : configured
-                        ? "Ask Qelsa Agent anything…"
-                        : "AI is not configured on this deployment"
-                }
+                placeholder={threadResolving ? "Loading conversation…" : quotaExhausted ? "Daily message limit reached" : configured ? "Ask Qelsa Agent anything…" : "AI is not configured on this deployment"}
                 className="max-h-[152px] min-h-[36px] flex-1 resize-none bg-transparent py-1.5 text-[14px] leading-relaxed text-white/90 placeholder:text-white/30 focus:outline-none disabled:cursor-not-allowed"
               />
               <button
@@ -1193,20 +1038,12 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
                 {sending ? <Loader2 className="size-4 animate-spin" /> : <ArrowUp className="size-4" />}
               </button>
             </div>
-            <p className="mt-2 hidden text-center text-[10px] text-white/30 sm:block">
-              Enter to send · Shift + Enter for a new line · Approve anything that changes your data
-            </p>
+            <p className="mt-2 hidden text-center text-[10px] text-white/30 sm:block">Enter to send · Shift + Enter for a new line · Approve anything that changes your data</p>
           </div>
         </div>
       </main>
 
-      {activeArtifact && (
-        <AgentArtifactPanel
-          key={activeArtifact.id}
-          artifact={activeArtifact}
-          onClose={() => setActiveArtifact(null)}
-        />
-      )}
+      {activeArtifact && <AgentArtifactPanel key={activeArtifact.id} artifact={activeArtifact} onClose={() => setActiveArtifact(null)} />}
     </div>
   );
 }

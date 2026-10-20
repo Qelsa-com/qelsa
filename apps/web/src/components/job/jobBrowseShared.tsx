@@ -20,7 +20,7 @@ import { formatCity } from "@/constants/city";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLazySearchCitiesQuery } from "@/features/api/seedApi";
 import { hasCareerGoal } from "@/lib/careerGoal";
-import { ALMOST_MAX, ALMOST_MIN, MATCH_TIER, matchRingColor, type MatchTierId } from "@/lib/matchTiers";
+import { ALMOST_MAX, ALMOST_MIN, GOAL_MATCH, MATCH_TIER, matchRingColor, type MatchTierId } from "@/lib/matchTiers";
 import { City } from "@/types/city";
 import { Job } from "@/types/job";
 import { BarChart3, Building2, Check, ChevronDown, MapPin, Search, ShieldCheck, Sparkle, Sparkles, Target, X } from "lucide-react";
@@ -233,6 +233,12 @@ export function matchScore(job: Job): number | null {
   return null;
 }
 
+/** Goal fit is career alignment only — never presented as job readiness. */
+export function goalMatchScore(job: Job): number | null {
+  const alignment = job.career_alignment ?? job.competency?.career_alignment;
+  return alignment != null ? Math.round(alignment) : null;
+}
+
 export function gapLine(job: Job): string | null {
   const score = matchScore(job) ?? readinessScore(job);
   const gap = job.competency?.gap;
@@ -313,16 +319,17 @@ export function JobCard({
 }: {
   job: Job;
   onClick: () => void;
-  variant?: "all" | "smart";
+  variant?: "all" | "smart" | "goal";
 }) {
   const title = job.job_title?.name ?? job.title;
   const company = displayCompanyName(job.page?.name || job.company_name);
   const location = displayLocation(job);
   const readiness = readinessScore(job);
-  const alignment = job.competency?.career_alignment;
+  const alignment = job.career_alignment ?? job.competency?.career_alignment;
+  const goalFit = alignment != null ? Math.round(alignment) : null;
   const smartMatch = job.competency?.smart_match != null ? Math.round(job.competency.smart_match) : null;
-  const score = variant === "smart" ? (smartMatch ?? readiness) : readiness;
-  const ringLabel = variant === "smart" ? "Match" : "Ready";
+  const score = variant === "goal" ? goalFit : variant === "smart" ? (smartMatch ?? readiness) : readiness;
+  const ringLabel = variant === "goal" ? "Goal" : variant === "smart" ? "Match" : "Ready";
   const chips = [experienceChip(job), workTypeChip(job), workplaceChip(job)].filter(Boolean) as string[];
   const salary = salaryText(job);
   const posted = postedAgo(job);
@@ -342,7 +349,14 @@ export function JobCard({
         >
           <CompanyLogo job={job} name={company} fallback={<Building2 className="size-4" style={{ color: tint }} />} />
         </div>
-        {score != null && <MatchRing value={score} tone={score} label={ringLabel} />}
+        {score != null && (
+          <MatchRing
+            value={score}
+            tone={score}
+            color={variant === "goal" ? GOAL_MATCH.color : undefined}
+            label={ringLabel}
+          />
+        )}
       </div>
 
       <div className="flex flex-col gap-1">
@@ -351,7 +365,7 @@ export function JobCard({
         {location && <p className="line-clamp-1 text-xs text-white/40">{location}</p>}
       </div>
 
-      {variant === "smart" && <div className="border-t border-glass-border/60 -my-1" />}
+      {variant !== "all" && <div className="border-t border-glass-border/60 -my-1" />}
 
       {chips.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
@@ -385,16 +399,27 @@ export function JobCard({
   );
 }
 
-export function MatchRing({ value, tone, label = "Ready" }: { value: number; tone?: number; label?: string }) {
+export function MatchRing({
+  value,
+  tone,
+  label = "Ready",
+  color,
+}: {
+  value: number;
+  tone?: number;
+  label?: string;
+  /** Override the readiness palette (used for goal-fit rings). */
+  color?: string;
+}) {
   const r = 18;
   const circumference = 2 * Math.PI * r;
   const offset = circumference * (1 - Math.min(100, Math.max(0, value)) / 100);
-  const color = ringColor(tone ?? value);
+  const ringStroke = color ?? ringColor(tone ?? value);
   return (
     <div className="relative size-11 sm:size-12">
       <svg className="absolute inset-0 size-full -rotate-90" viewBox="0 0 40 40">
         <circle cx="20" cy="20" r={r} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="3" />
-        <circle cx="20" cy="20" r={r} fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={offset} />
+        <circle cx="20" cy="20" r={r} fill="none" stroke={ringStroke} strokeWidth="3" strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={offset} />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center leading-none">
         <span className="text-[11px] font-bold text-white sm:text-xs">{value}%</span>
@@ -961,7 +986,7 @@ export function JobGrid({
 }: {
   jobs: Job[];
   onOpen: (id: string | number) => void;
-  variant?: "all" | "smart";
+  variant?: "all" | "smart" | "goal";
 }) {
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">

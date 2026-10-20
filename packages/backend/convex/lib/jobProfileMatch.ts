@@ -1,5 +1,6 @@
 import type { Doc, Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
+import type { GoalExperienceLevel } from "./careerGoal";
 
 /** Ready Now is 80 or above. Almost There is 60–79. */
 export const READY_MIN = 80;
@@ -144,16 +145,86 @@ export async function loadUserRoleProfile(ctx: QueryCtx, user: Doc<"users">): Pr
     phrases.push(user.headline.trim());
   }
 
-  const targetRole = goal?.target_role?.trim();
-  if (targetRole && !phrases.some((phrase) => phrase.toLowerCase() === targetRole.toLowerCase())) {
-    phrases.unshift(targetRole);
-  }
+  // The goal is a matching input even when the user has no work experience.
+  // Include every target role (the primary role first) so early-career users
+  // can still get a useful role pool from their goal.
+  const goalRoles = [
+    ...new Set(
+      [goal?.target_role, ...(goal?.target_roles ?? [])]
+        .map((role) => role?.trim())
+        .filter((role): role is string => Boolean(role)),
+    ),
+  ];
+  const newGoalRoles = goalRoles.filter(
+    (role) => !phrases.some((phrase) => phrase.toLowerCase() === role.toLowerCase()),
+  );
+  if (newGoalRoles.length > 0) phrases.unshift(...newGoalRoles);
 
   return { titleIds, phrases };
 }
 
 export function hasRoleProfile(profile: UserRoleProfile): boolean {
   return profile.titleIds.size > 0 || profile.phrases.length > 0;
+}
+
+const MAX_YEARS_BY_GOAL: Record<GoalExperienceLevel, number | null> = {
+  entry: 2,
+  mid: 5,
+  senior: 8,
+  lead: null,
+};
+
+const SENIORITY_PATTERNS: Record<GoalExperienceLevel, RegExp> = {
+  entry: /\b(senior|sr|staff|lead|principal|head|chief|director|vp|vice president)\b/i,
+  mid: /\b(staff|lead|principal|head|chief|director|vp|vice president)\b/i,
+  senior: /\b(principal|head|chief|director|vp|vice president)\b/i,
+  lead: /\b(chief|director|vp|vice president)\b/i,
+};
+
+const JOB_LEVEL_YEARS: Record<string, number> = {
+  intern: 0,
+  internship: 0,
+  entry: 0,
+  junior: 1,
+  associate: 2,
+  mid: 4,
+  intermediate: 4,
+  senior: 7,
+  sr: 7,
+  staff: 9,
+  lead: 10,
+  principal: 10,
+  head: 12,
+  director: 12,
+  vp: 15,
+  "vice president": 15,
+};
+
+/**
+ * Goal-first matching must not hand a fresher a 5–8 year senior role just
+ * because the title shares tokens with their target role. Explicit search is
+ * still filtered in this mode; All Jobs remains available for a raw search.
+ */
+export function isSeniorityCompatible(
+  job: Doc<"jobs">,
+  goalLevel: GoalExperienceLevel | null | undefined,
+): boolean {
+  const level = goalLevel ?? "entry";
+  if (SENIORITY_PATTERNS[level].test(job.title ?? "")) return false;
+
+  const maxYears = MAX_YEARS_BY_GOAL[level];
+  if (maxYears == null) return true;
+
+  const levelKey = (job.experience_level ?? "").toLowerCase().trim();
+  const yearsFromField = job.experience ?? null;
+  const yearsFromLevel = levelKey ? (JOB_LEVEL_YEARS[levelKey] ?? null) : null;
+  const years =
+    yearsFromField == null
+      ? yearsFromLevel
+      : yearsFromLevel == null
+        ? yearsFromField
+        : Math.max(yearsFromField, yearsFromLevel);
+  return years == null || years <= maxYears;
 }
 
 export const ROLE_SCAN = { TITLE_SCAN_LIMIT, TITLE_MATCH_CAP };

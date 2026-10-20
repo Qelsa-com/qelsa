@@ -75,6 +75,9 @@ export type MatchTiersResult = {
   readyTotal: number;
   almostTotal: number;
   growthTotal?: number;
+  goalMatches: Job[];
+  goalTotal: number;
+  matchMode: "profile" | "goal" | "none";
   hasRoleProfile: boolean;
 };
 

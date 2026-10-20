@@ -9,9 +9,10 @@
  * bouncing dots, which keeps long reasoning passes legible and accessible.
  */
 
+import { AiMarkdown } from "@/components/ai/AiMarkdown";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/components/ui/utils";
-import { ChevronDown, CircleCheck, LoaderCircle } from "lucide-react";
+import { Brain, ChevronDown } from "lucide-react";
 import { useState, type ComponentType, type ReactNode } from "react";
 
 type TraceStatus = "running" | "error" | "pending";
@@ -40,28 +41,13 @@ export function AgentTraceLine({
           aria-hidden="true"
           className={cn(
             "flex size-5 shrink-0 items-center justify-center rounded-md border",
-            status === "error"
-              ? "border-rose-400/25 bg-rose-400/10 text-rose-300"
-              : status === "running"
-                ? "border-neon-cyan/25 bg-neon-cyan/10 text-neon-cyan"
-                : "border-white/10 bg-white/[0.04] text-white/45",
+            status === "error" ? "border-rose-400/25 bg-rose-400/10 text-rose-300" : status === "running" ? "border-neon-cyan/25 bg-neon-cyan/10 text-neon-cyan" : "border-white/10 bg-white/[0.04] text-white/45",
           )}
         >
           <Icon className={cn("size-3", iconClassName)} />
         </span>
       ) : null}
-      <span
-        className={cn(
-          "min-w-0 flex-1 truncate text-[12px] font-medium leading-5",
-          status === "running"
-            ? "agent-trace-shimmer"
-            : status === "error"
-              ? "text-rose-200"
-              : status === "pending"
-                ? "text-white/40"
-                : "text-white/60",
-        )}
-      >
+      <span className={cn("min-w-0 flex-1 truncate text-[12px] font-medium leading-5", status === "running" ? "agent-trace-shimmer" : status === "error" ? "text-rose-200" : status === "pending" ? "text-white/40" : "text-white/60")}>
         {title}
       </span>
       {description ? <span className="shrink-0 text-[11px] text-white/30">{description}</span> : null}
@@ -72,14 +58,7 @@ export function AgentTraceLine({
 
 /** The pre-first-token state, used before the agent has produced any parts. */
 export function AgentThinkingLine() {
-  return (
-    <AgentTraceLine
-      icon={LoaderCircle}
-      iconClassName="animate-spin motion-reduce:animate-none"
-      title="Thinking"
-      status="running"
-    />
-  );
+  return <AgentTraceLine icon={Brain} iconClassName="motion-reduce:animate-none" title="Thinking" status="running" />;
 }
 
 /**
@@ -93,40 +72,25 @@ export function AgentReasoningTrace({ text, running }: { text: string; running: 
 
   const line = (
     <AgentTraceLine
-      icon={running ? LoaderCircle : CircleCheck}
-      iconClassName={running ? "animate-spin motion-reduce:animate-none" : undefined}
+      icon={Brain}
+      iconClassName={running ? "motion-reduce:animate-none" : undefined}
       title={running ? "Thinking" : "Thought"}
       status={running ? "running" : undefined}
-      trailing={
-        text.trim() ? (
-          <ChevronDown
-            className={cn(
-              "size-3.5 transition-transform group-data-[state=open]/reasoning:rotate-180",
-            )}
-          />
-        ) : null
-      }
+      trailing={text.trim() ? <ChevronDown className={cn("size-3.5 transition-transform group-data-[state=open]/reasoning:rotate-180")} /> : null}
     />
   );
 
   if (!text.trim()) return line;
 
   return (
-    <Collapsible
-      open={open}
-      onOpenChange={(next) => setUserOpen(next)}
-      className="group/reasoning w-full"
-    >
-      <CollapsibleTrigger
-        type="button"
-        className="flex w-full rounded-lg text-left transition-colors hover:bg-white/[0.03]"
-      >
+    <Collapsible open={open} onOpenChange={(next) => setUserOpen(next)} className="group/reasoning w-full">
+      <CollapsibleTrigger type="button" className="flex w-full rounded-lg text-left transition-colors hover:bg-white/[0.03]">
         {line}
       </CollapsibleTrigger>
       <CollapsibleContent className="agent-collapsible-content">
-        <p className="ml-8 mt-0.5 max-h-60 overflow-y-auto whitespace-pre-wrap border-l border-white/[0.08] py-0.5 pl-3 text-[11px] leading-relaxed text-white/40">
-          {text}
-        </p>
+        <div className="ml-8 mt-0.5 max-h-60 overflow-y-auto border-l border-white/[0.08] py-0.5 pl-3 text-white/45">
+          <AiMarkdown markdown={text} newTabLinks className="agent-thought-markdown" />
+        </div>
       </CollapsibleContent>
     </Collapsible>
   );
