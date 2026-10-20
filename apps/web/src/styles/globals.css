@@ -487,6 +487,16 @@ html {
   margin: 0.55em 0;
 }
 
+/* Reasoning traces are secondary content; keep markdown formatting compact. */
+.ai-markdown.agent-thought-markdown {
+  font-size: 0.75rem;
+  line-height: 1.7;
+}
+
+.ai-markdown.agent-thought-markdown [data-streamdown="strong"] {
+  color: rgba(255, 255, 255, 0.72);
+}
+
 .ai-markdown [data-streamdown="heading-1"],
 .ai-markdown [data-streamdown="heading-2"],
 .ai-markdown [data-streamdown="heading-3"],

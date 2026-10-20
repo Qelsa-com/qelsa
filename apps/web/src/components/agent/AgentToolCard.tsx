@@ -152,6 +152,26 @@ function JobRow({ job }: { job: AgentJobSummary }) {
   );
 }
 
+/** The visible result of a job search/list, kept outside the process trace. */
+export function AgentJobResults({ label, jobs }: { label: string; jobs: AgentJobSummary[] }) {
+  if (!jobs.length) return null;
+  return (
+    <section aria-label={label} className="overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.02]">
+      <div className="flex items-center justify-between gap-3 border-b border-white/[0.06] px-3 py-2">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/35">{label}</p>
+        <span className="text-[10px] tabular-nums text-white/30">
+          {jobs.length} {jobs.length === 1 ? "role" : "roles"}
+        </span>
+      </div>
+      <div className="space-y-1.5 p-2">
+        {jobs.map((job) => (
+          <JobRow key={job.job_id} job={job} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function ChipList({ label, items, tone }: { label: string; items: string[]; tone: string }) {
   if (!items.length) return null;
   const visible = items.slice(0, 3);
@@ -325,20 +345,6 @@ function ToolBody({
     part,
     jobLabel ? { jobTitle: jobLabel.title, company: jobLabel.company } : undefined,
   );
-
-  if (name === "search_jobs" || name === "list_saved_jobs") {
-    const jobs = asArray(output.jobs) as AgentJobSummary[];
-    if (!jobs.length) {
-      return <p className="mt-2 text-xs text-white/45">{output.note ?? "No jobs found."}</p>;
-    }
-    return (
-      <div className="mt-2 space-y-1.5">
-        {jobs.map((job) => (
-          <JobRow key={job.job_id} job={job} />
-        ))}
-      </div>
-    );
-  }
 
   if (name === "get_job_details" && typeof output.job_id === "string") {
     const skills = asArray(output.skills).filter((skill) => typeof skill === "string");
@@ -630,8 +636,9 @@ export function AgentToolCard({
   const running = wasRunning && !stopped;
 
   // Approval is a question for the person, not a trace step, so it stays a
-  // standalone card. Every other state becomes a flat trace row with the rich
-  // result tucked behind its own disclosure.
+  // standalone card. Other tools become flat trace rows with their rich result
+  // tucked behind a disclosure. Job lists are rendered below the final reply
+  // instead, where they are the answer rather than process detail.
   if (awaitingApproval) {
     return (
       <div className="rounded-xl border border-amber-400/25 bg-amber-400/[0.06] px-3 py-2.5">
@@ -677,9 +684,20 @@ export function AgentToolCard({
     ) : (
       label
     );
+  const resultsInFinalAnswer = name === "search_jobs" || name === "list_saved_jobs";
+  const resultCount =
+    resultsInFinalAnswer && !failed && !denied && output && Array.isArray(output.jobs)
+      ? output.jobs.length
+      : null;
   const traceDescription =
-    name === "get_job_readiness" && output?.available === false ? "No analysis yet" : undefined;
-  const showBody = Boolean(output) && !failed && !denied;
+    name === "get_job_readiness" && output?.available === false
+      ? "No analysis yet"
+      : resultCount != null
+        ? resultCount === 0
+          ? "No jobs"
+          : `${resultCount} ${resultCount === 1 ? "job" : "jobs"}`
+        : undefined;
+  const showBody = Boolean(output) && !failed && !denied && !resultsInFinalAnswer;
   const bodyDefaultOpen = name === "get_job_readiness" ? output?.available === true : true;
   const stateIcon = failed ? (
     <AlertCircle className="size-3.5 text-rose-300" />

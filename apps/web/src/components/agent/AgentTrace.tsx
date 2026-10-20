@@ -64,7 +64,7 @@ export function AgentThinkingLine() {
 /**
  * A reasoning part. It opens while the model is thinking, then collapses to a
  * one-line "Thought" summary once the part closes — unless the person chose to
- * keep it open. The text stays available on demand.
+ * keep it open. The text stays available on demand and renders as markdown.
  */
 export function AgentReasoningTrace({ text, running }: { text: string; running: boolean }) {
   const [userOpen, setUserOpen] = useState<boolean | null>(null);

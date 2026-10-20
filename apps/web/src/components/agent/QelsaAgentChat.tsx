@@ -23,8 +23,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { AgentArtifactPanel } from "./AgentArtifactPanel";
 import { documentArtifact, type AgentArtifact } from "./agentArtifacts";
-import { AgentToolCard } from "./AgentToolCard";
-import { fallbackFollowUps, isReasoningPart, SUGGESTIONS, toolNameOf, type AgentToolPart, type AgentUIMessage } from "./agentToolMeta";
+import { AgentJobResults, AgentToolCard } from "./AgentToolCard";
+import { fallbackFollowUps, isReasoningPart, SUGGESTIONS, toolNameOf, type AgentJobSummary, type AgentToolPart, type AgentUIMessage } from "./agentToolMeta";
 import { AgentReasoningTrace, AgentThinkingLine } from "./AgentTrace";
 
 type Conversation = { threadId: string; title: string; updatedAt: number };
@@ -68,6 +68,37 @@ function isTextPart(part: any): part is { type: "text"; text: string } {
 
 function isToolPart(part: any): part is AgentToolPart {
   return typeof part?.type === "string" && part.type.startsWith("tool-");
+}
+
+function isAgentJobSummary(value: unknown): value is AgentJobSummary {
+  if (!value || typeof value !== "object") return false;
+  const row = value as Record<string, unknown>;
+  return typeof row.job_id === "string" && typeof row.title === "string";
+}
+
+/**
+ * Job lists belong below the final reply, not buried in the process trace.
+ * Use the last result for each tool so a follow-up search replaces stale cards.
+ */
+function jobResultsIn(parts: any[]) {
+  const groups: Array<{ key: string; label: string; jobs: AgentJobSummary[] }> = [];
+  const tools = [
+    { key: "search_jobs", label: "Jobs found" },
+    { key: "list_saved_jobs", label: "Saved jobs" },
+  ] as const;
+
+  for (const { key, label } of tools) {
+    let latest: AgentJobSummary[] | null = null;
+    for (const part of parts) {
+      if (!isToolPart(part) || toolNameOf(part) !== key) continue;
+      const output = part.output && typeof part.output === "object" ? (part.output as { jobs?: unknown }) : null;
+      if (!output || !Array.isArray(output.jobs)) continue;
+      latest = output.jobs.filter(isAgentJobSummary);
+    }
+    if (latest?.length) groups.push({ key, label, jobs: latest });
+  }
+
+  return groups;
 }
 
 function AssistantAvatar() {
@@ -151,6 +182,7 @@ function MessageBubble({
     return isToolPart(part);
   });
   const hasReasoningText = parts.some((part) => isReasoningPart(part) && part.text.trim().length > 0);
+  const jobResults = jobResultsIn(renderParts);
   // Before the first token (or if a provider never emits reasoning), show one
   // flat thinking row. Once reasoning exists, its own trace row owns the state.
   const showThinking = waiting && !stalled && visibleParts.length === 0 && !hasReasoningText;
@@ -198,6 +230,9 @@ function MessageBubble({
             />
           );
         })}
+        {jobResults.map((group) => (
+          <AgentJobResults key={group.key} label={group.label} jobs={group.jobs} />
+        ))}
         {showThinking && <AgentThinkingLine />}
         {showRetry && (
           <div className="flex flex-wrap items-center gap-2 text-[12px] text-white/40">
