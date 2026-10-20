@@ -250,7 +250,10 @@ export function MySpacePage({}: MySpacePageProps) {
           </div>
 
           <div className="flex items-center justify-center gap-4">
-            <Button className="group glass-strong hover:glow-cyan transition-all duration-300 px-8 py-3 rounded-2xl border-0 gradient-primary hover:scale-105">
+            <Button
+              className="group glass-strong hover:glow-cyan transition-all duration-300 px-8 py-3 rounded-2xl border-0 gradient-primary hover:scale-105"
+              onClick={() => router.push("/agent")}
+            >
               <Brain className="h-5 w-5 mr-2 group-hover:rotate-12 transition-transform" />
               Ask Qelsa AI
               <Sparkles className="h-4 w-4 ml-2 group-hover:rotate-45 transition-transform" />
