@@ -38,10 +38,12 @@ import { toast } from "sonner";
 import { AgentArtifactPanel } from "./AgentArtifactPanel";
 import { documentArtifact, type AgentArtifact } from "./agentArtifacts";
 import { AgentToolCard } from "./AgentToolCard";
+import { AgentReasoningTrace, AgentThinkingLine } from "./AgentTrace";
 import {
   type AgentToolPart,
   type AgentUIMessage,
   fallbackFollowUps,
+  isReasoningPart,
   SUGGESTIONS,
   toolNameOf,
 } from "./agentToolMeta";
@@ -97,19 +99,11 @@ function AssistantAvatar() {
   );
 }
 
-function TypingDots() {
-  return (
-    <div className="flex items-center gap-1 py-2">
-      <span className="size-1.5 animate-pulse rounded-full bg-neon-cyan" />
-      <span className="size-1.5 animate-pulse rounded-full bg-neon-purple [animation-delay:150ms]" />
-      <span className="size-1.5 animate-pulse rounded-full bg-neon-pink [animation-delay:300ms]" />
-    </div>
-  );
-}
-
 function MessageBubble({
   message,
   resolvingApprovalId,
+  generationActive,
+  generationStatus,
   onApprove,
   onDeny,
   onRetry,
@@ -117,6 +111,8 @@ function MessageBubble({
 }: {
   message: AgentUIMessage;
   resolvingApprovalId: string | null;
+  generationActive?: boolean | null;
+  generationStatus?: "idle" | "running" | "succeeded" | "failed" | null;
   onApprove: (approvalId: string) => void;
   onDeny: (approvalId: string) => void;
   onRetry?: () => void;
@@ -129,7 +125,8 @@ function MessageBubble({
   const [, forceRender] = useState(0);
 
   // Wake up after two minutes so a silently failed run surfaces a retry affordance
-  // instead of leaving the typing dots on screen forever.
+  // instead of leaving the typing dots on screen forever. Active runs (including
+  // long reasoning passes) never show retry while the backend still owns them.
   useEffect(() => {
     if (!waitingForReply) return;
     const remaining = 120_000 - (Date.now() - createdAt);
@@ -155,21 +152,53 @@ function MessageBubble({
 
   if (message.role !== "assistant") return null;
 
-  const streaming = message.status === "streaming";
-  const waiting = streaming || message.status === "pending";
+  const failed = message.status === "failed";
+  const waiting = message.status === "streaming" || message.status === "pending";
   const visibleParts = parts.filter((part) => {
     if (isTextPart(part)) return part.text.trim().length > 0;
     return isToolPart(part);
   });
-  // A provider hiccup can leave an empty placeholder behind. Don't stream dots
-  // forever: surface a retry affordance once the message has clearly gone stale.
-  const stalled = waiting && Date.now() - createdAt > 120_000;
+  const backendActive = generationActive === true || generationStatus === "running";
+  // A provider hiccup can leave an empty placeholder behind. Surface retry when
+  // the message itself failed, when the backend flagged the run failed, or when
+  // the stream is stale and no generation is active anymore. A slow reasoning
+  // pass stays in the "thinking" state instead of looking broken.
+  const stalled =
+    waiting &&
+    (generationStatus === "failed" ||
+      (generationActive === false && !backendActive && Date.now() - createdAt > 120_000));
+  const isError = failed || stalled;
+  const showRetry = isError && Boolean(onRetry);
+  const renderParts = parts.filter((part) => {
+    if (isTextPart(part)) return part.text.trim().length > 0;
+    if (isReasoningPart(part)) return part.text.trim().length > 0;
+    return isToolPart(part);
+  });
+  const hasReasoningText = parts.some(
+    (part) => isReasoningPart(part) && part.text.trim().length > 0,
+  );
+  // Before the first token (or if a provider never emits reasoning), show one
+  // flat thinking row. Once reasoning exists, its own trace row owns the state.
+  const showThinking = waiting && !stalled && visibleParts.length === 0 && !hasReasoningText;
+
+  // A failed placeholder that has been superseded by a newer turn should not
+  // leave an empty bubble (or a dead error banner) in the transcript.
+  if (isError && !onRetry && visibleParts.length === 0) return null;
 
   return (
     <div className="flex gap-3">
       <AssistantAvatar />
       <div className="min-w-0 flex-1 space-y-2.5">
-        {visibleParts.map((part, index) => {
+        {renderParts.map((part, index) => {
+          if (isReasoningPart(part)) {
+            return (
+              <AgentReasoningTrace
+                key={`reasoning-${index}`}
+                text={part.text}
+                running={waiting && !stalled && part.state !== "done"}
+              />
+            );
+          }
           if (isTextPart(part)) {
             const canOpenAsArtifact = Boolean(onOpenArtifact) && !waiting && part.text.trim().length >= 600;
             return (
@@ -198,14 +227,15 @@ function MessageBubble({
               key={tool.toolCallId ?? `${toolNameOf(tool)}-${index}`}
               part={tool}
               resolving={Boolean(tool.approval?.id && tool.approval.id === resolvingApprovalId)}
+              interrupted={failed || stalled}
               onApprove={onApprove}
               onDeny={onDeny}
               onOpenArtifact={onOpenArtifact}
             />
           );
         })}
-        {streaming && visibleParts.length === 0 && !stalled && <TypingDots />}
-        {stalled && (
+        {showThinking && <AgentThinkingLine />}
+        {showRetry && (
           <div className="flex flex-wrap items-center gap-2 text-[12px] text-white/40">
             <span>
               {visibleParts.length
@@ -364,10 +394,15 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
     api.qelsaAgent.getFollowUps,
     isAuthenticated && activeThreadId && activeThreadIsKnown ? { threadId: activeThreadId } : "skip",
   );
+  const generationState = useQuery(
+    api.qelsaAgent.getGenerationStatus,
+    isAuthenticated && activeThreadId && activeThreadIsKnown ? { threadId: activeThreadId } : "skip",
+  );
   const createConversation = useMutation(api.qelsaAgent.createConversation);
   const deleteConversation = useMutation(api.qelsaAgent.deleteConversation);
   const sendPrompt = useMutation(api.qelsaAgent.sendPrompt);
   const submitApproval = useMutation(api.qelsaAgent.submitApproval);
+  const retryGeneration = useMutation(api.qelsaAgent.retryGeneration);
 
   const visibleConversations = useMemo(() => {
     const query = railSearch.trim().toLowerCase();
@@ -377,9 +412,10 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
   const quotaExhausted = (usage?.remaining ?? 1) <= 0;
 
   const scrollRef = useRef<HTMLDivElement>(null);
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const stickToBottom = useRef(true);
+  const followFrame = useRef<number | null>(null);
 
   const syncThreadUrl = useCallback(
     (threadId: string | null) => {
@@ -562,18 +598,6 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
     lastMessage.status !== "pending" &&
     suggestions.length > 0;
 
-  const lastUserPrompt = useMemo(() => {
-    for (let index = messages.length - 1; index >= 0; index -= 1) {
-      const message = messages[index];
-      if (message.role !== "user") continue;
-      if (typeof message.text === "string" && message.text.trim()) return message.text;
-      const parts = (message.parts ?? []) as any[];
-      const text = parts.filter(isTextPart).map((part) => part.text).join("\n");
-      if (text.trim()) return text;
-    }
-    return "";
-  }, [messages]);
-
   // Clear the "agent is thinking" indicator once anything starts streaming back.
   useEffect(() => {
     if (!awaitingReply) return;
@@ -591,11 +615,128 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
     return () => window.clearTimeout(timeout);
   }, [awaitingReply]);
 
-  // Keep the view pinned to the newest content unless the user scrolled up.
-  useEffect(() => {
+  // Follow the newest content with a capped, eased scroll instead of running
+  // `scrollIntoView` synchronously on every streamed token. A single rAF loop
+  // coalesces token bursts, and the cap keeps large tool cards from jumping.
+  const following = useRef(false);
+  const programmaticTop = useRef<number | null>(null);
+  const snapToBottomNext = useRef(true);
+
+  const stopFollowing = useCallback(() => {
+    following.current = false;
+    programmaticTop.current = null;
+    if (followFrame.current != null) {
+      cancelAnimationFrame(followFrame.current);
+      followFrame.current = null;
+    }
+  }, []);
+
+  const snapToBottom = useCallback(() => {
+    stopFollowing();
+    const element = scrollRef.current;
+    if (element) element.scrollTop = element.scrollHeight;
+  }, [stopFollowing]);
+
+  const followBottom = useCallback(() => {
     if (!stickToBottom.current) return;
-    bottomRef.current?.scrollIntoView({ block: "end" });
-  }, [messages, awaitingReply, activeThreadId, suggestions]);
+    const element = scrollRef.current;
+    if (!element) return;
+
+    if (snapToBottomNext.current) {
+      snapToBottomNext.current = false;
+      snapToBottom();
+      return;
+    }
+
+    if (following.current) return;
+
+    const pending = element.scrollHeight - element.scrollTop - element.clientHeight;
+    if (pending <= 1) return;
+
+    // Thread switches and new messages can be far away; don't animate a long
+    // scroll from the top of a conversation.
+    if (pending > 800) {
+      snapToBottom();
+      return;
+    }
+
+    following.current = true;
+    programmaticTop.current = element.scrollTop;
+
+    const tick = () => {
+      const currentElement = scrollRef.current;
+      if (!currentElement || !stickToBottom.current || !following.current) {
+        stopFollowing();
+        return;
+      }
+
+      // If the position is no longer where this loop left it, the user (or
+      // the browser clamping a shrinking conversation) took over. Stop
+      // pulling, but stay pinned when the clamp left us at the new bottom.
+      if (
+        programmaticTop.current != null &&
+        Math.abs(currentElement.scrollTop - programmaticTop.current) > 4
+      ) {
+        const distanceNow =
+          currentElement.scrollHeight - currentElement.scrollTop - currentElement.clientHeight;
+        following.current = false;
+        programmaticTop.current = null;
+        followFrame.current = null;
+        stickToBottom.current = distanceNow < 64;
+        if (stickToBottom.current) followBottom();
+        return;
+      }
+
+      const target = currentElement.scrollHeight - currentElement.clientHeight;
+      const current = currentElement.scrollTop;
+      const distance = target - current;
+      if (Math.abs(distance) <= 1) {
+        currentElement.scrollTop = target;
+        following.current = false;
+        programmaticTop.current = null;
+        followFrame.current = null;
+        return;
+      }
+
+      // Ease into the new content, capping each step so a large job card or
+      // tool result slides in rather than jumping.
+      const step = Math.min(24, Math.max(1.5, Math.abs(distance) * 0.18));
+      currentElement.scrollTop = current + Math.sign(distance) * Math.min(Math.abs(distance), step);
+      programmaticTop.current = currentElement.scrollTop;
+      followFrame.current = requestAnimationFrame(tick);
+    };
+
+    followFrame.current = requestAnimationFrame(tick);
+  }, [snapToBottom, stopFollowing]);
+
+  // Opening or switching conversations should land at the latest message
+  // immediately; streaming updates after that ease into place.
+  useEffect(() => {
+    snapToBottomNext.current = true;
+    stickToBottom.current = true;
+  }, [activeThreadId]);
+
+  useEffect(() => {
+    if (stickToBottom.current) followBottom();
+  }, [messages, awaitingReply, activeThreadId, suggestions, followBottom]);
+
+  // Streaming text and expanding tool results change the content height
+  // without necessarily changing the message list, so follow those too.
+  useEffect(() => {
+    const content = contentRef.current;
+    if (!content) return;
+    const observer = new ResizeObserver(() => {
+      if (stickToBottom.current) followBottom();
+    });
+    observer.observe(content);
+    return () => observer.disconnect();
+  }, [followBottom]);
+
+  useEffect(() => {
+    return () => {
+      if (followFrame.current != null) cancelAnimationFrame(followFrame.current);
+    };
+  }, []);
 
   useEffect(() => {
     const element = textareaRef.current;
@@ -605,10 +746,13 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
   }, [input]);
 
   const handleScroll = useCallback(() => {
+    if (following.current) return;
     const element = scrollRef.current;
     if (!element) return;
-    stickToBottom.current = element.scrollHeight - element.scrollTop - element.clientHeight < 120;
-  }, []);
+    const nearBottom = element.scrollHeight - element.scrollTop - element.clientHeight < 64;
+    stickToBottom.current = nearBottom;
+    if (nearBottom) followBottom();
+  }, [followBottom]);
 
   const ensureThread = useCallback(async () => {
     if (activeThreadId) return activeThreadId;
@@ -641,6 +785,20 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
     [ensureThread, input, sendPrompt, sending, quotaExhausted, threadResolving],
   );
 
+  const handleRetry = useCallback(async () => {
+    if (!activeThreadId || sending) return;
+    setSending(true);
+    stickToBottom.current = true;
+    try {
+      await retryGeneration({ threadId: activeThreadId });
+      setAwaitingReply(true);
+    } catch (error) {
+      toastUnknownError(error, "Couldn't retry that reply.");
+    } finally {
+      setSending(false);
+    }
+  }, [activeThreadId, retryGeneration, sending]);
+
   const handleNewChat = useCallback(() => {
     if (sending) return;
     setActiveThreadId(null);
@@ -662,6 +820,7 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
           const next = conversations.find((item) => item.threadId !== threadId)?.threadId ?? null;
           setActiveThreadId(next);
           setAwaitingReply(false);
+          stickToBottom.current = true;
           syncThreadUrl(next);
         }
         toast.success("Conversation deleted");
@@ -873,7 +1032,7 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
         )}
 
         <div ref={scrollRef} onScroll={handleScroll} className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-          <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
+          <div ref={contentRef} className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
             {messageStatus === "CanLoadMore" && (
               <div className="mb-4 flex justify-center">
                 <button
@@ -940,12 +1099,12 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
                     key={message.key}
                     message={message}
                     resolvingApprovalId={resolvingApprovalId}
+                    generationActive={generationState?.active ?? null}
+                    generationStatus={generationState?.status ?? null}
                     onApprove={(approvalId) => void handleApproval(approvalId, true)}
                     onDeny={(approvalId) => void handleApproval(approvalId, false)}
                     onRetry={
-                      lastUserPrompt && index === messages.length - 1
-                        ? () => void handleSend(lastUserPrompt)
-                        : undefined
+                      index === messages.length - 1 ? () => void handleRetry() : undefined
                     }
                     onOpenArtifact={handleOpenArtifact}
                   />
@@ -975,16 +1134,14 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
               </div>
             )}
 
-            {awaitingReply && !streaming && (
+            {awaitingReply && !streaming && generationState?.status !== "failed" && (
               <div className="mt-5 flex gap-3">
                 <AssistantAvatar />
-                <div className="flex items-center rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-1.5">
-                  <TypingDots />
+                <div className="min-w-0 flex-1 pt-1">
+                  <AgentThinkingLine />
                 </div>
               </div>
             )}
-
-            <div ref={bottomRef} className="h-1" />
           </div>
         </div>
 

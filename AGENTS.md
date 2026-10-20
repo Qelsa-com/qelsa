@@ -57,7 +57,7 @@ Auth is email + password and email OTP (Better Auth). **No email provider is wir
 ### Optional integrations (app degrades gracefully without them)
 
 Set these on the local Convex deployment with `npx convex env set <NAME> <value>` (from `packages/backend`, with `CONVEX_AGENT_MODE=anonymous`) only if you need the feature:
-- `OPENROUTER_API_KEY` — AI job matching / skill extraction / summaries (otherwise those actions throw or are skipped). Optional `AI_AGENT_MODEL` (default `openai/gpt-4o-mini`).
+- `OPENROUTER_API_KEY` — AI job matching / skill extraction / summaries (otherwise those actions throw or are skipped). Optional `AI_AGENT_MODEL` (default `openai/gpt-4o-mini`). Optional `AI_AGENT_REASONING_EFFORT` (`minimal`/`low`/`medium`/`high`/`xhigh`; defaults to `medium` for the agent and `low` for cover letters, `off` disables reasoning).
 - Cloudflare R2 credentials — resume/profile-image uploads (the `@convex-dev/r2` component).
 - `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` — Google social login (disabled unless the secret is set).
 - `EXTERNAL_API_URL` — hourly job-scraper cron (cleanly no-ops when unset).
