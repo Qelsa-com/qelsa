@@ -5,6 +5,7 @@ import { components } from "./_generated/api";
 import { authedMutation, authedQuery } from "./lib/customFunctions";
 import { iso, withId } from "./lib/helpers";
 import { bumpJobCount } from "./lib/jobCounts";
+import { ADMIN_STAT_KEYS, bumpAdminStat } from "./lib/adminStats";
 import { yearsFromExperiences } from "./lib/applicantSearch";
 import { isWithdrawn, WITHDRAWN_STATUS } from "./lib/applications";
 import { buildCompetencyFramework } from "./lib/skillMatch";
@@ -297,6 +298,7 @@ export const apply = authedMutation({
       applied_at: Date.now(),
     });
     await bumpJobCount(ctx, args.jobId, "application_count", 1);
+    await bumpAdminStat(ctx, ADMIN_STAT_KEYS.applications, 1);
 
     // Automatically remove from saved_jobs upon applying so a job is not both saved and applied
     const savedEntries = await ctx.db

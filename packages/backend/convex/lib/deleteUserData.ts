@@ -1,6 +1,7 @@
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { bumpJobCount, bumpOpenJobCount, openCountDelta } from "./jobCounts";
+import { ADMIN_STAT_KEYS, bumpAdminStat } from "./adminStats";
 
 async function deleteApplication(
   ctx: MutationCtx,
@@ -36,6 +37,8 @@ async function deleteApplication(
   if (adjustJobCount && application) {
     await bumpJobCount(ctx, application.job_id, "application_count", -1);
   }
+  // Keep the admin dashboard counter in step with the deletion.
+  await bumpAdminStat(ctx, ADMIN_STAT_KEYS.applications, -1);
 }
 
 async function deleteQuestionSet(ctx: MutationCtx, setId: Id<"question_sets">) {
@@ -100,6 +103,9 @@ async function deleteJob(ctx: MutationCtx, jobId: Id<"jobs">) {
 
   await bumpOpenJobCount(ctx, openCountDelta(job?.status, undefined));
   await ctx.db.delete(jobId);
+  // Keep the admin dashboard counters in step with the deletion.
+  await bumpAdminStat(ctx, ADMIN_STAT_KEYS.jobs, -1);
+  if (job?.status === "open") await bumpAdminStat(ctx, ADMIN_STAT_KEYS.openJobs, -1);
 }
 
 export async function deleteJobCascade(ctx: MutationCtx, jobId: Id<"jobs">) {
@@ -275,5 +281,11 @@ export async function deleteAppUserData(ctx: MutationCtx, user: Doc<"users">) {
 
   if (user.profile_image_storage_id) r2Keys.push(user.profile_image_storage_id);
   await ctx.db.delete(userId);
+  // Keep the admin dashboard counters in step with the deletion.
+  await bumpAdminStat(ctx, ADMIN_STAT_KEYS.users, -1);
+  if (user.role === "admin") await bumpAdminStat(ctx, ADMIN_STAT_KEYS.admins, -1);
+  if (user.account_type === "seeker") await bumpAdminStat(ctx, ADMIN_STAT_KEYS.seekers, -1);
+  if (user.account_type === "recruiter") await bumpAdminStat(ctx, ADMIN_STAT_KEYS.recruiters, -1);
+  if (!user.isActive) await bumpAdminStat(ctx, ADMIN_STAT_KEYS.inactiveUsers, -1);
   return r2Keys;
 }

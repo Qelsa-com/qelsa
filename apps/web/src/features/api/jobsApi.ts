@@ -187,6 +187,3 @@ export function useDuplicateJobMutation() {
   return useConvexMutationHook(api.jobs.duplicate, (jobId: string | number) => ({ jobId: String(jobId) }));
 }
 
-export function useWipeAllJobsMutation() {
-  return useConvexMutationHook<void, { started: boolean }>(api.jobs.wipeAll, () => ({}));
-}

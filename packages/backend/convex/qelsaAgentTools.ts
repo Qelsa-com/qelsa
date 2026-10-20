@@ -17,6 +17,7 @@ import { internalAction, internalMutation, internalQuery } from "./_generated/se
 import { createAgentChatModel, requireOpenRouter } from "./lib/ai";
 import { WITHDRAWN_STATUS, isWithdrawn } from "./lib/applications";
 import { recommendCourses } from "./lib/courseCatalog";
+import { ADMIN_STAT_KEYS, bumpAdminStat } from "./lib/adminStats";
 import { bumpJobCount } from "./lib/jobCounts";
 import { clipPlainText, skillMatchKey } from "./lib/skillMatch";
 
@@ -589,6 +590,7 @@ async function insertApplication(
     status: "applied",
     applied_at: Date.now(),
   });
+  await bumpAdminStat(ctx, ADMIN_STAT_KEYS.applications, 1);
   await bumpJobCount(ctx, job._id, "application_count", 1);
 
   const savedRows = await ctx.db

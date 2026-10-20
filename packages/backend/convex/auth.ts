@@ -9,6 +9,7 @@ import type { DataModel, Id } from "./_generated/dataModel";
 import { internalMutation, mutation, query, type ActionCtx, type MutationCtx } from "./_generated/server";
 import authConfig from "./auth.config";
 import { deleteAppUserData } from "./lib/deleteUserData";
+import { ADMIN_STAT_KEYS, bumpAdminStat } from "./lib/adminStats";
 import { sendOTPEmail } from "./lib/email";
 
 const siteUrl = process.env.SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
@@ -83,6 +84,9 @@ async function upsertAppUser(ctx: MutationCtx, fields: AppUserFields): Promise<I
         show_phone_number: false,
         expected_salary_currency: "INR",
       });
+      // New account: bump the admin dashboard counters in the same transaction
+      // so the dashboard never has to scan the users table.
+      await bumpAdminStat(ctx, ADMIN_STAT_KEYS.users, 1);
     }
   }
 
