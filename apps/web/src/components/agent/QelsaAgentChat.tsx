@@ -99,7 +99,7 @@ function AssistantAvatar() {
 
 function TypingDots() {
   return (
-    <div className="flex items-center gap-1 py-2">
+    <div className="flex items-center gap-1">
       <span className="size-1.5 animate-pulse rounded-full bg-neon-cyan" />
       <span className="size-1.5 animate-pulse rounded-full bg-neon-purple [animation-delay:150ms]" />
       <span className="size-1.5 animate-pulse rounded-full bg-neon-pink [animation-delay:300ms]" />
@@ -107,9 +107,20 @@ function TypingDots() {
   );
 }
 
+function ThinkingIndicator({ reasoning = false }: { reasoning?: boolean }) {
+  return (
+    <div className="flex items-center gap-2 py-1.5 text-[12px] text-white/40">
+      <TypingDots />
+      <span>{reasoning ? "Thinking through the details…" : "Thinking…"}</span>
+    </div>
+  );
+}
+
 function MessageBubble({
   message,
   resolvingApprovalId,
+  generationActive,
+  generationStatus,
   onApprove,
   onDeny,
   onRetry,
@@ -117,6 +128,8 @@ function MessageBubble({
 }: {
   message: AgentUIMessage;
   resolvingApprovalId: string | null;
+  generationActive?: boolean | null;
+  generationStatus?: "idle" | "running" | "succeeded" | "failed" | null;
   onApprove: (approvalId: string) => void;
   onDeny: (approvalId: string) => void;
   onRetry?: () => void;
@@ -129,7 +142,8 @@ function MessageBubble({
   const [, forceRender] = useState(0);
 
   // Wake up after two minutes so a silently failed run surfaces a retry affordance
-  // instead of leaving the typing dots on screen forever.
+  // instead of leaving the typing dots on screen forever. Active runs (including
+  // long reasoning passes) never show retry while the backend still owns them.
   useEffect(() => {
     if (!waitingForReply) return;
     const remaining = 120_000 - (Date.now() - createdAt);
@@ -155,15 +169,31 @@ function MessageBubble({
 
   if (message.role !== "assistant") return null;
 
-  const streaming = message.status === "streaming";
-  const waiting = streaming || message.status === "pending";
+  const failed = message.status === "failed";
+  const waiting = message.status === "streaming" || message.status === "pending";
   const visibleParts = parts.filter((part) => {
     if (isTextPart(part)) return part.text.trim().length > 0;
     return isToolPart(part);
   });
-  // A provider hiccup can leave an empty placeholder behind. Don't stream dots
-  // forever: surface a retry affordance once the message has clearly gone stale.
-  const stalled = waiting && Date.now() - createdAt > 120_000;
+  const backendActive = generationActive === true || generationStatus === "running";
+  // A provider hiccup can leave an empty placeholder behind. Surface retry when
+  // the message itself failed, when the backend flagged the run failed, or when
+  // the stream is stale and no generation is active anymore. A slow reasoning
+  // pass stays in the "thinking" state instead of looking broken.
+  const stalled =
+    waiting &&
+    (generationStatus === "failed" ||
+      (generationActive === false && !backendActive && Date.now() - createdAt > 120_000));
+  const isError = failed || stalled;
+  const showRetry = isError && Boolean(onRetry);
+  const hasReasoning = parts.some((part) => part?.type === "reasoning");
+  const lastMeaningfulPart = [...parts].reverse().find((part) => part?.type !== "step-start");
+  const reasoningActive = waiting && lastMeaningfulPart?.type === "reasoning";
+  const showThinking = waiting && !stalled && (visibleParts.length === 0 || reasoningActive);
+
+  // A failed placeholder that has been superseded by a newer turn should not
+  // leave an empty bubble (or a dead error banner) in the transcript.
+  if (isError && !onRetry && visibleParts.length === 0) return null;
 
   return (
     <div className="flex gap-3">
@@ -198,14 +228,15 @@ function MessageBubble({
               key={tool.toolCallId ?? `${toolNameOf(tool)}-${index}`}
               part={tool}
               resolving={Boolean(tool.approval?.id && tool.approval.id === resolvingApprovalId)}
+              interrupted={failed || stalled}
               onApprove={onApprove}
               onDeny={onDeny}
               onOpenArtifact={onOpenArtifact}
             />
           );
         })}
-        {streaming && visibleParts.length === 0 && !stalled && <TypingDots />}
-        {stalled && (
+        {showThinking && <ThinkingIndicator reasoning={hasReasoning} />}
+        {showRetry && (
           <div className="flex flex-wrap items-center gap-2 text-[12px] text-white/40">
             <span>
               {visibleParts.length
@@ -364,10 +395,15 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
     api.qelsaAgent.getFollowUps,
     isAuthenticated && activeThreadId && activeThreadIsKnown ? { threadId: activeThreadId } : "skip",
   );
+  const generationState = useQuery(
+    api.qelsaAgent.getGenerationStatus,
+    isAuthenticated && activeThreadId && activeThreadIsKnown ? { threadId: activeThreadId } : "skip",
+  );
   const createConversation = useMutation(api.qelsaAgent.createConversation);
   const deleteConversation = useMutation(api.qelsaAgent.deleteConversation);
   const sendPrompt = useMutation(api.qelsaAgent.sendPrompt);
   const submitApproval = useMutation(api.qelsaAgent.submitApproval);
+  const retryGeneration = useMutation(api.qelsaAgent.retryGeneration);
 
   const visibleConversations = useMemo(() => {
     const query = railSearch.trim().toLowerCase();
@@ -562,18 +598,6 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
     lastMessage.status !== "pending" &&
     suggestions.length > 0;
 
-  const lastUserPrompt = useMemo(() => {
-    for (let index = messages.length - 1; index >= 0; index -= 1) {
-      const message = messages[index];
-      if (message.role !== "user") continue;
-      if (typeof message.text === "string" && message.text.trim()) return message.text;
-      const parts = (message.parts ?? []) as any[];
-      const text = parts.filter(isTextPart).map((part) => part.text).join("\n");
-      if (text.trim()) return text;
-    }
-    return "";
-  }, [messages]);
-
   // Clear the "agent is thinking" indicator once anything starts streaming back.
   useEffect(() => {
     if (!awaitingReply) return;
@@ -640,6 +664,20 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
     },
     [ensureThread, input, sendPrompt, sending, quotaExhausted, threadResolving],
   );
+
+  const handleRetry = useCallback(async () => {
+    if (!activeThreadId || sending) return;
+    setSending(true);
+    stickToBottom.current = true;
+    try {
+      await retryGeneration({ threadId: activeThreadId });
+      setAwaitingReply(true);
+    } catch (error) {
+      toastUnknownError(error, "Couldn't retry that reply.");
+    } finally {
+      setSending(false);
+    }
+  }, [activeThreadId, retryGeneration, sending]);
 
   const handleNewChat = useCallback(() => {
     if (sending) return;
@@ -940,12 +978,12 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
                     key={message.key}
                     message={message}
                     resolvingApprovalId={resolvingApprovalId}
+                    generationActive={generationState?.active ?? null}
+                    generationStatus={generationState?.status ?? null}
                     onApprove={(approvalId) => void handleApproval(approvalId, true)}
                     onDeny={(approvalId) => void handleApproval(approvalId, false)}
                     onRetry={
-                      lastUserPrompt && index === messages.length - 1
-                        ? () => void handleSend(lastUserPrompt)
-                        : undefined
+                      index === messages.length - 1 ? () => void handleRetry() : undefined
                     }
                     onOpenArtifact={handleOpenArtifact}
                   />
@@ -975,11 +1013,12 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
               </div>
             )}
 
-            {awaitingReply && !streaming && (
+            {awaitingReply && !streaming && generationState?.status !== "failed" && (
               <div className="mt-5 flex gap-3">
                 <AssistantAvatar />
-                <div className="flex items-center rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-1.5">
+                <div className="flex items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-1.5">
                   <TypingDots />
+                  <span className="text-[12px] text-white/40">Thinking…</span>
                 </div>
               </div>
             )}
