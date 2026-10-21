@@ -15,6 +15,15 @@ See `README.md` for the canonical setup/dev commands. Package scripts live in th
 - Admin mutations write an `admin_audit_log` row so every privileged action stays attributable.
 - Suspended app users are rejected by `getAppUser()` and are treated as signed out by optional auth reads. Do not add a new `authed*` path that bypasses that check.
 
+## Public job boards
+
+The admin "Public job boards" page (`apps/admin/src/app/(admin)/boards/page.tsx`) lets admins ingest Greenhouse / Lever / Ashby boards. Public boards are keyed on `(provider, subdomain)` — the same slug under a different ATS is a different board.
+
+- `apps/admin/src/components/ats/boardCatalog.ts` is a hand-curated catalog of well-known company boards powering the "Company" picker, grouped by ATS and by `india` / `global`. It is data, not live discovery: slugs are probed against each vendor's public API, so entries rot as companies delete boards or switch ATS.
+- After editing the catalog, run `pnpm check:board-catalog` (→ `scripts/verify-board-catalog.mjs`) to probe every slug. It reports role-count drift and exits non-zero when a board no longer resolves; `--fix` strips the dead entries.
+- The picker only offers boards for the currently selected ATS, drops any board already ingested for that ATS, and still accepts a manually typed slug.
+- `packages/backend/convex/atsProviders.ts` owns the vendor fetchers. `fetchLever` tries the US host then `api.eu.lever.co`, because Lever serves EU-region boards from a separate host that 404s on the `.com` one.
+
 ## Employer authentication
 
 `/auth` is the candidate flow. Employers use `/employer/auth`, which supports Google and email OTP but rejects consumer/disposable domains.
