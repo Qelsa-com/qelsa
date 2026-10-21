@@ -3,7 +3,7 @@ import { v } from "convex/values";
 import { Agent, createThread, saveMessage } from "@convex-dev/agent";
 import { components, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { action, type ActionCtx } from "./_generated/server";
+import { action, internalAction, type ActionCtx } from "./_generated/server";
 import { AI_AGENT_MODEL, requireOpenRouter } from "./lib/ai";
 import { sessionPublicValidator } from "./jobMatch";
 import { parseJsonObject } from "./lib/parsedProfile";
@@ -599,6 +599,86 @@ async function fetchJdFromUrl(url: string) {
   return text;
 }
 
+async function runJobMatchForUser(
+  ctx: ActionCtx,
+  authId: string,
+  jobId: Id<"jobs">,
+  refresh?: boolean,
+): Promise<SessionPublic> {
+  requireOpenRouter();
+  const user: UserContext = await ctx.runQuery(internal.jobMatch.loadUserContext, {
+    authId,
+  });
+
+  const existing: {
+    id: Id<"job_match_sessions">;
+    thread_id: string;
+    context_fingerprint?: string;
+    overall?: number;
+  } | null = await ctx.runQuery(internal.jobMatch.findExistingForJob, {
+    userId: user.userId,
+    jobId,
+  });
+  if (!refresh && existing && existing.context_fingerprint === user.fingerprint) {
+    return await ctx.runQuery(internal.jobMatch.getSessionInternal, {
+      sessionId: existing.id,
+      authId,
+    });
+  }
+
+  const enriched = await enrichUserContext(ctx, user);
+  const snapshot = await ctx.runQuery(internal.jobMatch.loadJobSnapshot, {
+    jobId,
+    userId: user.userId,
+  });
+
+  const job = {
+    title: snapshot.title as string,
+    company: snapshot.company as string | undefined,
+    location: snapshot.location as string | undefined,
+    description: snapshot.description as string,
+    work_type: snapshot.work_type as string | undefined,
+    workplace_type: snapshot.workplace_type as "on-site" | "hybrid" | "remote" | undefined,
+    experience: snapshot.experience as number | undefined,
+    skills: snapshot.skills as SkillRef[],
+    responsibilities: (snapshot.responsibilities as string[] | undefined) ?? extractJdListItems(snapshot.description as string, 10),
+    requirements: (snapshot.requirements as string[] | undefined) ?? [],
+  };
+
+  const analysis = await analyzeMatch(
+    ctx,
+    authId,
+    job,
+    enriched,
+    snapshot.competency as ReturnType<typeof buildCompetencyFramework> | null,
+  );
+
+  const sessionId = !refresh && existing
+    ? await appendUpdatedAnalysis(ctx, {
+        authId,
+        sessionId: existing.id,
+        threadId: existing.thread_id,
+        job,
+        analysis,
+        fingerprint: user.fingerprint,
+      })
+    : await persistSession(ctx, {
+        userId: user.userId,
+        authId,
+        source: "qelsa",
+        jobId,
+        job,
+        analysis,
+        fingerprint: user.fingerprint,
+        existingSessionId: existing?.id,
+      });
+
+  return await ctx.runQuery(internal.jobMatch.getSessionInternal, {
+    sessionId,
+    authId,
+  });
+}
+
 export const startForJob = action({
   args: {
     jobId: v.id("jobs"),
@@ -606,83 +686,125 @@ export const startForJob = action({
   },
   returns: sessionPublicValidator,
   handler: async (ctx, args): Promise<SessionPublic> => {
-    requireOpenRouter();
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
-
-    const user: UserContext = await ctx.runQuery(internal.jobMatch.loadUserContext, {
-      authId: identity.subject,
-    });
-
-    const existing: {
-      id: Id<"job_match_sessions">;
-      thread_id: string;
-      context_fingerprint?: string;
-      overall?: number;
-    } | null = await ctx.runQuery(internal.jobMatch.findExistingForJob, {
-      userId: user.userId,
-      jobId: args.jobId,
-    });
-    if (!args.refresh && existing && existing.context_fingerprint === user.fingerprint) {
-      return await ctx.runQuery(internal.jobMatch.getSessionInternal, {
-        sessionId: existing.id,
-        authId: identity.subject,
-      });
-    }
-
-    const enriched = await enrichUserContext(ctx, user);
-    const snapshot = await ctx.runQuery(internal.jobMatch.loadJobSnapshot, {
-      jobId: args.jobId,
-      userId: user.userId,
-    });
-
-    const job = {
-      title: snapshot.title as string,
-      company: snapshot.company as string | undefined,
-      location: snapshot.location as string | undefined,
-      description: snapshot.description as string,
-      work_type: snapshot.work_type as string | undefined,
-      workplace_type: snapshot.workplace_type as "on-site" | "hybrid" | "remote" | undefined,
-      experience: snapshot.experience as number | undefined,
-      skills: snapshot.skills as SkillRef[],
-      responsibilities: (snapshot.responsibilities as string[] | undefined) ?? extractJdListItems(snapshot.description as string, 10),
-      requirements: (snapshot.requirements as string[] | undefined) ?? [],
-    };
-
-    const analysis = await analyzeMatch(
-      ctx,
-      identity.subject,
-      job,
-      enriched,
-      snapshot.competency as ReturnType<typeof buildCompetencyFramework> | null,
-    );
-
-    const sessionId = !args.refresh && existing
-      ? await appendUpdatedAnalysis(ctx, {
-          authId: identity.subject,
-          sessionId: existing.id,
-          threadId: existing.thread_id,
-          job,
-          analysis,
-          fingerprint: user.fingerprint,
-        })
-      : await persistSession(ctx, {
-          userId: user.userId,
-          authId: identity.subject,
-          source: "qelsa",
-          jobId: args.jobId,
-          job,
-          analysis,
-          fingerprint: user.fingerprint,
-          existingSessionId: existing?.id,
-        });
-
-    return await ctx.runQuery(internal.jobMatch.getSessionInternal, {
-      sessionId,
-      authId: identity.subject,
-    });
+    return await runJobMatchForUser(ctx, identity.subject, args.jobId, args.refresh);
   },
 });
+
+/** Used by the agent, which already resolved and verified the caller. */
+export const startForJobInternal = internalAction({
+  args: {
+    authId: v.string(),
+    jobId: v.id("jobs"),
+    refresh: v.optional(v.boolean()),
+  },
+  returns: sessionPublicValidator,
+  handler: async (ctx, args): Promise<SessionPublic> =>
+    await runJobMatchForUser(ctx, args.authId, args.jobId, args.refresh),
+});
+
+type ExternalJobArgs = {
+  jdText?: string;
+  jdUrl?: string;
+  jdStorageId?: string;
+  jdFilename?: string;
+};
+
+async function runExternalForUser(
+  ctx: ActionCtx,
+  authId: string,
+  args: ExternalJobArgs,
+): Promise<SessionPublic> {
+  const openRouter = requireOpenRouter();
+
+  let sourceText = clipPlainText(args.jdText, 14000);
+  if (args.jdStorageId) {
+    const fromFile = await ctx.runAction(internal.resumeParse.extractStoredDocument, {
+      storageId: args.jdStorageId,
+      filename: args.jdFilename,
+    });
+    sourceText = sourceText ? `${sourceText}\n\n${fromFile}` : fromFile;
+  }
+  if (args.jdUrl?.trim()) {
+    const fetched = await fetchJdFromUrl(args.jdUrl.trim());
+    sourceText = sourceText ? `${sourceText}\n\n${fetched}` : fetched;
+  }
+  if (sourceText.length < 80) {
+    throw new Error("Paste a job description, upload a JD file, or add a job URL first.");
+  }
+
+  const user: UserContext = await enrichUserContext(
+    ctx,
+    await ctx.runQuery(internal.jobMatch.loadUserContext, {
+      authId,
+    }),
+  );
+
+  const extractor = new Agent(components.agent, {
+    name: "Job Normalizer",
+    languageModel: openRouter.chat(AI_AGENT_MODEL),
+    instructions:
+      "Extract a normalized job snapshot from unstructured JD text. Do not invent a company or location if they are not present. Pick skills that actually appear in the JD.",
+    maxSteps: 1,
+  });
+
+  const jobDoc = await generateObjectRepaired(
+    (args) => extractor.generateObject(ctx, { userId: authId }, args),
+    extractedJobSchema,
+    toExtractedJob,
+    {
+      prompt: `Normalize this job posting into the schema. If a field is unknown, use null or [].\n\n${sourceText}`,
+    },
+  );
+  const catalogSkills = (jobDoc.skills ?? []).filter(
+    (skill): skill is { name: string; type: "core" | "preferred" | "nice_to_have" } =>
+      Boolean(skill?.name && skill?.type),
+  );
+  const skills = await mapSkillsToCatalog(ctx, catalogSkills);
+  const competency = skills.some((s) => s.skill_id)
+    ? buildCompetencyFramework(
+        skills
+          .filter((s) => s.skill_id)
+          .map((s) => ({
+            skill_id: s.skill_id as string,
+            type: s.type,
+            proficiency: "intermediate",
+            skill: { name: s.name },
+          })),
+        user.skills.map((s) => ({ skill_id: s.skill_id, proficiency: s.proficiency ?? undefined, name: s.name })),
+      )
+    : null;
+
+  const job = {
+    title: jobDoc.title,
+    company: jobDoc.company ?? undefined,
+    location: jobDoc.location ?? undefined,
+    description: clipPlainText(jobDoc.description, 6000),
+    work_type: jobDoc.work_type ?? undefined,
+    workplace_type: jobDoc.workplace_type ?? undefined,
+    experience: jobDoc.experience_years ?? undefined,
+    source_url: args.jdUrl?.trim() || undefined,
+    skills,
+    responsibilities: jobDoc.responsibilities,
+    requirements: jobDoc.requirements,
+  };
+
+  const analysis = await analyzeMatch(ctx, authId, job, user, competency);
+  const sessionId = await persistSession(ctx, {
+    userId: user.userId,
+    authId,
+    source: "external",
+    job,
+    analysis,
+    fingerprint: user.fingerprint,
+  });
+
+  return await ctx.runQuery(internal.jobMatch.getSessionInternal, {
+    sessionId,
+    authId,
+  });
+}
 
 export const startForExternal = action({
   args: {
@@ -693,97 +815,22 @@ export const startForExternal = action({
   },
   returns: sessionPublicValidator,
   handler: async (ctx, args): Promise<SessionPublic> => {
-    const openRouter = requireOpenRouter();
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
-
-    let sourceText = clipPlainText(args.jdText, 14000);
-    if (args.jdStorageId) {
-      const fromFile = await ctx.runAction(internal.resumeParse.extractStoredDocument, {
-        storageId: args.jdStorageId,
-        filename: args.jdFilename,
-      });
-      sourceText = sourceText ? `${sourceText}\n\n${fromFile}` : fromFile;
-    }
-    if (args.jdUrl?.trim()) {
-      const fetched = await fetchJdFromUrl(args.jdUrl.trim());
-      sourceText = sourceText ? `${sourceText}\n\n${fetched}` : fetched;
-    }
-    if (sourceText.length < 80) {
-      throw new Error("Paste a job description, upload a JD file, or add a job URL first.");
-    }
-
-    const user: UserContext = await enrichUserContext(
-      ctx,
-      await ctx.runQuery(internal.jobMatch.loadUserContext, {
-        authId: identity.subject,
-      }),
-    );
-
-    const extractor = new Agent(components.agent, {
-      name: "Job Normalizer",
-      languageModel: openRouter.chat(AI_AGENT_MODEL),
-      instructions:
-        "Extract a normalized job snapshot from unstructured JD text. Do not invent a company or location if they are not present. Pick skills that actually appear in the JD.",
-      maxSteps: 1,
-    });
-
-    const jobDoc = await generateObjectRepaired(
-      (args) => extractor.generateObject(ctx, { userId: identity.subject }, args),
-      extractedJobSchema,
-      toExtractedJob,
-      {
-        prompt: `Normalize this job posting into the schema. If a field is unknown, use null or [].\n\n${sourceText}`,
-      },
-    );
-    const catalogSkills = (jobDoc.skills ?? [])
-      .filter((skill): skill is { name: string; type: "core" | "preferred" | "nice_to_have" } =>
-        Boolean(skill?.name && skill?.type),
-      );
-    const skills = await mapSkillsToCatalog(ctx, catalogSkills);
-    const competency = skills.some((s) => s.skill_id)
-      ? buildCompetencyFramework(
-          skills
-            .filter((s) => s.skill_id)
-            .map((s) => ({
-              skill_id: s.skill_id as string,
-              type: s.type,
-              proficiency: "intermediate",
-              skill: { name: s.name },
-            })),
-          user.skills.map((s) => ({ skill_id: s.skill_id, proficiency: s.proficiency ?? undefined, name: s.name })),
-        )
-      : null;
-
-    const job = {
-      title: jobDoc.title,
-      company: jobDoc.company ?? undefined,
-      location: jobDoc.location ?? undefined,
-      description: clipPlainText(jobDoc.description, 6000),
-      work_type: jobDoc.work_type ?? undefined,
-      workplace_type: jobDoc.workplace_type ?? undefined,
-      experience: jobDoc.experience_years ?? undefined,
-      source_url: args.jdUrl?.trim() || undefined,
-      skills,
-      responsibilities: jobDoc.responsibilities,
-      requirements: jobDoc.requirements,
-    };
-
-    const analysis = await analyzeMatch(ctx, identity.subject, job, user, competency);
-    const sessionId = await persistSession(ctx, {
-      userId: user.userId,
-      authId: identity.subject,
-      source: "external",
-      job,
-      analysis,
-      fingerprint: user.fingerprint,
-    });
-
-    return await ctx.runQuery(internal.jobMatch.getSessionInternal, {
-      sessionId,
-      authId: identity.subject,
-    });
+    return await runExternalForUser(ctx, identity.subject, args);
   },
+});
+
+/** Used by the agent to evaluate a job the user found elsewhere. */
+export const startForExternalInternal = internalAction({
+  args: {
+    authId: v.string(),
+    jdText: v.optional(v.string()),
+    jdUrl: v.optional(v.string()),
+  },
+  returns: sessionPublicValidator,
+  handler: async (ctx, args): Promise<SessionPublic> =>
+    await runExternalForUser(ctx, args.authId, args),
 });
 
 export const sendMessage = action({

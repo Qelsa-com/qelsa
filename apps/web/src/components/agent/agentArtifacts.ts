@@ -12,7 +12,18 @@
 
 import type { AgentToolPart } from "./agentToolMeta";
 
-export type AgentArtifactKind = "cover_letter" | "application_kit" | "fit_report" | "tracker" | "document";
+export type AgentArtifactKind =
+  | "cover_letter"
+  | "application_kit"
+  | "fit_report"
+  | "tracker"
+  | "resume_tailoring"
+  | "application_questions"
+  | "application_answers"
+  | "interview_prep"
+  | "comparison"
+  | "follow_up"
+  | "document";
 
 export type AgentArtifact = {
   id: string;
@@ -195,12 +206,109 @@ export function artifactFromToolPart(
     };
   }
 
-  if (name === "get_job_readiness") {
+  if (name === "get_job_readiness" || name === "run_job_match" || name === "analyze_external_job") {
     return fitReportArtifact(part, output, jobId, jobTitle, company);
   }
 
   if (name === "list_my_applications") {
     return trackerArtifact(part, output);
+  }
+
+  if (name === "tailor_resume" && typeof output.markdown === "string") {
+    return {
+      id: `resume-${part.toolCallId ?? jobId ?? "plan"}`,
+      kind: "resume_tailoring",
+      title: `Resume plan · ${jobTitle}`,
+      subtitle,
+      jobId,
+      markdown: output.markdown,
+    };
+  }
+
+  if (name === "prepare_interview" && typeof output.markdown === "string") {
+    return {
+      id: `interview-${part.toolCallId ?? jobId ?? "prep"}`,
+      kind: "interview_prep",
+      title: `Interview brief · ${jobTitle}`,
+      subtitle,
+      jobId,
+      markdown: output.markdown,
+    };
+  }
+
+  if ((name === "compare_jobs" || name === "compare_offers") && typeof output.markdown === "string") {
+    return {
+      id: `compare-${part.toolCallId ?? "jobs"}`,
+      kind: "comparison",
+      title: name === "compare_offers" ? "Offer comparison" : "Job comparison",
+      markdown: output.markdown,
+    };
+  }
+
+  if (name === "draft_candidate_outreach" && typeof output.markdown === "string") {
+    const applicant = asRecord(output.applicant);
+    const applicantName = clean(applicant?.name) || "candidate";
+    return {
+      id: `outreach-${part.toolCallId ?? "message"}`,
+      kind: "follow_up",
+      title: `Outreach · ${applicantName}`,
+      subtitle: clean(output.job?.title) || undefined,
+      markdown: output.markdown,
+    };
+  }
+
+  if (name === "draft_follow_up" && typeof output.markdown === "string") {
+    const followJob = asRecord(output.job);
+    const followTitle = clean(followJob?.title) || jobTitle;
+    return {
+      id: `follow-up-${part.toolCallId ?? "email"}`,
+      kind: "follow_up",
+      title: `Follow-up · ${followTitle}`,
+      subtitle: clean(followJob?.company) || undefined,
+      markdown: output.markdown,
+    };
+  }
+
+  if (name === "get_application_questions" && Array.isArray(output.questions)) {
+    const questions = output.questions;
+    if (!questions.length) return null;
+    const lines = questions.map((question: any, index: number) => {
+      const options = asArray(question.options).map((option: any) => clean(option.title)).filter(Boolean);
+      return [
+        `${index + 1}. **${clean(question.title) || "Question"}**${question.required ? " _(required)_" : ""}`,
+        options.length ? `   Options: ${options.join(", ")}` : "",
+      ]
+        .filter(Boolean)
+        .join("\n");
+    });
+    return {
+      id: `questions-${part.toolCallId ?? jobId ?? "job"}`,
+      kind: "application_questions",
+      title: `Application questions · ${jobTitle}`,
+      subtitle,
+      jobId,
+      markdown: [`# Application questions — ${jobTitle}`, ...lines].join("\n\n"),
+    };
+  }
+
+  if (name === "draft_application_answers" && Array.isArray(output.answers)) {
+    const answers = output.answers;
+    if (!answers.length) return null;
+    return {
+      id: `answers-${part.toolCallId ?? jobId ?? "job"}`,
+      kind: "application_answers",
+      title: `Application answers · ${jobTitle}`,
+      subtitle,
+      jobId,
+      markdown: [
+        `# Application answers — ${jobTitle}`,
+        "Review and edit these before submitting.",
+        ...answers.map(
+          (row: any, index: number) =>
+            `## ${index + 1}. ${clean(row.question) || "Question"}\n\n${clean(row.answer)}`,
+        ),
+      ].join("\n\n"),
+    };
   }
 
   return null;

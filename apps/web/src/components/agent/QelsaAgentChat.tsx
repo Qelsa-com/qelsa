@@ -14,17 +14,16 @@ import { cn } from "@/components/ui/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { api } from "@/lib/convexApi";
 import { toastUnknownError } from "@/lib/errors";
-import { homeForAccount } from "@/lib/onboarding";
 import { useUIMessages } from "@convex-dev/agent/react";
 import { useMutation, useQuery } from "convex/react";
-import { ArrowUp, Briefcase, Loader2, MessageSquarePlus, PanelLeft, PanelRight, Plus, RotateCcw, Search, Sparkles, Trash2, WifiOff, X } from "lucide-react";
+import { ArrowUp, Bell, Loader2, MessageSquarePlus, PanelLeft, PanelRight, Plus, RotateCcw, Search, Sparkles, Trash2, WifiOff, X } from "lucide-react";
 import { useRouter } from "next/router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { AgentArtifactPanel } from "./AgentArtifactPanel";
 import { documentArtifact, type AgentArtifact } from "./agentArtifacts";
 import { AgentJobResults, AgentToolCard } from "./AgentToolCard";
-import { fallbackFollowUps, isReasoningPart, SUGGESTIONS, toolNameOf, type AgentJobSummary, type AgentToolPart, type AgentUIMessage } from "./agentToolMeta";
+import { fallbackFollowUps, isReasoningPart, RECRUITER_SUGGESTIONS, SUGGESTIONS, toolNameOf, type AgentJobSummary, type AgentToolPart, type AgentUIMessage } from "./agentToolMeta";
 import { AgentReasoningTrace, AgentThinkingLine } from "./AgentTrace";
 
 type Conversation = { threadId: string; title: string; updatedAt: number };
@@ -321,7 +320,7 @@ function RailHeader({ onClose }: { onClose?: () => void }) {
       </div>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-semibold text-white">Qelsa Agent</p>
-        <p className="truncate text-[11px] text-white/45">Your career copilot</p>
+        <p className="truncate text-[11px] text-white/45">Your Qelsa copilot</p>
       </div>
       {onClose && (
         <button type="button" aria-label="Close conversations" onClick={onClose} className="flex size-8 shrink-0 items-center justify-center rounded-full border border-white/[0.1] bg-white/[0.04] text-white/60">
@@ -335,6 +334,7 @@ function RailHeader({ onClose }: { onClose?: () => void }) {
 export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
   const router = useRouter();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+  const isRecruiter = user?.account_type === "recruiter";
 
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [mobileRailOpen, setMobileRailOpen] = useState(false);
@@ -370,6 +370,19 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
 
   const followUps = useQuery(api.qelsaAgent.getFollowUps, isAuthenticated && activeThreadId && activeThreadIsKnown ? { threadId: activeThreadId } : "skip");
   const generationState = useQuery(api.qelsaAgent.getGenerationStatus, isAuthenticated && activeThreadId && activeThreadIsKnown ? { threadId: activeThreadId } : "skip");
+  const briefsQuery = useQuery(api.agentProactive.listBriefs, isAuthenticated ? { limit: 3 } : "skip");
+  const markBriefRead = useMutation(api.agentProactive.markBriefRead);
+  const [dismissedBriefId, setDismissedBriefId] = useState<string | null>(null);
+  const latestBrief = useMemo(() => {
+    const rows = (briefsQuery?.briefs ?? []) as Array<{
+      brief_id: string;
+      title: string;
+      summary: string;
+      read: boolean;
+      jobs: AgentJobSummary[];
+    }>;
+    return rows.find((brief) => !brief.read && brief.brief_id !== dismissedBriefId) ?? null;
+  }, [briefsQuery, dismissedBriefId]);
   const createConversation = useMutation(api.qelsaAgent.createConversation);
   const deleteConversation = useMutation(api.qelsaAgent.deleteConversation);
   const sendPrompt = useMutation(api.qelsaAgent.sendPrompt);
@@ -528,13 +541,13 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
   const pendingApproval = useMemo(() => Boolean(lastAssistant?.parts?.some((part) => isToolPart(part) && part.state === "approval-requested")), [lastAssistant]);
   const lastToolNames = useMemo(() => (lastAssistant ? (lastAssistant.parts ?? []).filter(isToolPart).map((part) => toolNameOf(part)) : []), [lastAssistant]);
   const suggestions = useMemo(() => {
-    const fallback = fallbackFollowUps(lastToolNames);
+    const fallback = fallbackFollowUps(lastToolNames, isRecruiter);
     if (!followUps?.suggestions.length) return fallback;
     const lastCreated = lastMessage?._creationTime ?? 0;
     // A row written before the newest reply belongs to the previous turn.
     if (followUps.createdAt < lastCreated) return fallback;
     return followUps.suggestions;
-  }, [followUps, lastMessage, lastToolNames]);
+  }, [followUps, lastMessage, lastToolNames, isRecruiter]);
   const showFollowUps =
     Boolean(activeThreadId) && !sending && !awaitingReply && !streaming && !pendingApproval && lastMessage?.role === "assistant" && lastMessage.status !== "streaming" && lastMessage.status !== "pending" && suggestions.length > 0;
 
@@ -788,6 +801,30 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
     setActiveArtifact(artifact);
   }, []);
 
+  const handleBriefReview = useCallback(() => {
+    if (!latestBrief) return;
+    setInput(
+      `What's new from my saved searches? Review "${latestBrief.title}" and tell me which roles I should act on first.`,
+    );
+    setActiveThreadId(null);
+    setAwaitingReply(false);
+    syncThreadUrl(null);
+    window.sessionStorage.removeItem("qelsa-agent-thread");
+    setDismissedBriefId(latestBrief.brief_id);
+    void markBriefRead({ briefId: latestBrief.brief_id as any }).catch(() => undefined);
+    requestAnimationFrame(() => textareaRef.current?.focus());
+  }, [latestBrief, markBriefRead, syncThreadUrl]);
+
+  const handleBriefDismiss = useCallback(async () => {
+    if (!latestBrief) return;
+    setDismissedBriefId(latestBrief.brief_id);
+    try {
+      await markBriefRead({ briefId: latestBrief.brief_id as any });
+    } catch {
+      // The card is already dismissed locally; a later refresh can retry.
+    }
+  }, [latestBrief, markBriefRead]);
+
   const activeConversation = conversations.find((item) => item.threadId === activeThreadId);
   const title = activeConversation?.title ?? "Qelsa Agent";
   const renderRail = (onClose?: () => void) => (
@@ -878,27 +915,6 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
     );
   }
 
-  if (user?.account_type === "recruiter") {
-    return (
-      <div className="flex h-[calc(100dvh-61px)] items-center justify-center px-4 lg:h-[calc(100dvh-59px)]">
-        <div className="w-full max-w-md rounded-2xl border border-white/[0.1] bg-white/[0.04] p-8 text-center backdrop-blur-xl">
-          <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-neon-cyan via-neon-purple to-neon-pink shadow-lg shadow-purple-900/30">
-            <Briefcase className="size-7 text-black" />
-          </div>
-          <h1 className="mt-5 text-xl font-semibold text-white">Qelsa Agent for hiring is next</h1>
-          <p className="mt-2 text-sm leading-relaxed text-white/55">The current agent is built for job seekers — it searches roles, checks fit, and prepares applications. A dedicated hiring agent will work with your jobs and applicants.</p>
-          <Button
-            type="button"
-            onClick={() => router.push(homeForAccount(user))}
-            className="mt-6 h-10 w-full rounded-xl bg-gradient-to-r from-[#623dd6] via-[#8433ae] to-[#be2680] text-sm font-semibold text-white shadow-lg shadow-purple-900/25"
-          >
-            Go to hiring dashboard
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="flex h-[calc(100dvh-61px)] w-full overflow-hidden lg:h-[calc(100dvh-59px)]">
       <aside className="hidden w-72 shrink-0 flex-col border-r border-white/[0.08] bg-[#080812]/80 lg:flex">{renderRail()}</aside>
@@ -917,7 +933,13 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
           </button>
           <div className="min-w-0 flex-1">
             <p className="truncate text-[13px] font-semibold text-white sm:text-sm">{title}</p>
-            <p className="truncate text-[10px] text-white/40 sm:text-[11px]">{configured ? "Can search jobs, check fit, and prepare applications" : "AI is not configured"}</p>
+            <p className="truncate text-[10px] text-white/40 sm:text-[11px]">
+              {configured
+                ? isRecruiter
+                  ? "Can review jobs, search applicants, and draft outreach"
+                  : "Can search jobs, check fit, tailor your resume, and prepare applications"
+                : "AI is not configured"}
+            </p>
           </div>
           <button
             type="button"
@@ -934,6 +956,61 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
           <div className="flex items-center justify-center gap-2 border-b border-amber-400/20 bg-amber-400/[0.07] px-4 py-2 text-[11px] text-amber-200">
             <WifiOff className="size-3.5" />
             Qelsa Agent needs API_KEY on this deployment.
+          </div>
+        )}
+
+        {latestBrief && (
+          <div className="shrink-0 border-b border-sky-400/15 bg-sky-400/[0.04] px-3 py-2.5 sm:px-4">
+            <div className="mx-auto flex w-full max-w-3xl items-start gap-3">
+              <div className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-sky-400/20 bg-sky-400/10 text-sky-300">
+                <Bell className="size-3.5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[12px] font-semibold text-white/85">{latestBrief.title}</p>
+                <p className="mt-0.5 line-clamp-2 text-[11px] leading-relaxed text-white/45">{latestBrief.summary}</p>
+                {latestBrief.jobs.length > 0 && (
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {latestBrief.jobs.slice(0, 3).map((job) => (
+                      <a
+                        key={job.job_id}
+                        href={`/jobs/${job.job_id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={() => void handleBriefDismiss()}
+                        className="max-w-[230px] truncate rounded-full border border-white/[0.08] bg-white/[0.04] px-2.5 py-1 text-[10px] font-medium text-white/65 transition-colors hover:border-sky-400/30 hover:text-white"
+                      >
+                        {job.title}
+                        {job.company ? ` · ${job.company}` : ""}
+                      </a>
+                    ))}
+                  </div>
+                )}
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleBriefReview}
+                    className="rounded-full border border-sky-400/25 bg-sky-400/10 px-2.5 py-1 text-[10px] font-semibold text-sky-200 transition-colors hover:bg-sky-400/[0.16]"
+                  >
+                    Review with Qelsa
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleBriefDismiss()}
+                    className="text-[10px] font-medium text-white/35 transition-colors hover:text-white/65"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+              <button
+                type="button"
+                aria-label="Dismiss brief"
+                onClick={() => void handleBriefDismiss()}
+                className="flex size-6 shrink-0 items-center justify-center rounded-full text-white/30 transition-colors hover:bg-white/[0.06] hover:text-white/70"
+              >
+                <X className="size-3.5" />
+              </button>
+            </div>
           </div>
         )}
 
@@ -964,11 +1041,13 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
                   Hi {firstNameOf(user?.name)}, <span className="bg-gradient-to-r from-neon-cyan via-neon-purple to-neon-pink bg-clip-text text-transparent">what&apos;s next?</span>
                 </h1>
                 <p className="mt-2 max-w-md text-[13px] leading-relaxed text-white/50 sm:text-sm">
-                  Search jobs, check your fit, draft a cover letter, or prepare an application. I&apos;ll do the work — you approve anything that changes your account.
+                  {isRecruiter
+                    ? "Review your jobs, find the strongest applicants, and draft outreach. I'll do the work — you approve anything that changes your pipeline."
+                    : "Search jobs, check your fit, tailor your resume, or prepare an application. I'll do the work — you approve anything that changes your account."}
                 </p>
 
                 <div className="mt-6 grid w-full gap-2 text-left sm:grid-cols-2">
-                  {SUGGESTIONS.map((suggestion) => {
+                  {(isRecruiter ? RECRUITER_SUGGESTIONS : SUGGESTIONS).map((suggestion) => {
                     const Icon = suggestion.icon;
                     return (
                       <button

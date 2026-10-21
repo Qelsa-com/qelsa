@@ -25,6 +25,12 @@ async function deleteApplication(
     .collect();
   for (const row of notes) await ctx.db.delete(row._id);
 
+  const agentNotes = await ctx.db
+    .query("agent_application_notes")
+    .withIndex("by_application", (q) => q.eq("application_id", applicationId))
+    .collect();
+  for (const row of agentNotes) await ctx.db.delete(row._id);
+
   const application = await ctx.db.get(applicationId);
   await ctx.db.delete(applicationId);
   if (adjustJobCount && application) {
@@ -198,6 +204,30 @@ export async function deleteAppUserData(ctx: MutationCtx, user: Doc<"users">) {
     .withIndex("by_user", (q) => q.eq("user_id", userId))
     .collect();
   for (const session of matchSessions) await ctx.db.delete(session._id);
+
+  const savedSearches = await ctx.db
+    .query("agent_saved_searches")
+    .withIndex("by_user", (q) => q.eq("user_id", userId))
+    .collect();
+  for (const row of savedSearches) await ctx.db.delete(row._id);
+
+  const briefs = await ctx.db
+    .query("agent_briefs")
+    .withIndex("by_user_and_created", (q) => q.eq("user_id", userId))
+    .collect();
+  for (const row of briefs) await ctx.db.delete(row._id);
+
+  const agentUsage = await ctx.db
+    .query("qelsa_agent_usage")
+    .withIndex("by_user_and_day", (q) => q.eq("user_id", userId))
+    .collect();
+  for (const row of agentUsage) await ctx.db.delete(row._id);
+
+  const agentThreads = await ctx.db
+    .query("qelsa_agent_threads")
+    .withIndex("by_user", (q) => q.eq("user_id", userId))
+    .collect();
+  for (const row of agentThreads) await ctx.db.delete(row._id);
 
   const pages = await ctx.db
     .query("pages")
