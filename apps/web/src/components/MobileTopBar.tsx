@@ -14,16 +14,22 @@ export function MobileTopBar({
   onMenuClick,
   isPro = false,
   premiumLoading = false,
+  scrolled = false,
 }: {
   onMenuClick?: () => void;
   isPro?: boolean;
   premiumLoading?: boolean;
+  scrolled?: boolean;
 }) {
   const router = useRouter();
   const { user, isAuthenticated } = useAuth();
 
   return (
-    <header className="sticky top-0 z-40 flex items-center justify-between border-b border-white/[0.12] bg-white/[0.06] px-4 py-3 backdrop-blur-xl lg:hidden">
+    <header
+      className={`sticky top-0 z-40 flex items-center justify-between border-b px-4 py-3 backdrop-blur-xl transition-colors duration-300 lg:hidden ${
+        scrolled ? "border-white/[0.12] bg-[#06060f]/80" : "border-transparent bg-transparent"
+      }`}
+    >
       <button
         type="button"
         onClick={() => router.push("/")}

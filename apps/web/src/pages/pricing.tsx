@@ -83,8 +83,8 @@ export default function PricingPage() {
 
   return (
     <Layout activeSection="pricing">
-      <main className="relative min-h-screen overflow-hidden bg-[#06060f] text-white">
-        <div aria-hidden className="pointer-events-none absolute inset-0">
+      <main className="relative isolate min-h-screen overflow-hidden text-white">
+        <div aria-hidden className="pointer-events-none fixed inset-0 -z-10">
           <div className="absolute left-1/2 top-0 h-[520px] w-[760px] -translate-x-1/2 rounded-full bg-neon-purple/[0.12] blur-[150px]" />
           <div className="absolute bottom-0 right-0 h-[360px] w-[360px] rounded-full bg-neon-cyan/[0.06] blur-[120px]" />
         </div>

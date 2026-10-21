@@ -40,18 +40,24 @@ export function DesktopTopBar({
   onProfileClick,
   isPro = false,
   premiumLoading = false,
+  scrolled = false,
 }: {
   activeSection?: string;
   onProfileClick?: () => void;
   isPro?: boolean;
   premiumLoading?: boolean;
+  scrolled?: boolean;
 }) {
   const router = useRouter();
   const { user, isAuthenticated } = useAuth();
   const links = isAuthenticated ? AUTHED_NAV_LINKS : GUEST_NAV_LINKS;
 
   return (
-    <header className="sticky top-0 z-50 hidden border-b border-white/[0.08] bg-[#06060f] lg:block">
+    <header
+      className={`sticky top-0 z-50 hidden border-b backdrop-blur-xl transition-colors duration-300 lg:block ${
+        scrolled ? "border-white/[0.08] bg-[#06060f]/80" : "border-transparent bg-transparent"
+      }`}
+    >
       <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-6 py-4">
         <button type="button" onClick={() => router.push("/")} className="flex items-center">
           <QelsaLogo priority className="h-[26px] w-auto" />

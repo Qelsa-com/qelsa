@@ -2,7 +2,6 @@
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { EmployerSidebar } from "@/components/EmployerSidebar";
-import { PublicNavbar } from "@/components/PublicNavbar";
 import { QelsaLogo } from "@/components/QelsaLogo";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGetMyBillingQuery } from "@/features/api/billingApi";
@@ -15,6 +14,7 @@ import { MainNavigation } from "../components/MainNavigation";
 import { ProfileDrawer } from "../components/ProfileDrawer";
 
 import { useEmployerSidebar } from "@/lib/employerSidebarState";
+import { useScrolled } from "@/lib/useScrolled";
 
 interface LayoutProps {
   activeSection?: string;
@@ -27,6 +27,7 @@ const Layout = ({ activeSection, children }: LayoutProps) => {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const { isCollapsed: isSidebarCollapsed, toggle: handleToggleSidebar } = useEmployerSidebar();
   const { user, isAuthenticated } = useAuth();
+  const scrolled = useScrolled();
 
   const handleProfileClick = useCallback(() => {
     setShowProfileDrawer(true);
@@ -64,7 +65,11 @@ const Layout = ({ activeSection, children }: LayoutProps) => {
           />
 
           {/* Mobile Recruiter Top Bar (matching Image 1) */}
-          <header className="sticky top-0 z-40 flex items-center justify-between border-b border-white/[0.12] bg-[#06060f]/80 px-4 py-3 backdrop-blur-xl lg:hidden">
+          <header
+            className={`sticky top-0 z-40 flex items-center justify-between border-b px-4 py-3 backdrop-blur-xl transition-colors duration-300 lg:hidden ${
+              scrolled ? "border-white/[0.12] bg-[#06060f]/80" : "border-transparent bg-transparent"
+            }`}
+          >
             <Link
               href={user?.active_page_id ? `/pages/${user.active_page_id}` : "/pages"}
               className="flex items-center gap-2.5 transition-opacity hover:opacity-90"
@@ -95,16 +100,13 @@ const Layout = ({ activeSection, children }: LayoutProps) => {
         </>
       ) : (
         <>
-          {isAuthenticated && user ? (
-            <MainNavigation
-              activeSection={activeSection ?? "profile"}
-              onProfileClick={handleProfileClick}
-              isPro={isPro}
-              premiumLoading={premiumLoading}
-            />
-          ) : (
-            <PublicNavbar activeSection={activeSection} onProfileClick={handleProfileClick} />
-          )}
+          <MainNavigation
+            activeSection={activeSection ?? (isAuthenticated ? "profile" : "home")}
+            onProfileClick={handleProfileClick}
+            isPro={isPro}
+            premiumLoading={premiumLoading}
+            scrolled={scrolled}
+          />
 
           <div className="flex flex-1 flex-col">
             <ErrorBoundary label="this page">{children}</ErrorBoundary>
