@@ -10,12 +10,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Layout from "../layout";
 
-const FREE_FEATURES = [
-  "1 active job application",
-  "5 Qelsa Agent messages per day",
-  "Job matching and readiness score",
-  "Profile and resume tools",
-];
+const FREE_FEATURES = ["1 active job application", "5 Qelsa Agent messages per day", "Job matching and readiness score", "Profile and resume tools"];
 
 function formatPrice(amount: number, currency: string) {
   if (!amount) return "—";
@@ -59,10 +54,7 @@ export default function PricingPage() {
   const price = livePrices?.[interval] ?? plan?.prices?.[interval];
   const yearly = livePrices?.year ?? plan?.prices?.year;
   const monthly = livePrices?.month ?? plan?.prices?.month;
-  const yearlySaving =
-    monthly?.amount && yearly?.amount && monthly.amount > 0
-      ? Math.max(0, Math.round((1 - yearly.amount / (monthly.amount * 12)) * 100))
-      : 0;
+  const yearlySaving = monthly?.amount && yearly?.amount && monthly.amount > 0 ? Math.max(0, Math.round((1 - yearly.amount / (monthly.amount * 12)) * 100)) : 0;
 
   const handleCheckout = async () => {
     if (!isAuthenticated) {
@@ -93,33 +85,23 @@ export default function PricingPage() {
           <div className="mx-auto max-w-2xl text-center">
             <p className="text-[11px] font-mono font-semibold uppercase tracking-[0.2em] text-neon-cyan">Qelsa Pro</p>
             <h1 className="mt-4 text-4xl font-extrabold tracking-[-0.03em] sm:text-5xl">A clearer path to your next role.</h1>
-            <p className="mt-4 text-sm leading-relaxed text-white/55 sm:text-base">
-              Start free. Upgrade when you want deeper readiness reports, interview practice, and more time with Qelsa Agent.
-            </p>
+            <p className="mt-4 text-sm leading-relaxed text-white/55 sm:text-base">Start free. Upgrade when you want deeper readiness reports, interview practice, and more time with Qelsa Agent.</p>
           </div>
 
           <div className="mt-10 flex justify-center">
             <div className="inline-flex rounded-full border border-white/10 bg-white/[0.03] p-1">
-              <button
-                type="button"
-                onClick={() => setInterval("month")}
-                className={`rounded-full px-5 py-2 text-xs font-semibold transition ${interval === "month" ? "bg-white text-[#06060f]" : "text-white/55 hover:text-white"}`}
-              >
+              <button type="button" onClick={() => setInterval("month")} className={`rounded-full px-5 py-2 text-xs font-semibold transition ${interval === "month" ? "bg-white text-[#06060f]" : "text-white/55 hover:text-white"}`}>
                 Monthly
               </button>
-              <button
-                type="button"
-                onClick={() => setInterval("year")}
-                className={`rounded-full px-5 py-2 text-xs font-semibold transition ${interval === "year" ? "bg-white text-[#06060f]" : "text-white/55 hover:text-white"}`}
-              >
+              <button type="button" onClick={() => setInterval("year")} className={`rounded-full px-5 py-2 text-xs font-semibold transition ${interval === "year" ? "bg-white text-[#06060f]" : "text-white/55 hover:text-white"}`}>
                 Yearly
                 {yearlySaving > 0 ? <span className="ml-2 text-emerald-500">Save {yearlySaving}%</span> : null}
               </button>
             </div>
           </div>
 
-          <div className="mt-10 grid gap-5 lg:grid-cols-2">
-            <section className="rounded-[28px] border border-white/[0.08] bg-white/[0.025] p-7 sm:p-9">
+          <div className="mx-auto mt-10 grid max-w-[860px] gap-5 lg:grid-cols-2">
+            <section className="mx-auto w-full max-w-[420px] rounded-[28px] border border-white/[0.08] bg-white/[0.025] p-7 sm:p-9">
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-white/40">Free</p>
               <h2 className="mt-3 text-2xl font-bold">Start with the essentials.</h2>
               <p className="mt-2 text-sm leading-relaxed text-white/45">See where you stand and keep your search moving.</p>
@@ -144,7 +126,7 @@ export default function PricingPage() {
               </button>
             </section>
 
-            <section className="relative overflow-hidden rounded-[28px] border border-neon-purple/30 bg-[#0c0917] p-7 shadow-[0_0_80px_-30px_rgba(124,47,243,0.55)] sm:p-9">
+            <section className="relative mx-auto w-full max-w-[420px] overflow-hidden rounded-[28px] border border-neon-purple/30 bg-[#0c0917] p-7 shadow-[0_0_80px_-30px_rgba(124,47,243,0.55)] sm:p-9">
               <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(124,47,243,0.2),transparent_55%),radial-gradient(ellipse_at_bottom_left,rgba(34,211,238,0.08),transparent_50%)]" />
               <div className="relative">
                 <div className="flex items-center justify-between gap-3">
@@ -155,18 +137,12 @@ export default function PricingPage() {
                   </span>
                 </div>
                 <h2 className="mt-3 text-2xl font-bold">{plan?.name ?? "Qelsa Pro"}</h2>
-                <p className="mt-2 text-sm leading-relaxed text-white/55">
-                  {plan?.description ?? "Go deeper on readiness, interviews, and the roles worth your time."}
-                </p>
+                <p className="mt-2 text-sm leading-relaxed text-white/55">{plan?.description ?? "Go deeper on readiness, interviews, and the roles worth your time."}</p>
                 <div className="mt-8 flex items-end gap-1.5">
-                  <span className="text-4xl font-extrabold">
-                    {isLoading ? "—" : formatPrice(price?.amount ?? 0, price?.currency ?? "INR")}
-                  </span>
+                  <span className="text-4xl font-extrabold">{isLoading ? "—" : formatPrice(price?.amount ?? 0, price?.currency ?? "INR")}</span>
                   <span className="pb-1 text-sm text-white/40">/{interval}</span>
                 </div>
-                <p className="mt-1 text-xs text-white/35">
-                  {interval === "year" ? "Billed once a year" : "Billed monthly"} · Cancel anytime
-                </p>
+                <p className="mt-1 text-xs text-white/35">{interval === "year" ? "Billed once a year" : "Billed monthly"} · Cancel anytime</p>
                 <ul className="mt-8 space-y-3">
                   {(plan?.features ?? []).map((feature) => (
                     <li key={feature} className="flex items-start gap-2.5 text-sm text-white/75">
@@ -196,9 +172,7 @@ export default function PricingPage() {
             </section>
           </div>
 
-          <p className="mt-10 text-center text-xs leading-relaxed text-white/30">
-            Prices are shown in the billing currency configured for this deployment. Taxes and payment methods are handled securely by Dodo Payments.
-          </p>
+          <p className="mt-10 text-center text-xs leading-relaxed text-white/30">Prices are shown in the billing currency configured for this deployment. Taxes and payment methods are handled securely by Dodo Payments.</p>
         </div>
       </main>
     </Layout>
