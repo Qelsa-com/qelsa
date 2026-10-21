@@ -260,6 +260,36 @@ export const TOOL_META: Record<
     failed: "Couldn't read your agent briefs",
     icon: Bell,
   },
+  list_my_jobs: {
+    done: "Reviewed your jobs",
+    running: "Reviewing your jobs",
+    failed: "Couldn't review your jobs",
+    icon: BriefcaseBusiness,
+  },
+  search_applicants: {
+    done: "Searched applicants",
+    running: "Searching applicants",
+    failed: "Couldn't search applicants",
+    icon: Search,
+  },
+  get_applicant_context: {
+    done: "Read the applicant",
+    running: "Reading the applicant",
+    failed: "Couldn't read the applicant",
+    icon: UserRound,
+  },
+  update_applicant_status: {
+    done: "Updated the applicant stage",
+    running: "Updating the applicant stage",
+    failed: "Couldn't update the applicant stage",
+    icon: CheckCircle2,
+  },
+  draft_candidate_outreach: {
+    done: "Drafted outreach",
+    running: "Drafting outreach",
+    failed: "Couldn't draft outreach",
+    icon: Mail,
+  },
   save_job: {
     done: "Updated saved jobs",
     running: "Updating saved jobs",
@@ -311,6 +341,38 @@ export function isReasoningPart(part: any): part is AgentReasoningPart {
   return part?.type === "reasoning" && typeof part.text === "string";
 }
 
+export const RECRUITER_SUGGESTIONS: Array<{
+  title: string;
+  subtitle: string;
+  prompt: string;
+  icon: LucideIcon;
+}> = [
+  {
+    title: "Review my jobs",
+    subtitle: "Applicants and pipeline health",
+    prompt: "List my jobs and tell me which ones need attention.",
+    icon: BriefcaseBusiness,
+  },
+  {
+    title: "Find applicants",
+    subtitle: "Search your applicant pool",
+    prompt: "Show me the strongest applicants for my open roles.",
+    icon: UserRound,
+  },
+  {
+    title: "Shortlist candidates",
+    subtitle: "Evidence and gaps, not keywords",
+    prompt: "Find the best applicants for my most recent job and explain why they fit.",
+    icon: ClipboardList,
+  },
+  {
+    title: "Draft outreach",
+    subtitle: "Specific messages to strong fits",
+    prompt: "Draft an outreach message to a strong applicant for one of my jobs.",
+    icon: Mail,
+  },
+];
+
 export const SUGGESTIONS: Array<{
   title: string;
   subtitle: string;
@@ -347,8 +409,26 @@ export const SUGGESTIONS: Array<{
  * Instant chips while the backend's contextual suggestion call is in flight.
  * Mirrors the server fallback so every completed reply always has a next step.
  */
-export function fallbackFollowUps(toolNames: string[]): string[] {
+export function fallbackFollowUps(toolNames: string[], recruiter = false): string[] {
   const names = new Set(toolNames);
+  if (recruiter) {
+    if (names.has("list_my_jobs")) {
+      return ["Find applicants for my newest job", "Which job needs attention?", "Draft outreach to a strong applicant"];
+    }
+    if (names.has("search_applicants")) {
+      return ["Shortlist the top 3", "Draft outreach to the best fit", "Compare the top applicants"];
+    }
+    if (names.has("get_applicant_context")) {
+      return ["Draft outreach to this applicant", "Move them to shortlisted", "Find similar applicants"];
+    }
+    if (names.has("update_applicant_status")) {
+      return ["Draft outreach to this applicant", "Find the next shortlist", "Review my jobs"];
+    }
+    if (names.has("draft_candidate_outreach")) {
+      return ["Make it more specific", "Shorten the message", "Find similar applicants"];
+    }
+    return ["List my jobs", "Find applicants for a role", "Which job needs attention?"];
+  }
   if (names.has("write_cover_letter")) {
     return ["Make the cover letter more technical", "Tailor my resume too", "Prepare my application"];
   }

@@ -14,17 +14,16 @@ import { cn } from "@/components/ui/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { api } from "@/lib/convexApi";
 import { toastUnknownError } from "@/lib/errors";
-import { homeForAccount } from "@/lib/onboarding";
 import { useUIMessages } from "@convex-dev/agent/react";
 import { useMutation, useQuery } from "convex/react";
-import { ArrowUp, Bell, Briefcase, Loader2, MessageSquarePlus, PanelLeft, PanelRight, Plus, RotateCcw, Search, Sparkles, Trash2, WifiOff, X } from "lucide-react";
+import { ArrowUp, Bell, Loader2, MessageSquarePlus, PanelLeft, PanelRight, Plus, RotateCcw, Search, Sparkles, Trash2, WifiOff, X } from "lucide-react";
 import { useRouter } from "next/router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { AgentArtifactPanel } from "./AgentArtifactPanel";
 import { documentArtifact, type AgentArtifact } from "./agentArtifacts";
 import { AgentJobResults, AgentToolCard } from "./AgentToolCard";
-import { fallbackFollowUps, isReasoningPart, SUGGESTIONS, toolNameOf, type AgentJobSummary, type AgentToolPart, type AgentUIMessage } from "./agentToolMeta";
+import { fallbackFollowUps, isReasoningPart, RECRUITER_SUGGESTIONS, SUGGESTIONS, toolNameOf, type AgentJobSummary, type AgentToolPart, type AgentUIMessage } from "./agentToolMeta";
 import { AgentReasoningTrace, AgentThinkingLine } from "./AgentTrace";
 
 type Conversation = { threadId: string; title: string; updatedAt: number };
@@ -321,7 +320,7 @@ function RailHeader({ onClose }: { onClose?: () => void }) {
       </div>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-semibold text-white">Qelsa Agent</p>
-        <p className="truncate text-[11px] text-white/45">Your career copilot</p>
+        <p className="truncate text-[11px] text-white/45">Your Qelsa copilot</p>
       </div>
       {onClose && (
         <button type="button" aria-label="Close conversations" onClick={onClose} className="flex size-8 shrink-0 items-center justify-center rounded-full border border-white/[0.1] bg-white/[0.04] text-white/60">
@@ -335,6 +334,7 @@ function RailHeader({ onClose }: { onClose?: () => void }) {
 export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
   const router = useRouter();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+  const isRecruiter = user?.account_type === "recruiter";
 
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [mobileRailOpen, setMobileRailOpen] = useState(false);
@@ -541,13 +541,13 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
   const pendingApproval = useMemo(() => Boolean(lastAssistant?.parts?.some((part) => isToolPart(part) && part.state === "approval-requested")), [lastAssistant]);
   const lastToolNames = useMemo(() => (lastAssistant ? (lastAssistant.parts ?? []).filter(isToolPart).map((part) => toolNameOf(part)) : []), [lastAssistant]);
   const suggestions = useMemo(() => {
-    const fallback = fallbackFollowUps(lastToolNames);
+    const fallback = fallbackFollowUps(lastToolNames, isRecruiter);
     if (!followUps?.suggestions.length) return fallback;
     const lastCreated = lastMessage?._creationTime ?? 0;
     // A row written before the newest reply belongs to the previous turn.
     if (followUps.createdAt < lastCreated) return fallback;
     return followUps.suggestions;
-  }, [followUps, lastMessage, lastToolNames]);
+  }, [followUps, lastMessage, lastToolNames, isRecruiter]);
   const showFollowUps =
     Boolean(activeThreadId) && !sending && !awaitingReply && !streaming && !pendingApproval && lastMessage?.role === "assistant" && lastMessage.status !== "streaming" && lastMessage.status !== "pending" && suggestions.length > 0;
 
@@ -915,27 +915,6 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
     );
   }
 
-  if (user?.account_type === "recruiter") {
-    return (
-      <div className="flex h-[calc(100dvh-61px)] items-center justify-center px-4 lg:h-[calc(100dvh-59px)]">
-        <div className="w-full max-w-md rounded-2xl border border-white/[0.1] bg-white/[0.04] p-8 text-center backdrop-blur-xl">
-          <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-neon-cyan via-neon-purple to-neon-pink shadow-lg shadow-purple-900/30">
-            <Briefcase className="size-7 text-black" />
-          </div>
-          <h1 className="mt-5 text-xl font-semibold text-white">Qelsa Agent for hiring is next</h1>
-          <p className="mt-2 text-sm leading-relaxed text-white/55">The current agent is built for job seekers — it searches roles, checks fit, and prepares applications. A dedicated hiring agent will work with your jobs and applicants.</p>
-          <Button
-            type="button"
-            onClick={() => router.push(homeForAccount(user))}
-            className="mt-6 h-10 w-full rounded-xl bg-gradient-to-r from-[#623dd6] via-[#8433ae] to-[#be2680] text-sm font-semibold text-white shadow-lg shadow-purple-900/25"
-          >
-            Go to hiring dashboard
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="flex h-[calc(100dvh-61px)] w-full overflow-hidden lg:h-[calc(100dvh-59px)]">
       <aside className="hidden w-72 shrink-0 flex-col border-r border-white/[0.08] bg-[#080812]/80 lg:flex">{renderRail()}</aside>
@@ -954,7 +933,13 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
           </button>
           <div className="min-w-0 flex-1">
             <p className="truncate text-[13px] font-semibold text-white sm:text-sm">{title}</p>
-            <p className="truncate text-[10px] text-white/40 sm:text-[11px]">{configured ? "Can search jobs, check fit, and prepare applications" : "AI is not configured"}</p>
+            <p className="truncate text-[10px] text-white/40 sm:text-[11px]">
+              {configured
+                ? isRecruiter
+                  ? "Can review jobs, search applicants, and draft outreach"
+                  : "Can search jobs, check fit, tailor your resume, and prepare applications"
+                : "AI is not configured"}
+            </p>
           </div>
           <button
             type="button"
@@ -1056,11 +1041,13 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
                   Hi {firstNameOf(user?.name)}, <span className="bg-gradient-to-r from-neon-cyan via-neon-purple to-neon-pink bg-clip-text text-transparent">what&apos;s next?</span>
                 </h1>
                 <p className="mt-2 max-w-md text-[13px] leading-relaxed text-white/50 sm:text-sm">
-                  Search jobs, check your fit, draft a cover letter, or prepare an application. I&apos;ll do the work — you approve anything that changes your account.
+                  {isRecruiter
+                    ? "Review your jobs, find the strongest applicants, and draft outreach. I'll do the work — you approve anything that changes your pipeline."
+                    : "Search jobs, check your fit, tailor your resume, or prepare an application. I'll do the work — you approve anything that changes your account."}
                 </p>
 
                 <div className="mt-6 grid w-full gap-2 text-left sm:grid-cols-2">
-                  {SUGGESTIONS.map((suggestion) => {
+                  {(isRecruiter ? RECRUITER_SUGGESTIONS : SUGGESTIONS).map((suggestion) => {
                     const Icon = suggestion.icon;
                     return (
                       <button

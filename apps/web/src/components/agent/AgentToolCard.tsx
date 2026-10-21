@@ -250,6 +250,8 @@ function ApprovalBody({
     copy = "Update your profile with these changes?";
   } else if (name === "add_profile_skills") {
     copy = "Add these skills to your profile?";
+  } else if (name === "update_applicant_status") {
+    copy = `Move this applicant to ${String(input?.status ?? "a new stage").replaceAll("_", " ")}?`;
   } else if (name === "save_job_search") {
     copy = `Watch “${input?.name ?? "this search"}” and brief you on new matches?`;
   } else if (name === "delete_job_search") {
@@ -304,6 +306,11 @@ function ApprovalBody({
       {name === "add_application_note" && input?.text && (
         <p className="rounded-lg border border-white/[0.07] bg-black/20 px-2.5 py-2 text-[11px] text-white/55">
           {String(input.text).slice(0, 240)}
+        </p>
+      )}
+      {name === "update_applicant_status" && input?.note && (
+        <p className="rounded-lg border border-white/[0.07] bg-black/20 px-2.5 py-2 text-[11px] text-white/55">
+          Note: {String(input.note).slice(0, 240)}
         </p>
       )}
       {name === "save_job_search" && (
@@ -833,6 +840,104 @@ function ToolBody({
             <p className="mt-0.5 line-clamp-2 text-[11px] text-white/45">{brief.summary}</p>
           </div>
         ))}
+      </div>
+    );
+  }
+
+  if (name === "list_my_jobs") {
+    const jobs = asArray(output.jobs);
+    if (!jobs.length) return <p className="mt-2 text-xs text-white/45">No jobs found for this recruiter.</p>;
+    return (
+      <div className="mt-2 space-y-1.5">
+        {jobs.slice(0, 6).map((job: any) => (
+          <div key={job.job_id} className="flex items-center gap-3 rounded-lg border border-white/[0.07] bg-white/[0.03] px-3 py-2">
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[13px] font-semibold text-white/90">{job.title}</p>
+              <p className="truncate text-[11px] text-white/45">
+                {[job.company, job.location, `${job.applications ?? 0} applicant${job.applications === 1 ? "" : "s"}`].filter(Boolean).join(" · ")}
+              </p>
+            </div>
+            <StatusChip status={String(job.status ?? "open")} />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (name === "search_applicants") {
+    const applicants = asArray(output.applicants);
+    if (!applicants.length) {
+      return <p className="mt-2 text-xs text-white/45">{output.note ?? "No applicants matched."}</p>;
+    }
+    return (
+      <div className="mt-2 space-y-1.5">
+        {applicants.slice(0, 6).map((applicant: any) => (
+          <div key={applicant.application_id} className="rounded-lg border border-white/[0.07] bg-white/[0.03] px-3 py-2">
+            <div className="flex items-center gap-2">
+              <p className="min-w-0 flex-1 truncate text-[13px] font-semibold text-white/90">{applicant.name}</p>
+              {applicant.readiness != null && (
+                <span className="shrink-0 text-[11px] font-semibold tabular-nums text-emerald-300">{applicant.readiness}%</span>
+              )}
+              <StatusChip status={String(applicant.status ?? "applied")} />
+            </div>
+            <p className="mt-0.5 truncate text-[11px] text-white/45">
+              {[applicant.headline, applicant.location, applicant.years_experience != null ? `${applicant.years_experience}y` : null]
+                .filter(Boolean)
+                .join(" · ")}
+            </p>
+            {asArray(applicant.matched_skills).length > 0 && (
+              <p className="mt-1 truncate text-[10px] text-emerald-300/70">
+                Matches: {asArray(applicant.matched_skills).slice(0, 4).join(", ")}
+              </p>
+            )}
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (name === "get_applicant_context" && output.applicant) {
+    const applicant = output.applicant;
+    return (
+      <div className="mt-2 space-y-2">
+        <div>
+          <p className="text-[13px] font-semibold text-white/90">{applicant.name}</p>
+          <p className="text-[11px] text-white/45">
+            {[applicant.headline, applicant.location].filter(Boolean).join(" · ")}
+          </p>
+        </div>
+        {applicant.summary && <p className="text-[11px] leading-relaxed text-white/55">{applicant.summary}</p>}
+        <ChipList
+          label="Skills"
+          items={asArray(applicant.skills).map((skill: any) => skill.name)}
+          tone="border-sky-400/20 bg-sky-400/[0.06] text-sky-200"
+        />
+      </div>
+    );
+  }
+
+  if (name === "update_applicant_status") {
+    return (
+      <p className="mt-2 flex items-center gap-2 text-xs text-white/60">
+        <Check className="size-3.5 text-emerald-300" />
+        {output.updated
+          ? `Moved from ${String(output.previous_status ?? "previous stage").replaceAll("_", " ")} to ${String(output.status).replaceAll("_", " ")}.`
+          : `Already in ${String(output.status ?? "that stage").replaceAll("_", " ")}.`}
+      </p>
+    );
+  }
+
+  if (name === "draft_candidate_outreach" && typeof output.markdown === "string") {
+    return (
+      <div className="mt-2 rounded-lg border border-white/[0.08] bg-black/20 p-3">
+        {output.subject && <p className="text-[11px] font-semibold text-white/70">{output.subject}</p>}
+        <p className="mt-1 line-clamp-3 whitespace-pre-wrap text-[11px] leading-relaxed text-white/45">{output.body}</p>
+        <div className="mt-2.5 flex flex-wrap gap-2">
+          {artifact && onOpenArtifact && (
+            <ArtifactButton onClick={() => onOpenArtifact(artifact)} label="Open outreach" />
+          )}
+          <CopyButton text={output.markdown} label="Copy message" />
+        </div>
       </div>
     );
   }

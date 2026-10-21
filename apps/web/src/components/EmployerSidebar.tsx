@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import {
   AppWindow,
   BookOpen,
+  BotMessageSquare,
   Briefcase,
   ChevronsLeft,
   ChevronsRight,
@@ -99,6 +100,13 @@ export function EmployerSidebar({
         (pathname.startsWith("/pages/") &&
           !pathname.includes("/manage") &&
           !pathname.includes("/edit")),
+    },
+    {
+      id: "agent",
+      label: "Agent",
+      icon: BotMessageSquare,
+      href: "/agent",
+      isActive: pathname === "/agent",
     },
     {
       id: "applications",

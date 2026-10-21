@@ -64,6 +64,8 @@ import type * as pages from "../pages.js";
 import type * as qelsaAgent from "../qelsaAgent.js";
 import type * as qelsaAgentCoaching from "../qelsaAgentCoaching.js";
 import type * as qelsaAgentTools from "../qelsaAgentTools.js";
+import type * as qelsaRecruiterCoaching from "../qelsaRecruiterCoaching.js";
+import type * as qelsaRecruiterTools from "../qelsaRecruiterTools.js";
 import type * as resumeParse from "../resumeParse.js";
 import type * as resumes from "../resumes.js";
 import type * as seed from "../seed.js";
@@ -135,6 +137,8 @@ declare const fullApi: ApiFromModules<{
   qelsaAgent: typeof qelsaAgent;
   qelsaAgentCoaching: typeof qelsaAgentCoaching;
   qelsaAgentTools: typeof qelsaAgentTools;
+  qelsaRecruiterCoaching: typeof qelsaRecruiterCoaching;
+  qelsaRecruiterTools: typeof qelsaRecruiterTools;
   resumeParse: typeof resumeParse;
   resumes: typeof resumes;
   seed: typeof seed;

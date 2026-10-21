@@ -245,6 +245,18 @@ export function artifactFromToolPart(
     };
   }
 
+  if (name === "draft_candidate_outreach" && typeof output.markdown === "string") {
+    const applicant = asRecord(output.applicant);
+    const applicantName = clean(applicant?.name) || "candidate";
+    return {
+      id: `outreach-${part.toolCallId ?? "message"}`,
+      kind: "follow_up",
+      title: `Outreach · ${applicantName}`,
+      subtitle: clean(output.job?.title) || undefined,
+      markdown: output.markdown,
+    };
+  }
+
   if (name === "draft_follow_up" && typeof output.markdown === "string") {
     const followJob = asRecord(output.job);
     const followTitle = clean(followJob?.title) || jobTitle;
