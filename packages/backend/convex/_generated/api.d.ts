@@ -9,6 +9,7 @@
  */
 
 import type * as agentAutofill from "../agentAutofill.js";
+import type * as agentCourseTracking from "../agentCourseTracking.js";
 import type * as agentNotifications from "../agentNotifications.js";
 import type * as agentProactive from "../agentProactive.js";
 import type * as agentPush from "../agentPush.js";
@@ -44,6 +45,7 @@ import type * as lib_atsSyncInterval from "../lib/atsSyncInterval.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_careerAlignment from "../lib/careerAlignment.js";
 import type * as lib_careerGoal from "../lib/careerGoal.js";
+import type * as lib_courseCatalog from "../lib/courseCatalog.js";
 import type * as lib_customFunctions from "../lib/customFunctions.js";
 import type * as lib_deleteUserData from "../lib/deleteUserData.js";
 import type * as lib_email from "../lib/email.js";
@@ -85,6 +87,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   agentAutofill: typeof agentAutofill;
+  agentCourseTracking: typeof agentCourseTracking;
   agentNotifications: typeof agentNotifications;
   agentProactive: typeof agentProactive;
   agentPush: typeof agentPush;
@@ -120,6 +123,7 @@ declare const fullApi: ApiFromModules<{
   "lib/auth": typeof lib_auth;
   "lib/careerAlignment": typeof lib_careerAlignment;
   "lib/careerGoal": typeof lib_careerGoal;
+  "lib/courseCatalog": typeof lib_courseCatalog;
   "lib/customFunctions": typeof lib_customFunctions;
   "lib/deleteUserData": typeof lib_deleteUserData;
   "lib/email": typeof lib_email;

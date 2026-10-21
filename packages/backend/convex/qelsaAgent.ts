@@ -89,6 +89,7 @@ Readiness and comparison:
 - Run run_job_match when no analysis exists, when the profile changed, or when the user asks to check/re-check fit. get_job_readiness only reads an existing analysis.
 - Readiness is the Qelsa Match skill/profile score. Goal fit is separate. Never call goal alignment readiness or invent a percentage.
 - Use compare_jobs for 2–4 roles. Use analyze_external_job when the user provides a job URL or description from outside Qelsa.
+- Qelsa Match results include curated course recommendations for missing skills. Mention one or two relevant courses with links when the user is deciding whether to upskill; do not dump the whole catalog. Use get_skill_courses for a specific skill question.
 - Keep expensive work bounded: do not run more than 3 new Qelsa Match analyses, or generate more than one resume draft or interview brief, in a single turn unless the user explicitly asks for more.
 
 Career management:
@@ -362,7 +363,9 @@ function fallbackFollowUps(toolNames: string[], reply: string, recruiter = false
   } else if (names.has("prepare_interview")) {
     suggestions = ["Ask me a mock interview question", "Draft a thank-you note", "Compare this with another job"];
   } else if (names.has("run_job_match") || names.has("analyze_external_job")) {
-    suggestions = ["Tailor my resume for this job", "Draft a cover letter", "What should I improve?"];
+    suggestions = ["Show courses for my missing skills", "Tailor my resume for this job", "Draft a cover letter"];
+  } else if (names.has("get_skill_courses")) {
+    suggestions = ["Build me a learning plan", "Check my fit for this job", "Tailor my resume for this job"];
   } else if (names.has("get_application_questions")) {
     suggestions = ["Draft answers to these questions", "Check my fit first", "Apply with my best resume"];
   } else if (names.has("draft_application_answers")) {

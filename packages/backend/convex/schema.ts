@@ -743,6 +743,20 @@ export default defineSchema({
     .index("by_user", ["user_id"])
     .index("by_expires_at", ["expires_at"]),
 
+  // Attribution for course links. We store the recommendation context, not
+  // anything the affiliate network needs; no email or profile data is shared.
+  course_clicks: defineTable({
+    user_id: v.id("users"),
+    course_id: v.string(),
+    provider: v.string(),
+    job_id: v.optional(v.id("jobs")),
+    source: v.string(),
+    matched_skills: v.array(v.string()),
+    created_at: v.number(),
+  })
+    .index("by_user_and_created", ["user_id", "created_at"])
+    .index("by_course", ["course_id"]),
+
   // One row per browser/device. Endpoints are opaque Web Push URLs.
   agent_push_subscriptions: defineTable({
     user_id: v.id("users"),

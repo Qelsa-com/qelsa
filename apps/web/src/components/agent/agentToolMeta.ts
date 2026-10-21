@@ -39,6 +39,19 @@ export type AgentJobSalary = {
   currency: string | null;
 };
 
+export type AgentCourse = {
+  course_id: string;
+  title: string;
+  provider: string;
+  url: string;
+  level: "Beginner" | "Intermediate" | "Advanced";
+  duration: string;
+  free: boolean;
+  description: string;
+  matched_skills?: string[];
+  affiliate?: boolean;
+};
+
 export type AgentJobSummary = {
   job_id: string;
   title: string;
@@ -145,6 +158,12 @@ export const TOOL_META: Record<
     running: "Drafting a cover letter",
     failed: "Couldn't draft the cover letter",
     icon: PenLine,
+  },
+  get_skill_courses: {
+    done: "Found upskilling courses",
+    running: "Finding upskilling courses",
+    failed: "Couldn't find courses",
+    icon: FileText,
   },
   run_job_match: {
     done: "Checked your fit",
@@ -445,7 +464,10 @@ export function fallbackFollowUps(toolNames: string[], recruiter = false): strin
     return ["Ask me a mock interview question", "Draft a thank-you note", "Compare this with another job"];
   }
   if (names.has("run_job_match") || names.has("analyze_external_job")) {
-    return ["Tailor my resume for this job", "Draft a cover letter", "What should I improve?"];
+    return ["Show courses for my missing skills", "Tailor my resume for this job", "What should I improve?"];
+  }
+  if (names.has("get_skill_courses")) {
+    return ["Build me a learning plan", "Check my fit for this job", "Tailor my resume for this job"];
   }
   if (names.has("get_application_questions")) {
     return ["Draft answers to these questions", "Check my fit first", "Apply with my best resume"];
