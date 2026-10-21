@@ -24,6 +24,14 @@ The admin "Public job boards" page (`apps/admin/src/app/(admin)/boards/page.tsx`
 - The picker only offers boards for the currently selected ATS, drops any board already ingested for that ATS, and still accepts a manually typed slug.
 - `packages/backend/convex/atsProviders.ts` owns the vendor fetchers. `fetchLever` tries the US host then `api.eu.lever.co`, because Lever serves EU-region boards from a separate host that 404s on the `.com` one.
 
+## ATS sync cadence
+
+Employer integrations and admin-owned public boards both pull through `atsSync.syncIntegration`; the cron only picks up rows due against `ATS_SYNC_INTERVAL_MS` (5 days) in `lib/atsSyncInterval.ts`.
+
+- `atsIntegrations.requestSync` backs the employer-facing "Sync now" button (`settings/integrations` → Manage), mirroring the admin `retryPublicBoard`. It schedules `syncIntegration` without `force`.
+- Do not pass `force: true` from `requestSync`. `force` skips the admin sync kill-switch, which is correct for an admin-triggered retry but not for an employer — an admin pausing sync is a real control, not a bug to route around. `requestSync` re-checks the switch itself so the employer gets a clear error instead of a silent no-op.
+- `requestSync` enforces `MANUAL_SYNC_MIN_INTERVAL_MS` (5 min) measured from the last **attempt** (`last_synced_at` on success, `error_detected_at` on failure). This is a cost guard — a manual sync re-runs the full board pull plus LLM skill extraction — so do not delete it. Equally, do not measure from `last_synced_at` alone: an employer whose sync just failed would get a "you already synced" error and be unable to retry after fixing credentials.
+
 ## Employer authentication
 
 `/auth` is the candidate flow. Employers use `/employer/auth`, which supports Google and email OTP but rejects consumer/disposable domains.

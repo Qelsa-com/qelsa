@@ -349,6 +349,14 @@ export const addPublicBoard = adminMutation({
 });
 
 const STALE_SYNC_MS = 20 * 60 * 1000;
+/**
+ * Floor between two employer-triggered pulls, measured from the last attempt
+ * rather than the last success. A manual sync re-runs the whole board pull plus
+ * LLM skill extraction, so the button must not become a cheap way to burn
+ * credits — but a failed pull has to stay retryable, because the employer may
+ * have just fixed their credentials.
+ */
+const MANUAL_SYNC_MIN_INTERVAL_MS = 5 * 60 * 1000;
 
 export const retryPublicBoard = adminMutation({
   args: { id: v.id("ats_integrations") },
@@ -369,6 +377,44 @@ export const retryPublicBoard = adminMutation({
     });
     await ctx.scheduler.runAfter(0, internal.atsSync.syncIntegration, { integrationId: existing._id, force: true });
     return asPublicBoard(existing);
+  },
+});
+
+/**
+ * Pull an employer's own ATS on demand instead of waiting out the 5-day cadence.
+ *
+ * Mirrors `retryPublicBoard` but for employer-owned rows, and deliberately does
+ * not pass `force`: the admin sync kill-switch still applies, and it is checked
+ * here so the employer gets a clear error rather than a silent no-op.
+ */
+export const requestSync = authedMutation({
+  args: { provider },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    // getByProvider already excludes public boards, so an employer can only
+    // trigger a pull of their own integration.
+    const integration = await getByProvider(ctx, args.provider);
+    if (!integration) throw new Error("This ATS is not connected");
+    if (integration.status !== "connected" && integration.status !== "error") throw new Error("This ATS is not ready to sync yet");
+    if (integration.sync_jobs === false) throw new Error("Job syncing is turned off here. Turn it back on, then sync.");
+
+    if (!(await ctx.runQuery(internal.atsSync.syncAllowed))) {
+      throw new Error("Syncing is temporarily paused by the site team. It will resume on its own.");
+    }
+
+    const now = Date.now();
+    // Already pulling — let it finish rather than queue a second full pull.
+    if (integration.sync_started_at && now - integration.sync_started_at < STALE_SYNC_MS) return null;
+
+    // Measure from the last *attempt*: a successful pull should not be spammable,
+    // but a failed one must stay retryable once credentials are fixed.
+    const lastAttemptAt = integration.status === "error" ? integration.error_detected_at : integration.last_synced_at;
+    if (typeof lastAttemptAt === "number" && now - lastAttemptAt < MANUAL_SYNC_MIN_INTERVAL_MS) {
+      throw new Error("You tried a sync a moment ago. Wait a couple of minutes and try again.");
+    }
+
+    await ctx.scheduler.runAfter(0, internal.atsSync.syncIntegration, { integrationId: integration._id });
+    return null;
   },
 });
 
