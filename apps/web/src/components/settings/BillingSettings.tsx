@@ -1,15 +1,7 @@
 "use client";
 
-import {
-  useCancelSubscriptionAction,
-  useChangePlanAction,
-  useCreateCheckoutAction,
-  useGetLivePricesAction,
-  useGetMyBillingQuery,
-  useOpenCustomerPortalAction,
-  type BillingInterval,
-} from "@/features/api/billingApi";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCancelSubscriptionAction, useChangePlanAction, useCreateCheckoutAction, useGetLivePricesAction, useGetMyBillingQuery, useOpenCustomerPortalAction, type BillingInterval } from "@/features/api/billingApi";
 import { toastUnknownError } from "@/lib/errors";
 import type { BillingSubscription, MyBilling } from "@/types/billing";
 import { CalendarDays, Check, CreditCard, Loader2, RefreshCw, Sparkles } from "lucide-react";
@@ -113,7 +105,7 @@ export function BillingSettings() {
       const result = await createCheckout({ interval, returnUrl: "/settings?billing=success" }).unwrap();
       window.location.href = result.checkout_url;
     } catch (error) {
-      toastUnknownError(error, "Could not start checkout. Please try again.");
+      toastUnknownError(error, "We're working on it. ");
     }
   };
 
@@ -137,13 +129,7 @@ export function BillingSettings() {
   const toggleCancellation = async () => {
     if (!subscription) return;
     const cancelling = !subscription.cancel_at_period_end;
-    if (
-      !window.confirm(
-        cancelling
-          ? "Cancel your subscription at the end of the current billing period? You can resume before it ends."
-          : "Resume your subscription? You will be billed again on the next renewal date.",
-      )
-    ) {
+    if (!window.confirm(cancelling ? "Cancel your subscription at the end of the current billing period? You can resume before it ends." : "Resume your subscription? You will be billed again on the next renewal date.")) {
       return;
     }
     try {
@@ -180,9 +166,7 @@ export function BillingSettings() {
                     Pro
                   </span>
                 ) : (
-                  <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white/40">
-                    Free
-                  </span>
+                  <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white/40">Free</span>
                 )}
               </div>
               <p className="mt-1 text-sm text-muted-foreground">
@@ -209,9 +193,7 @@ export function BillingSettings() {
           <div className="mt-5 grid gap-2 text-xs text-white/50 sm:grid-cols-3">
             <p className="flex items-center gap-2">
               <CalendarDays className="size-3.5 text-neon-cyan" />
-              {subscription.cancel_at_period_end
-                ? `Access until ${formatDate(subscription.current_period_end) ?? "period end"}`
-                : `Renews ${formatDate(subscription.current_period_end) ?? "automatically"}`}
+              {subscription.cancel_at_period_end ? `Access until ${formatDate(subscription.current_period_end) ?? "period end"}` : `Renews ${formatDate(subscription.current_period_end) ?? "automatically"}`}
             </p>
             <p>{statusLabel(subscription)}</p>
             <p>Agent limit: {billing.agent_daily_limit}/day</p>
@@ -233,9 +215,7 @@ export function BillingSettings() {
                       type="button"
                       onClick={() => void switchInterval(option)}
                       disabled={isChanging || selected}
-                      className={`rounded-full px-4 py-1.5 text-xs font-semibold transition ${
-                        selected ? "bg-white text-[#06060f]" : "text-white/50 hover:text-white disabled:opacity-60"
-                      }`}
+                      className={`rounded-full px-4 py-1.5 text-xs font-semibold transition ${selected ? "bg-white text-[#06060f]" : "text-white/50 hover:text-white disabled:opacity-60"}`}
                     >
                       {option === "month" ? "Monthly" : "Yearly"}
                     </button>
@@ -255,17 +235,13 @@ export function BillingSettings() {
                 onClick={() => void toggleCancellation()}
                 disabled={isCancelling}
                 className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold transition disabled:opacity-50 ${
-                  isCancelledAtEnd
-                    ? "bg-emerald-400/10 text-emerald-300 hover:bg-emerald-400/15"
-                    : "border border-rose-400/25 bg-rose-400/[0.06] text-rose-300 hover:bg-rose-400/10"
+                  isCancelledAtEnd ? "bg-emerald-400/10 text-emerald-300 hover:bg-emerald-400/15" : "border border-rose-400/25 bg-rose-400/[0.06] text-rose-300 hover:bg-rose-400/10"
                 }`}
               >
                 {isCancelling ? <Loader2 className="size-3.5 animate-spin" /> : <RefreshCw className="size-3.5" />}
                 {isCancelledAtEnd ? "Resume subscription" : "Cancel subscription"}
               </button>
-              {isCancelledAtEnd ? (
-                <span className="self-center text-xs text-white/35">You keep Pro access until the end of this period.</span>
-              ) : null}
+              {isCancelledAtEnd ? <span className="self-center text-xs text-white/35">You keep Pro access until the end of this period.</span> : null}
             </div>
           </div>
         ) : (
@@ -287,16 +263,10 @@ export function BillingSettings() {
                   key={option}
                   type="button"
                   onClick={() => setInterval(option)}
-                  className={`rounded-full border px-4 py-2 text-xs font-semibold transition ${
-                    interval === option
-                      ? "border-neon-purple/50 bg-neon-purple/15 text-white"
-                      : "border-white/10 bg-white/[0.03] text-white/50 hover:text-white"
-                  }`}
+                  className={`rounded-full border px-4 py-2 text-xs font-semibold transition ${interval === option ? "border-neon-purple/50 bg-neon-purple/15 text-white" : "border-white/10 bg-white/[0.03] text-white/50 hover:text-white"}`}
                 >
                   {option === "month" ? "Monthly" : "Yearly"}
-                  {option === "year" && yearlyPrice.amount > 0
-                    ? ` · ${formatAmount(yearlyPrice.amount, yearlyPrice.currency)}`
-                    : null}
+                  {option === "year" && yearlyPrice.amount > 0 ? ` · ${formatAmount(yearlyPrice.amount, yearlyPrice.currency)}` : null}
                 </button>
               ))}
             </div>
