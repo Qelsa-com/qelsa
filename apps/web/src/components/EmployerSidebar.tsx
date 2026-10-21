@@ -2,23 +2,10 @@
 
 import { QelsaLogo } from "@/components/QelsaLogo";
 import { useAuth } from "@/contexts/AuthContext";
-import {
-  AppWindow,
-  BookOpen,
-  BotMessageSquare,
-  Briefcase,
-  ChevronsLeft,
-  ChevronsRight,
-  Cpu,
-  LogOut,
-  PenLine,
-  Users,
-  X,
-} from "lucide-react";
+import { AppWindow, BookOpen, BotMessageSquare, Briefcase, ChevronsLeft, ChevronsRight, Cpu, LogOut, PenLine, Users, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { toast } from "sonner";
 
 import { useEmployerSidebar } from "@/lib/employerSidebarState";
 
@@ -29,12 +16,7 @@ interface EmployerSidebarProps {
   onCloseMobile?: () => void;
 }
 
-export function EmployerSidebar({
-  collapsed: controlledCollapsed,
-  onToggleCollapse,
-  mobileOpen,
-  onCloseMobile,
-}: EmployerSidebarProps) {
+export function EmployerSidebar({ collapsed: controlledCollapsed, onToggleCollapse, mobileOpen, onCloseMobile }: EmployerSidebarProps) {
   const router = useRouter();
   const { user, logout } = useAuth();
   const pathname = usePathname();
@@ -73,13 +55,12 @@ export function EmployerSidebar({
       console.error("Sign out error", e);
     }
     onCloseMobile?.();
-    window.location.replace("/candidates");
+    window.location.replace("/employer/auth");
   };
 
   const { isCollapsed: hookCollapsed, toggle: hookToggle } = useEmployerSidebar();
 
-  const isCollapsed =
-    controlledCollapsed !== undefined ? controlledCollapsed : hookCollapsed;
+  const isCollapsed = controlledCollapsed !== undefined ? controlledCollapsed : hookCollapsed;
 
   const handleToggle = onToggleCollapse || hookToggle;
 
@@ -94,12 +75,7 @@ export function EmployerSidebar({
       label: "My Space",
       icon: AppWindow,
       href: mySpaceUrl,
-      isActive:
-        pathname === "/" ||
-        pathname === "/pages" ||
-        (pathname.startsWith("/pages/") &&
-          !pathname.includes("/manage") &&
-          !pathname.includes("/edit")),
+      isActive: pathname === "/" || pathname === "/pages" || (pathname.startsWith("/pages/") && !pathname.includes("/manage") && !pathname.includes("/edit")),
     },
     {
       id: "agent",
@@ -113,28 +89,21 @@ export function EmployerSidebar({
       label: "Applications",
       icon: BookOpen,
       href: "/jobs/applications",
-      isActive:
-        pathname.startsWith("/jobs/applications") ||
-        (pathname.startsWith("/jobs/") && pathname.endsWith("/applications")),
+      isActive: pathname.startsWith("/jobs/applications") || (pathname.startsWith("/jobs/") && pathname.endsWith("/applications")),
     },
     {
       id: "manage-jobs",
       label: "Manage Jobs",
       icon: Briefcase,
       href: "/jobs/posted",
-      isActive:
-        pathname.startsWith("/jobs/posted") ||
-        pathname === "/jobs/create-job" ||
-        pathname.startsWith("/jobs/edit/"),
+      isActive: pathname.startsWith("/jobs/posted") || pathname === "/jobs/create-job" || pathname.startsWith("/jobs/edit/"),
     },
     {
       id: "user-management",
       label: "User Management",
       icon: Users,
       href: userManagementUrl,
-      isActive:
-        pathname === "/team" ||
-        pathname.includes("/manage"),
+      isActive: pathname === "/team" || pathname.includes("/manage"),
     },
     {
       id: "integrations",
@@ -157,32 +126,17 @@ export function EmployerSidebar({
       {/* Top Section: Brand + Menu */}
       <div className="flex flex-col">
         {/* Brand Header */}
-        <div
-          className={`flex h-20 items-center ${
-            collapsedState ? "justify-center px-0" : "gap-3 px-5"
-          }`}
-        >
-          <Link
-            href={mySpaceUrl}
-            className="flex items-center gap-3 transition-opacity hover:opacity-90"
-          >
+        <div className={`flex h-20 items-center ${collapsedState ? "justify-center px-0" : "gap-3 px-5"}`}>
+          <Link href={mySpaceUrl} className="flex items-center gap-3 transition-opacity hover:opacity-90">
             <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-neon-purple to-neon-pink shadow-md">
               <span className="text-base font-extrabold text-white">Q</span>
             </div>
-            {!collapsedState && (
-              <span className="text-2xl font-bold tracking-tight text-white">
-                qelsa
-              </span>
-            )}
+            {!collapsedState && <span className="text-2xl font-bold tracking-tight text-white">qelsa</span>}
           </Link>
         </div>
 
         {/* Navigation Items */}
-        <nav
-          className={`mt-4 flex flex-col gap-2 ${
-            collapsedState ? "items-center px-2" : "px-3"
-          }`}
-        >
+        <nav className={`mt-4 flex flex-col gap-2 ${collapsedState ? "items-center px-2" : "px-3"}`}>
           {navItems.map((item) => {
             const Icon = item.icon;
             const active = item.isActive;
@@ -193,24 +147,12 @@ export function EmployerSidebar({
                 href={item.href}
                 title={collapsedState ? item.label : undefined}
                 aria-label={item.label}
-                className={`group flex items-center transition-all ${
-                  collapsedState
-                    ? "size-11 shrink-0 justify-center rounded-full aspect-square"
-                    : "h-11 w-full gap-3.5 px-4 rounded-xl"
-                } ${
-                  active
-                    ? "border border-neon-cyan/40 bg-neon-cyan/10 text-neon-cyan font-medium shadow-[0_0_15px_rgba(0,242,254,0.15)]"
-                    : "text-white/70 hover:bg-white/[0.06] hover:text-white"
+                className={`group flex items-center transition-all ${collapsedState ? "size-11 shrink-0 justify-center rounded-full aspect-square" : "h-11 w-full gap-3.5 px-4 rounded-xl"} ${
+                  active ? "border border-neon-cyan/40 bg-neon-cyan/10 text-neon-cyan font-medium shadow-[0_0_15px_rgba(0,242,254,0.15)]" : "text-white/70 hover:bg-white/[0.06] hover:text-white"
                 }`}
               >
-                <Icon
-                  className={`size-5 shrink-0 transition-transform group-hover:scale-105 ${
-                    active ? "text-neon-cyan" : "text-white/70 group-hover:text-white"
-                  }`}
-                />
-                {!collapsedState && (
-                  <span className="truncate text-[15px]">{item.label}</span>
-                )}
+                <Icon className={`size-5 shrink-0 transition-transform group-hover:scale-105 ${active ? "text-neon-cyan" : "text-white/70 group-hover:text-white"}`} />
+                {!collapsedState && <span className="truncate text-[15px]">{item.label}</span>}
               </Link>
             );
           })}
@@ -218,11 +160,7 @@ export function EmployerSidebar({
       </div>
 
       {/* Bottom Section: Collapse Toggle + Sign Out */}
-      <div
-        className={`flex flex-col gap-3 pb-6 ${
-          collapsedState ? "items-center px-2" : "items-stretch px-3"
-        }`}
-      >
+      <div className={`flex flex-col gap-3 pb-6 ${collapsedState ? "items-center px-2" : "items-stretch px-3"}`}>
         <button
           type="button"
           onClick={handleToggle}
@@ -273,24 +211,13 @@ export function EmployerSidebar({
   return (
     <>
       {/* Desktop Fixed Sidebar */}
-      <aside
-        className={`fixed left-0 top-0 bottom-0 z-40 hidden lg:flex flex-col justify-between border-r border-white/[0.08] bg-[#06060f] transition-all duration-300 ease-in-out ${
-          isCollapsed ? "w-20" : "w-64"
-        }`}
-      >
+      <aside className={`fixed left-0 top-0 bottom-0 z-40 hidden lg:flex flex-col justify-between border-r border-white/[0.08] bg-[#06060f] transition-all duration-300 ease-in-out ${isCollapsed ? "w-20" : "w-64"}`}>
         {sidebarContent(isCollapsed)}
       </aside>
 
       {/* Mobile drawer — same right-slide overlay as the candidate menu */}
       {drawerMounted && (
-        <div
-          className={`fixed inset-0 z-50 lg:hidden transition-opacity duration-200 ${
-            drawerVisible ? "opacity-100" : "opacity-0"
-          }`}
-          role="dialog"
-          aria-modal="true"
-          aria-label="Account menu"
-        >
+        <div className={`fixed inset-0 z-50 lg:hidden transition-opacity duration-200 ${drawerVisible ? "opacity-100" : "opacity-0"}`} role="dialog" aria-modal="true" aria-label="Account menu">
           <div className="absolute inset-0 bg-[#06060f]" onClick={onCloseMobile} />
           <div
             className={`absolute inset-0 flex flex-col bg-[#06060f] px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(1.25rem,env(safe-area-inset-top))] transition-transform duration-250 ease-out ${
@@ -299,12 +226,7 @@ export function EmployerSidebar({
           >
             <div className="flex items-center justify-between">
               <QelsaLogo className="h-[26px] w-auto" />
-              <button
-                type="button"
-                onClick={onCloseMobile}
-                aria-label="Close menu"
-                className="flex size-10 items-center justify-center rounded-full border border-white/20 text-white transition-colors hover:bg-white/[0.06]"
-              >
+              <button type="button" onClick={onCloseMobile} aria-label="Close menu" className="flex size-10 items-center justify-center rounded-full border border-white/20 text-white transition-colors hover:bg-white/[0.06]">
                 <X className="size-5" />
               </button>
             </div>
@@ -318,11 +240,7 @@ export function EmployerSidebar({
                     href={item.href}
                     onClick={() => onCloseMobile?.()}
                     aria-current={item.isActive ? "page" : undefined}
-                    className={`flex items-center gap-4 rounded-full px-3 py-2.5 text-left transition-colors ${
-                      item.isActive
-                        ? "border border-neon-cyan text-white"
-                        : "text-white hover:bg-white/[0.04]"
-                    }`}
+                    className={`flex items-center gap-4 rounded-full px-3 py-2.5 text-left transition-colors ${item.isActive ? "border border-neon-cyan text-white" : "text-white hover:bg-white/[0.04]"}`}
                   >
                     <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white/[0.06]">
                       <Icon className="size-4" />
@@ -334,11 +252,7 @@ export function EmployerSidebar({
             </nav>
 
             <div className="mt-6 border-t border-white/10 pt-5">
-              <button
-                type="button"
-                onClick={() => void handleSignOut()}
-                className="flex w-full items-center gap-4 rounded-full px-3 py-2.5 text-left text-white transition-colors hover:bg-white/[0.04]"
-              >
+              <button type="button" onClick={() => void handleSignOut()} className="flex w-full items-center gap-4 rounded-full px-3 py-2.5 text-left text-white transition-colors hover:bg-white/[0.04]">
                 <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white/[0.06]">
                   <LogOut className="size-4" />
                 </span>

@@ -66,7 +66,7 @@ export function DesktopTopBar({ activeSection, onProfileClick }: { activeSection
               onClick={() => router.push("/auth?returnUrl=/profile")}
               className="rounded-full border border-white/20 bg-white/[0.04] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/35 hover:bg-white/[0.08]"
             >
-              Start your profile
+              Find your role
             </button>
             <button
               type="button"
