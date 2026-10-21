@@ -34,12 +34,29 @@ export type CurriculumTrack = {
   updated_at: number;
 };
 
+export type AffiliateCourse = {
+  course_id: string;
+  title: string;
+  provider: string;
+  url: string;
+  level: string;
+  duration: string;
+  free: boolean;
+  description: string;
+  skills: string[];
+  affiliate: boolean;
+};
+
 export function useListCurriculumRunsQuery() {
   return useConvexQueryHook(api.curriculum.listRuns, {});
 }
 
 export function useListCurriculumTracksQuery() {
   return useConvexQueryHook(api.curriculum.listTracks, {});
+}
+
+export function useListAffiliateCatalogQuery() {
+  return useConvexQueryHook(api.curriculum.listAffiliateCatalog, {});
 }
 
 export function useRunCurriculumAgentAction() {

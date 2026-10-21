@@ -5,6 +5,7 @@ import type { ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { adminMutation, adminQuery } from "./lib/customFunctions";
 import { AI_AGENT_MODEL, createAgentChatModel, openRouter } from "./lib/ai";
+import { listExternalCourses } from "./lib/courseCatalog";
 import { parseJsonObject } from "./lib/parsedProfile";
 
 const PROMPT_VERSION = "interview-prep-v1";
@@ -463,8 +464,13 @@ export const listTracks = adminQuery({
   },
 });
 
-export const setTrackStatus = adminMutation({
-  args: {
+export const listAffiliateCatalog = adminQuery({
+  args: {},
+  returns: v.any(),
+  handler: async () => listExternalCourses(),
+});
+
+export const setTrackStatus = adminMutation({  args: {
     trackId: v.id("interview_prep_tracks"),
     status: v.union(v.literal("draft"), v.literal("published"), v.literal("archived")),
     note: v.optional(v.string()),
