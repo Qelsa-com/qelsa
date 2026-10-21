@@ -11,9 +11,10 @@ import { useEffect, useState } from "react";
 import Layout from "../layout";
 
 const FREE_FEATURES = [
+  "1 active job application",
+  "5 Qelsa Agent messages per day",
   "Job matching and readiness score",
-  "Profile, resume, and applications",
-  "60 Qelsa Agent messages per day",
+  "Profile and resume tools",
 ];
 
 function formatPrice(amount: number, currency: string) {

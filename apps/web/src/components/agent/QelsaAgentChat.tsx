@@ -11,9 +11,10 @@
 import { AiMarkdown } from "@/components/ai/AiMarkdown";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/components/ui/utils";
+import { SubscriptionUpgradeModal, type UpgradeReason } from "@/components/billing/SubscriptionUpgradeModal";
 import { useAuth } from "@/contexts/AuthContext";
 import { api } from "@/lib/convexApi";
-import { toastUnknownError } from "@/lib/errors";
+import { isAgentQuotaError, isApplicationLimitError, toastUnknownError } from "@/lib/errors";
 import { useUIMessages } from "@convex-dev/agent/react";
 import { useMutation, useQuery } from "convex/react";
 import { ArrowUp, Bell, Check, Loader2, MessageSquarePlus, PanelLeft, PanelRight, Plus, RotateCcw, Search, Sparkles, Trash2, WifiOff, X } from "lucide-react";
@@ -351,6 +352,7 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
   const [awaitingReply, setAwaitingReply] = useState(false);
   const [resolvingApprovalId, setResolvingApprovalId] = useState<string | null>(null);
   const [activeArtifact, setActiveArtifact] = useState<AgentArtifact | null>(null);
+  const [upgradeReason, setUpgradeReason] = useState<UpgradeReason | null>(null);
 
   const conversationQuery = useQuery(api.qelsaAgent.listConversations, isAuthenticated ? {} : "skip");
   const conversations = useMemo(() => (conversationQuery ?? []) as Conversation[], [conversationQuery]);
@@ -729,7 +731,15 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
   const handleSend = useCallback(
     async (override?: string) => {
       const text = (override ?? input).trim();
-      if (!text || sending || quotaExhausted || threadResolving) return;
+      if (!text || sending || threadResolving) return;
+      if (quotaExhausted) {
+        if (usage?.is_pro) {
+          toast.error("You've reached today's Qelsa Agent message limit. It resets at midnight UTC.");
+        } else {
+          setUpgradeReason("agent");
+        }
+        return;
+      }
       setSending(true);
       setInput("");
       stickToBottom.current = true;
@@ -738,13 +748,17 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
         await sendPrompt({ threadId, prompt: text });
         setAwaitingReply(true);
       } catch (error) {
-        toastUnknownError(error, "Couldn't send that message.");
+        if (isAgentQuotaError(error) && !usage?.is_pro) {
+          setUpgradeReason("agent");
+        } else {
+          toastUnknownError(error, "Couldn't send that message.");
+        }
         setInput((current) => (current ? current : text));
       } finally {
         setSending(false);
       }
     },
-    [ensureThread, input, sendPrompt, sending, quotaExhausted, threadResolving],
+    [ensureThread, input, sendPrompt, sending, quotaExhausted, threadResolving, usage?.is_pro],
   );
 
   const handleRetry = useCallback(async () => {
@@ -801,7 +815,11 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
       try {
         await submitApproval({ threadId: activeThreadId, approvalId, approved });
       } catch (error) {
-        toastUnknownError(error, "Couldn't update that action.");
+        if (isApplicationLimitError(error)) {
+          setUpgradeReason("applications");
+        } else {
+          toastUnknownError(error, "Couldn't update that action.");
+        }
         setAwaitingReply(false);
       } finally {
         setResolvingApprovalId(null);
@@ -1150,7 +1168,7 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
                       <button
                         key={suggestion.prompt}
                         type="button"
-                        disabled={!configured || quotaExhausted}
+                        disabled={!configured}
                         onClick={() => void handleSend(suggestion.prompt)}
                         className="group flex items-center gap-3 rounded-xl border border-white/[0.08] bg-white/[0.03] px-3.5 py-3 text-left transition-all hover:-translate-y-0.5 hover:border-neon-purple/40 hover:bg-white/[0.06] disabled:pointer-events-none disabled:opacity-50"
                       >
@@ -1193,7 +1211,7 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
                         <button
                           key={suggestion}
                           type="button"
-                          disabled={!configured || quotaExhausted}
+                          disabled={!configured}
                           onClick={() => void handleSend(suggestion)}
                           className="max-w-full rounded-full border border-white/[0.1] bg-white/[0.04] px-3 py-1.5 text-left text-[12px] font-medium leading-snug text-white/65 transition-all hover:border-neon-purple/40 hover:bg-white/[0.07] hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
                         >
@@ -1220,19 +1238,38 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
         <div className="shrink-0 border-t border-white/[0.08] bg-[#06060f]/85 px-3 py-3 backdrop-blur-xl sm:px-6">
           <div className="mx-auto w-full max-w-3xl">
             {quotaExhausted && (
-              <p className="mb-2 rounded-xl border border-amber-400/20 bg-amber-400/[0.07] px-3 py-2 text-center text-[11px] text-amber-200">You&apos;ve used all {usage?.limit ?? 60} messages for today. It resets at midnight UTC.</p>
+              <div className="mb-2 flex flex-col items-center justify-between gap-2 rounded-xl border border-amber-400/20 bg-amber-400/[0.07] px-3 py-2 text-center sm:flex-row sm:text-left">
+                <p className="text-[11px] text-amber-200">
+                  {usage?.is_pro
+                    ? `You've used all ${usage.limit} messages for today. It resets at midnight UTC.`
+                    : `You've used all ${usage?.limit ?? 5} free messages for today. Upgrade to keep chatting.`}
+                </p>
+                {!usage?.is_pro ? (
+                  <button
+                    type="button"
+                    onClick={() => setUpgradeReason("agent")}
+                    className="shrink-0 rounded-full bg-amber-300 px-3 py-1 text-[11px] font-bold text-[#1a1205] transition-opacity hover:opacity-90"
+                  >
+                    Upgrade
+                  </button>
+                ) : null}
+              </div>
             )}
             <div
               className={cn(
                 "flex items-end gap-2 rounded-2xl border bg-white/[0.04] p-2 pl-3 transition-colors",
-                configured && !quotaExhausted && !threadResolving ? "border-white/[0.1] focus-within:border-neon-purple/50" : "border-white/[0.06] opacity-60",
+                configured && !threadResolving
+                  ? quotaExhausted
+                    ? "border-amber-400/25"
+                    : "border-white/[0.1] focus-within:border-neon-purple/50"
+                  : "border-white/[0.06] opacity-60",
               )}
             >
               <textarea
                 ref={textareaRef}
                 rows={1}
                 value={input}
-                disabled={!configured || quotaExhausted || threadResolving}
+                disabled={!configured || threadResolving}
                 onChange={(event) => setInput(event.target.value)}
                 onKeyDown={(event) => {
                   if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
@@ -1240,13 +1277,13 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
                     void handleSend();
                   }
                 }}
-                placeholder={threadResolving ? "Loading conversation…" : quotaExhausted ? "Daily message limit reached" : configured ? "Ask Qelsa Agent anything…" : "AI is not configured on this deployment"}
+                placeholder={threadResolving ? "Loading conversation…" : quotaExhausted ? (usage?.is_pro ? "Daily message limit reached" : "Free message limit reached — tap send to upgrade") : configured ? "Ask Qelsa Agent anything…" : "AI is not configured on this deployment"}
                 className="max-h-[152px] min-h-[36px] flex-1 resize-none bg-transparent py-1.5 text-[14px] leading-relaxed text-white/90 placeholder:text-white/30 focus:outline-none disabled:cursor-not-allowed"
               />
               <button
                 type="button"
                 aria-label="Send message"
-                disabled={!configured || sending || quotaExhausted || threadResolving || !input.trim()}
+                disabled={!configured || sending || threadResolving || !input.trim()}
                 onClick={() => void handleSend()}
                 className="mb-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#623dd6] via-[#8433ae] to-[#be2680] text-white shadow-lg shadow-purple-900/25 transition-all hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-40"
               >
@@ -1259,6 +1296,14 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
       </main>
 
       {activeArtifact && <AgentArtifactPanel key={activeArtifact.id} artifact={activeArtifact} onClose={() => setActiveArtifact(null)} />}
+
+      {upgradeReason ? (
+        <SubscriptionUpgradeModal
+          open
+          reason={upgradeReason}
+          onClose={() => setUpgradeReason(null)}
+        />
+      ) : null}
     </div>
   );
 }

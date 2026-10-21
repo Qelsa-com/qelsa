@@ -188,7 +188,7 @@ export function BillingSettings() {
               <p className="mt-1 text-sm text-muted-foreground">
                 {isPro && subscription
                   ? `${billing.plan.name} · ${subscription.interval === "year" ? "Yearly" : "Monthly"} billing`
-                  : "Upgrade for deeper readiness reports, interview practice, and higher Qelsa Agent limits."}
+                  : "Free includes 1 active application and 5 Qelsa Agent messages per day. Upgrade for unlimited applications and 500 messages per day."}
               </p>
             </div>
           </div>

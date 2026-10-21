@@ -7,7 +7,8 @@
  */
 
 export const BILLING_PLAN_ID = "pro" as const;
-export const FREE_AGENT_DAILY_LIMIT = 60;
+export const FREE_APPLICATION_LIMIT = 1;
+export const FREE_AGENT_DAILY_LIMIT = 5;
 export const PRO_AGENT_DAILY_LIMIT = 500;
 
 export type BillingInterval = "month" | "year";
@@ -46,10 +47,11 @@ export const BILLING_PLAN: PublicBillingPlan = {
   name: "Qelsa Pro",
   description: "Go deeper on readiness, interviews, and the roles worth your time.",
   features: [
+    "Unlimited job applications",
     "Advanced readiness reports",
     "Mock interview practice",
     "Advanced skill-gap analysis",
-    "Higher Qelsa Agent limits",
+    "500 Qelsa Agent messages per day",
     "Priority job matching",
   ],
   prices: {

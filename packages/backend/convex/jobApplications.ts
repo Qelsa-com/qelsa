@@ -8,6 +8,7 @@ import { bumpJobCount } from "./lib/jobCounts";
 import { ADMIN_STAT_KEYS, bumpAdminStat } from "./lib/adminStats";
 import { yearsFromExperiences } from "./lib/applicantSearch";
 import { isWithdrawn, WITHDRAWN_STATUS } from "./lib/applications";
+import { assertCanApply, getApplicationUsage } from "./lib/billingEntitlements";
 import { buildCompetencyFramework } from "./lib/skillMatch";
 import { signedFileUrl } from "./lib/r2";
 
@@ -273,6 +274,18 @@ export const getDetail = authedQuery({
   },
 });
 
+export const applicationUsage = authedQuery({
+  args: {},
+  returns: v.object({
+    is_pro: v.boolean(),
+    used: v.number(),
+    limit: v.union(v.number(), v.null()),
+    remaining: v.union(v.number(), v.null()),
+    can_apply: v.boolean(),
+  }),
+  handler: async (ctx) => getApplicationUsage(ctx, ctx.user._id),
+});
+
 export const apply = authedMutation({
   args: {
     jobId: v.id("jobs"),
@@ -289,6 +302,7 @@ export const apply = authedMutation({
     if (existing.some((a) => a.status !== "rejected" && a.status !== "cancelled")) {
       throw new Error("You already applied to this job");
     }
+    await assertCanApply(ctx, ctx.user._id);
     const id = await ctx.db.insert("job_applications", {
       user_id: ctx.user._id,
       job_id: args.jobId,

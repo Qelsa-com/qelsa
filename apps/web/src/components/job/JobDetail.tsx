@@ -19,10 +19,10 @@ import { experienceMonths } from "@/components/profile/profileFormat";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGetEducationsQuery } from "@/features/api/educationsApi";
 import { useGetExperiencesQuery } from "@/features/api/experiencesApi";
-import { useCreateJobApplicationMutation } from "@/features/api/jobApplicationsApi";
+import { useCreateJobApplicationMutation, useGetApplicationUsageQuery } from "@/features/api/jobApplicationsApi";
 import { RESERVED_JOB_SLUGS, useGetJobByIdQuery, useGetMatchByJobQuery, useGetSimilarJobsQuery, useIsJobSavedQuery, useRecordJobViewMutation, useToggleSaveJobMutation } from "@/features/api/jobsApi";
 import { useGetMyResumesQuery } from "@/features/api/resumeApi";
-import { toastUnknownError } from "@/lib/errors";
+import { isApplicationLimitError, toastUnknownError } from "@/lib/errors";
 import { toast } from "sonner";
 import { jobDescriptionToHtml } from "@/lib/jobDescription";
 import { Job } from "@/types/job";
@@ -40,6 +40,7 @@ import { CompetencyTable } from "./CompetencyMatch";
 import { JobAiSummary } from "./JobAiSummary";
 import { MatchChatDrawer } from "./MatchChatDrawer";
 import { JobDetailSkeleton, SimilarJobCardSkeleton } from "./jobSkeletons";
+import { SubscriptionUpgradeModal, type UpgradeReason } from "../billing/SubscriptionUpgradeModal";
 
 /* -------------------------------- helpers --------------------------------- */
 
@@ -126,6 +127,7 @@ export function JobDetail() {
 
   const [showQuickApplyModal, setShowQuickApplyModal] = useState(false);
   const [showExternalConfirmModal, setShowExternalConfirmModal] = useState(false);
+  const [upgradeReason, setUpgradeReason] = useState<UpgradeReason | null>(null);
   const [justApplied, setJustApplied] = useState(false);
   const [createJobApplication, { isLoading: isApplyingExternal }] = useCreateJobApplicationMutation();
   const [matchOpen, setMatchOpen] = useState(false);
@@ -215,6 +217,16 @@ export function JobDetail() {
   }, [id, isAuthenticated, job, recordJobView]);
 
   const isRecruiter = isAuthenticated && user?.account_type === "recruiter";
+  const { data: applicationUsage } = useGetApplicationUsageQuery({
+    skip: !isAuthenticated || isOwner || isRecruiter,
+  });
+  const applicationLimitReached = Boolean(
+    isAuthenticated &&
+      !isOwner &&
+      !isRecruiter &&
+      applicationUsage &&
+      !applicationUsage.can_apply,
+  );
   const sectionScrollLock = useRef(false);
   const [activeSection, setActiveSection] = useState("job-overview");
   const [tabStickyTop, setTabStickyTop] = useState(() => (isRecruiter ? 0 : 64));
@@ -373,6 +385,10 @@ export function JobDetail() {
       router.push(`/auth?actionType=profile&returnUrl=${encodeURIComponent(`/jobs/${id}`)}`);
       return;
     }
+    if (applicationLimitReached) {
+      setUpgradeReason("applications");
+      return;
+    }
     if (job.application_url) {
       window.open(job.application_url, "_blank", "noopener,noreferrer");
       setShowExternalConfirmModal(true);
@@ -398,6 +414,11 @@ export function JobDetail() {
       setShowExternalConfirmModal(false);
       toast.success("Application recorded!");
     } catch (error: unknown) {
+      if (isApplicationLimitError(error)) {
+        setShowExternalConfirmModal(false);
+        setUpgradeReason("applications");
+        return;
+      }
       toastUnknownError(error, "Could not record application. Please try again.");
     }
   };
@@ -919,6 +940,10 @@ export function JobDetail() {
           setJustApplied(true);
           setOptimisticSaved(false);
         }}
+        onUpgradeRequired={() => {
+          setShowQuickApplyModal(false);
+          setUpgradeReason("applications");
+        }}
         resumes={myResumes ?? []}
         defaultResumeId={user?.default_resume_id}
       />
@@ -929,6 +954,14 @@ export function JobDetail() {
         onConfirm={() => void handleConfirmExternalApply()}
         isLoading={isApplyingExternal}
       />
+
+      {upgradeReason ? (
+        <SubscriptionUpgradeModal
+          open
+          reason={upgradeReason}
+          onClose={() => setUpgradeReason(null)}
+        />
+      ) : null}
     </div>
   );
 }
