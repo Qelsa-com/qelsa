@@ -1,6 +1,7 @@
-import { JobGrid, JobsBrowseHeader, ResumePromptBanner, useJobBrowseFilters } from "@/components/job/jobBrowseShared";
+import { JobGrid, JobsBrowseHeader, useJobBrowseFilters } from "@/components/job/jobBrowseShared";
 import { JOBS_PAGE_SIZE, JobsFeedPager } from "@/components/job/JobsFeedPager";
 import { AllJobsGridSkeleton } from "@/components/job/jobSkeletons";
+import { SetupBanner } from "@/components/SetupBanner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCountJobsQuery, usePaginatedJobsQuery } from "@/features/api/jobsApi";
 import { useGetMyResumesQuery } from "@/features/api/resumeApi";
@@ -19,21 +20,8 @@ const All = () => {
   const { data: filteredTotal } = useCountJobsQuery(discoverArgs);
   const { data: myResumes } = useGetMyResumesQuery(undefined, { skip: !isAuthenticated });
   const hasResume = Boolean(myResumes && myResumes.length > 0);
-  const hasProfile = Boolean(
-    user?.has_profile ||
-    user?.headline?.trim() ||
-    user?.professional_summary?.trim() ||
-    user?.about?.trim()
-  );
+  const hasProfile = Boolean(user?.has_profile || user?.headline?.trim() || user?.professional_summary?.trim() || user?.about?.trim());
   const showResumeBanner = isAuthenticated && myResumes !== undefined && !hasResume;
-
-  const handleBannerUpload = () => {
-    if (hasProfile) {
-      router.push("/profile/edit?section=media");
-    } else {
-      router.push("/profile");
-    }
-  };
 
   const jobs = (results as Job[]) ?? [];
   const loaded = jobs.length;
@@ -59,19 +47,15 @@ const All = () => {
         {/* ----------------------------- All jobs ------------------------------ */}
         <div className="mt-6 flex flex-col gap-4 pb-16 sm:mt-10 sm:gap-6 sm:pb-24">
           {showResumeBanner && (
-            <ResumePromptBanner
+            <SetupBanner
               title={hasProfile ? "Upload your resume" : "Discover your readiness for every role"}
               description={
                 hasProfile
                   ? "Upload a resume to easily apply to jobs and manage your application materials."
                   : "Upload your resume and Qelsa will build your profile to show how well your skills and experience align with different roles, and where you can improve."
               }
-              disclaimer={
-                hasProfile
-                  ? "Your resume will be saved to your profile and used for job applications."
-                  : "Review and edit your profile before saving. Your resume is just the starting point."
-              }
-              onUpload={handleBannerUpload}
+              actionLabel="Set up profile"
+              onAction={() => router.push("/profile")}
             />
           )}
           {isInitialLoading ? (

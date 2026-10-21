@@ -605,7 +605,7 @@ export function MySpacePage({}: MySpacePageProps) {
               <Briefcase className="h-5 w-5 text-neon-cyan" />
               <h3 className="text-xl font-bold text-white">Work Experience</h3>
             </div>
-            <Button variant="ghost" size="sm" className="glass hover:glass-strong border-neon-cyan/30 text-neon-cyan hover:text-neon-cyan" onClick={() => router.push("/profile/work-experience")}>
+            <Button variant="ghost" size="sm" className="glass hover:glass-strong border-neon-cyan/30 text-neon-cyan hover:text-neon-cyan" onClick={() => router.push("/profile?edit=experience")}>
               <Edit3 className="h-4 w-4 mr-2" />
               Edit
             </Button>
@@ -669,7 +669,7 @@ export function MySpacePage({}: MySpacePageProps) {
                 <Award className="h-5 w-5 text-neon-pink" />
                 <h3 className="text-xl font-bold text-white">Skills & Expertise</h3>
               </div>
-              <Button variant="ghost" size="sm" className="glass hover:glass-strong border-neon-pink/30 text-neon-pink hover:text-neon-pink" onClick={() => router.push("/profile/skills")}>
+              <Button variant="ghost" size="sm" className="glass hover:glass-strong border-neon-pink/30 text-neon-pink hover:text-neon-pink" onClick={() => router.push("/profile?edit=skills")}>
                 <Edit3 className="h-4 w-4 mr-2" />
                 Edit
               </Button>
@@ -698,11 +698,11 @@ export function MySpacePage({}: MySpacePageProps) {
                 <h3 className="text-xl font-bold text-white">Skills & Expertise</h3>
               </div>
               <div className="flex items-center gap-2">
-                <Button variant="ghost" size="sm" className="glass hover:glass-strong border-neon-cyan/30 text-neon-cyan hover:text-neon-cyan" onClick={() => router.push("/profile/skills")}>
+                <Button variant="ghost" size="sm" className="glass hover:glass-strong border-neon-cyan/30 text-neon-cyan hover:text-neon-cyan" onClick={() => router.push("/profile?edit=skills")}>
                   <Eye className="h-4 w-4 mr-2" />
                   View All
                 </Button>
-                <Button variant="ghost" size="sm" className="glass hover:glass-strong border-neon-pink/30 text-neon-pink hover:text-neon-pink" onClick={() => router.push("/profile/skills")}>
+                <Button variant="ghost" size="sm" className="glass hover:glass-strong border-neon-pink/30 text-neon-pink hover:text-neon-pink" onClick={() => router.push("/profile?edit=skills")}>
                   <Edit3 className="h-4 w-4 mr-2" />
                   Edit
                 </Button>
