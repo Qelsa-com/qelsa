@@ -71,7 +71,7 @@ export default function UserDetailPage() {
   }, [user, seededFor]);
 
   const handleSave = async () => {
-    if (!userId) return;
+    if (!userId || !user) return;
     const updates: Record<string, unknown> = {};
     for (const field of EDITABLE_FIELDS) {
       const value = draft[field.key]?.trim();
@@ -79,6 +79,18 @@ export default function UserDetailPage() {
     }
     if (about.trim()) updates.about = about.trim();
     if (summary.trim()) updates.professional_summary = summary.trim();
+
+    const changed =
+      Object.entries(updates).some(([key, value]) => {
+        const current = (user as Record<string, unknown>)[key];
+        return String(current ?? "") !== String(value ?? "");
+      }) ||
+      about !== (user.about ?? "") ||
+      summary !== (user.professional_summary ?? "");
+    if (!changed) {
+      toast.info("Nothing changed.");
+      return;
+    }
 
     try {
       await updateUser({ userId, updates, note: note.trim() || undefined }).unwrap();
@@ -90,7 +102,16 @@ export default function UserDetailPage() {
   };
 
   const handleRoleChange = async (role: "user" | "admin") => {
-    if (!userId) return;
+    if (!userId || !user || role === user.role) return;
+    if (
+      !window.confirm(
+        role === "admin"
+          ? `Give ${user.email} full admin access? They will be able to manage users and jobs.`
+          : `Remove admin access from ${user.email}?`,
+      )
+    ) {
+      return;
+    }
     try {
       await setUserRole({ userId, role, note: note.trim() || undefined }).unwrap();
       toast.success(`Role changed to ${role}.`);
@@ -101,7 +122,13 @@ export default function UserDetailPage() {
   };
 
   const handleStatusChange = async (isActive: boolean) => {
-    if (!userId) return;
+    if (!userId || !user || isActive === user.is_active) return;
+    if (
+      !isActive &&
+      !window.confirm(`Suspend ${user.email}? They will be signed out and unable to access Qelsa.`)
+    ) {
+      return;
+    }
     try {
       await setUserActive({ userId, isActive, note: note.trim() || undefined }).unwrap();
       toast.success(isActive ? "User reactivated." : "User suspended.");
