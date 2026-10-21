@@ -9,6 +9,7 @@
     "build": "turbo build",
     "lint": "turbo lint",
     "check-types": "turbo check-types",
+    "check:board-catalog": "node scripts/verify-board-catalog.mjs",
     "git:merge-main": "bash scripts/merge-develop-to-main.sh"
   },
   "devDependencies": {

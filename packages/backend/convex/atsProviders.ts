@@ -27,6 +27,12 @@ export const ATS_JOB_FETCH_LIMIT = 2000;
 const MAX_JOBS = ATS_JOB_FETCH_LIMIT;
 const REQUEST_UA = "QelsaAtsSync/1.0";
 
+/**
+ * Lever hosts boards in two regions. A 404 on the .com host only means the
+ * board is not on that region, so fall through to the EU host before failing.
+ */
+const LEVER_API_HOSTS = ["https://api.lever.co", "https://api.eu.lever.co"];
+
 const ATS_HOST =
   /(^|\.)(greenhouse\.io|lever\.co|ashbyhq\.com|bamboohr\.com|myworkdayjobs\.com|zohorecruit\.(com|in|eu|com\.au)|keka\.com|darwinbox\.(in|com|io)|icims\.com)$/i;
 
@@ -231,12 +237,27 @@ export async function fetchGreenhouse(subdomain: string): Promise<NormalizedJob[
   });
 }
 
+/** Pull the raw postings array, trying each Lever region in turn. */
+async function fetchLeverPostings(slug: string): Promise<Array<Record<string, unknown>>> {
+  for (const host of LEVER_API_HOSTS) {
+    const res = await fetch(`${host}/v0/postings/${slug}?mode=json`, { headers: { "User-Agent": REQUEST_UA } });
+    if (res.ok) {
+      const data = (await res.json()) as Array<Record<string, unknown>>;
+      // A 200 is authoritative for this region, even when the board is empty.
+      if (Array.isArray(data)) return data;
+      throw new Error(`Lever board "${slug}" returned an unexpected payload`);
+    }
+    // Only a 404 means "not on this region". Anything else (rate limit, 5xx)
+    // is a real failure — surface it rather than let the other region answer.
+    if (res.status !== 404) throw new Error(`Lever board "${slug}" could not be fetched (${res.status})`);
+  }
+  throw new Error(`Lever board "${slug}" was not found (404)`);
+}
+
 export async function fetchLever(subdomain: string): Promise<NormalizedJob[]> {
   const slug = slugFromInput(subdomain, /\.lever\.co$/i);
   if (!slug) throw new Error("Lever board slug is required");
-  const res = await fetch(`https://api.lever.co/v0/postings/${slug}?mode=json`, { headers: { "User-Agent": REQUEST_UA } });
-  if (!res.ok) throw new Error(`Lever board "${slug}" was not found (${res.status})`);
-  const data = (await res.json()) as Array<Record<string, unknown>>;
+  const data = await fetchLeverPostings(slug);
   const domain = companyDomain(undefined, slug);
   return (data ?? []).slice(0, MAX_JOBS).map((j) => {
     const categories = (j.categories as { location?: string; team?: string; department?: string; commitment?: string } | undefined) ?? {};

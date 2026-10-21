@@ -7,6 +7,7 @@ import {
   type AtsPublicBoard,
   type PublicBoardProviderId,
 } from "@/components/ats/catalog";
+import { publicBoardCompaniesFor } from "@/components/ats/boardCatalog";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -79,15 +80,62 @@ export default function BoardsPage() {
 
   const [providerId, setProviderId] = useState<PublicBoardProviderId>("greenhouse");
   const [subdomain, setSubdomain] = useState("");
+  const [selectedSlug, setSelectedSlug] = useState("");
   const provider = publicBoardProviderById(providerId);
+
+  // Company suggestions are scoped to the selected ATS: a board token only
+  // means something against one provider's API.
+  //
+  // Boards already ingested for this ATS are dropped from the picker. Public
+  // boards are keyed on (provider, slug) and the backend rejects a repeat, so
+  // offering an existing one would only earn the admin an error to dismiss.
+  // A matching slug under a *different* ATS is a different board and stays.
+  const existingSlugs = new Set(
+    boards
+      .filter((board) => board.provider === providerId)
+      .map((board) => (board.subdomain ?? "").trim().toLowerCase())
+      .filter(Boolean),
+  );
+  const companyOptions = publicBoardCompaniesFor(providerId).filter(
+    (row) => !existingSlugs.has(row.slug.toLowerCase()),
+  );
+  const indiaCompanies = companyOptions.filter((row) => row.region === "india");
+  const globalCompanies = companyOptions.filter((row) => row.region === "global");
+
+  const typedSlug = subdomain.trim();
+  const typedSlugIsDuplicate = existingSlugs.has(typedSlug.toLowerCase());
+  // Drop the selection if its board got added elsewhere while this form was open.
+  const selectedCompanySlug = existingSlugs.has(selectedSlug) ? "" : selectedSlug;
+
+  const handleProviderChange = (next: PublicBoardProviderId) => {
+    if (next === providerId) return;
+    setProviderId(next);
+    // A company picked from the previous ATS's list must not be submitted
+    // against the newly selected ATS. A manually typed slug stays put.
+    if (selectedSlug) setSubdomain("");
+    setSelectedSlug("");
+  };
+
+  const handleCompanyChange = (slug: string) => {
+    setSelectedSlug(slug);
+    setSubdomain(slug);
+  };
+
+  const handleSlugChange = (value: string) => {
+    setSubdomain(value);
+    // Editing the slug by hand puts the admin back in manual-entry mode.
+    if (value !== selectedSlug) setSelectedSlug("");
+  };
 
   const [retryingId, setRetryingId] = useState<string | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
 
   const handleAdd = async () => {
+    if (!typedSlug || typedSlugIsDuplicate) return;
     try {
-      await addBoard({ provider: providerId, subdomain: subdomain.trim() }).unwrap();
+      await addBoard({ provider: providerId, subdomain: typedSlug }).unwrap();
       setSubdomain("");
+      setSelectedSlug("");
       toast.success("Board added. The first pull is starting.");
     } catch (error) {
       toast.error(
@@ -167,7 +215,7 @@ export default function BoardsPage() {
               }`}
             >
               <span
-                className={`absolute top-0.5 h-5 w-5 rounded-full bg-black/60 transition-transform ${
+                className={`absolute left-0 top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
                   syncEnabled ? "translate-x-[22px]" : "translate-x-0.5"
                 }`}
               />
@@ -183,13 +231,15 @@ export default function BoardsPage() {
             Add as many Greenhouse, Lever, or Ashby boards as you need.
           </p>
 
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <div className="space-y-2">
               <Label htmlFor="board-ats">ATS</Label>
               <select
                 id="board-ats"
                 value={providerId}
-                onChange={(event) => setProviderId(event.target.value as PublicBoardProviderId)}
+                onChange={(event) =>
+                  handleProviderChange(event.target.value as PublicBoardProviderId)
+                }
                 disabled={isAdding}
                 className="h-9 w-full rounded-md border border-glass-border bg-[#12121a] px-3 text-sm text-white outline-none focus-visible:border-ring"
               >
@@ -202,6 +252,37 @@ export default function BoardsPage() {
             </div>
 
             <div className="space-y-2">
+              <Label htmlFor="board-company">Company</Label>
+              <select
+                id="board-company"
+                value={selectedCompanySlug}
+                onChange={(event) => handleCompanyChange(event.target.value)}
+                disabled={isAdding}
+                className="h-9 w-full rounded-md border border-glass-border bg-[#12121a] px-3 text-sm text-white outline-none focus-visible:border-ring"
+              >
+                <option value="">Enter a slug manually…</option>
+                {indiaCompanies.length > 0 && (
+                  <optgroup label="India">
+                    {indiaCompanies.map((row) => (
+                      <option key={row.slug} value={row.slug}>
+                        {row.label}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+                {globalCompanies.length > 0 && (
+                  <optgroup label="Global">
+                    {globalCompanies.map((row) => (
+                      <option key={row.slug} value={row.slug}>
+                        {row.label}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+              </select>
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="board-slug">
                 {provider.boardLabel ?? "Board slug"}{" "}
                 <span className="text-rose-400">*</span>
@@ -209,7 +290,7 @@ export default function BoardsPage() {
               <Input
                 id="board-slug"
                 value={subdomain}
-                onChange={(event) => setSubdomain(event.target.value)}
+                onChange={(event) => handleSlugChange(event.target.value)}
                 placeholder={provider.boardPlaceholder}
                 autoComplete="off"
                 disabled={isAdding}
@@ -217,13 +298,26 @@ export default function BoardsPage() {
             </div>
           </div>
 
+          {typedSlugIsDuplicate ? (
+            <p className="mt-3 text-xs text-amber-400">
+              {provider.name} already ingests “{typedSlug}” — use Resync below instead of
+              adding it again.
+            </p>
+          ) : (
+            <p className="mt-3 text-xs text-muted-foreground">
+              {companyOptions.length > 0
+                ? `${companyOptions.length} popular ${provider.name} boards are listed — pick one to fill the slug, or type any board slug you already know.`
+                : `Type the ${provider.name} board slug you want to ingest.`}
+            </p>
+          )}
+
           {provider.credentialsHelp && (
             <p className="mt-3 text-xs text-neon-cyan">{provider.credentialsHelp}</p>
           )}
 
           <Button
             onClick={() => void handleAdd()}
-            disabled={!subdomain.trim() || isAdding}
+            disabled={!typedSlug || typedSlugIsDuplicate || isAdding}
             className="mt-4 rounded-full bg-gradient-to-r from-neon-purple to-neon-pink text-white hover:opacity-90"
           >
             {isAdding ? "Adding…" : "Add board"}

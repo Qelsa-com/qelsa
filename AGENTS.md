@@ -10,10 +10,27 @@ See `README.md` for the canonical setup/dev commands. Package scripts live in th
 
 - Every admin data function lives in `packages/backend/convex/admin.ts` and uses the `adminQuery` / `adminMutation` wrappers from `convex/lib/customFunctions.ts`, which re-check the role server side. Never expose privileged data through a plain `query` / `mutation`.
 - The admin app runs on a separate origin, so the Convex deployment needs `ADMIN_SITE_URL` and, when explicitly supplied, that origin in `TRUSTED_ORIGINS`.
-- Admin auth is intentionally narrow: the admin origin may only use the session/sign-in routes, only active admins can establish an admin session, and non-admin emails never receive admin-origin OTPs.
+- Admin auth is intentionally narrow: the admin origin may only use the session/sign-in routes, only active admins can establish an admin session, and non-admin emails never receive admin-origin OTPs. The admin Next.js proxy stamps `x-qelsa-admin-auth: 1`; the Convex hook trusts that header in addition to `ADMIN_SITE_URL`, so stale origin config cannot silently bypass the gate.
 - Dashboard totals come from the `admin_stats` counter table, updated in the same mutation as the source write (see `convex/lib/adminStats.ts`). Do not replace those counters with `.collect().length` scans.
 - Admin mutations write an `admin_audit_log` row so every privileged action stays attributable.
 - Suspended app users are rejected by `getAppUser()` and are treated as signed out by optional auth reads. Do not add a new `authed*` path that bypasses that check.
+
+## Public job boards
+
+The admin "Public job boards" page (`apps/admin/src/app/(admin)/boards/page.tsx`) lets admins ingest Greenhouse / Lever / Ashby boards. Public boards are keyed on `(provider, subdomain)` — the same slug under a different ATS is a different board.
+
+- `apps/admin/src/components/ats/boardCatalog.ts` is a hand-curated catalog of well-known company boards powering the "Company" picker, grouped by ATS and by `india` / `global`. It is data, not live discovery: slugs are probed against each vendor's public API, so entries rot as companies delete boards or switch ATS.
+- After editing the catalog, run `pnpm check:board-catalog` (→ `scripts/verify-board-catalog.mjs`) to probe every slug. It reports role-count drift and exits non-zero when a board no longer resolves; `--fix` strips the dead entries.
+- The picker only offers boards for the currently selected ATS, drops any board already ingested for that ATS, and still accepts a manually typed slug.
+- `packages/backend/convex/atsProviders.ts` owns the vendor fetchers. `fetchLever` tries the US host then `api.eu.lever.co`, because Lever serves EU-region boards from a separate host that 404s on the `.com` one.
+
+## ATS sync cadence
+
+Employer integrations and admin-owned public boards both pull through `atsSync.syncIntegration`; the cron only picks up rows due against `ATS_SYNC_INTERVAL_MS` (5 days) in `lib/atsSyncInterval.ts`.
+
+- `atsIntegrations.requestSync` backs the employer-facing "Sync now" button (`settings/integrations` → Manage), mirroring the admin `retryPublicBoard`. It schedules `syncIntegration` without `force`.
+- Do not pass `force: true` from `requestSync`. `force` skips the admin sync kill-switch, which is correct for an admin-triggered retry but not for an employer — an admin pausing sync is a real control, not a bug to route around. `requestSync` re-checks the switch itself so the employer gets a clear error instead of a silent no-op.
+- `requestSync` enforces `MANUAL_SYNC_MIN_INTERVAL_MS` (5 min) measured from the last **attempt** (`last_synced_at` on success, `error_detected_at` on failure). This is a cost guard — a manual sync re-runs the full board pull plus LLM skill extraction — so do not delete it. Equally, do not measure from `last_synced_at` alone: an employer whose sync just failed would get a "you already synced" error and be unable to retry after fixing credentials.
 
 ## Employer authentication
 

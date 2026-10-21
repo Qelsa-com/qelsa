@@ -18,6 +18,8 @@ export type AtsIntegration = {
   next_sync_at?: number;
   error_message?: string;
   error_detected_at?: number;
+  /** Set while a pull is in flight; the UI uses it to show a busy state. */
+  sync_started_at?: number;
   requested_at?: number;
   has_api_key: boolean;
 };

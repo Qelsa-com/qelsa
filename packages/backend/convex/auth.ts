@@ -58,6 +58,10 @@ function requestHost(ctx: any): string | null {
 }
 
 function isAdminAuthRequest(ctx: any): boolean {
+  // The admin Next.js proxy stamps this header. Prefer it over host matching:
+  // a missing/stale ADMIN_SITE_URL must never turn the admin login into a
+  // normal public OTP endpoint.
+  if (requestHeaders(ctx)?.get?.("x-qelsa-admin-auth") === "1") return true;
   try {
     if (!adminSiteUrl) return false;
     return requestHost(ctx) === new URL(adminSiteUrl).host;

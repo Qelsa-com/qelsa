@@ -1,9 +1,10 @@
 "use client";
 
-import { useConnectAtsApiKeyMutation, useConnectAtsBoardMutation, useConnectAtsOAuthMutation, useDisconnectAtsMutation, useReconnectAtsMutation, useRemoveAtsMutation, useRequestAtsAccessMutation, useUpdateAtsSyncSettingsMutation } from "@/features/api/atsIntegrationsApi";
+import { useConnectAtsApiKeyMutation, useConnectAtsBoardMutation, useConnectAtsOAuthMutation, useDisconnectAtsMutation, useReconnectAtsMutation, useRemoveAtsMutation, useRequestAtsAccessMutation, useRequestAtsSyncMutation, useUpdateAtsSyncSettingsMutation } from "@/features/api/atsIntegrationsApi";
 import { toastUnknownError } from "@/lib/errors";
 import { AlertTriangle, CheckCircle2, Info } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 import { Button } from "../../ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../ui/dialog";
 import { Input } from "../../ui/input";
@@ -18,6 +19,9 @@ const contentClass = "glass-strong border-glass-border gap-0 p-0 sm:max-w-md sm:
 const headerClass = "border-b border-glass-border px-6 py-5";
 const bodyClass = "px-6 py-5";
 const footerClass = "flex flex-row items-center justify-between gap-3 border-t border-glass-border px-6 py-4";
+
+/** Mirrors the backend's stale-lock window; keep in sync with `atsSync.ts`. */
+const STALE_SYNC_MS = 20 * 60 * 1000;
 
 type DialogProps = {
   provider: AtsProviderMeta;
@@ -433,6 +437,20 @@ export function ReconnectApiKeyDialog({ provider, integration, open, onOpenChang
 
 export function ManageIntegrationDialog({ provider, integration, open, onOpenChange, onDisconnect }: DialogProps & { integration: AtsIntegration; onDisconnect: () => void }) {
   const [updateSettings] = useUpdateAtsSyncSettingsMutation();
+  const [requestSync, { isLoading: isRequesting }] = useRequestAtsSyncMutation();
+
+  // The backend only marks the row as syncing once the scheduled action claims
+  // it, which is a beat after the click — `isRequesting` covers that gap.
+  const isSyncing = Boolean(integration.sync_started_at && Date.now() - integration.sync_started_at < STALE_SYNC_MS);
+
+  const handleSyncNow = async () => {
+    try {
+      await requestSync({ provider: provider.id }).unwrap();
+      toast.success("Sync started. This can take a minute — the numbers below update when it finishes.");
+    } catch (err) {
+      toastUnknownError(err, `Could not start a sync for ${provider.name}. Please try again.`);
+    }
+  };
 
   const toggle = async (key: "syncJobs" | "syncCandidates", value: boolean) => {
     try {
@@ -459,6 +477,24 @@ export function ManageIntegrationDialog({ provider, integration, open, onOpenCha
             <MetaRow label="Last successful sync" value={relativeTime(integration.last_synced_at)} />
             <MetaRow label="Next scheduled sync" value={relativeTime(integration.next_sync_at)} />
             <MetaRow label="Total records synced" value={`${integration.records_synced.toLocaleString()} candidates`} />
+          </div>
+
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-glass-border bg-white/5 px-4 py-3">
+            <div>
+              <p className="text-sm text-white">Pull new jobs now</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {isSyncing ? "Syncing — this can take a minute." : "Don't want to wait for the next scheduled pull?"}
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="shrink-0 rounded-full"
+              disabled={isSyncing || isRequesting}
+              onClick={() => void handleSyncNow()}
+            >
+              {isSyncing || isRequesting ? "Syncing…" : "Sync now"}
+            </Button>
           </div>
 
           <div>

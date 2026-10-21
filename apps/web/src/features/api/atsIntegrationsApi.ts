@@ -35,6 +35,10 @@ export function useUpdateAtsSyncSettingsMutation() {
   return useConvexMutationHook(api.atsIntegrations.updateSyncSettings, (input: { provider: string; syncJobs?: boolean; syncCandidates?: boolean }) => input);
 }
 
+export function useRequestAtsSyncMutation() {
+  return useConvexMutationHook(api.atsIntegrations.requestSync, (input: { provider: string }) => input);
+}
+
 export function useRequestAtsAccessMutation() {
   return useConvexMutationHook(api.atsIntegrations.requestAccess, (provider: string) => ({ provider }));
 }
