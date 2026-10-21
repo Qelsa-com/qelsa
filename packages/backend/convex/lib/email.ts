@@ -318,7 +318,7 @@ export async function sendOTPEmail({
     to,
     subject,
     html,
-    text: `Your Qelsa verification code is ${otp}. It will expire in 10 minutes.`,
+    text: `Your Qelsa verification code is ${otp} It will expire in 10 minutes.`,
   });
   if (!result.success) {
     throw new Error(result.error ?? "Failed to send verification email");
