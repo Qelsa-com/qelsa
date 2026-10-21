@@ -320,25 +320,6 @@ function ConversationList({
   );
 }
 
-function RailHeader({ onClose }: { onClose?: () => void }) {
-  return (
-    <div className="flex items-center gap-3 border-b border-white/[0.08] px-4 py-4">
-      <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-neon-cyan via-neon-purple to-neon-pink shadow-lg shadow-purple-900/30">
-        <Sparkles className="size-4 text-black" />
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold text-white">Qelsa Agent</p>
-        <p className="truncate text-[11px] text-white/45">Your career copilot</p>
-      </div>
-      {onClose && (
-        <button type="button" aria-label="Close conversations" onClick={onClose} className="flex size-8 shrink-0 items-center justify-center rounded-full border border-white/[0.1] bg-white/[0.04] text-white/60">
-          <X className="size-4" />
-        </button>
-      )}
-    </div>
-  );
-}
-
 export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
   const router = useRouter();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
@@ -943,17 +924,28 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
   const title = activeConversation?.title ?? "New conversation";
   const renderRail = (onClose?: () => void) => (
     <>
-      <RailHeader onClose={onClose} />
       <div className="px-3 py-3">
-        <Button
-          type="button"
-          disabled={sending}
-          onClick={handleNewChat}
-          className="gradient-primary h-10 w-full rounded-xl px-3 text-[13px] font-semibold text-white shadow-lg shadow-purple-900/20 hover:opacity-95 disabled:opacity-40"
-        >
-          <Plus className="size-4" />
-          New chat
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            disabled={sending}
+            onClick={handleNewChat}
+            className="gradient-primary h-10 min-w-0 flex-1 rounded-xl px-3 text-[13px] font-semibold text-white shadow-lg shadow-purple-900/20 hover:opacity-95 disabled:opacity-40"
+          >
+            <Plus className="size-4" />
+            New chat
+          </Button>
+          {onClose && (
+            <button
+              type="button"
+              aria-label="Close conversations"
+              onClick={onClose}
+              className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-white/[0.1] bg-white/[0.04] text-white/60 transition-colors hover:text-white"
+            >
+              <X className="size-4" />
+            </button>
+          )}
+        </div>
       </div>
       {conversations.length > 3 && (
         <div className="px-3 pb-2">
