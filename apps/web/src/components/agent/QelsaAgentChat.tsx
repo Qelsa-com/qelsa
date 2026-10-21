@@ -17,7 +17,7 @@ import { toastUnknownError } from "@/lib/errors";
 import { homeForAccount } from "@/lib/onboarding";
 import { useUIMessages } from "@convex-dev/agent/react";
 import { useMutation, useQuery } from "convex/react";
-import { ArrowUp, Briefcase, Loader2, MessageSquarePlus, PanelLeft, PanelRight, Plus, RotateCcw, Search, Sparkles, Trash2, WifiOff, X } from "lucide-react";
+import { ArrowUp, Bell, Briefcase, Loader2, MessageSquarePlus, PanelLeft, PanelRight, Plus, RotateCcw, Search, Sparkles, Trash2, WifiOff, X } from "lucide-react";
 import { useRouter } from "next/router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -370,6 +370,19 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
 
   const followUps = useQuery(api.qelsaAgent.getFollowUps, isAuthenticated && activeThreadId && activeThreadIsKnown ? { threadId: activeThreadId } : "skip");
   const generationState = useQuery(api.qelsaAgent.getGenerationStatus, isAuthenticated && activeThreadId && activeThreadIsKnown ? { threadId: activeThreadId } : "skip");
+  const briefsQuery = useQuery(api.agentProactive.listBriefs, isAuthenticated ? { limit: 3 } : "skip");
+  const markBriefRead = useMutation(api.agentProactive.markBriefRead);
+  const [dismissedBriefId, setDismissedBriefId] = useState<string | null>(null);
+  const latestBrief = useMemo(() => {
+    const rows = (briefsQuery?.briefs ?? []) as Array<{
+      brief_id: string;
+      title: string;
+      summary: string;
+      read: boolean;
+      jobs: AgentJobSummary[];
+    }>;
+    return rows.find((brief) => !brief.read && brief.brief_id !== dismissedBriefId) ?? null;
+  }, [briefsQuery, dismissedBriefId]);
   const createConversation = useMutation(api.qelsaAgent.createConversation);
   const deleteConversation = useMutation(api.qelsaAgent.deleteConversation);
   const sendPrompt = useMutation(api.qelsaAgent.sendPrompt);
@@ -788,6 +801,30 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
     setActiveArtifact(artifact);
   }, []);
 
+  const handleBriefReview = useCallback(() => {
+    if (!latestBrief) return;
+    setInput(
+      `What's new from my saved searches? Review "${latestBrief.title}" and tell me which roles I should act on first.`,
+    );
+    setActiveThreadId(null);
+    setAwaitingReply(false);
+    syncThreadUrl(null);
+    window.sessionStorage.removeItem("qelsa-agent-thread");
+    setDismissedBriefId(latestBrief.brief_id);
+    void markBriefRead({ briefId: latestBrief.brief_id as any }).catch(() => undefined);
+    requestAnimationFrame(() => textareaRef.current?.focus());
+  }, [latestBrief, markBriefRead, syncThreadUrl]);
+
+  const handleBriefDismiss = useCallback(async () => {
+    if (!latestBrief) return;
+    setDismissedBriefId(latestBrief.brief_id);
+    try {
+      await markBriefRead({ briefId: latestBrief.brief_id as any });
+    } catch {
+      // The card is already dismissed locally; a later refresh can retry.
+    }
+  }, [latestBrief, markBriefRead]);
+
   const activeConversation = conversations.find((item) => item.threadId === activeThreadId);
   const title = activeConversation?.title ?? "Qelsa Agent";
   const renderRail = (onClose?: () => void) => (
@@ -934,6 +971,61 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
           <div className="flex items-center justify-center gap-2 border-b border-amber-400/20 bg-amber-400/[0.07] px-4 py-2 text-[11px] text-amber-200">
             <WifiOff className="size-3.5" />
             Qelsa Agent needs API_KEY on this deployment.
+          </div>
+        )}
+
+        {latestBrief && (
+          <div className="shrink-0 border-b border-sky-400/15 bg-sky-400/[0.04] px-3 py-2.5 sm:px-4">
+            <div className="mx-auto flex w-full max-w-3xl items-start gap-3">
+              <div className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-sky-400/20 bg-sky-400/10 text-sky-300">
+                <Bell className="size-3.5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[12px] font-semibold text-white/85">{latestBrief.title}</p>
+                <p className="mt-0.5 line-clamp-2 text-[11px] leading-relaxed text-white/45">{latestBrief.summary}</p>
+                {latestBrief.jobs.length > 0 && (
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {latestBrief.jobs.slice(0, 3).map((job) => (
+                      <a
+                        key={job.job_id}
+                        href={`/jobs/${job.job_id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={() => void handleBriefDismiss()}
+                        className="max-w-[230px] truncate rounded-full border border-white/[0.08] bg-white/[0.04] px-2.5 py-1 text-[10px] font-medium text-white/65 transition-colors hover:border-sky-400/30 hover:text-white"
+                      >
+                        {job.title}
+                        {job.company ? ` · ${job.company}` : ""}
+                      </a>
+                    ))}
+                  </div>
+                )}
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleBriefReview}
+                    className="rounded-full border border-sky-400/25 bg-sky-400/10 px-2.5 py-1 text-[10px] font-semibold text-sky-200 transition-colors hover:bg-sky-400/[0.16]"
+                  >
+                    Review with Qelsa
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleBriefDismiss()}
+                    className="text-[10px] font-medium text-white/35 transition-colors hover:text-white/65"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+              <button
+                type="button"
+                aria-label="Dismiss brief"
+                onClick={() => void handleBriefDismiss()}
+                className="flex size-6 shrink-0 items-center justify-center rounded-full text-white/30 transition-colors hover:bg-white/[0.06] hover:text-white/70"
+              >
+                <X className="size-3.5" />
+              </button>
+            </div>
           </div>
         )}
 

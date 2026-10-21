@@ -31,6 +31,12 @@ const KIND_META: Record<AgentArtifactKind, { label: string; icon: LucideIcon }> 
   application_kit: { label: "Application kit", icon: ClipboardList },
   fit_report: { label: "Fit report", icon: Target },
   tracker: { label: "Application tracker", icon: ClipboardList },
+  resume_tailoring: { label: "Resume plan", icon: FileText },
+  application_questions: { label: "Application questions", icon: ClipboardList },
+  application_answers: { label: "Application answers", icon: PenLine },
+  interview_prep: { label: "Interview brief", icon: FileText },
+  comparison: { label: "Job comparison", icon: ClipboardList },
+  follow_up: { label: "Follow-up email", icon: FileText },
   document: { label: "Answer", icon: FileText },
 };
 

@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as agentProactive from "../agentProactive.js";
 import type * as applicantSearch from "../applicantSearch.js";
 import type * as applicantSearchGenerate from "../applicantSearchGenerate.js";
 import type * as atsIntegrations from "../atsIntegrations.js";
@@ -61,6 +62,7 @@ import type * as onboarding from "../onboarding.js";
 import type * as pageMembers from "../pageMembers.js";
 import type * as pages from "../pages.js";
 import type * as qelsaAgent from "../qelsaAgent.js";
+import type * as qelsaAgentCoaching from "../qelsaAgentCoaching.js";
 import type * as qelsaAgentTools from "../qelsaAgentTools.js";
 import type * as resumeParse from "../resumeParse.js";
 import type * as resumes from "../resumes.js";
@@ -77,6 +79,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  agentProactive: typeof agentProactive;
   applicantSearch: typeof applicantSearch;
   applicantSearchGenerate: typeof applicantSearchGenerate;
   atsIntegrations: typeof atsIntegrations;
@@ -130,6 +133,7 @@ declare const fullApi: ApiFromModules<{
   pageMembers: typeof pageMembers;
   pages: typeof pages;
   qelsaAgent: typeof qelsaAgent;
+  qelsaAgentCoaching: typeof qelsaAgentCoaching;
   qelsaAgentTools: typeof qelsaAgentTools;
   resumeParse: typeof resumeParse;
   resumes: typeof resumes;
