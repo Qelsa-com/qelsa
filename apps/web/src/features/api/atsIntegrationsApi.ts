@@ -38,9 +38,3 @@ export function useUpdateAtsSyncSettingsMutation() {
 export function useRequestAtsAccessMutation() {
   return useConvexMutationHook(api.atsIntegrations.requestAccess, (provider: string) => ({ provider }));
 }
-
-
-
-
-
-

@@ -85,6 +85,12 @@ export default function JobsPage() {
     jobId: string,
     action: "close" | "reopen" | "pause" | "delete",
   ) => {
+    if (
+      action === "delete" &&
+      !window.confirm("Delete this job and every application attached to it? This cannot be undone.")
+    ) {
+      return;
+    }
     setPendingId(jobId);
     try {
       await moderateJob({ jobId, action }).unwrap();

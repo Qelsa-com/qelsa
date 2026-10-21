@@ -9,14 +9,20 @@ import { ShieldCheck } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 
+type LoginMode = "otp" | "password";
+
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: session, isPending } = authClient.useSession();
   const { isAdmin, isLoading } = useAdminAuth();
 
+  const [mode, setMode] = useState<LoginMode>("otp");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [otp, setOtp] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -29,19 +35,64 @@ function LoginForm() {
     }
   }, [session, isAdmin, isPending, isLoading, router]);
 
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (isSubmitting) return;
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const timer = setInterval(() => setCooldown((value) => Math.max(0, value - 1)), 1000);
+    return () => clearInterval(timer);
+  }, [cooldown]);
+
+  const sendOtp = async () => {
+    if (!email.trim()) return;
     setIsSubmitting(true);
     setError(null);
     try {
-      const result = await authClient.signIn.email({ email, password });
+      const result = await authClient.emailOtp.sendVerificationOtp({
+        email: email.trim(),
+        type: "sign-in",
+      });
+      if (result.error) {
+        setError(result.error.message ?? "Could not send the code.");
+        return;
+      }
+      setOtpSent(true);
+      setCooldown(30);
+    } catch {
+      setError("Could not send the code. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const verifyOtp = async () => {
+    if (!otp.trim()) return;
+    setIsSubmitting(true);
+    setError(null);
+    try {
+      const result = await authClient.signIn.emailOtp({
+        email: email.trim(),
+        otp: otp.trim(),
+      });
+      if (result.error) {
+        setError(result.error.message ?? "That code is not valid.");
+        return;
+      }
+      router.replace("/");
+    } catch {
+      setError("Could not verify that code. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const signInWithPassword = async () => {
+    setIsSubmitting(true);
+    setError(null);
+    try {
+      const result = await authClient.signIn.email({ email: email.trim(), password });
       if (result.error) {
         setError(result.error.message ?? "Sign in failed");
         return;
       }
-      // The role check happens in the guard; a non-admin gets bounced back to
-      // this page with an error.
       router.replace("/");
     } catch {
       setError("Sign in failed. Please try again.");
@@ -49,6 +100,24 @@ function LoginForm() {
       setIsSubmitting(false);
     }
   };
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (isSubmitting) return;
+    if (mode === "otp") {
+      if (otpSent) await verifyOtp();
+      else await sendOtp();
+      return;
+    }
+    await signInWithPassword();
+  };
+
+  const canSubmit =
+    mode === "otp"
+      ? otpSent
+        ? Boolean(otp.trim())
+        : Boolean(email.trim())
+      : Boolean(email.trim() && password);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#06060f] px-6 text-white">
@@ -75,6 +144,12 @@ function LoginForm() {
             </p>
           )}
 
+          {mode === "otp" && otpSent && (
+            <p className="mb-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">
+              A verification code was sent to {email}.
+            </p>
+          )}
+
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
@@ -84,31 +159,88 @@ function LoginForm() {
                 autoComplete="email"
                 required
                 value={email}
-                onChange={(event) => setEmail(event.target.value)}
+                onChange={(event) => {
+                  setEmail(event.target.value);
+                  if (otpSent) {
+                    setOtpSent(false);
+                    setOtp("");
+                  }
+                }}
                 placeholder="admin@qelsa.ai"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                autoComplete="current-password"
-                required
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                placeholder="••••••••"
-              />
-            </div>
+
+            {mode === "otp" && otpSent && (
+              <div className="space-y-2">
+                <Label htmlFor="otp">Verification code</Label>
+                <Input
+                  id="otp"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={6}
+                  required
+                  value={otp}
+                  onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))}
+                  placeholder="000000"
+                />
+              </div>
+            )}
+
+            {mode === "password" && (
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  autoComplete="current-password"
+                  required
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  placeholder="••••••••"
+                />
+              </div>
+            )}
           </div>
 
           <Button
             type="submit"
             className="mt-6 w-full rounded-full bg-gradient-to-r from-neon-purple to-neon-pink text-white hover:opacity-90"
-            disabled={isSubmitting || !email || !password}
+            disabled={isSubmitting || !canSubmit}
           >
-            {isSubmitting ? "Signing in…" : "Sign in"}
+            {isSubmitting
+              ? mode === "otp"
+                ? otpSent
+                  ? "Verifying…"
+                  : "Sending code…"
+                : "Signing in…"
+              : mode === "otp"
+                ? otpSent
+                  ? "Verify and sign in"
+                  : "Email me a code"
+                : "Sign in"}
           </Button>
+
+          {mode === "otp" && otpSent && (
+            <button
+              type="button"
+              disabled={isSubmitting || cooldown > 0}
+              onClick={() => void sendOtp()}
+              className="mt-3 w-full text-center text-xs text-muted-foreground transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {cooldown > 0 ? `Resend code in ${cooldown}s` : "Resend code"}
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => {
+              setMode((current) => (current === "otp" ? "password" : "otp"));
+              setError(null);
+            }}
+            className="mt-4 w-full text-center text-xs text-muted-foreground transition-colors hover:text-white"
+          >
+            {mode === "otp" ? "Use a password instead" : "Use an email code instead"}
+          </button>
         </form>
       </div>
     </div>

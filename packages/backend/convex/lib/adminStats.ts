@@ -125,38 +125,116 @@ export async function applyUserStatDeltas(
  */
 export const ADMIN_STAT_REBUILD_BATCH = 200;
 
+/**
+ * Rebuild accumulation keys. These are deliberately internal keys: the
+ * dashboard never reads them, and a rebuild resets them before scanning.
+ */
+const REBUILD_KEYS = {
+  users: "__rebuild_users",
+  seekers: "__rebuild_users_seeker",
+  recruiters: "__rebuild_users_recruiter",
+  admins: "__rebuild_users_admin",
+  inactiveUsers: "__rebuild_users_inactive",
+  jobs: "__rebuild_jobs",
+  openJobs: "__rebuild_jobs_open",
+  applications: "__rebuild_applications",
+} as const;
+
+export async function resetAdminStatsRebuild(ctx: MutationCtx) {
+  for (const key of Object.values(REBUILD_KEYS)) {
+    await setAdminStat(ctx, key, 0);
+  }
+}
+
+async function finalizeStatsRebuild(
+  ctx: MutationCtx,
+  pairs: Array<{ accumulate: string; target: string }>,
+) {
+  const values = await getAdminStats(
+    ctx,
+    pairs.map((pair) => pair.accumulate),
+  );
+  for (const pair of pairs) {
+    await setAdminStat(ctx, pair.target, values[pair.accumulate] ?? 0);
+    await setAdminStat(ctx, pair.accumulate, 0);
+  }
+}
+
 export async function rebuildUserStats(ctx: MutationCtx, cursor: string | null = null) {
   const result = await ctx.db
     .query("users")
     .order("asc")
     .paginate({ numItems: ADMIN_STAT_REBUILD_BATCH, cursor });
 
-  const totals = {
-    users: 0,
-    seekers: 0,
-    recruiters: 0,
-    admins: 0,
-    inactiveUsers: 0,
-  };
-
   for (const user of result.page) {
-    totals.users += 1;
-    if (user.role === "admin") totals.admins += 1;
-    if (user.account_type === "seeker") totals.seekers += 1;
-    if (user.account_type === "recruiter") totals.recruiters += 1;
-    if (!user.isActive) totals.inactiveUsers += 1;
+    await bumpAdminStat(ctx, REBUILD_KEYS.users, 1);
+    if (user.role === "admin") await bumpAdminStat(ctx, REBUILD_KEYS.admins, 1);
+    if (user.account_type === "seeker") await bumpAdminStat(ctx, REBUILD_KEYS.seekers, 1);
+    if (user.account_type === "recruiter") await bumpAdminStat(ctx, REBUILD_KEYS.recruiters, 1);
+    if (!user.isActive) await bumpAdminStat(ctx, REBUILD_KEYS.inactiveUsers, 1);
   }
 
-  // Only write totals on the final page so the counters are never briefly wrong.
   if (result.isDone) {
-    await setAdminStat(ctx, ADMIN_STAT_KEYS.users, totals.users);
-    await setAdminStat(ctx, ADMIN_STAT_KEYS.seekers, totals.seekers);
-    await setAdminStat(ctx, ADMIN_STAT_KEYS.recruiters, totals.recruiters);
-    await setAdminStat(ctx, ADMIN_STAT_KEYS.admins, totals.admins);
-    await setAdminStat(ctx, ADMIN_STAT_KEYS.inactiveUsers, totals.inactiveUsers);
+    await finalizeStatsRebuild(ctx, [
+      { accumulate: REBUILD_KEYS.users, target: ADMIN_STAT_KEYS.users },
+      { accumulate: REBUILD_KEYS.seekers, target: ADMIN_STAT_KEYS.seekers },
+      { accumulate: REBUILD_KEYS.recruiters, target: ADMIN_STAT_KEYS.recruiters },
+      { accumulate: REBUILD_KEYS.admins, target: ADMIN_STAT_KEYS.admins },
+      { accumulate: REBUILD_KEYS.inactiveUsers, target: ADMIN_STAT_KEYS.inactiveUsers },
+    ]);
     return { done: true as const };
   }
 
-  await ctx.scheduler.runAfter(0, internal.admin.rebuildUserStatsBatch, { cursor: result.continueCursor });
+  await ctx.scheduler.runAfter(0, internal.admin.rebuildUserStatsBatch, {
+    cursor: result.continueCursor,
+  });
+  return { done: false as const };
+}
+
+export async function rebuildJobStats(ctx: MutationCtx, cursor: string | null = null) {
+  const result = await ctx.db
+    .query("jobs")
+    .order("asc")
+    .paginate({ numItems: ADMIN_STAT_REBUILD_BATCH, cursor });
+
+  for (const job of result.page) {
+    await bumpAdminStat(ctx, REBUILD_KEYS.jobs, 1);
+    if (job.status === "open") await bumpAdminStat(ctx, REBUILD_KEYS.openJobs, 1);
+  }
+
+  if (result.isDone) {
+    await finalizeStatsRebuild(ctx, [
+      { accumulate: REBUILD_KEYS.jobs, target: ADMIN_STAT_KEYS.jobs },
+      { accumulate: REBUILD_KEYS.openJobs, target: ADMIN_STAT_KEYS.openJobs },
+    ]);
+    return { done: true as const };
+  }
+
+  await ctx.scheduler.runAfter(0, internal.admin.rebuildJobStatsBatch, {
+    cursor: result.continueCursor,
+  });
+  return { done: false as const };
+}
+
+export async function rebuildApplicationStats(ctx: MutationCtx, cursor: string | null = null) {
+  const result = await ctx.db
+    .query("job_applications")
+    .order("asc")
+    .paginate({ numItems: ADMIN_STAT_REBUILD_BATCH, cursor });
+
+  for (const _row of result.page) {
+    await bumpAdminStat(ctx, REBUILD_KEYS.applications, 1);
+  }
+
+  if (result.isDone) {
+    await finalizeStatsRebuild(ctx, [
+      { accumulate: REBUILD_KEYS.applications, target: ADMIN_STAT_KEYS.applications },
+    ]);
+    return { done: true as const };
+  }
+
+  await ctx.scheduler.runAfter(0, internal.admin.rebuildApplicationStatsBatch, {
+    cursor: result.continueCursor,
+  });
   return { done: false as const };
 }

@@ -16,7 +16,7 @@ import {
 import { ArrowLeft, ShieldAlert } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 /**
@@ -52,20 +52,23 @@ export default function UserDetailPage() {
   const [summary, setSummary] = useState("");
   const [note, setNote] = useState("");
 
-  // Seed the form once the record loads. Keyed on the user id so the
-  // draft is derived state rather than a copy pushed in by an effect.
+  // Seed the form once the record loads. Keyed on the user id so a background
+  // query refresh does not overwrite an admin's in-progress edits.
   const [seededFor, setSeededFor] = useState<string | null>(null);
-  if (user && seededFor !== user.id) {
+  useEffect(() => {
+    if (!user || seededFor === user.id) return;
     const next: Record<string, string> = {};
     for (const field of EDITABLE_FIELDS) {
       const value = (user as Record<string, unknown>)[field.key];
       next[field.key] = value == null ? "" : String(value);
     }
+    /* eslint-disable react-hooks/set-state-in-effect -- one-time form hydration from the loaded record */
     setDraft(next);
     setAbout(user.about ?? "");
     setSummary(user.professional_summary ?? "");
     setSeededFor(user.id);
-  }
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [user, seededFor]);
 
   const handleSave = async () => {
     if (!userId) return;

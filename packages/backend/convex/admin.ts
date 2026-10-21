@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { paginationOptsValidator, paginationResultValidator } from "convex/server";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import { internalMutation, query, type QueryCtx } from "./_generated/server";
+import { internalMutation, type QueryCtx } from "./_generated/server";
 import { adminMutation, adminQuery } from "./lib/customFunctions";
 import { deleteJobCascade } from "./lib/deleteUserData";
 import { bumpOpenJobCount, openCountDelta } from "./lib/jobCounts";
@@ -11,8 +11,10 @@ import {
   applyUserStatDeltas,
   bumpAdminStat,
   getAdminStats,
+  rebuildApplicationStats,
+  rebuildJobStats,
   rebuildUserStats,
-  setAdminStat,
+  resetAdminStatsRebuild,
 } from "./lib/adminStats";
 
 /**
@@ -34,7 +36,6 @@ const ADMIN_USER_PATCH_KEYS = new Set([
   "phone",
   "profile_image",
   "profile_visibility",
-  "location",
   "work_preference",
   "want_to_relocate",
   "expected_salary_currency",
@@ -64,7 +65,7 @@ const ADMIN_USER_PATCH_KEYS = new Set([
 ]);
 
 const userSummaryValidator = v.object({
-  id: v.string(),
+  id: v.id("users"),
   name: v.union(v.string(), v.null()),
   email: v.string(),
   username: v.union(v.string(), v.null()),
@@ -82,7 +83,7 @@ const userSummaryValidator = v.object({
 });
 
 const userDetailValidator = v.object({
-  id: v.string(),
+  id: v.id("users"),
   name: v.union(v.string(), v.null()),
   email: v.string(),
   username: v.union(v.string(), v.null()),
@@ -103,7 +104,7 @@ const userDetailValidator = v.object({
   allow_profile_downloads: v.boolean(),
   profile_view_analytics: v.boolean(),
   work_preference: v.union(v.string(), v.null()),
-  want_to_relocate: v.boolean(),
+  want_to_relocate: v.union(v.boolean(), v.null()),
   expected_salary_currency: v.union(v.string(), v.null()),
   expected_min_salary: v.union(v.number(), v.null()),
   expected_max_salary: v.union(v.number(), v.null()),
@@ -212,20 +213,20 @@ export const listUsers = adminQuery({
 
     // Build the filtered query first. The filters narrow an index range, so
     // the search below only has to consider the rows the admin asked for.
-    let query = ctx.db.query("users");
+    let query: any = ctx.db.query("users");
 
     if (args.role && args.isActive !== undefined) {
-      query = query.withIndex("by_role_and_active", (q) =>
+      query = query.withIndex("by_role_and_active", (q: any) =>
         q.eq("role", args.role!).eq("isActive", args.isActive!),
       );
     } else if (args.role) {
-      query = query.withIndex("by_role", (q) => q.eq("role", args.role!));
+      query = query.withIndex("by_role", (q: any) => q.eq("role", args.role!));
     } else if (args.accountType) {
-      query = query.withIndex("by_account_type", (q) =>
+      query = query.withIndex("by_account_type", (q: any) =>
         q.eq("account_type", args.accountType!),
       );
     } else if (args.isActive !== undefined) {
-      query = query.withIndex("by_active", (q) => q.eq("isActive", args.isActive!));
+      query = query.withIndex("by_active", (q: any) => q.eq("isActive", args.isActive!));
     } else {
       query = query.withIndex("by_creation_time");
     }
@@ -249,7 +250,7 @@ export const listUsers = adminQuery({
           .take(SEARCH_LIMIT),
       ]);
 
-      const ids = new Set<string>();
+      const ids = new Set<Id<"users">>();
       for (const group of [byName, byEmail, byUsername]) {
         for (const user of group) ids.add(user._id);
       }
@@ -294,13 +295,13 @@ export const listUsers = adminQuery({
 
     // Hydrate the city name for the visible page only.
     const cities = await Promise.all(
-      result.page.map((user) =>
+      result.page.map((user: Doc<"users">) =>
         user.city_id ? ctx.db.get(user.city_id) : Promise.resolve(null),
       ),
     );
 
     return {
-      page: result.page.map((user, index) => toSummary(user, cities[index]?.name ?? null)),
+      page: result.page.map((user: Doc<"users">, index: number) => toSummary(user, cities[index]?.name ?? null)),
       isDone: result.isDone,
       continueCursor: result.continueCursor,
       splitCursor: result.splitCursor ?? null,
@@ -338,9 +339,9 @@ export const getUser = adminQuery({
       country: null,
       profile_visibility: user.profile_visibility ?? null,
       show_phone_number: user.show_phone_number,
-      show_contact_to_recruiters: user.show_contact_to_recruiters,
-      allow_profile_downloads: user.allow_profile_downloads,
-      profile_view_analytics: user.profile_view_analytics,
+      show_contact_to_recruiters: Boolean(user.show_contact_to_recruiters),
+      allow_profile_downloads: Boolean(user.allow_profile_downloads),
+      profile_view_analytics: Boolean(user.profile_view_analytics),
       work_preference: user.work_preference ?? null,
       want_to_relocate: user.want_to_relocate ?? null,
       expected_salary_currency: user.expected_salary_currency ?? null,
@@ -521,7 +522,7 @@ export const setUserActive = adminMutation({
 });
 
 const jobSummaryValidator = v.object({
-  id: v.string(),
+  id: v.id("jobs"),
   title: v.union(v.string(), v.null()),
   company_name: v.union(v.string(), v.null()),
   status: v.string(),
@@ -574,7 +575,7 @@ export const listJobs = adminQuery({
           .take(SEARCH_LIMIT),
       ]);
 
-      const ids = new Set<string>();
+      const ids = new Set<Id<"jobs">>();
       for (const group of [byTitle, byCompany]) {
         for (const job of group) ids.add(job._id);
       }
@@ -608,15 +609,15 @@ export const listJobs = adminQuery({
       };
     }
 
-    let query = ctx.db.query("jobs");
+    let query: any = ctx.db.query("jobs");
     if (args.status) {
-      query = query.withIndex("by_status", (q) => q.eq("status", args.status!));
+      query = query.withIndex("by_status", (q: any) => q.eq("status", args.status as Doc<"jobs">["status"]));
     } else {
       query = query.withIndex("by_creation_time");
     }
 
     if (args.onlyIngested !== undefined) {
-      query = query.filter((q) =>
+      query = query.filter((q: any) =>
         args.onlyIngested
           ? q.eq(q.field("owner_id"), undefined)
           : q.neq(q.field("owner_id"), undefined),
@@ -677,7 +678,10 @@ export const moderateJob = adminMutation({
 
     // Keep the denormalized open-job counter in step with the status change.
     const delta = openCountDelta(job.status, nextStatus);
-    if (delta !== 0) await bumpOpenJobCount(ctx, delta);
+    if (delta !== 0) {
+      await bumpOpenJobCount(ctx, delta);
+      await bumpAdminStat(ctx, ADMIN_STAT_KEYS.openJobs, delta);
+    }
 
     await ctx.db.patch(args.jobId, { status: nextStatus });
 
@@ -716,7 +720,7 @@ export const platformSummary = adminQuery({
     publicBoards: v.number(),
     recentSignups: v.array(
       v.object({
-        id: v.string(),
+        id: v.id("users"),
         name: v.union(v.string(), v.null()),
         email: v.string(),
         role: v.string(),
@@ -726,7 +730,7 @@ export const platformSummary = adminQuery({
     ),
     recentAudit: v.array(
       v.object({
-        id: v.string(),
+        id: v.id("admin_audit_log"),
         action: v.string(),
         admin_email: v.union(v.string(), v.null()),
         target_user_id: v.union(v.string(), v.null()),
@@ -808,7 +812,7 @@ export const listAuditLog = adminQuery({
   },
   returns: paginationResultValidator(
     v.object({
-      id: v.string(),
+      id: v.id("admin_audit_log"),
       action: v.string(),
       admin_email: v.union(v.string(), v.null()),
       target_user_id: v.union(v.string(), v.null()),
@@ -820,9 +824,9 @@ export const listAuditLog = adminQuery({
     }),
   ),
   handler: async (ctx, args) => {
-    let query = ctx.db.query("admin_audit_log");
+    let query: any = ctx.db.query("admin_audit_log");
     if (args.targetUserId) {
-      query = query.withIndex("by_target_user", (q) =>
+      query = query.withIndex("by_target_user", (q: any) =>
         q.eq("target_user_id", args.targetUserId!),
       );
     } else {
@@ -831,11 +835,11 @@ export const listAuditLog = adminQuery({
 
     const result = await query.order("desc").paginate(args.paginationOpts);
     const admins = await Promise.all(
-      result.page.map((row) => ctx.db.get(row.admin_user_id)),
+      result.page.map((row: Doc<"admin_audit_log">) => ctx.db.get(row.admin_user_id)),
     );
 
     return {
-      page: result.page.map((row, index) => ({
+      page: result.page.map((row: Doc<"admin_audit_log">, index: number) => ({
         id: row._id,
         action: row.action,
         admin_email: admins[index]?.email ?? null,
@@ -864,7 +868,14 @@ export const rebuildStats = adminMutation({
   args: {},
   returns: v.object({ started: v.boolean() }),
   handler: async (ctx) => {
-    await ctx.scheduler.runAfter(0, internal.admin.rebuildUserStatsBatch, { cursor: null });
+    // Rebuild users, jobs, and applications independently. Each scanner owns
+    // its accumulation keys, so a large table cannot overflow one mutation.
+    await resetAdminStatsRebuild(ctx);
+    await Promise.all([
+      ctx.scheduler.runAfter(0, internal.admin.rebuildUserStatsBatch, { cursor: null }),
+      ctx.scheduler.runAfter(0, internal.admin.rebuildJobStatsBatch, { cursor: null }),
+      ctx.scheduler.runAfter(0, internal.admin.rebuildApplicationStatsBatch, { cursor: null }),
+    ]);
     return { started: true };
   },
 });
@@ -874,6 +885,24 @@ export const rebuildUserStatsBatch = internalMutation({
   returns: v.object({ done: v.boolean() }),
   handler: async (ctx, args) => {
     const result = await rebuildUserStats(ctx, args.cursor);
+    return { done: result.done };
+  },
+});
+
+export const rebuildJobStatsBatch = internalMutation({
+  args: { cursor: v.union(v.string(), v.null()) },
+  returns: v.object({ done: v.boolean() }),
+  handler: async (ctx, args) => {
+    const result = await rebuildJobStats(ctx, args.cursor);
+    return { done: result.done };
+  },
+});
+
+export const rebuildApplicationStatsBatch = internalMutation({
+  args: { cursor: v.union(v.string(), v.null()) },
+  returns: v.object({ done: v.boolean() }),
+  handler: async (ctx, args) => {
+    const result = await rebuildApplicationStats(ctx, args.cursor);
     return { done: result.done };
   },
 });

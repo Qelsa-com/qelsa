@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as admin from "../admin.js";
 import type * as agentAutofill from "../agentAutofill.js";
 import type * as agentCourseTracking from "../agentCourseTracking.js";
 import type * as agentNotifications from "../agentNotifications.js";
@@ -36,6 +37,7 @@ import type * as jobSkillsEnrich from "../jobSkillsEnrich.js";
 import type * as jobs from "../jobs.js";
 import type * as jobsGenerate from "../jobsGenerate.js";
 import type * as jobsScraper from "../jobsScraper.js";
+import type * as lib_adminStats from "../lib/adminStats.js";
 import type * as lib_ai from "../lib/ai.js";
 import type * as lib_applicantSearch from "../lib/applicantSearch.js";
 import type * as lib_applications from "../lib/applications.js";
@@ -86,6 +88,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  admin: typeof admin;
   agentAutofill: typeof agentAutofill;
   agentCourseTracking: typeof agentCourseTracking;
   agentNotifications: typeof agentNotifications;
@@ -114,6 +117,7 @@ declare const fullApi: ApiFromModules<{
   jobs: typeof jobs;
   jobsGenerate: typeof jobsGenerate;
   jobsScraper: typeof jobsScraper;
+  "lib/adminStats": typeof lib_adminStats;
   "lib/ai": typeof lib_ai;
   "lib/applicantSearch": typeof lib_applicantSearch;
   "lib/applications": typeof lib_applications;

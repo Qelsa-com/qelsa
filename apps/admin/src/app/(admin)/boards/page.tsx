@@ -109,6 +109,13 @@ export default function BoardsPage() {
   };
 
   const handleRemove = async (board: AtsPublicBoard) => {
+    if (
+      !window.confirm(
+        `Remove the ${publicBoardProviderById(board.provider).name} board “${board.subdomain ?? board.id}”? Its live listings will be closed.`,
+      )
+    ) {
+      return;
+    }
     setRemovingId(board.id);
     try {
       await removeBoard(board.id).unwrap();
