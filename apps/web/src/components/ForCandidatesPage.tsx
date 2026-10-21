@@ -156,10 +156,13 @@ function Section({ children, className = "" }: { children: ReactNode; className?
 
 export function ForCandidatesPage() {
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#05050c] text-white">
-      {/* The blurred orbs bleeding off the hero corners in the design. */}
-      <div aria-hidden="true" className="pointer-events-none absolute -right-40 -top-64 size-[560px] rounded-full bg-neon-cyan/[0.18] blur-[140px]" />
-      <div aria-hidden="true" className="pointer-events-none absolute -left-56 top-[380px] size-[440px] rounded-full bg-neon-purple/[0.18] blur-[140px]" />
+    <div className="relative isolate min-h-screen overflow-hidden text-white">
+      {/* Ambient glows live in a fixed layer so they continue behind the
+          transparent header instead of starting at the content edge. */}
+      <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-10">
+        <div className="absolute -right-40 -top-64 size-[560px] rounded-full bg-neon-cyan/[0.18] blur-[140px]" />
+        <div className="absolute -left-56 top-[380px] size-[440px] rounded-full bg-neon-purple/[0.18] blur-[140px]" />
+      </div>
 
       {/* Hero */}
       <Section className="lg:pb-28 lg:pt-24">
