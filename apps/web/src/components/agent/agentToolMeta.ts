@@ -248,6 +248,12 @@ export const TOOL_META: Record<
     failed: "Couldn't check saved searches",
     icon: Search,
   },
+  update_job_search_alerts: {
+    done: "Updated search alerts",
+    running: "Updating search alerts",
+    failed: "Couldn't update search alerts",
+    icon: Bell,
+  },
   delete_job_search: {
     done: "Deleted the job search",
     running: "Deleting the job search",

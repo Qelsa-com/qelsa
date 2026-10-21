@@ -62,6 +62,9 @@ Set these on the local Convex deployment with `npx convex env set <NAME> <value>
 - `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` — Google social login (disabled unless the secret is set).
 - `EXTERNAL_API_URL` — hourly job-scraper cron (cleanly no-ops when unset).
 - `ATS_SYNC_ENABLED` — `true`/`false` to force ATS and public-board sync on or off for this deployment. Unset: off on local Convex (`127.0.0.1` / localhost), on in the cloud. Admins can also toggle sync on the public-boards page unless this env var is set.
+- `VAPID_PUBLIC_KEY` + `VAPID_PRIVATE_KEY` — browser push for saved-search briefs. Optional `VAPID_SUBJECT` (defaults to a Qelsa mailto). Without these, the Enable browser alerts control is hidden and push is skipped.
+- `SITE_URL` — absolute web URL used in brief emails, autofill bookmarklets, and notification links. Falls back to `NEXT_PUBLIC_SITE_URL`, then `http://localhost:3000`.
+- Email briefs reuse the existing Cloudflare Email Sending or Resend configuration in `packages/backend/convex/lib/email.ts`; with no provider configured they log to the Convex console.
 
 ### Pre-existing lint/type failures (NOT environment problems)
 

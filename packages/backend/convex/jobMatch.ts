@@ -141,6 +141,7 @@ export const loadUserContext = internalQuery({
       }
     }
 
+    experienceRows.sort((a, b) => b.start_date - a.start_date);
     const experiences = [];
     for (const row of experienceRows) {
       const [company, jobTitle, skillLinks] = await Promise.all([
@@ -157,12 +158,16 @@ export const loadUserContext = internalQuery({
         title: jobTitle?.name ?? "Role",
         company: company?.name ?? "Company",
         is_current: row.is_current ?? false,
+        start_date: row.start_date,
+        end_date: row.end_date ?? null,
+        employment_type: row.employment_type ?? null,
         description: clipPlainText(row.description, 400),
         responsibilities: (row.responsibilities ?? []).slice(0, 8).map((item) => item.title),
         skills: expSkills,
       });
     }
 
+    educationRows.sort((a, b) => b.start_year - a.start_year);
     const educations = [];
     const projects: string[] = [];
     for (const row of educationRows) {
@@ -177,6 +182,8 @@ export const loadUserContext = internalQuery({
         degree: degree?.name,
         college: college?.name,
         field: field?.name,
+        start_year: row.start_year,
+        end_year: row.end_year ?? null,
         projects: educationProjects,
       });
     }
@@ -203,10 +210,16 @@ export const loadUserContext = internalQuery({
       fingerprint,
       profile: {
         name: user.name,
+        email: user.email,
+        phone: user.phone ?? null,
         headline: user.headline,
         about: clipPlainText(user.about, 500),
         professional_summary: clipPlainText(user.professional_summary, 700),
         city: city?.name,
+        linkedin_url: user.linkedin_url ?? null,
+        github_url: user.github_url ?? null,
+        website: user.website ?? null,
+        portfolio_links: user.portfolio_links ?? [],
         profile_type: user.profile_type,
         career_goal: careerGoal
           ? {

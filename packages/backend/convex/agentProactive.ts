@@ -113,12 +113,24 @@ export const runSavedSearches = internalAction({
           .filter((id: unknown): id is Id<"jobs"> => typeof id === "string") as Id<"jobs">[];
         const seen = new Set(search.seen_job_ids.map(String));
         const fresh = current.filter((id) => !seen.has(String(id)));
-        await ctx.runMutation(internal.agentProactive.recordSavedSearchRun, {
+        const runResult: any = await ctx.runMutation(internal.agentProactive.recordSavedSearchRun, {
           savedSearchId: search._id,
           currentJobIds: current,
           newJobIds: fresh,
           checkedAt: Date.now(),
         });
+        if (runResult?.brief_id) {
+          if (search.email_alerts !== false) {
+            await ctx.scheduler.runAfter(0, internal.agentNotifications.emailBrief, {
+              briefId: runResult.brief_id,
+            });
+          }
+          if (search.push_alerts !== false) {
+            await ctx.scheduler.runAfter(0, internal.agentPush.pushBrief, {
+              briefId: runResult.brief_id,
+            });
+          }
+        }
       }
       cursor = page.isDone ? null : page.continueCursor;
       pages += 1;

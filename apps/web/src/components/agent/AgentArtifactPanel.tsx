@@ -25,6 +25,7 @@ import {
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import type { AgentArtifact, AgentArtifactKind } from "./agentArtifacts";
+import { ResumeDocumentActions } from "./ResumeDocumentActions";
 
 const KIND_META: Record<AgentArtifactKind, { label: string; icon: LucideIcon }> = {
   cover_letter: { label: "Cover letter", icon: PenLine },
@@ -155,6 +156,27 @@ function ArtifactBody({ artifact }: { artifact: AgentArtifact }) {
 
   if (artifact.kind === "application_kit") {
     return <ApplicationKitBody artifact={artifact} />;
+  }
+
+  if (artifact.kind === "resume_tailoring") {
+    return (
+      <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
+        {artifact.resumeDocument && (
+          <div className="mb-4">
+            <ResumeDocumentActions
+              resume={artifact.resumeDocument}
+              jobTitle={artifact.title.replace(/^Resume plan · /, "")}
+              company={artifact.subtitle}
+            />
+          </div>
+        )}
+        <AiMarkdown
+          markdown={artifact.markdown}
+          newTabLinks
+          className="max-w-none text-[13px] leading-relaxed text-white/80"
+        />
+      </div>
+    );
   }
 
   return (

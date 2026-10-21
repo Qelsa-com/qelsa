@@ -16,7 +16,7 @@ import { api } from "@/lib/convexApi";
 import { toastUnknownError } from "@/lib/errors";
 import { useUIMessages } from "@convex-dev/agent/react";
 import { useMutation, useQuery } from "convex/react";
-import { ArrowUp, Bell, Loader2, MessageSquarePlus, PanelLeft, PanelRight, Plus, RotateCcw, Search, Sparkles, Trash2, WifiOff, X } from "lucide-react";
+import { ArrowUp, Bell, Check, Loader2, MessageSquarePlus, PanelLeft, PanelRight, Plus, RotateCcw, Search, Sparkles, Trash2, WifiOff, X } from "lucide-react";
 import { useRouter } from "next/router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -67,6 +67,15 @@ function isTextPart(part: any): part is { type: "text"; text: string } {
 
 function isToolPart(part: any): part is AgentToolPart {
   return typeof part?.type === "string" && part.type.startsWith("tool-");
+}
+
+function urlBase64ToUint8Array(value: string) {
+  const padding = "=".repeat((4 - (value.length % 4)) % 4);
+  const base64 = (value + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const raw = window.atob(base64);
+  const bytes = new Uint8Array(raw.length);
+  for (let index = 0; index < raw.length; index += 1) bytes[index] = raw.charCodeAt(index);
+  return bytes;
 }
 
 function isAgentJobSummary(value: unknown): value is AgentJobSummary {
@@ -372,6 +381,12 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
   const generationState = useQuery(api.qelsaAgent.getGenerationStatus, isAuthenticated && activeThreadId && activeThreadIsKnown ? { threadId: activeThreadId } : "skip");
   const briefsQuery = useQuery(api.agentProactive.listBriefs, isAuthenticated ? { limit: 3 } : "skip");
   const markBriefRead = useMutation(api.agentProactive.markBriefRead);
+  const vapidPublicKey = useQuery(api.agentNotifications.getVapidPublicKey, isAuthenticated ? {} : "skip");
+  const savePushSubscription = useMutation(api.agentNotifications.savePushSubscription);
+  const removePushSubscription = useMutation(api.agentNotifications.removePushSubscription);
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [pushSupported, setPushSupported] = useState(false);
+  const [pushBusy, setPushBusy] = useState(false);
   const [dismissedBriefId, setDismissedBriefId] = useState<string | null>(null);
   const latestBrief = useMemo(() => {
     const rows = (briefsQuery?.briefs ?? []) as Array<{
@@ -825,6 +840,91 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
     }
   }, [latestBrief, markBriefRead]);
 
+  useEffect(() => {
+    if (!isAuthenticated || typeof window === "undefined") return;
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+    setPushSupported(true);
+    let cancelled = false;
+    void navigator.serviceWorker
+      .register("/sw.js")
+      .then((registration) => registration.pushManager.getSubscription())
+      .then((subscription) => {
+        if (!cancelled) setPushEnabled(Boolean(subscription));
+      })
+      .catch(() => {
+        if (!cancelled) setPushSupported(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated]);
+
+  const handleEnablePush = useCallback(async () => {
+    if (!vapidPublicKey) {
+      toast.error("Browser alerts aren't configured on this deployment yet.");
+      return;
+    }
+    if (!pushSupported) {
+      toast.error("This browser doesn't support push notifications.");
+      return;
+    }
+    setPushBusy(true);
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") {
+        toast.error("Notifications were blocked. Allow them in your browser settings.");
+        return;
+      }
+      const registration = await navigator.serviceWorker.register("/sw.js");
+      await navigator.serviceWorker.ready;
+      const existing = await registration.pushManager.getSubscription();
+      const subscription =
+        existing ??
+        (await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+        }));
+      const json = subscription.toJSON();
+      if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) {
+        throw new Error("Push subscription is incomplete.");
+      }
+      await savePushSubscription({
+        endpoint: json.endpoint,
+        p256dh: json.keys.p256dh,
+        auth: json.keys.auth,
+      });
+      setPushEnabled(true);
+      toast.success("Browser alerts enabled for saved-search briefs.");
+    } catch (error) {
+      console.error("Push setup failed", error);
+      toastUnknownError(error, "Couldn't enable browser alerts.");
+    } finally {
+      setPushBusy(false);
+    }
+  }, [pushSupported, savePushSubscription, vapidPublicKey]);
+
+  const handleDisablePush = useCallback(async () => {
+    setPushBusy(true);
+    try {
+      const registration = await navigator.serviceWorker.getRegistration("/sw.js");
+      const subscription = await registration?.pushManager.getSubscription();
+      if (subscription) {
+        try {
+          await removePushSubscription({ endpoint: subscription.endpoint });
+        } catch {
+          // Still unsubscribe locally even if the server row is already gone.
+        }
+        await subscription.unsubscribe();
+      }
+      setPushEnabled(false);
+      toast.success("Browser alerts turned off.");
+    } catch (error) {
+      toastUnknownError(error, "Couldn't turn off browser alerts.");
+    } finally {
+      setPushBusy(false);
+    }
+  }, [removePushSubscription]);
+
   const activeConversation = conversations.find((item) => item.threadId === activeThreadId);
   const title = activeConversation?.title ?? "Qelsa Agent";
   const renderRail = (onClose?: () => void) => (
@@ -877,8 +977,20 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
           onDelete={(threadId) => void handleDelete(threadId)}
         />
       </div>
-      <div className="border-t border-white/[0.08] px-4 py-3">
-        <div className="flex items-center justify-between gap-2 text-[10px] text-white/30">
+      <div className="space-y-2 border-t border-white/[0.08] px-3 py-3">
+        {!isRecruiter && Boolean(vapidPublicKey) && pushSupported && (
+          <button
+            type="button"
+            disabled={pushBusy}
+            onClick={() => void (pushEnabled ? handleDisablePush() : handleEnablePush())}
+            className="flex w-full items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-2.5 py-2 text-left text-[11px] font-medium text-white/55 transition-colors hover:border-sky-400/25 hover:text-white/80 disabled:opacity-50"
+          >
+            {pushBusy ? <Loader2 className="size-3.5 animate-spin" /> : <Bell className={cn("size-3.5", pushEnabled ? "text-sky-300" : "")} />}
+            <span className="min-w-0 flex-1">{pushEnabled ? "Browser alerts on" : "Enable browser alerts"}</span>
+            {pushEnabled && <Check className="size-3.5 text-emerald-300" />}
+          </button>
+        )}
+        <div className="flex items-center justify-between gap-2 px-1 text-[10px] text-white/30">
           <span className="truncate">{agentStatus?.configured ? agentStatus.model : "AI not configured"}</span>
           {usage && <span className={cn("shrink-0 tabular-nums", quotaExhausted ? "text-amber-300/80" : "")}>{usage.remaining} left today</span>}
         </div>
