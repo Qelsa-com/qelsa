@@ -146,7 +146,7 @@ function LoginForm() {
 
           {mode === "otp" && otpSent && (
             <p className="mb-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">
-              A verification code was sent to {email}.
+              If this email has admin access, a verification code was sent. Check the inbox for {email}.
             </p>
           )}
 

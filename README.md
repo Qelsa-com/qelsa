@@ -32,6 +32,7 @@ Env:
 - `packages/backend/.env.local` — `CONVEX_DEPLOYMENT`
 - `apps/web/.env.local` — `NEXT_PUBLIC_CONVEX_URL`, `NEXT_PUBLIC_CONVEX_SITE_URL`, `NEXT_PUBLIC_SITE_URL`, optional `NEXT_PUBLIC_ADMIN_APP_URL`
 - `apps/admin/.env.local` — `NEXT_PUBLIC_CONVEX_URL`, `NEXT_PUBLIC_CONVEX_SITE_URL`, `CONVEX_SITE_URL`, `NEXT_PUBLIC_SITE_URL`
+- Convex deployment — `ADMIN_SITE_URL` (the admin app origin, e.g. `http://localhost:3001` or `https://admin.qelsa.ai`)
 
 ## Admin panel
 

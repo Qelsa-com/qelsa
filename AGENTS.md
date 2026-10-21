@@ -9,9 +9,11 @@ See `README.md` for the canonical setup/dev commands. Package scripts live in th
 `apps/admin` is admin-only. It shares the Convex deployment and Better Auth identities with `apps/web` but runs on its own origin, so its session cookie is scoped separately. Access is gated by `users.role === "admin"`.
 
 - Every admin data function lives in `packages/backend/convex/admin.ts` and uses the `adminQuery` / `adminMutation` wrappers from `convex/lib/customFunctions.ts`, which re-check the role server side. Never expose privileged data through a plain `query` / `mutation`.
-- The admin app runs on a separate origin, so the Convex deployment needs that origin in `TRUSTED_ORIGINS`.
+- The admin app runs on a separate origin, so the Convex deployment needs `ADMIN_SITE_URL` and, when explicitly supplied, that origin in `TRUSTED_ORIGINS`.
+- Admin auth is intentionally narrow: the admin origin may only use the session/sign-in routes, only active admins can establish an admin session, and non-admin emails never receive admin-origin OTPs.
 - Dashboard totals come from the `admin_stats` counter table, updated in the same mutation as the source write (see `convex/lib/adminStats.ts`). Do not replace those counters with `.collect().length` scans.
 - Admin mutations write an `admin_audit_log` row so every privileged action stays attributable.
+- Suspended app users are rejected by `getAppUser()` and are treated as signed out by optional auth reads. Do not add a new `authed*` path that bypasses that check.
 
 ## Performance is a first-pass requirement
 
