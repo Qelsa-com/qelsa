@@ -320,25 +320,6 @@ function ConversationList({
   );
 }
 
-function RailHeader({ onClose }: { onClose?: () => void }) {
-  return (
-    <div className="flex items-center gap-3 border-b border-white/[0.08] px-4 py-4">
-      <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-neon-cyan via-neon-purple to-neon-pink shadow-lg shadow-purple-900/30">
-        <Sparkles className="size-4 text-black" />
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold text-white">Qelsa Agent</p>
-        <p className="truncate text-[11px] text-white/45">Your Qelsa copilot</p>
-      </div>
-      {onClose && (
-        <button type="button" aria-label="Close conversations" onClick={onClose} className="flex size-8 shrink-0 items-center justify-center rounded-full border border-white/[0.1] bg-white/[0.04] text-white/60">
-          <X className="size-4" />
-        </button>
-      )}
-    </div>
-  );
-}
-
 export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
   const router = useRouter();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
@@ -940,20 +921,31 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
   }, [removePushSubscription]);
 
   const activeConversation = conversations.find((item) => item.threadId === activeThreadId);
-  const title = activeConversation?.title ?? "Qelsa Agent";
+  const title = activeConversation?.title ?? "New conversation";
   const renderRail = (onClose?: () => void) => (
     <>
-      <RailHeader onClose={onClose} />
       <div className="px-3 py-3">
-        <Button
-          type="button"
-          disabled={sending}
-          onClick={handleNewChat}
-          className="h-9 w-full justify-start gap-2 rounded-xl border border-white/[0.08] bg-white/[0.05] px-3 text-[13px] font-semibold text-white/80 shadow-none hover:bg-white/[0.08] hover:text-white disabled:opacity-40"
-        >
-          <Plus className="size-4" />
-          New chat
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            disabled={sending}
+            onClick={handleNewChat}
+            className="gradient-primary h-10 min-w-0 flex-1 rounded-xl px-3 text-[13px] font-semibold text-white shadow-lg shadow-purple-900/20 hover:opacity-95 disabled:opacity-40"
+          >
+            <Plus className="size-4" />
+            New chat
+          </Button>
+          {onClose && (
+            <button
+              type="button"
+              aria-label="Close conversations"
+              onClick={onClose}
+              className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-white/[0.1] bg-white/[0.04] text-white/60 transition-colors hover:text-white"
+            >
+              <X className="size-4" />
+            </button>
+          )}
+        </div>
       </div>
       {conversations.length > 3 && (
         <div className="px-3 pb-2">
@@ -1043,7 +1035,7 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
   }
 
   return (
-    <div className="flex h-[calc(100dvh-61px)] w-full overflow-hidden lg:h-[calc(100dvh-59px)]">
+    <div className="flex h-[calc(100dvh-61px)] w-full overflow-hidden border-t border-white/[0.08] lg:h-[calc(100dvh-59px)]">
       <aside className="hidden w-72 shrink-0 flex-col border-r border-white/[0.08] bg-[#080812]/80 lg:flex">{renderRail()}</aside>
 
       {mobileRailOpen && (
@@ -1277,7 +1269,7 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
                     void handleSend();
                   }
                 }}
-                placeholder={threadResolving ? "Loading conversation…" : quotaExhausted ? (usage?.is_pro ? "Daily message limit reached" : "Free message limit reached — tap send to upgrade") : configured ? "Ask Qelsa Agent anything…" : "AI is not configured on this deployment"}
+                placeholder={threadResolving ? "Loading conversation…" : quotaExhausted ? (usage?.is_pro ? "Daily message limit reached" : "Free message limit reached — tap send to upgrade") : configured ? "Ask anything…" : "AI is not configured on this deployment"}
                 className="max-h-[152px] min-h-[36px] flex-1 resize-none bg-transparent py-1.5 text-[14px] leading-relaxed text-white/90 placeholder:text-white/30 focus:outline-none disabled:cursor-not-allowed"
               />
               <button
