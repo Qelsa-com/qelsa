@@ -1,12 +1,13 @@
 "use client";
 
 import { AccountBadge, formatHiringRole } from "@/components/AccountBadge";
+import { ADMIN_APP_URL } from "@/constants/admin";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDeleteAccountMutation } from "@/features/api/authApi";
 import { authClient } from "@/lib/auth-client";
 import { toastUnknownError } from "@/lib/errors";
 import { clearResumeDraft } from "@/lib/resumeDraft";
-import { AlertTriangle, ChevronRight, Plug, Settings as SettingsIcon, User as UserIcon } from "lucide-react";
+import { AlertTriangle, ChevronRight, Plug, Settings as SettingsIcon, ShieldCheck, User as UserIcon } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../components/ui/alert-dialog";
@@ -108,6 +109,26 @@ const Settings = () => {
               </div>
             </div>
           </div>
+        )}
+
+        {user?.role === "admin" && (
+          <a
+            href={ADMIN_APP_URL}
+            className="mb-8 flex items-center justify-between rounded-2xl border border-glass-border glass p-6 transition-colors hover:bg-white/5"
+          >
+            <div className="flex items-start gap-4">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-neon-cyan/20">
+                <ShieldCheck className="h-5 w-5 text-neon-cyan" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-white">Admin panel</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Manage users, moderate jobs, and control ATS board sync from the dedicated admin app.
+                </p>
+              </div>
+            </div>
+            <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />
+          </a>
         )}
 
         {user && (user.account_type === "recruiter" || user.role === "admin") && (

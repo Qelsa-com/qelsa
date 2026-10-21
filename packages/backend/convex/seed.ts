@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { withId } from "./lib/helpers";
 import { bumpOpenJobCount, ensureJobStats } from "./lib/jobCounts";
+import { ADMIN_STAT_KEYS, bumpAdminStat } from "./lib/adminStats";
 import { insertSkill } from "./lib/skillCatalog";
 import * as catalog from "./seedCatalogData";
 import cityData from "./seed/cities.json";
@@ -378,6 +379,8 @@ export const seedJobs = mutation({
       });
       await ensureJobStats(ctx, jobId);
       await bumpOpenJobCount(ctx, 1);
+      await bumpAdminStat(ctx, ADMIN_STAT_KEYS.jobs, 1);
+      await bumpAdminStat(ctx, ADMIN_STAT_KEYS.openJobs, 1);
 
       for (const skill of job.skills) {
         const row = await namedDoc(ctx, "skills", skill.name);

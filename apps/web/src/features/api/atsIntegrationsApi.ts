@@ -38,27 +38,3 @@ export function useUpdateAtsSyncSettingsMutation() {
 export function useRequestAtsAccessMutation() {
   return useConvexMutationHook(api.atsIntegrations.requestAccess, (provider: string) => ({ provider }));
 }
-
-export function useListPublicBoardsQuery(options?: { skip?: boolean }) {
-  return useConvexQueryHook(api.atsIntegrations.listPublicBoards, {}, options);
-}
-
-export function useAddPublicBoardMutation() {
-  return useConvexMutationHook(api.atsIntegrations.addPublicBoard, (input: { provider: string; subdomain: string }) => input);
-}
-
-export function useRemovePublicBoardMutation() {
-  return useConvexMutationHook(api.atsIntegrations.removePublicBoard, (id: string) => ({ id }));
-}
-
-export function useRetryPublicBoardMutation() {
-  return useConvexMutationHook(api.atsIntegrations.retryPublicBoard, (id: string) => ({ id }));
-}
-
-export function useGetSyncControlQuery(options?: { skip?: boolean }) {
-  return useConvexQueryHook(api.atsIntegrations.getSyncControl, {}, options);
-}
-
-export function useSetSyncEnabledMutation() {
-  return useConvexMutationHook(api.atsIntegrations.setSyncEnabled, (enabled: boolean) => ({ enabled }));
-}

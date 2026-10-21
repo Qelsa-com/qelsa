@@ -337,6 +337,12 @@ export const addPublicBoard = adminMutation({
       records_synced: 0,
       ...connectedPatch(),
     });
+    await ctx.db.insert("admin_audit_log", {
+      admin_user_id: ctx.user._id,
+      action: "ats_board.added",
+      after: { provider: args.provider, subdomain },
+      created_at: Date.now(),
+    });
     await ctx.scheduler.runAfter(0, internal.atsSync.syncIntegration, { integrationId });
     return asPublicBoard((await ctx.db.get(integrationId))!);
   },
@@ -355,6 +361,12 @@ export const retryPublicBoard = adminMutation({
     if (existing.sync_started_at && now - existing.sync_started_at < STALE_SYNC_MS) {
       return asPublicBoard(existing);
     }
+    await ctx.db.insert("admin_audit_log", {
+      admin_user_id: ctx.user._id,
+      action: "ats_board.resync_requested",
+      before: { provider: existing.provider, subdomain: existing.subdomain ?? null, status: existing.status },
+      created_at: Date.now(),
+    });
     await ctx.scheduler.runAfter(0, internal.atsSync.syncIntegration, { integrationId: existing._id, force: true });
     return asPublicBoard(existing);
   },
@@ -371,6 +383,12 @@ export const removePublicBoard = adminMutation({
       provider: existing.provider,
       liveExternalIds: new Set(),
       listComplete: true,
+    });
+    await ctx.db.insert("admin_audit_log", {
+      admin_user_id: ctx.user._id,
+      action: "ats_board.removed",
+      before: { provider: existing.provider, subdomain: existing.subdomain ?? null },
+      created_at: Date.now(),
     });
     await ctx.db.delete(existing._id);
     return null;
@@ -396,8 +414,18 @@ export const setSyncEnabled = adminMutation({
       throw new Error("ATS_SYNC_ENABLED is set on this deployment. Unset it to use the toggle.");
     }
     const existing = await ctx.db.query("admin_settings").first();
+    const before = existing?.ats_sync_enabled ?? null;
     if (existing) await ctx.db.patch(existing._id, { ats_sync_enabled: args.enabled });
     else await ctx.db.insert("admin_settings", { ats_sync_enabled: args.enabled });
+    if (before !== args.enabled) {
+      await ctx.db.insert("admin_audit_log", {
+        admin_user_id: ctx.user._id,
+        action: "ats_sync.toggled",
+        before: { enabled: before },
+        after: { enabled: args.enabled },
+        created_at: Date.now(),
+      });
+    }
     return { enabled: args.enabled, locked: false };
   },
 });

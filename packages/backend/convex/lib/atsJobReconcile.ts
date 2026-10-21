@@ -1,6 +1,7 @@
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { bumpOpenJobCount } from "./jobCounts";
+import { ADMIN_STAT_KEYS, bumpAdminStat } from "./adminStats";
 
 function integrationIdFromOtherInfo(otherInfo: unknown): string | undefined {
   if (!otherInfo || typeof otherInfo !== "object" || !("integration_id" in otherInfo)) return undefined;
@@ -46,6 +47,7 @@ export async function closeMissingAtsJobs(
     closed += await reconcileAtsJob(ctx, job, args.integrationId, args.liveExternalIds);
   }
   await bumpOpenJobCount(ctx, -closed);
+  await bumpAdminStat(ctx, ADMIN_STAT_KEYS.openJobs, -closed);
   return closed;
 }
 
@@ -74,6 +76,7 @@ export async function closeMissingAtsJobsPage(
       closed += await reconcileUnseenAtsJob(ctx, job, args.integrationId, args.seenAt);
     }
     await bumpOpenJobCount(ctx, -closed);
+    await bumpAdminStat(ctx, ADMIN_STAT_KEYS.openJobs, -closed);
     if (!result.isDone) {
       return { closed, continueCursor: result.continueCursor, phase: "indexed", isDone: false };
     }
@@ -91,6 +94,7 @@ export async function closeMissingAtsJobsPage(
     closed += await reconcileUnseenAtsJob(ctx, job, args.integrationId, args.seenAt);
   }
   await bumpOpenJobCount(ctx, -closed);
+  await bumpAdminStat(ctx, ADMIN_STAT_KEYS.openJobs, -closed);
   return {
     closed,
     continueCursor: result.isDone ? null : result.continueCursor,

@@ -5,6 +5,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { query, type MutationCtx } from "./_generated/server";
 import { authedMutation, optionalAuthQuery } from "./lib/customFunctions";
 import { deleteAppUserData } from "./lib/deleteUserData";
+import { applyUserStatDeltas } from "./lib/adminStats";
 import { asUserJson, iso, withId } from "./lib/helpers";
 import { deleteR2Keys, signedFileUrl } from "./lib/r2";
 import { refreshInferredSkillLevels } from "./lib/skillLevels";
@@ -375,6 +376,8 @@ export const setAccountType = authedMutation({
   returns: v.any(),
   handler: async (ctx, args) => {
     await ctx.db.patch(ctx.user._id, { account_type: args.account_type });
+    // Keep the admin dashboard counters in step with the change.
+    await applyUserStatDeltas(ctx, ctx.user, { ...ctx.user, account_type: args.account_type });
     const user = (await ctx.db.get(ctx.user._id)) as Doc<"users">;
     return { message: "Account type updated", user: asUserJson(user) };
   },

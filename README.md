@@ -1,9 +1,10 @@
 # Qelsa
 
-pnpm workspace: Next.js web app plus a shared Convex backend. Admin and Expo apps can be added under `apps/` later and import `@qelsa/backend`.
+pnpm workspace: Next.js web app, a standalone admin panel, plus a shared Convex backend. All apps import `@qelsa/backend`.
 
 ```
-apps/web              Next.js
+apps/web              Next.js (candidate + recruiter app)
+apps/admin            Next.js (admin panel, admin role only)
 packages/backend      Convex (schema, functions, auth)
 ```
 
@@ -24,11 +25,40 @@ Runs Convex (`packages/backend`) and Next.js (`apps/web`) together.
 - Web: http://localhost:3000
 - Convex only: `pnpm dev:server`
 - Next only: `pnpm dev:web`
+- Admin only: `pnpm dev:admin`
 
 Env:
 
 - `packages/backend/.env.local` — `CONVEX_DEPLOYMENT`
-- `apps/web/.env.local` — `NEXT_PUBLIC_CONVEX_URL`, `NEXT_PUBLIC_CONVEX_SITE_URL`, `NEXT_PUBLIC_SITE_URL`
+- `apps/web/.env.local` — `NEXT_PUBLIC_CONVEX_URL`, `NEXT_PUBLIC_CONVEX_SITE_URL`, `NEXT_PUBLIC_SITE_URL`, optional `NEXT_PUBLIC_ADMIN_APP_URL`
+- `apps/admin/.env.local` — `NEXT_PUBLIC_CONVEX_URL`, `NEXT_PUBLIC_CONVEX_SITE_URL`, `CONVEX_SITE_URL`, `NEXT_PUBLIC_SITE_URL`
+
+## Admin panel
+
+`apps/admin` is a separate Next.js app for platform administrators. It uses the
+same Convex deployment and the same Better Auth identities as the web app, but
+it runs on its own origin so the admin session cookie is scoped separately.
+
+Only a user whose app row has `role === "admin"` can use it. The check runs in
+three places:
+
+- `apps/admin` route guard — keeps non-admins out of the UI.
+- `convex/admin.ts` — every query and mutation re-checks the role server side.
+- `convex/lib/customFunctions.ts` — the shared `adminQuery` / `adminMutation` wrappers.
+
+Because the admin app is a different origin, add it to the Convex deployment's
+trusted origins so Better Auth accepts its sign-in requests:
+
+```bash
+npx convex env set TRUSTED_ORIGINS "https://admin.qelsa.ai"
+```
+
+From `apps/admin`, set `NEXT_PUBLIC_SITE_URL` to the admin origin (for example
+`http://localhost:3001` locally). The web app links to it via
+`NEXT_PUBLIC_ADMIN_APP_URL`.
+
+To promote a user to admin, set `role: "admin"` on their row in the `users`
+table (for example from the Convex dashboard).
 
 ## Email OTP
 

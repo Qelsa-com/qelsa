@@ -26,6 +26,7 @@ import {
   type BrowseCandidate,
 } from "./lib/jobBrowse";
 import { bumpJobCount, bumpOpenJobCount, ensureJobStats, ensureOpenJobCount, getJobCounts, getOpenJobCount, openCountDelta } from "./lib/jobCounts";
+import { ADMIN_STAT_KEYS, bumpAdminStat } from "./lib/adminStats";
 import { isWithdrawn } from "./lib/applications";
 import { resolveJobSalary } from "./lib/jobSalary";
 import { canExtractSkills, jobNeedsSkillEnrichment, markSkillsExtracted, skillContentHash } from "./lib/jobSkillExtraction";
@@ -1230,7 +1231,10 @@ export const update = authedMutation({
     if (identity.company_logo) jobFields.company_logo = identity.company_logo;
     if (typeof jobFields.status === "string" && jobFields.status !== job.status) {
       const delta = openCountDelta(job.status, jobFields.status as string);
-      if (delta !== 0) await bumpOpenJobCount(ctx, delta);
+      if (delta !== 0) {
+        await bumpOpenJobCount(ctx, delta);
+        await bumpAdminStat(ctx, ADMIN_STAT_KEYS.openJobs, delta);
+      }
     }
     for (const key of Object.keys(jobFields)) {
       if (jobFields[key] === null) {
@@ -1279,6 +1283,8 @@ export const duplicate = authedMutation({
       view_count: 0,
       application_count: 0,
     });
+    await bumpAdminStat(ctx, ADMIN_STAT_KEYS.jobs, 1);
+    await bumpAdminStat(ctx, ADMIN_STAT_KEYS.openJobs, 1);
 
     // Copy skills
     const skills = await ctx.db
@@ -1464,6 +1470,8 @@ export const createWithQuestions = authedMutation({
     });
     await ensureJobStats(ctx, jobId);
     await bumpOpenJobCount(ctx, 1);
+    await bumpAdminStat(ctx, ADMIN_STAT_KEYS.jobs, 1);
+    await bumpAdminStat(ctx, ADMIN_STAT_KEYS.openJobs, 1);
 
     for (const skill of payload.skills ?? []) {
       if (!looksLikeConvexId(skill.id)) continue;
@@ -1542,6 +1550,7 @@ export const storeScrapedJobs = internalMutation({
     await ensureOpenJobCount(ctx);
     const needsSkills: Id<"jobs">[] = [];
     let openDelta = 0;
+    let inserted = 0;
     for (const job of args.jobs) {
       const external_id = String(job.id ?? "");
       if (!external_id) continue;
@@ -1586,10 +1595,13 @@ export const storeScrapedJobs = internalMutation({
         const jobId = await ctx.db.insert("jobs", { ...payload, view_count: 0, application_count: 0 });
         await ensureJobStats(ctx, jobId);
         openDelta += 1;
+        inserted += 1;
         await queueSkillEnrichment(ctx, jobId, payload.title, payload.description, undefined, needsSkills);
       }
     }
     await bumpOpenJobCount(ctx, openDelta);
+    await bumpAdminStat(ctx, ADMIN_STAT_KEYS.jobs, inserted);
+    await bumpAdminStat(ctx, ADMIN_STAT_KEYS.openJobs, openDelta);
     return needsSkills;
   },
 });
@@ -1613,6 +1625,7 @@ export const storeAtsJobs = internalMutation({
     const needsSkills: Id<"jobs">[] = [];
     let stored = 0;
     let openDelta = 0;
+    let inserted = 0;
     for (const job of args.jobs) {
       const external_id = String(job.external_id ?? "");
       if (!external_id) continue;
@@ -1660,11 +1673,14 @@ export const storeAtsJobs = internalMutation({
         const jobId = await ctx.db.insert("jobs", { ...payload, view_count: 0, application_count: 0 });
         await ensureJobStats(ctx, jobId);
         openDelta += 1;
+        inserted += 1;
         await queueSkillEnrichment(ctx, jobId, payload.title, payload.description, undefined, needsSkills);
       }
       stored++;
     }
     await bumpOpenJobCount(ctx, openDelta);
+    await bumpAdminStat(ctx, ADMIN_STAT_KEYS.jobs, inserted);
+    await bumpAdminStat(ctx, ADMIN_STAT_KEYS.openJobs, openDelta);
     return { stored, needsSkills };
   },
 });
