@@ -2,7 +2,7 @@
 
 import { QelsaLogo } from "@/components/QelsaLogo";
 import { useAuth } from "@/contexts/AuthContext";
-import { BookOpen, BotMessageSquare, Briefcase, FileText, LogOut, PenLine, Settings, Sparkles, Target, Users, X } from "lucide-react";
+import { BookOpen, BotMessageSquare, Briefcase, Crown, FileText, Home, LogOut, PenLine, Settings, Sparkles, Target, Users, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -11,6 +11,7 @@ interface ProfileDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   activeSection?: string;
+  isPro?: boolean;
 }
 
 const LEGAL_LINKS = [
@@ -23,11 +24,13 @@ const GUEST_ITEMS = [
   { id: "candidates", label: "For Candidates", href: "/candidates" },
   { id: "employers", label: "For Employers", href: "/employers" },
   { id: "jobs", label: "Jobs", href: "/jobs/all" },
+  { id: "pricing", label: "Pricing", href: "/pricing" },
   { id: "blog", label: "Blog", href: "/blogs" },
 ];
 
 /** Items also in DesktopTopBar are hidden from `lg` so the drawer is account-only. */
 const AUTHED_ITEMS = [
+  { id: "space", label: "My Space", href: "/", icon: Home, hideOnDesktop: true },
   { id: "jobs", label: "Jobs", href: "/jobs/all", icon: Briefcase, hideOnDesktop: true },
   { id: "agent", label: "Agent", href: "/agent", icon: BotMessageSquare, hideOnDesktop: true },
   { id: "connections", label: "Network", href: "/network", icon: Users, hideOnDesktop: true },
@@ -67,7 +70,7 @@ function isItemActive(itemId: string, href: string, activeSection?: string, path
   return pathname === href;
 }
 
-export function ProfileDrawer({ isOpen, onClose, activeSection }: ProfileDrawerProps) {
+export function ProfileDrawer({ isOpen, onClose, activeSection, isPro = false }: ProfileDrawerProps) {
   const { user, isAuthenticated, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
@@ -130,6 +133,7 @@ export function ProfileDrawer({ isOpen, onClose, activeSection }: ProfileDrawerP
               name={user?.name}
               username={user?.username}
               avatarUrl={user?.profile_image}
+              isPro={isPro}
               activeSection={activeSection}
               pathname={pathname}
               onGo={go}
@@ -198,6 +202,7 @@ function AuthedMenu({
   name,
   username,
   avatarUrl,
+  isPro,
   activeSection,
   pathname,
   onGo,
@@ -207,6 +212,7 @@ function AuthedMenu({
   name?: string;
   username?: string;
   avatarUrl?: string;
+  isPro: boolean;
   activeSection?: string;
   pathname: string | null;
   onGo: (path: string) => void;
@@ -229,7 +235,20 @@ function AuthedMenu({
         </div>
         <div className="min-w-0 flex-1">
           <p className="truncate text-[17px] font-semibold text-white">{displayName}</p>
-          {username ? <p className="truncate text-sm text-white/45">@{username}</p> : null}
+          {username || isPro ? (
+            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+              {username ? <p className="truncate text-sm text-white/45">@{username}</p> : null}
+              {isPro ? (
+                <span
+                  title="Qelsa Pro member"
+                  className="inline-flex shrink-0 items-center gap-1 rounded-full border border-amber-300/30 bg-amber-300/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-amber-200"
+                >
+                  <Crown className="size-3" strokeWidth={2.5} aria-hidden />
+                  Pro
+                </span>
+              ) : null}
+            </div>
+          ) : null}
         </div>
         <span className="shrink-0 pr-2 text-sm font-medium text-neon-cyan">View Profile</span>
       </button>

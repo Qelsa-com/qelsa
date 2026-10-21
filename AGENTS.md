@@ -108,6 +108,8 @@ Set these on the local Convex deployment with `npx convex env set <NAME> <value>
 - `VAPID_PUBLIC_KEY` + `VAPID_PRIVATE_KEY` — browser push for saved-search briefs. Optional `VAPID_SUBJECT` (defaults to a Qelsa mailto). Without these, the Enable browser alerts control is hidden and push is skipped.
 - `SITE_URL` — absolute web URL used in brief emails, autofill bookmarklets, and notification links. Falls back to `NEXT_PUBLIC_SITE_URL`, then `http://localhost:3000`.
 - `EMPLOYER_EMAIL_ALLOWLIST` / `EMPLOYER_EMAIL_BLOCKLIST` — optional comma-separated exact emails or domains for employer-auth exceptions. Allowlist entries bypass the consumer/disposable-domain policy; blocklist entries always reject.
+- `DODO_PAYMENTS_API_KEY`, `DODO_PAYMENTS_ENVIRONMENT` (`test_mode`/`live_mode`), `DODO_PAYMENTS_WEBHOOK_SECRET` — Dodo Payments checkout, customer portal, and signed webhook handling.
+- `DODO_PRODUCT_PRO_MONTHLY` / `DODO_PRODUCT_PRO_YEARLY` — Dodo product IDs for Qelsa Pro. Optional `DODO_PRO_MONTHLY_PRICE`, `DODO_PRO_YEARLY_PRICE`, and `DODO_PRICE_CURRENCY` control the display price only.
 - Email briefs reuse the existing Cloudflare Email Sending or Resend configuration in `packages/backend/convex/lib/email.ts`; with no provider configured they log to the Convex console.
 - `COURSE_AFFILIATE_LINKS` — optional JSON object mapping catalog `course_id` values to affiliate URLs, e.g. `{"python-py4e":"https://..."}`. Only configured links are labeled Affiliate; ranking never uses commission.
 

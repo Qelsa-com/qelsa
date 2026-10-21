@@ -16,6 +16,10 @@ export function useGetJobApplicationsQuery(
   );
 }
 
+export function useGetApplicationUsageQuery(options?: { skip?: boolean }) {
+  return useConvexQueryHook(api.jobApplications.applicationUsage, {}, options);
+}
+
 export function useSearchJobApplicantsQuery(
   args: { jobId: string; query: string; status?: string; min_years?: number; min_readiness?: number } | undefined,
   options?: { skip?: boolean },

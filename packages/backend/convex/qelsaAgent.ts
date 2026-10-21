@@ -28,11 +28,13 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { internalAction, internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { AI_AGENT_MODEL, createAgentChatModel, openRouter } from "./lib/ai";
+import { getAgentDailyLimit, isProSubscriber } from "./lib/billingEntitlements";
+import { FREE_AGENT_DAILY_LIMIT, PRO_AGENT_DAILY_LIMIT } from "./billingPlans";
 import { qelsaAgentTools } from "./qelsaAgentTools";
 import { qelsaRecruiterTools } from "./qelsaRecruiterTools";
 
 /** Prompts per user per UTC day. Bounds runaway agent cost. */
-const DAILY_PROMPT_LIMIT = 60;
+const DAILY_PROMPT_LIMIT = FREE_AGENT_DAILY_LIMIT;
 const MAX_PROMPT_LENGTH = 4000;
 const MAX_TITLE_LENGTH = 60;
 const MAX_FOLLOW_UPS = 3;
@@ -187,14 +189,15 @@ function dayKey() {
 
 async function consumeQuota(ctx: MutationCtx, userId: Id<"users">) {
   const day = dayKey();
+  const limit = await getAgentDailyLimit(ctx, userId);
   const existing = await ctx.db
     .query("qelsa_agent_usage")
     .withIndex("by_user_and_day", (q) => q.eq("user_id", userId).eq("day", day))
     .unique();
   if (existing) {
-    if (existing.count >= DAILY_PROMPT_LIMIT) {
+    if (existing.count >= limit) {
       throw new Error(
-        `You've reached today's limit of ${DAILY_PROMPT_LIMIT} Qelsa Agent messages. It resets at midnight UTC.`,
+        `You've reached today's limit of ${limit} Qelsa Agent messages. It resets at midnight UTC.`,
       );
     }
     await ctx.db.patch(existing._id, { count: existing.count + 1 });
@@ -465,21 +468,28 @@ export const agentStatus = query({
 /** Today's message budget for the signed-in user, shown in the conversation rail. */
 export const agentUsage = query({
   args: {},
-  returns: v.object({ used: v.number(), limit: v.number(), remaining: v.number() }),
+  returns: v.object({
+    used: v.number(),
+    limit: v.number(),
+    remaining: v.number(),
+    is_pro: v.boolean(),
+  }),
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity) return { used: 0, limit: DAILY_PROMPT_LIMIT, remaining: DAILY_PROMPT_LIMIT };
+    if (!identity) return { used: 0, limit: DAILY_PROMPT_LIMIT, remaining: DAILY_PROMPT_LIMIT, is_pro: false };
     const user = await ctx.db
       .query("users")
       .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
       .unique();
-    if (!user) return { used: 0, limit: DAILY_PROMPT_LIMIT, remaining: DAILY_PROMPT_LIMIT };
+    if (!user) return { used: 0, limit: DAILY_PROMPT_LIMIT, remaining: DAILY_PROMPT_LIMIT, is_pro: false };
+    const isPro = await isProSubscriber(ctx, user._id);
+    const limit = isPro ? PRO_AGENT_DAILY_LIMIT : DAILY_PROMPT_LIMIT;
     const usage = await ctx.db
       .query("qelsa_agent_usage")
       .withIndex("by_user_and_day", (q) => q.eq("user_id", user._id).eq("day", dayKey()))
       .unique();
     const used = usage?.count ?? 0;
-    return { used, limit: DAILY_PROMPT_LIMIT, remaining: Math.max(0, DAILY_PROMPT_LIMIT - used) };
+    return { used, limit, remaining: Math.max(0, limit - used), is_pro: isPro };
   },
 });
 

@@ -6,6 +6,7 @@ import { query, type MutationCtx } from "./_generated/server";
 import { authedMutation, optionalAuthQuery } from "./lib/customFunctions";
 import { deleteAppUserData } from "./lib/deleteUserData";
 import { applyUserStatDeltas } from "./lib/adminStats";
+import { isSubscriptionEntitled } from "./lib/billingEntitlements";
 import { assertEmployerEmail } from "./lib/employerEmail";
 import { asUserJson, iso, withId } from "./lib/helpers";
 import { deleteR2Keys, signedFileUrl } from "./lib/r2";
@@ -390,6 +391,17 @@ export const deleteAccount = authedMutation({
   args: {},
   returns: v.null(),
   handler: async (ctx) => {
+    const activeSubscription = (
+      await ctx.db
+        .query("billing_subscriptions")
+        .withIndex("by_user_and_updated_at", (q) => q.eq("user_id", ctx.user._id))
+        .order("desc")
+        .take(5)
+    ).some((subscription) => isSubscriptionEntitled(subscription));
+    if (activeSubscription) {
+      throw new Error("Cancel your active subscription before deleting your account.");
+    }
+
     const authId = ctx.user.authId;
     await ctx.runMutation(components.agent.users.deleteAllForUserIdAsync, {
       userId: authId,

@@ -16,6 +16,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { internalAction, internalMutation, internalQuery } from "./_generated/server";
 import { createAgentChatModel, requireOpenRouter } from "./lib/ai";
 import { WITHDRAWN_STATUS, isWithdrawn } from "./lib/applications";
+import { assertCanApply } from "./lib/billingEntitlements";
 import { recommendCourses } from "./lib/courseCatalog";
 import { ADMIN_STAT_KEYS, bumpAdminStat } from "./lib/adminStats";
 import { bumpJobCount } from "./lib/jobCounts";
@@ -571,6 +572,7 @@ async function insertApplication(
   if (existing.some((a: Doc<"job_applications">) => a.status !== "rejected" && a.status !== "cancelled")) {
     throw new Error("You have already applied to this job.");
   }
+  await assertCanApply(ctx, user._id);
 
   let chosenResume = resumeId;
   if (!chosenResume && user.default_resume_id) chosenResume = user.default_resume_id;

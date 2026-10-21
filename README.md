@@ -103,6 +103,51 @@ This is a policy gate, not proof of employment. A user can still own a domain
 that is not a real company. If you need a stronger guarantee, add DNS/domain
 verification or an admin approval step for new employer domains.
 
+## Billing and subscriptions
+
+Qelsa Pro is billed through Dodo Payments using the official
+`@dodopayments/convex` component. The app stores its own read model for
+subscription state and entitlements; Dodo webhooks are authoritative.
+
+The pricing page is `/pricing`, and subscription management is in `/settings`
+(Billing). Users can choose monthly or yearly billing, switch interval, cancel
+at period end, resume a subscription, and open the Dodo customer portal.
+
+Set these on the Convex deployment:
+
+```bash
+npx convex env set DODO_PAYMENTS_API_KEY <api-key>
+npx convex env set DODO_PAYMENTS_ENVIRONMENT test_mode
+npx convex env set DODO_PAYMENTS_WEBHOOK_SECRET <webhook-secret>
+npx convex env set DODO_PRODUCT_PRO_MONTHLY <monthly-product-id>
+npx convex env set DODO_PRODUCT_PRO_YEARLY <yearly-product-id>
+```
+
+Optional display metadata; keep it aligned with the Dodo products:
+
+```bash
+npx convex env set DODO_PRO_MONTHLY_PRICE 499
+npx convex env set DODO_PRO_YEARLY_PRICE 4999
+npx convex env set DODO_PRICE_CURRENCY INR
+```
+
+Set `SITE_URL` to the public web origin so checkout returns to the right app.
+In Dodo, register this webhook URL (the Convex **site** URL, not the cloud URL):
+
+```text
+https://<deployment>.convex.site/dodopayments-webhook
+```
+
+Subscribe it to subscription lifecycle events, including active, renewed,
+plan changed, on hold, cancelled, expired, updated, paused, and unpaused.
+Webhook signature verification is handled by the component; do not implement a
+second unverified webhook route.
+
+Prices shown on `/pricing` are display metadata. Dodo products determine the
+actual charge, currency, tax, and payment methods. Use `test_mode` and test
+products locally; switch both the environment and product IDs together for
+live mode.
+
 ## Email OTP
 
 Convex env that must be set on the deployment: `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_EMAIL_API_TOKEN` (Email Sending: Edit), and `CLOUDFLARE_EMAIL_FROM`.

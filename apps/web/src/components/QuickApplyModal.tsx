@@ -1,6 +1,6 @@
 import { useCreateJobApplicationMutation, useGenerateCoverLetterAction } from "@/features/api/jobApplicationsApi";
 import { useCreateResumeMutation } from "@/features/api/resumeApi";
-import { toastUnknownError } from "@/lib/errors";
+import { isApplicationLimitError, toastUnknownError } from "@/lib/errors";
 import { Job } from "@/types/job";
 import { ScreeningQuestion } from "@/types/question";
 import { Resume } from "@/types/resume";
@@ -17,6 +17,7 @@ interface QuickApplyModalProps {
   companyName: string;
   screeningQuestions?: ScreeningQuestion[];
   onSubmit: () => void;
+  onUpgradeRequired?: () => void;
   resumes: Resume[];
   defaultResumeId?: string | number | null;
 }
@@ -31,7 +32,7 @@ const STEP_LABELS = [
   { short: "Review", full: "Review & Submit" },
 ];
 
-export function QuickApplyModal({ isOpen, onClose, job, companyName, screeningQuestions = [], onSubmit, resumes, defaultResumeId }: QuickApplyModalProps) {
+export function QuickApplyModal({ isOpen, onClose, job, companyName, screeningQuestions = [], onSubmit, onUpgradeRequired, resumes, defaultResumeId }: QuickApplyModalProps) {
   const router = useRouter();
 
   const [step, setStep] = useState<Step>("resume");
@@ -159,6 +160,10 @@ export function QuickApplyModal({ isOpen, onClose, job, companyName, screeningQu
       onSubmit?.();
       setStep("success");
     } catch (error: unknown) {
+      if (isApplicationLimitError(error)) {
+        onUpgradeRequired?.();
+        return;
+      }
       toastUnknownError(error, "Could not submit your application. Please try again.");
     }
   };

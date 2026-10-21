@@ -13,8 +13,8 @@ catalogs:
       specifier: ~1.6.15
       version: 1.6.28
     convex:
-      specifier: ^1.46.0
-      version: 1.46.0
+      specifier: ^1.47.0
+      version: 1.47.0
     convex-helpers:
       specifier: ^0.1.128
       version: 0.1.128
@@ -34,7 +34,7 @@ importers:
     dependencies:
       '@convex-dev/better-auth':
         specifier: 'catalog:'
-        version: 0.12.5(@standard-schema/spec@1.1.0)(better-auth@1.6.28(@opentelemetry/api@1.9.1)(next@16.3.1(@opentelemetry/api@1.9.1)(@types/node@24.9.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(convex@1.46.0(react@19.2.8))(react@19.2.8)(typescript@5.9.3)
+        version: 0.12.5(@standard-schema/spec@1.1.0)(better-auth@1.6.28(@opentelemetry/api@1.9.1)(next@16.3.1(@opentelemetry/api@1.9.1)(@types/node@24.9.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(convex@1.47.0(react@19.2.8))(react@19.2.8)(typescript@5.9.3)
       '@qelsa/backend':
         specifier: workspace:*
         version: link:../../packages/backend
@@ -58,7 +58,7 @@ importers:
         version: 2.1.1
       convex:
         specifier: 'catalog:'
-        version: 1.46.0(react@19.2.8)
+        version: 1.47.0(react@19.2.8)
       lucide-react:
         specifier: ^0.548.0
         version: 0.548.0(react@19.2.8)
@@ -113,10 +113,10 @@ importers:
     dependencies:
       '@convex-dev/agent':
         specifier: ^0.7.8
-        version: 0.7.8(@ai-sdk/provider-utils@5.0.58(zod@4.4.3))(@ai-sdk/provider@4.0.26)(ai@7.0.136(zod@4.4.3))(convex-helpers@0.1.128(@standard-schema/spec@1.1.0)(convex@1.46.0(react@19.2.8))(react@19.2.8)(typescript@5.9.3)(zod@4.4.3))(convex@1.46.0(react@19.2.8))(react@19.2.8)
+        version: 0.7.8(@ai-sdk/provider-utils@5.0.58(zod@4.4.3))(@ai-sdk/provider@4.0.26)(ai@7.0.136(zod@4.4.3))(convex-helpers@0.1.128(@standard-schema/spec@1.1.0)(convex@1.47.0(react@19.2.8))(react@19.2.8)(typescript@5.9.3)(zod@4.4.3))(convex@1.47.0(react@19.2.8))(react@19.2.8)
       '@convex-dev/better-auth':
         specifier: 'catalog:'
-        version: 0.12.5(@standard-schema/spec@1.1.0)(better-auth@1.6.28(@opentelemetry/api@1.9.1)(next@16.3.1(@opentelemetry/api@1.9.1)(@types/node@24.9.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(convex@1.46.0(react@19.2.8))(react@19.2.8)(typescript@5.9.3)
+        version: 0.12.5(@standard-schema/spec@1.1.0)(better-auth@1.6.28(@opentelemetry/api@1.9.1)(next@16.3.1(@opentelemetry/api@1.9.1)(@types/node@24.9.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(convex@1.47.0(react@19.2.8))(react@19.2.8)(typescript@5.9.3)
       '@emotion/react':
         specifier: ^11.14.0
         version: 11.14.0(@types/react@19.2.18)(react@19.2.8)
@@ -152,10 +152,10 @@ importers:
         version: 1.1.1(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       convex:
         specifier: 'catalog:'
-        version: 1.46.0(react@19.2.8)
+        version: 1.47.0(react@19.2.8)
       convex-helpers:
         specifier: 'catalog:'
-        version: 0.1.128(@standard-schema/spec@1.1.0)(convex@1.46.0(react@19.2.8))(react@19.2.8)(typescript@5.9.3)(zod@4.4.3)
+        version: 0.1.128(@standard-schema/spec@1.1.0)(convex@1.47.0(react@19.2.8))(react@19.2.8)(typescript@5.9.3)(zod@4.4.3)
       docx:
         specifier: ^9.13.0
         version: 9.13.0
@@ -258,13 +258,16 @@ importers:
         version: 5.0.58(zod@4.4.3)
       '@convex-dev/agent':
         specifier: ^0.7.8
-        version: 0.7.8(@ai-sdk/provider-utils@5.0.58(zod@4.4.3))(@ai-sdk/provider@4.0.26)(ai@7.0.136(zod@4.4.3))(convex-helpers@0.1.128(@standard-schema/spec@1.1.0)(convex@1.46.0(react@19.2.8))(react@19.2.8)(typescript@5.9.3)(zod@4.4.3))(convex@1.46.0(react@19.2.8))(react@19.2.8)
+        version: 0.7.8(@ai-sdk/provider-utils@5.0.58(zod@4.4.3))(@ai-sdk/provider@4.0.26)(ai@7.0.136(zod@4.4.3))(convex-helpers@0.1.128(@standard-schema/spec@1.1.0)(convex@1.47.0(react@19.2.8))(react@19.2.8)(typescript@5.9.3)(zod@4.4.3))(convex@1.47.0(react@19.2.8))(react@19.2.8)
       '@convex-dev/better-auth':
         specifier: 'catalog:'
-        version: 0.12.5(@standard-schema/spec@1.1.0)(better-auth@1.6.28(@opentelemetry/api@1.9.1)(next@16.3.1(@opentelemetry/api@1.9.1)(@types/node@24.9.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(convex@1.46.0(react@19.2.8))(react@19.2.8)(typescript@5.9.3)
+        version: 0.12.5(@standard-schema/spec@1.1.0)(better-auth@1.6.28(@opentelemetry/api@1.9.1)(next@16.3.1(@opentelemetry/api@1.9.1)(@types/node@24.9.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(convex@1.47.0(react@19.2.8))(react@19.2.8)(typescript@5.9.3)
       '@convex-dev/r2':
-        specifier: ^0.10.3
-        version: 0.10.3(@standard-schema/spec@1.1.0)(convex@1.46.0(react@19.2.8))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(typescript@5.9.3)(zod@4.4.3)
+        specifier: ^0.10.4
+        version: 0.10.4(@standard-schema/spec@1.1.0)(convex@1.47.0(react@19.2.8))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(typescript@5.9.3)(zod@4.4.3)
+      '@dodopayments/convex':
+        specifier: ^0.2.15
+        version: 0.2.15(convex@1.47.0(react@19.2.8))(zod@4.4.3)
       '@openrouter/ai-sdk-provider':
         specifier: ^3.1.0
         version: 3.1.0(ai@7.0.136(zod@4.4.3))(zod@4.4.3)
@@ -276,10 +279,10 @@ importers:
         version: 1.6.28(@opentelemetry/api@1.9.1)(next@16.3.1(@opentelemetry/api@1.9.1)(@types/node@24.9.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       convex:
         specifier: 'catalog:'
-        version: 1.46.0(react@19.2.8)
+        version: 1.47.0(react@19.2.8)
       convex-helpers:
         specifier: 'catalog:'
-        version: 0.1.128(@standard-schema/spec@1.1.0)(convex@1.46.0(react@19.2.8))(react@19.2.8)(typescript@5.9.3)(zod@4.4.3)
+        version: 0.1.128(@standard-schema/spec@1.1.0)(convex@1.47.0(react@19.2.8))(react@19.2.8)(typescript@5.9.3)(zod@4.4.3)
       mammoth:
         specifier: ^1.12.1
         version: 1.12.1
@@ -295,7 +298,7 @@ importers:
     devDependencies:
       '@convex-dev/eslint-plugin':
         specifier: ^4.0.0
-        version: 4.0.0(convex@1.46.0(react@19.2.8))(eslint@9.39.5(jiti@2.7.0))(typescript@5.9.3)
+        version: 4.0.0(convex@1.47.0(react@19.2.8))(eslint@9.39.5(jiti@2.7.0))(typescript@5.9.3)
       '@types/node':
         specifier: 24.9.1
         version: 24.9.1
@@ -603,10 +606,10 @@ packages:
     peerDependencies:
       convex: ^1.43.0
 
-  '@convex-dev/r2@0.10.3':
-    resolution: {integrity: sha512-jQkeBC2k0hgKAMPcXPJWeLtWMLSh4GmmUaohQAFKjp1wb8xZPLNa4zDvS+jGzr1e2PSlX+HpBIqGtfH7aHTSjw==}
+  '@convex-dev/r2@0.10.4':
+    resolution: {integrity: sha512-F9s1Jv6ClXY7XJYMuQopZl3QBf0v8CeybBdhQ0mOXPIlArWu1ab1fLLLItNv9KJ+2Ps2Fob8he75FBkCqmDg5Q==}
     peerDependencies:
-      convex: ^1.24.8
+      convex: ^1.25.4
       convex-svelte: ^0.0.11 || ^0.0.12 || ^0.13.0
       convex-vue: ^0.1.5
       react: ^18 || ^19
@@ -629,6 +632,17 @@ packages:
 
   '@date-fns/tz@1.5.0':
     resolution: {integrity: sha512-lwYN/vDPeNRULcepoE/LO2Pgx+7/RV+S9ARfbc9lr2DtGkOD7pAiruHvbR1RX3Qyf6ja47EWJDMsNK5vK08DJg==}
+
+  '@dodopayments/convex@0.2.15':
+    resolution: {integrity: sha512-sVJEcTKmx9qCgyKhm3Qh+aWB043UFfBjC9T9V7ROxNoS+tDAZls6JnjR9nUpbrebJ7xedtFzjQyRk8gUp52GLw==}
+    peerDependencies:
+      convex: ^1.26.0
+      zod: ^3.25.0 || ^4.0.0
+
+  '@dodopayments/core@0.3.15':
+    resolution: {integrity: sha512-xbBqfY7Ytq6c0jR1qmV8UqqyA7qGnOoP5g02NpDOWyCgkeXLxcAfr6z/g8FkPNCiFcI405oIwi0AlFDVUKm6SA==}
+    peerDependencies:
+      zod: ^3.25.0 || ^4.0.0
 
   '@emnapi/core@1.10.0':
     resolution: {integrity: sha512-yq6OkJ4p82CAfPl0u9mQebQHKPJkY7WrIuk205cTYnYe+k2Z8YBh11FrbRG/H6ihirqcacOgl2BIO8oyMQLeXw==}
@@ -2145,6 +2159,9 @@ packages:
     resolution: {integrity: sha512-FOKpVZob9MPTn2znRzGrnsMHv7BOsKVw3XiP/cOyYLDVZ9qKp4nifIiSCuUU/fIj5Vu0UOAxCFr+qRAtG0NUkA==}
     engines: {node: '>=18.0.0'}
 
+  '@stablelib/base64@1.0.1':
+    resolution: {integrity: sha512-1bnPQqSxSuc3Ii6MhBysoWCg58j97aUjuCSZrGSmDxNqtytIi0k8utUenAwTZN4V5mXXYGsVUI9zeBqy+jBOSQ==}
+
   '@standard-schema/spec@1.1.0':
     resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
 
@@ -3024,8 +3041,8 @@ packages:
       zod:
         optional: true
 
-  convex@1.46.0:
-    resolution: {integrity: sha512-dhBwDQTZDOhi5SUGAX17EWNehCdNq6/UFrSL0eLZuGfMkdsQbCVWVRZCzbZ5CF+/pgvoGxtApbEoTSipqL4JTw==}
+  convex@1.47.0:
+    resolution: {integrity: sha512-B1z/lOmex7i09NASq8+2WG9rZLzGXXOSkpwGOpaNIvOs4awyW4RMgpVBjt8r2wvvHwhEBEsOr2pGYpulnmAxYQ==}
     engines: {node: '>=20.0.0', npm: '>=7.0.0'}
     hasBin: true
     peerDependencies:
@@ -3311,6 +3328,10 @@ packages:
     resolution: {integrity: sha512-MofrvX7rzwCe1xUFXnwneQHzv2p1lIUIDPD01DueOnKGw+TSKxAAcK5Beo69bTyqKUYsX8d49Co03Bcntc60WQ==}
     engines: {node: '>=10'}
 
+  dodopayments@2.56.0:
+    resolution: {integrity: sha512-eYZ6t0q4PjGqGGKLQxE/lGy6UwKQO0rlcqm1Io+JKfu3Inj6liGob1bbV4kc8kITrV3F/QAaY4K8gEgG0UFQpQ==}
+    hasBin: true
+
   dom-helpers@5.2.1:
     resolution: {integrity: sha512-nRCa7CK3VTrM2NmGkIy4cbK7IZlgBE/PYMn55rrXefr5xXDP0LdtfPnblFDoVdcAfslJ7or6iqAUnx0CCGIWQA==}
 
@@ -3566,6 +3587,9 @@ packages:
 
   fast-levenshtein@2.0.6:
     resolution: {integrity: sha512-DCXu6Ifhqcks7TZKY3Hxp3y6qphY5SJZmrWMDrKcERSOXWQdMhU9Ig/PYrzyw/ul9jOIyh0N4M0tbC5hodg8dw==}
+
+  fast-sha256@1.3.0:
+    resolution: {integrity: sha512-n11RGP/lrWEFI/bWdygLxhI+pVeo1ZYIVwvvPkW7azl/rOy+F3HYRZ2K5zeE9mmkhQppyv9sQFx0JM9UabnpPQ==}
 
   fastq@1.20.1:
     resolution: {integrity: sha512-GGToxJ/w1x32s/D2EKND7kTil4n8OVk/9mycTc4VDza13lOvpUZTGX3mFSCtV9ksdGBVzvsyAVLM6mHFThxXxw==}
@@ -4945,6 +4969,9 @@ packages:
   stable-hash@0.0.5:
     resolution: {integrity: sha512-+L3ccpzibovGXFK+Ap/f8LOS0ahMrHTf3xu7mMLSpEGU0EO9ucaysSylKo9eRDFNhWve/y275iPmIZ4z39a9iA==}
 
+  standardwebhooks@1.1.1:
+    resolution: {integrity: sha512-bCbX9ZEyFkWPsRz7Bl3NuQUJohmwGSev/yhr7vhaGPlc4AfIrspIRa6cPTBuI1ItmrTDJ4d/S2hCsfe4+vQGnQ==}
+
   stop-iteration-iterator@1.1.0:
     resolution: {integrity: sha512-eLoXW/DHyl62zxY4SCaIgnRhuMr6ri4juEYARS8E6sCEqzKpOiE521Ucofdx+KnDZl5xmvGYaaKCk5FEOxJCoQ==}
     engines: {node: '>= 0.4'}
@@ -5699,28 +5726,28 @@ snapshots:
 
   '@chevrotain/types@11.1.2': {}
 
-  '@convex-dev/action-retrier@0.3.1(convex@1.46.0(react@19.2.8))':
+  '@convex-dev/action-retrier@0.3.1(convex@1.47.0(react@19.2.8))':
     dependencies:
-      convex: 1.46.0(react@19.2.8)
+      convex: 1.47.0(react@19.2.8)
 
-  '@convex-dev/agent@0.7.8(@ai-sdk/provider-utils@5.0.58(zod@4.4.3))(@ai-sdk/provider@4.0.26)(ai@7.0.136(zod@4.4.3))(convex-helpers@0.1.128(@standard-schema/spec@1.1.0)(convex@1.46.0(react@19.2.8))(react@19.2.8)(typescript@5.9.3)(zod@4.4.3))(convex@1.46.0(react@19.2.8))(react@19.2.8)':
+  '@convex-dev/agent@0.7.8(@ai-sdk/provider-utils@5.0.58(zod@4.4.3))(@ai-sdk/provider@4.0.26)(ai@7.0.136(zod@4.4.3))(convex-helpers@0.1.128(@standard-schema/spec@1.1.0)(convex@1.47.0(react@19.2.8))(react@19.2.8)(typescript@5.9.3)(zod@4.4.3))(convex@1.47.0(react@19.2.8))(react@19.2.8)':
     dependencies:
       '@ai-sdk/provider': 4.0.26
       '@ai-sdk/provider-utils': 5.0.58(zod@4.4.3)
       ai: 7.0.136(zod@4.4.3)
-      convex: 1.46.0(react@19.2.8)
-      convex-helpers: 0.1.128(@standard-schema/spec@1.1.0)(convex@1.46.0(react@19.2.8))(react@19.2.8)(typescript@5.9.3)(zod@4.4.3)
+      convex: 1.47.0(react@19.2.8)
+      convex-helpers: 0.1.128(@standard-schema/spec@1.1.0)(convex@1.47.0(react@19.2.8))(react@19.2.8)(typescript@5.9.3)(zod@4.4.3)
     optionalDependencies:
       '@ungap/structured-clone': 1.4.0
       react: 19.2.8
 
-  '@convex-dev/better-auth@0.12.5(@standard-schema/spec@1.1.0)(better-auth@1.6.28(@opentelemetry/api@1.9.1)(next@16.3.1(@opentelemetry/api@1.9.1)(@types/node@24.9.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(convex@1.46.0(react@19.2.8))(react@19.2.8)(typescript@5.9.3)':
+  '@convex-dev/better-auth@0.12.5(@standard-schema/spec@1.1.0)(better-auth@1.6.28(@opentelemetry/api@1.9.1)(next@16.3.1(@opentelemetry/api@1.9.1)(@types/node@24.9.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(convex@1.47.0(react@19.2.8))(react@19.2.8)(typescript@5.9.3)':
     dependencies:
       '@better-fetch/fetch': 1.3.1
       better-auth: 1.6.28(@opentelemetry/api@1.9.1)(next@16.3.1(@opentelemetry/api@1.9.1)(@types/node@24.9.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       common-tags: 1.8.2
-      convex: 1.46.0(react@19.2.8)
-      convex-helpers: 0.1.128(@standard-schema/spec@1.1.0)(convex@1.46.0(react@19.2.8))(react@19.2.8)(typescript@5.9.3)(zod@4.4.3)
+      convex: 1.47.0(react@19.2.8)
+      convex-helpers: 0.1.128(@standard-schema/spec@1.1.0)(convex@1.47.0(react@19.2.8))(react@19.2.8)(typescript@5.9.3)(zod@4.4.3)
       jose: 6.2.8
       react: 19.2.8
       remeda: 2.40.0
@@ -5732,23 +5759,23 @@ snapshots:
       - hono
       - typescript
 
-  '@convex-dev/eslint-plugin@4.0.0(convex@1.46.0(react@19.2.8))(eslint@9.39.5(jiti@2.7.0))(typescript@5.9.3)':
+  '@convex-dev/eslint-plugin@4.0.0(convex@1.47.0(react@19.2.8))(eslint@9.39.5(jiti@2.7.0))(typescript@5.9.3)':
     dependencies:
       '@typescript-eslint/types': 8.58.2
       '@typescript-eslint/utils': 8.58.2(eslint@9.39.5(jiti@2.7.0))(typescript@5.9.3)
-      convex: 1.46.0(react@19.2.8)
+      convex: 1.47.0(react@19.2.8)
     transitivePeerDependencies:
       - eslint
       - supports-color
       - typescript
 
-  '@convex-dev/r2@0.10.3(@standard-schema/spec@1.1.0)(convex@1.46.0(react@19.2.8))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(typescript@5.9.3)(zod@4.4.3)':
+  '@convex-dev/r2@0.10.4(@standard-schema/spec@1.1.0)(convex@1.47.0(react@19.2.8))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(typescript@5.9.3)(zod@4.4.3)':
     dependencies:
       '@aws-sdk/client-s3': 3.1113.0
       '@aws-sdk/s3-request-presigner': 3.1113.0
-      '@convex-dev/action-retrier': 0.3.1(convex@1.46.0(react@19.2.8))
-      convex: 1.46.0(react@19.2.8)
-      convex-helpers: 0.1.128(@standard-schema/spec@1.1.0)(convex@1.46.0(react@19.2.8))(react@19.2.8)(typescript@5.9.3)(zod@4.4.3)
+      '@convex-dev/action-retrier': 0.3.1(convex@1.47.0(react@19.2.8))
+      convex: 1.47.0(react@19.2.8)
+      convex-helpers: 0.1.128(@standard-schema/spec@1.1.0)(convex@1.47.0(react@19.2.8))(react@19.2.8)(typescript@5.9.3)(zod@4.4.3)
       file-type: 21.3.4
       uuid: 14.0.1
     optionalDependencies:
@@ -5762,6 +5789,18 @@ snapshots:
       - zod
 
   '@date-fns/tz@1.5.0': {}
+
+  '@dodopayments/convex@0.2.15(convex@1.47.0(react@19.2.8))(zod@4.4.3)':
+    dependencies:
+      '@dodopayments/core': 0.3.15(zod@4.4.3)
+      convex: 1.47.0(react@19.2.8)
+      zod: 4.4.3
+
+  '@dodopayments/core@0.3.15(zod@4.4.3)':
+    dependencies:
+      dodopayments: 2.56.0
+      standardwebhooks: 1.1.1
+      zod: 4.4.3
 
   '@emnapi/core@1.10.0':
     dependencies:
@@ -7273,6 +7312,8 @@ snapshots:
     dependencies:
       tslib: 2.8.1
 
+  '@stablelib/base64@1.0.1': {}
+
   '@standard-schema/spec@1.1.0': {}
 
   '@standard-schema/utils@0.3.0': {}
@@ -8099,16 +8140,16 @@ snapshots:
 
   convert-source-map@2.0.0: {}
 
-  convex-helpers@0.1.128(@standard-schema/spec@1.1.0)(convex@1.46.0(react@19.2.8))(react@19.2.8)(typescript@5.9.3)(zod@4.4.3):
+  convex-helpers@0.1.128(@standard-schema/spec@1.1.0)(convex@1.47.0(react@19.2.8))(react@19.2.8)(typescript@5.9.3)(zod@4.4.3):
     dependencies:
-      convex: 1.46.0(react@19.2.8)
+      convex: 1.47.0(react@19.2.8)
     optionalDependencies:
       '@standard-schema/spec': 1.1.0
       react: 19.2.8
       typescript: 5.9.3
       zod: 4.4.3
 
-  convex@1.46.0(react@19.2.8):
+  convex@1.47.0(react@19.2.8):
     dependencies:
       esbuild: 0.27.0
       prettier: 3.9.6
@@ -8413,6 +8454,10 @@ snapshots:
       hash.js: 1.1.7
       jszip: 3.10.1
       nanoid: 6.0.2
+
+  dodopayments@2.56.0:
+    dependencies:
+      standardwebhooks: 1.1.1
 
   dom-helpers@5.2.1:
     dependencies:
@@ -8889,6 +8934,8 @@ snapshots:
   fast-json-stable-stringify@2.1.0: {}
 
   fast-levenshtein@2.0.6: {}
+
+  fast-sha256@1.3.0: {}
 
   fastq@1.20.1:
     dependencies:
@@ -10646,6 +10693,11 @@ snapshots:
   sprintf-js@1.0.3: {}
 
   stable-hash@0.0.5: {}
+
+  standardwebhooks@1.1.1:
+    dependencies:
+      '@stablelib/base64': 1.0.1
+      fast-sha256: 1.3.0
 
   stop-iteration-iterator@1.1.0:
     dependencies:

@@ -28,3 +28,12 @@ export function userFacingErrorMessage(err: unknown, fallback: string) {
 export function toastUnknownError(err: unknown, fallback: string) {
   toast.error(userFacingErrorMessage(err, fallback));
 }
+
+/** Server-side plan checks use this copy; keep the match broad so the modal opens after a race. */
+export function isApplicationLimitError(err: unknown) {
+  return /free plan includes \d+ application|application limit reached/i.test(errorText(err));
+}
+
+export function isAgentQuotaError(err: unknown) {
+  return /qelsa agent messages|agent message limit|daily message limit/i.test(errorText(err));
+}

@@ -5,6 +5,8 @@ import { EmployerSidebar } from "@/components/EmployerSidebar";
 import { PublicNavbar } from "@/components/PublicNavbar";
 import { QelsaLogo } from "@/components/QelsaLogo";
 import { useAuth } from "@/contexts/AuthContext";
+import { useGetMyBillingQuery } from "@/features/api/billingApi";
+import type { MyBilling } from "@/types/billing";
 import { Menu } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useState } from "react";
@@ -35,6 +37,12 @@ const Layout = ({ activeSection, children }: LayoutProps) => {
   }, []);
 
   const isRecruiter = isAuthenticated && user?.account_type === "recruiter";
+  const { data: billingData } = useGetMyBillingQuery({
+    skip: !isAuthenticated || isRecruiter,
+  });
+  const billing = billingData as MyBilling | undefined;
+  const isPro = Boolean(billing?.is_pro);
+  const premiumLoading = isAuthenticated && !isRecruiter && billing === undefined;
 
   return (
     <div className="min-h-screen relative flex flex-col">
@@ -88,7 +96,12 @@ const Layout = ({ activeSection, children }: LayoutProps) => {
       ) : (
         <>
           {isAuthenticated && user ? (
-            <MainNavigation activeSection={activeSection ?? "profile"} onProfileClick={handleProfileClick} />
+            <MainNavigation
+              activeSection={activeSection ?? "profile"}
+              onProfileClick={handleProfileClick}
+              isPro={isPro}
+              premiumLoading={premiumLoading}
+            />
           ) : (
             <PublicNavbar activeSection={activeSection} onProfileClick={handleProfileClick} />
           )}
@@ -103,7 +116,7 @@ const Layout = ({ activeSection, children }: LayoutProps) => {
       <JobFilterSidebar isOpen={showJobFilterSidebar} />
 
       {/* Profile Drawer */}
-      <ProfileDrawer isOpen={showProfileDrawer} onClose={handleCloseProfileDrawer} activeSection={activeSection} />
+      <ProfileDrawer isOpen={showProfileDrawer} onClose={handleCloseProfileDrawer} activeSection={activeSection} isPro={isPro} />
     </div>
   );
 };
