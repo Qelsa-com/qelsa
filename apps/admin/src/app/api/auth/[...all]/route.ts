@@ -1,5 +1,7 @@
 import { handler } from "@/lib/auth-server";
 
+const ADMIN_FLOW_HEADER = "x-qelsa-admin-auth";
+
 /**
  * The admin auth proxy is deliberately not a general Better Auth surface.
  * Only the routes used by the admin login/session flow are forwarded; this
@@ -28,8 +30,36 @@ function reject() {
   });
 }
 
-export const GET = (request: Request) =>
-  allowed(request) ? handler.GET(request) : Promise.resolve(reject());
+/**
+ * Stamp every request that actually came through the admin origin. The Convex
+ * auth hook treats this as an admin-flow request even if ADMIN_SITE_URL is
+ * missing or points at a different host after a domain move.
+ */
+async function toAdminRequest(request: Request) {
+  const headers = new Headers(request.headers);
+  headers.set(ADMIN_FLOW_HEADER, "1");
 
-export const POST = (request: Request) =>
-  allowed(request) ? handler.POST(request) : Promise.resolve(reject());
+  const method = request.method.toUpperCase();
+  const init: RequestInit = {
+    method,
+    headers,
+    redirect: "manual",
+  };
+
+  if (method !== "GET" && method !== "HEAD") {
+    const body = await request.arrayBuffer();
+    if (body.byteLength > 0) init.body = body;
+  }
+
+  return new Request(request.url, init);
+}
+
+export async function GET(request: Request) {
+  if (!allowed(request)) return reject();
+  return handler.GET(await toAdminRequest(request));
+}
+
+export async function POST(request: Request) {
+  if (!allowed(request)) return reject();
+  return handler.POST(await toAdminRequest(request));
+}

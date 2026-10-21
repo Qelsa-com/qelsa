@@ -12,7 +12,13 @@ import { emailOTPClient } from "better-auth/client/plugins";
  * authenticated queries and mutations.
  */
 export const authClient = createAuthClient({
-  baseURL: process.env.NEXT_PUBLIC_SITE_URL,
+  // Always talk to the admin app's own /api/auth proxy. A stale or mistaken
+  // NEXT_PUBLIC_SITE_URL must not send admin login traffic to the public web
+  // auth endpoint, where it would bypass the admin-only gate.
+  baseURL:
+    typeof window !== "undefined"
+      ? window.location.origin
+      : process.env.NEXT_PUBLIC_SITE_URL,
   plugins: [convexClient(), emailOTPClient()],
   sessionOptions: {
     refetchOnWindowFocus: false,

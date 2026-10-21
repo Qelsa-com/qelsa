@@ -56,6 +56,14 @@ admin-only auth route gate:
 npx convex env set ADMIN_SITE_URL "https://admin.qelsa.ai"
 ```
 
+The browser-side admin auth client always calls the admin app's own
+`/api/auth` proxy, regardless of `NEXT_PUBLIC_SITE_URL`, and that proxy stamps
+an admin-flow header. The Convex auth hook checks the header as well as
+`ADMIN_SITE_URL`, so a missing or stale site URL cannot turn the admin login
+into a normal public OTP endpoint. Set `NEXT_PUBLIC_SITE_URL` on the admin
+service to the same admin origin anyway; it is used as the server-side
+fallback.
+
 From `apps/admin`, set `NEXT_PUBLIC_SITE_URL` to the admin origin (for example
 `http://localhost:3001` locally). The web app links to it via
 `NEXT_PUBLIC_ADMIN_APP_URL`.
