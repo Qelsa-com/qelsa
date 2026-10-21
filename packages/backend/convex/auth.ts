@@ -325,7 +325,11 @@ export const createAuth = (ctx: Parameters<typeof authComponent.adapter>[0]) =>
 
         // Legacy recruiter rows may predate the company-email policy. Do not
         // send them a new code or let them create a session on any flow.
-        if (appUser?.account_type === "recruiter" && !checkEmployerEmail(appUser.email).allowed) {
+        if (
+          appUser?.role !== "admin" &&
+          appUser?.account_type === "recruiter" &&
+          !checkEmployerEmail(appUser.email).allowed
+        ) {
           if (path === "/email-otp/send-verification-otp") return;
           if (path === "/sign-in/email-otp" || path === "/sign-in/email") {
             throw new APIError("UNAUTHORIZED", { message: EMPLOYER_EMAIL_MESSAGE });
@@ -341,7 +345,11 @@ export const createAuth = (ctx: Parameters<typeof authComponent.adapter>[0]) =>
             // Block new sessions for them on every flow, not just the employer
             // screen, so candidate Google/OTP sign-in cannot bypass it.
             const appUser = await appUserByAuthId(ctx, session.userId);
-            if (appUser?.account_type === "recruiter" && !checkEmployerEmail(appUser.email).allowed) {
+            if (
+              appUser?.role !== "admin" &&
+              appUser?.account_type === "recruiter" &&
+              !checkEmployerEmail(appUser.email).allowed
+            ) {
               throw new APIError("UNAUTHORIZED", { message: EMPLOYER_EMAIL_MESSAGE });
             }
           },
@@ -372,7 +380,11 @@ export const createAuth = (ctx: Parameters<typeof authComponent.adapter>[0]) =>
           // login into a user-enumeration or email-spam surface.
           const appUser = await appUserByEmail(ctx, email);
           if (appUser && !appUser.isActive) return;
-          if (appUser?.account_type === "recruiter" && !checkEmployerEmail(appUser.email).allowed) return;
+          if (
+            appUser?.role !== "admin" &&
+            appUser?.account_type === "recruiter" &&
+            !checkEmployerEmail(appUser.email).allowed
+          ) return;
           if (isAdminAuthRequest(endpointCtx) && (!appUser || appUser.role !== "admin")) return;
           if (isEmployerAuthRequest(endpointCtx) && !checkEmployerEmail(email).allowed) return;
           await sendOTPEmail({ to: email, otp });

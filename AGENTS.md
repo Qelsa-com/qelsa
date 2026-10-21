@@ -23,6 +23,7 @@ See `README.md` for the canonical setup/dev commands. Package scripts live in th
 - `packages/backend/convex/auth.ts` enforces the work-email policy for the employer flow before sending an OTP or accepting a password/OTP sign-in.
 - `packages/backend/convex/lib/employerEmail.ts` owns the domain policy and the optional `EMPLOYER_EMAIL_ALLOWLIST` / `EMPLOYER_EMAIL_BLOCKLIST` overrides.
 - The recruiter role may only be granted through `users.setAccountType`, `onboarding.setAccountTypeAndResetOnboarding`, or `onboarding.completeHrOnboarding`; each calls `assertEmployerEmail`.
+- Admin accounts are exempt from the legacy-recruiter email check so an admin seeded with a personal email can still sign in to the admin app.
 - Do not add `account_type`, `hiring_role`, `active_page_id`, or `onboarding_completed` back to `users.updateProfile`'s patch allowlist. That would let a candidate self-promote to recruiter.
 
 Google OAuth reveals the address only after the callback, so the employer screen checks it before granting recruiter access; the recruiter role is still server-gated. OTP/password employer sign-in is rejected at the auth endpoint.
