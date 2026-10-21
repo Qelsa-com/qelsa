@@ -865,4 +865,15 @@ export default defineSchema({
     event_at: v.number(),
     received_at: v.number(),
   }).index("by_event_key", ["event_key"]),
+
+  // Short-lived cache of the authoritative Dodo product prices. Pricing is
+  // fetched server-side so the browser never sees product IDs or invents an
+  // amount from stale copy.
+  billing_price_cache: defineTable({
+    interval: v.union(v.literal("month"), v.literal("year")),
+    product_id: v.string(),
+    amount: v.number(),
+    currency: v.string(),
+    fetched_at: v.number(),
+  }).index("by_interval", ["interval"]),
 });

@@ -111,6 +111,140 @@ export const getMyBilling = authedQuery({
   },
 });
 
+const PRICE_CACHE_MS = 5 * 60 * 1000;
+
+function fallbackPrices() {
+  const plan = publicBillingPlan();
+  return {
+    month: {
+      amount: plan.prices.month.amount,
+      currency: plan.prices.month.currency,
+      available: plan.prices.month.available,
+    },
+    year: {
+      amount: plan.prices.year.amount,
+      currency: plan.prices.year.currency,
+      available: plan.prices.year.available,
+    },
+  };
+}
+
+export const getCachedPrices = internalQuery({
+  args: {},
+  returns: v.any(),
+  handler: async (ctx) => {
+    return await ctx.db.query("billing_price_cache").take(2);
+  },
+});
+
+export const saveBillingPrices = internalMutation({
+  args: {
+    prices: v.array(
+      v.object({
+        interval: v.union(v.literal("month"), v.literal("year")),
+        productId: v.string(),
+        amount: v.number(),
+        currency: v.string(),
+      }),
+    ),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    for (const price of args.prices) {
+      const existing = await ctx.db
+        .query("billing_price_cache")
+        .withIndex("by_interval", (q) => q.eq("interval", price.interval))
+        .first();
+      const patch = {
+        interval: price.interval,
+        product_id: price.productId,
+        amount: price.amount,
+        currency: price.currency,
+        fetched_at: now,
+      };
+      if (existing) await ctx.db.patch(existing._id, patch);
+      else await ctx.db.insert("billing_price_cache", patch);
+    }
+    return null;
+  },
+});
+
+/** Fetch authoritative product prices from Dodo, with a short server cache. */
+export const getLivePrices = action({
+  args: {},
+  returns: v.any(),
+  handler: async (ctx) => {
+    const month = productForInterval("month");
+    const year = productForInterval("year");
+    const fallback = fallbackPrices();
+    if (!month.productId || !year.productId) return fallback;
+
+    const cached = (await ctx.runQuery(internal.billing.getCachedPrices, {})) as Array<{
+      interval: "month" | "year";
+      product_id: string;
+      amount: number;
+      currency: string;
+      fetched_at: number;
+    }>;
+    const now = Date.now();
+    const cachedMonth = cached.find((row) => row.interval === "month");
+    const cachedYear = cached.find((row) => row.interval === "year");
+    const cacheIsFresh =
+      Boolean(cachedMonth && cachedYear) &&
+      now - cachedMonth!.fetched_at < PRICE_CACHE_MS &&
+      now - cachedYear!.fetched_at < PRICE_CACHE_MS &&
+      cachedMonth!.product_id === month.productId &&
+      cachedYear!.product_id === year.productId;
+    if (cacheIsFresh) {
+      return {
+        month: { amount: cachedMonth!.amount, currency: cachedMonth!.currency, available: true },
+        year: { amount: cachedYear!.amount, currency: cachedYear!.currency, available: true },
+      };
+    }
+
+    try {
+      const [monthProduct, yearProduct] = await Promise.all([
+        dodoProduct(month.productId),
+        dodoProduct(year.productId),
+      ]);
+      const prices = [
+        {
+          interval: "month" as const,
+          productId: month.productId,
+          amount: Number(monthProduct.price?.price ?? 0) / 100,
+          currency: String(monthProduct.price?.currency ?? fallback.month.currency),
+        },
+        {
+          interval: "year" as const,
+          productId: year.productId,
+          amount: Number(yearProduct.price?.price ?? 0) / 100,
+          currency: String(yearProduct.price?.currency ?? fallback.year.currency),
+        },
+      ];
+      await ctx.runMutation(internal.billing.saveBillingPrices, { prices });
+      return {
+        month: { amount: prices[0].amount, currency: prices[0].currency, available: true },
+        year: { amount: prices[1].amount, currency: prices[1].currency, available: true },
+      };
+    } catch (error) {
+      console.error("[billing] could not load Dodo product prices", error);
+      return {
+        month: {
+          amount: cachedMonth?.amount ?? fallback.month.amount,
+          currency: cachedMonth?.currency ?? fallback.month.currency,
+          available: Boolean(month.productId),
+        },
+        year: {
+          amount: cachedYear?.amount ?? fallback.year.amount,
+          currency: cachedYear?.currency ?? fallback.year.currency,
+          available: Boolean(year.productId),
+        },
+      };
+    }
+  },
+});
+
 export const getCurrentSubscriptionForUser = internalQuery({
   args: { userId: v.id("users") },
   returns: v.any(),
@@ -189,6 +323,18 @@ function dodoApiBase() {
   return process.env.DODO_PAYMENTS_ENVIRONMENT === "live_mode"
     ? "https://live.dodopayments.com"
     : "https://test.dodopayments.com";
+}
+
+async function dodoProduct(productId: string) {
+  const apiKey = process.env.DODO_PAYMENTS_API_KEY;
+  if (!apiKey || !productId) throw new Error("Dodo Payments is not configured on this deployment.");
+  const response = await fetch(`${dodoApiBase()}/products/${encodeURIComponent(productId)}`, {
+    headers: { Authorization: `Bearer ${apiKey}` },
+  });
+  if (!response.ok) throw new Error(`Dodo product lookup failed (${response.status})`);
+  return (await response.json()) as {
+    price?: { price?: number; currency?: string };
+  };
 }
 
 async function dodoRequest(path: string, method: "PATCH" | "POST", body: Record<string, unknown>) {

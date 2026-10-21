@@ -15,6 +15,21 @@ export function useGetMyBillingQuery(options?: { skip?: boolean }) {
   return useConvexQueryHook(api.billing.getMyBilling, {}, options);
 }
 
+export function useGetLivePricesAction() {
+  const getLivePrices = useAction(api.billing.getLivePrices);
+  const [isLoading, setIsLoading] = useState(false);
+  const trigger = () => {
+    setIsLoading(true);
+    return withUnwrap(
+      Promise.resolve(getLivePrices({}) as Promise<{
+        month: { amount: number; currency: string; available: boolean };
+        year: { amount: number; currency: string; available: boolean };
+      }>).finally(() => setIsLoading(false)),
+    );
+  };
+  return [trigger, { isLoading }] as const;
+}
+
 export function useCreateCheckoutAction() {
   const createCheckout = useAction(api.billing.createCheckout);
   const [isLoading, setIsLoading] = useState(false);

@@ -4,6 +4,7 @@ import {
   useCancelSubscriptionAction,
   useChangePlanAction,
   useCreateCheckoutAction,
+  useGetLivePricesAction,
   useGetMyBillingQuery,
   useOpenCustomerPortalAction,
   type BillingInterval,
@@ -61,6 +62,11 @@ export function BillingSettings() {
   const { data, isLoading } = useGetMyBillingQuery({ skip: !user });
   const billing = data as MyBilling | undefined;
   const [interval, setInterval] = useState<BillingInterval>("month");
+  const [getLivePrices] = useGetLivePricesAction();
+  const [livePrices, setLivePrices] = useState<{
+    month: { amount: number; currency: string; available: boolean };
+    year: { amount: number; currency: string; available: boolean };
+  } | null>(null);
   const [createCheckout, { isLoading: isCheckingOut }] = useCreateCheckoutAction();
   const [changePlan, { isLoading: isChanging }] = useChangePlanAction();
   const [setCancel, { isLoading: isCancelling }] = useCancelSubscriptionAction();
@@ -69,6 +75,19 @@ export function BillingSettings() {
   useEffect(() => {
     if (billing?.subscription?.interval) setInterval(billing.subscription.interval);
   }, [billing?.subscription?.interval]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getLivePrices()
+      .unwrap()
+      .then((prices) => {
+        if (!cancelled) setLivePrices(prices);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   if (isLoading) {
     return (
@@ -84,7 +103,8 @@ export function BillingSettings() {
   if (!billing) return null;
 
   const subscription = billing.subscription;
-  const price = billing.plan.prices[interval];
+  const price = livePrices?.[interval] ?? billing.plan.prices[interval];
+  const yearlyPrice = livePrices?.year ?? billing.plan.prices.year;
   const isPro = billing.is_pro;
   const isCancelledAtEnd = Boolean(subscription?.cancel_at_period_end);
 
@@ -274,8 +294,8 @@ export function BillingSettings() {
                   }`}
                 >
                   {option === "month" ? "Monthly" : "Yearly"}
-                  {option === "year" && billing.plan.prices.year.amount > 0
-                    ? ` · ${formatAmount(billing.plan.prices.year.amount, billing.plan.prices.year.currency)}`
+                  {option === "year" && yearlyPrice.amount > 0
+                    ? ` · ${formatAmount(yearlyPrice.amount, yearlyPrice.currency)}`
                     : null}
                 </button>
               ))}

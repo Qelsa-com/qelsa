@@ -1,13 +1,13 @@
 "use client";
 
 import { useAuth } from "@/contexts/AuthContext";
-import { useCreateCheckoutAction, useGetPlansQuery, type BillingInterval } from "@/features/api/billingApi";
+import { useCreateCheckoutAction, useGetLivePricesAction, useGetPlansQuery, type BillingInterval } from "@/features/api/billingApi";
 import { toastUnknownError } from "@/lib/errors";
 import type { BillingPlan } from "@/types/billing";
 import { ArrowRight, Check, Loader2, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Layout from "../layout";
 
 const FREE_FEATURES = [
@@ -33,13 +33,31 @@ export default function PricingPage() {
   const router = useRouter();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { data, isLoading } = useGetPlansQuery();
+  const [getLivePrices] = useGetLivePricesAction();
   const [createCheckout, { isLoading: isCheckingOut }] = useCreateCheckoutAction();
   const [interval, setInterval] = useState<BillingInterval>("month");
+  const [livePrices, setLivePrices] = useState<{
+    month: { amount: number; currency: string; available: boolean };
+    year: { amount: number; currency: string; available: boolean };
+  } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getLivePrices()
+      .unwrap()
+      .then((prices) => {
+        if (!cancelled) setLivePrices(prices);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const plan = data?.plan as BillingPlan | undefined;
-  const price = plan?.prices?.[interval];
-  const yearly = plan?.prices?.year;
-  const monthly = plan?.prices?.month;
+  const price = livePrices?.[interval] ?? plan?.prices?.[interval];
+  const yearly = livePrices?.year ?? plan?.prices?.year;
+  const monthly = livePrices?.month ?? plan?.prices?.month;
   const yearlySaving =
     monthly?.amount && yearly?.amount && monthly.amount > 0
       ? Math.max(0, Math.round((1 - yearly.amount / (monthly.amount * 12)) * 100))

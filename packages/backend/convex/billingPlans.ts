@@ -28,9 +28,11 @@ export type PublicBillingPlan = {
   prices: Record<BillingInterval, BillingPrice>;
 };
 
-const currency = (process.env.DODO_PRICE_CURRENCY ?? "INR").trim().toUpperCase();
-const monthlyAmount = Number(process.env.DODO_PRO_MONTHLY_PRICE ?? 499);
-const yearlyAmount = Number(process.env.DODO_PRO_YEARLY_PRICE ?? 4999);
+const currency = (process.env.DODO_PRICE_CURRENCY ?? "USD").trim().toUpperCase();
+// The live action reads these from Dodo. These values are only a fallback
+// when the product API is unavailable; keep them at zero unless configured.
+const monthlyAmount = Number(process.env.DODO_PRO_MONTHLY_PRICE ?? 0);
+const yearlyAmount = Number(process.env.DODO_PRO_YEARLY_PRICE ?? 0);
 
 const monthlyProductId = process.env.DODO_PRODUCT_PRO_MONTHLY?.trim() ?? "";
 const yearlyProductId = process.env.DODO_PRODUCT_PRO_YEARLY?.trim() ?? "";
