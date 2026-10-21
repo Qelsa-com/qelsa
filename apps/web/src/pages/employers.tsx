@@ -4,7 +4,7 @@ import Link from "next/link";
 import Layout from "../layout";
 
 // Employers marketing page. Everything here is presentational; the only live
-// behaviour is the two CTAs, which send guests to /auth.
+// behaviour is the two CTAs, which send guests to the employer auth flow.
 
 const SECTION = "border-t border-white/[0.06] py-20 lg:py-25";
 const CONTAINER = "mx-auto w-full max-w-7xl px-6";
@@ -122,7 +122,7 @@ export default function Employers() {
             <p className="mt-8 max-w-[620px] text-lg leading-relaxed text-white/60 lg:text-xl">
               Define the skills you need, find relevant candidates, and understand why they fit.
             </p>
-            <Link href="/auth" className={`mt-9 inline-flex items-center gap-2.5 rounded-full px-7 py-3.5 text-base font-bold text-white ${GRADIENT}`}>
+            <Link href="/employer/auth?returnUrl=/jobs/posted" className={`mt-9 inline-flex items-center gap-2.5 rounded-full px-7 py-3.5 text-base font-bold text-white ${GRADIENT}`}>
               Find who fits
               <ArrowRight className="size-[18px]" />
             </Link>
@@ -338,7 +338,7 @@ export default function Employers() {
           </div>
 
           <div className="mt-14 flex justify-center">
-            <Link href="/auth" className={`inline-flex items-center gap-2.5 rounded-lg px-7 py-3.5 text-base font-bold text-white ${GRADIENT}`}>
+            <Link href="/employer/auth?returnUrl=/jobs/posted" className={`inline-flex items-center gap-2.5 rounded-lg px-7 py-3.5 text-base font-bold text-white ${GRADIENT}`}>
               Find candidates
               <ArrowRight className="size-[18px]" />
             </Link>

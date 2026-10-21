@@ -70,7 +70,7 @@ export function DesktopTopBar({ activeSection, onProfileClick }: { activeSection
             </button>
             <button
               type="button"
-              onClick={() => router.push("/employers")}
+              onClick={() => router.push("/employer/auth?returnUrl=/jobs/posted")}
               className="rounded-full bg-gradient-to-r from-[#623dd6] via-[#8433ae] to-[#be2680] px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-purple-900/30 transition-opacity hover:opacity-95"
             >
               Hire talent

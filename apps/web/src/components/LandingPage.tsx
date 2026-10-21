@@ -44,7 +44,7 @@ export function LandingPage() {
                 <ArrowRight className="size-4" />
               </Link>
 
-              <Link href="/employers" className="rounded-full border border-white/20 bg-white/[0.04] px-7 py-3.5 text-sm font-semibold text-white transition-colors hover:border-white/35 hover:bg-white/[0.08] sm:text-base">
+              <Link href="/employer/auth?returnUrl=/jobs/posted" className="rounded-full border border-white/20 bg-white/[0.04] px-7 py-3.5 text-sm font-semibold text-white transition-colors hover:border-white/35 hover:bg-white/[0.08] sm:text-base">
                 Hire talent
               </Link>
             </div>
@@ -436,7 +436,7 @@ export function LandingPage() {
               >
                 Check my readiness
               </Link>
-              <Link href="/employers" className="rounded-full border border-white/20 bg-white/[0.04] px-7 py-3.5 text-sm font-semibold text-white transition-colors hover:border-white/35 hover:bg-white/[0.08] sm:text-base">
+              <Link href="/employer/auth?returnUrl=/jobs/posted" className="rounded-full border border-white/20 bg-white/[0.04] px-7 py-3.5 text-sm font-semibold text-white transition-colors hover:border-white/35 hover:bg-white/[0.08] sm:text-base">
                 Hire talent
               </Link>
             </div>

@@ -11,7 +11,7 @@ const IntegrationsSettings = () => {
   useEffect(() => {
     if (!isLoading) {
       if (!user) {
-        router.replace("/auth?returnUrl=/settings/integrations");
+        router.replace("/employer/auth?returnUrl=/settings/integrations");
       } else if (user.account_type !== "recruiter" && user.role !== "admin") {
         router.replace("/settings");
       }

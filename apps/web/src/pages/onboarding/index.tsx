@@ -54,7 +54,7 @@ export default function OnboardingPage() {
   const handleSignOut = async () => {
     clearResumeDraft();
     await authClient.signOut();
-    router.push("/auth");
+    router.push(user?.account_type === "recruiter" ? "/employer/auth" : "/auth");
   };
 
   if (pickingRole || !accountType) {

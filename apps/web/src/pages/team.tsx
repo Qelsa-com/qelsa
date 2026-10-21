@@ -10,7 +10,7 @@ const TeamPage = () => {
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      router.push("/auth");
+      router.push("/employer/auth?returnUrl=/team");
     }
   }, [isLoading, isAuthenticated, router]);
 

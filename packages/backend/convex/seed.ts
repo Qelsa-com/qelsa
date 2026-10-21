@@ -1,5 +1,6 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
+import { assertEmployerEmail } from "./lib/employerEmail";
 import { withId } from "./lib/helpers";
 import { bumpOpenJobCount, ensureJobStats } from "./lib/jobCounts";
 import { ADMIN_STAT_KEYS, bumpAdminStat } from "./lib/adminStats";
@@ -629,7 +630,7 @@ export const industries = query({
   },
 });
 
-export const setUserRole = mutation({
+export const setUserRole = internalMutation({
   args: {
     email: v.string(),
     account_type: v.union(v.literal("seeker"), v.literal("recruiter")),
@@ -643,6 +644,7 @@ export const setUserRole = mutation({
       .withIndex("by_email", (q) => q.eq("email", args.email))
       .first();
     if (!user) throw new Error("User not found");
+    if (args.account_type === "recruiter") assertEmployerEmail(user.email);
     await ctx.db.patch(user._id, {
       account_type: args.account_type,
       hiring_role: args.hiring_role,

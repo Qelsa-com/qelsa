@@ -15,6 +15,20 @@ See `README.md` for the canonical setup/dev commands. Package scripts live in th
 - Admin mutations write an `admin_audit_log` row so every privileged action stays attributable.
 - Suspended app users are rejected by `getAppUser()` and are treated as signed out by optional auth reads. Do not add a new `authed*` path that bypasses that check.
 
+## Employer authentication
+
+`/auth` is the candidate flow. Employers use `/employer/auth`, which supports Google and email OTP but rejects consumer/disposable domains.
+
+- The employer screen uses `/api/employer-auth/[...all]`; that proxy rewrites to the normal Better Auth handler and stamps `x-qelsa-auth-flow: employer`.
+- `packages/backend/convex/auth.ts` enforces the work-email policy for the employer flow before sending an OTP or accepting a password/OTP sign-in.
+- `packages/backend/convex/lib/employerEmail.ts` owns the domain policy and the optional `EMPLOYER_EMAIL_ALLOWLIST` / `EMPLOYER_EMAIL_BLOCKLIST` overrides.
+- The recruiter role may only be granted through `users.setAccountType`, `onboarding.setAccountTypeAndResetOnboarding`, or `onboarding.completeHrOnboarding`; each calls `assertEmployerEmail`.
+- Do not add `account_type`, `hiring_role`, `active_page_id`, or `onboarding_completed` back to `users.updateProfile`'s patch allowlist. That would let a candidate self-promote to recruiter.
+
+Google OAuth reveals the address only after the callback, so the employer screen checks it before granting recruiter access; the recruiter role is still server-gated. OTP/password employer sign-in is rejected at the auth endpoint.
+
+A work-email blocklist plus OTP proves the user controls that inbox; it does not prove the domain belongs to a real employer. Domain/DNS verification or admin approval is the stronger follow-up if we need that guarantee.
+
 ## Performance is a first-pass requirement
 
 Treat cost, latency, data growth, and external-service usage as acceptance criteria for every implementation—not cleanup for later.
@@ -63,7 +77,7 @@ Reference/catalog data (degrees, skills, cities, etc.) is not present on a fresh
 
 ### Auth / sign-in gotcha (how to log in during testing)
 
-Auth is email + password and email OTP (Better Auth). **No email provider is wired** — the OTP is only `console.log`ed by the backend. To sign in via OTP at `/auth`, enter an email, then read the code from the Convex backend terminal (line format `[emailOTP] <email>: <code>`) and enter it. New users then pick a role (seeker/recruiter) and land on `/onboarding`. Email/password signup also works (`requireEmailVerification: false`).
+Auth is email + password and email OTP (Better Auth). **No email provider is wired** — the OTP is only `console.log`ed by the backend. To sign in via OTP at `/auth` (candidate) or `/employer/auth` (company email), enter an email, then read the code from the Convex backend terminal (line format `[emailOTP] <email>: <code>`) and enter it. New candidates continue to `/onboarding` as seekers; employer accounts are provisioned as recruiters. Email/password signup also works (`requireEmailVerification: false`).
 
 ### Optional integrations (app degrades gracefully without them)
 
@@ -75,6 +89,7 @@ Set these on the local Convex deployment with `npx convex env set <NAME> <value>
 - `ATS_SYNC_ENABLED` — `true`/`false` to force ATS and public-board sync on or off for this deployment. Unset: off on local Convex (`127.0.0.1` / localhost), on in the cloud. Admins can also toggle sync on the public-boards page unless this env var is set.
 - `VAPID_PUBLIC_KEY` + `VAPID_PRIVATE_KEY` — browser push for saved-search briefs. Optional `VAPID_SUBJECT` (defaults to a Qelsa mailto). Without these, the Enable browser alerts control is hidden and push is skipped.
 - `SITE_URL` — absolute web URL used in brief emails, autofill bookmarklets, and notification links. Falls back to `NEXT_PUBLIC_SITE_URL`, then `http://localhost:3000`.
+- `EMPLOYER_EMAIL_ALLOWLIST` / `EMPLOYER_EMAIL_BLOCKLIST` — optional comma-separated exact emails or domains for employer-auth exceptions. Allowlist entries bypass the consumer/disposable-domain policy; blocklist entries always reject.
 - Email briefs reuse the existing Cloudflare Email Sending or Resend configuration in `packages/backend/convex/lib/email.ts`; with no provider configured they log to the Convex console.
 - `COURSE_AFFILIATE_LINKS` — optional JSON object mapping catalog `course_id` values to affiliate URLs, e.g. `{"python-py4e":"https://..."}`. Only configured links are labeled Affiliate; ranking never uses commission.
 

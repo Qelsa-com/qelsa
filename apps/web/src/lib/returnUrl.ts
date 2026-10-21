@@ -9,7 +9,7 @@ export function safeReturnUrl(value: string | null | undefined): string | undefi
   if (!value.startsWith("/") || value.startsWith("//") || value.includes("\\")) return undefined;
 
   const pathname = (value.split(/[?#]/)[0] ?? "").replace(/\/+$/, "") || "/";
-  if (pathname === "/auth" || pathname === "/onboarding") return undefined;
+  if (pathname === "/auth" || pathname === "/employer/auth" || pathname === "/onboarding") return undefined;
 
   return value;
 }

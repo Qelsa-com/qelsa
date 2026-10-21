@@ -12,6 +12,7 @@ import authConfig from "./auth.config";
 import { deleteAppUserData } from "./lib/deleteUserData";
 import { ADMIN_STAT_KEYS, bumpAdminStat } from "./lib/adminStats";
 import { sendOTPEmail } from "./lib/email";
+import { checkEmployerEmail, EMPLOYER_EMAIL_MESSAGE } from "./lib/employerEmail";
 
 const siteUrl = process.env.SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 const isLocalSite = /localhost|127\.0\.0\.1/.test(siteUrl);
@@ -32,8 +33,12 @@ const ADMIN_AUTH_PATHS = new Set([
   "/ok",
 ]);
 
+function requestHeaders(ctx: any): any {
+  return ctx?.request?.headers ?? ctx?.headers ?? null;
+}
+
 function requestHost(ctx: any): string | null {
-  const headers = ctx?.request?.headers ?? ctx?.headers;
+  const headers = requestHeaders(ctx);
   if (!headers) return null;
   const candidates = [
     headers.get?.("x-better-auth-forwarded-host"),
@@ -61,6 +66,18 @@ function isAdminAuthRequest(ctx: any): boolean {
   }
 }
 
+/**
+ * The employer screen uses its own auth proxy, which stamps every request.
+ * A client can also send this header to the normal proxy; that only applies the
+ * stricter employer policy, so it cannot be used to bypass it.
+ */
+function isEmployerAuthRequest(ctx: any): boolean {
+  return requestHeaders(ctx)?.get?.("x-qelsa-auth-flow") === "employer";
+}
+
+const EMPLOYER_CANDIDATE_ACCOUNT_MESSAGE =
+  "This email is already registered as a candidate account. Sign in as a candidate or use a different work email.";
+
 async function appUserByEmail(ctx: any, email: string) {
   const normalized = email.trim().toLowerCase();
   if (!normalized) return null;
@@ -72,6 +89,20 @@ async function appUserByEmail(ctx: any, email: string) {
   }
   if (ctx?.runQuery) {
     return await ctx.runQuery(internal.auth.findAppUserByEmail, { email: normalized });
+  }
+  return null;
+}
+
+async function appUserByAuthId(ctx: any, authId: string) {
+  if (!authId) return null;
+  if (ctx?.db) {
+    return await ctx.db
+      .query("users")
+      .withIndex("by_authId", (q: any) => q.eq("authId", authId))
+      .unique();
+  }
+  if (ctx?.runQuery) {
+    return await ctx.runQuery(internal.auth.findAppUserByAuthId, { authId });
   }
   return null;
 }
@@ -257,6 +288,32 @@ export const createAuth = (ctx: Parameters<typeof authComponent.adapter>[0]) =>
           return;
         }
 
+        // The employer screen has its own proxy header. Reject consumer and
+        // disposable domains at the auth endpoint, not just in the React form.
+        if (isEmployerAuthRequest(authCtx)) {
+          const isEmailEntryPath =
+            path === "/email-otp/send-verification-otp" ||
+            path === "/sign-in/email-otp" ||
+            path === "/sign-in/email" ||
+            path === "/sign-up/email";
+          if (isEmailEntryPath && email) {
+            const check = checkEmployerEmail(email);
+            if (!check.allowed) {
+              throw new APIError("BAD_REQUEST", {
+                message: check.message ?? EMPLOYER_EMAIL_MESSAGE,
+              });
+            }
+            if (
+              appUser?.account_type === "seeker" &&
+              (path === "/sign-in/email-otp" || path === "/sign-in/email" || path === "/sign-up/email")
+            ) {
+              throw new APIError("BAD_REQUEST", {
+                message: EMPLOYER_CANDIDATE_ACCOUNT_MESSAGE,
+              });
+            }
+          }
+        }
+
         // Suspended app users must not be able to establish a new session.
         // Their existing sessions are also rejected by getAppUser().
         if (appUser && !appUser.isActive) {
@@ -265,11 +322,29 @@ export const createAuth = (ctx: Parameters<typeof authComponent.adapter>[0]) =>
             throw new APIError("UNAUTHORIZED", { message: "Invalid email or password" });
           }
         }
+
+        // Legacy recruiter rows may predate the company-email policy. Do not
+        // send them a new code or let them create a session on any flow.
+        if (appUser?.account_type === "recruiter" && !checkEmployerEmail(appUser.email).allowed) {
+          if (path === "/email-otp/send-verification-otp") return;
+          if (path === "/sign-in/email-otp" || path === "/sign-in/email") {
+            throw new APIError("UNAUTHORIZED", { message: EMPLOYER_EMAIL_MESSAGE });
+          }
+        }
       }),
     },
     databaseHooks: {
       session: {
         create: {
+          before: async (session) => {
+            // Legacy recruiter rows may predate the company-email policy.
+            // Block new sessions for them on every flow, not just the employer
+            // screen, so candidate Google/OTP sign-in cannot bypass it.
+            const appUser = await appUserByAuthId(ctx, session.userId);
+            if (appUser?.account_type === "recruiter" && !checkEmployerEmail(appUser.email).allowed) {
+              throw new APIError("UNAUTHORIZED", { message: EMPLOYER_EMAIL_MESSAGE });
+            }
+          },
           // The user trigger only runs the first time a Better Auth user is
           // created, so a missing app user (e.g. wiped table, user created
           // before the trigger existed) would never recover. Re-provisioning on
@@ -297,7 +372,9 @@ export const createAuth = (ctx: Parameters<typeof authComponent.adapter>[0]) =>
           // login into a user-enumeration or email-spam surface.
           const appUser = await appUserByEmail(ctx, email);
           if (appUser && !appUser.isActive) return;
+          if (appUser?.account_type === "recruiter" && !checkEmployerEmail(appUser.email).allowed) return;
           if (isAdminAuthRequest(endpointCtx) && (!appUser || appUser.role !== "admin")) return;
+          if (isEmployerAuthRequest(endpointCtx) && !checkEmployerEmail(email).allowed) return;
           await sendOTPEmail({ to: email, otp });
         },
       }),
@@ -336,6 +413,17 @@ export const findAppUserByEmail = internalQuery({
     return await ctx.db
       .query("users")
       .withIndex("by_email", (q) => q.eq("email", args.email.trim().toLowerCase()))
+      .unique();
+  },
+});
+
+export const findAppUserByAuthId = internalQuery({
+  args: { authId: v.string() },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("users")
+      .withIndex("by_authId", (q) => q.eq("authId", args.authId))
       .unique();
   },
 });

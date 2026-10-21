@@ -5,6 +5,7 @@ import { query } from "./_generated/server";
 import { R2 } from "@convex-dev/r2";
 import { components } from "./_generated/api";
 import { authedMutation } from "./lib/customFunctions";
+import { assertEmployerEmail } from "./lib/employerEmail";
 import { parsedProfileValidator } from "./lib/parsedProfile";
 import { signedFileUrl } from "./lib/r2";
 import { findOrCreateSkill } from "./lib/skillCatalog";
@@ -110,6 +111,7 @@ export const completeHrOnboarding = authedMutation({
     company_name: v.string(),
   }),
   handler: async (ctx, args) => {
+    assertEmployerEmail(ctx.user.email);
     let companyName = args.company_name.trim();
     if (args.catalog_company_id) {
       const catalog = await ctx.db.get(args.catalog_company_id);
@@ -166,6 +168,7 @@ export const setAccountTypeAndResetOnboarding = authedMutation({
   args: { account_type: v.union(v.literal("seeker"), v.literal("recruiter")) },
   returns: v.object({ account_type: v.union(v.literal("seeker"), v.literal("recruiter")) }),
   handler: async (ctx, args) => {
+    if (args.account_type === "recruiter") assertEmployerEmail(ctx.user.email);
     await ctx.db.patch(ctx.user._id, {
       account_type: args.account_type,
       onboarding_completed: false,

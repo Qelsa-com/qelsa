@@ -67,6 +67,10 @@ export function RoleStep({
         })}
       </div>
 
+      <p className="mt-3 text-xs leading-relaxed text-white/40">
+        Recruiter accounts require a company email address. Personal inboxes such as Gmail, Yahoo, Outlook, and iCloud are not accepted.
+      </p>
+
       <button type="button" onClick={onContinue} disabled={!value || isSaving} className={`mt-6 ${PRIMARY_BTN}`}>
         {isSaving ? "Saving…" : "Continue"}
         {!isSaving ? <ArrowRightIcon /> : null}
