@@ -10,7 +10,7 @@
 
 import { QelsaLogo } from "@/components/QelsaLogo";
 import { useAuth } from "@/contexts/AuthContext";
-import { Search, User } from "lucide-react";
+import { Crown, User } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 /**
@@ -35,7 +35,17 @@ const GUEST_NAV_LINKS = [
   { id: "pricing", label: "Pricing", href: "/pricing" },
 ];
 
-export function DesktopTopBar({ activeSection, onProfileClick }: { activeSection?: string; onProfileClick?: () => void }) {
+export function DesktopTopBar({
+  activeSection,
+  onProfileClick,
+  isPro = false,
+  premiumLoading = false,
+}: {
+  activeSection?: string;
+  onProfileClick?: () => void;
+  isPro?: boolean;
+  premiumLoading?: boolean;
+}) {
   const router = useRouter();
   const { user, isAuthenticated } = useAuth();
   const links = isAuthenticated ? AUTHED_NAV_LINKS : GUEST_NAV_LINKS;
@@ -78,8 +88,10 @@ export function DesktopTopBar({ activeSection, onProfileClick }: { activeSection
             </button>
           </div>
         ) : (
-          <div className="flex items-center gap-6">
-            {user?.account_type !== "recruiter" ? (
+          <div className="flex items-center gap-4">
+            {premiumLoading ? (
+              <span aria-hidden className="h-9 w-[88px] animate-pulse rounded-full bg-white/[0.05]" />
+            ) : user?.account_type !== "recruiter" && !isPro ? (
               <button
                 type="button"
                 onClick={() => router.push("/pricing")}
@@ -87,18 +99,29 @@ export function DesktopTopBar({ activeSection, onProfileClick }: { activeSection
               >
                 Get Pro
               </button>
-            ) : (
-              <button type="button" aria-label="Search jobs" onClick={() => router.push("/jobs/all")} className="text-white/70 transition-colors hover:text-white">
-                <Search className="size-5" />
-              </button>
-            )}
-            <button type="button" aria-label="Open profile" onClick={onProfileClick} className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/[0.12] bg-white/[0.04]">
-              {user?.profile_image ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={user.profile_image} alt={user.name || "Profile"} className="size-full object-cover" />
-              ) : (
-                <User className="size-4 text-white/70" />
-              )}
+            ) : null}
+            <button
+              type="button"
+              aria-label={isPro ? "Open profile — Qelsa Pro member" : "Open profile"}
+              onClick={onProfileClick}
+              className="relative flex size-8 shrink-0 items-center justify-center overflow-visible rounded-full border border-white/[0.12] bg-white/[0.04]"
+            >
+              <span className="flex size-full items-center justify-center overflow-hidden rounded-full">
+                {user?.profile_image ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={user.profile_image} alt={user.name || "Profile"} className="size-full object-cover" />
+                ) : (
+                  <User className="size-4 text-white/70" />
+                )}
+              </span>
+              {isPro ? (
+                <span
+                  title="Qelsa Pro member"
+                  className="absolute -bottom-1 -right-1 flex size-4 items-center justify-center rounded-full bg-gradient-to-br from-amber-200 to-amber-400 text-[#2a1a03] shadow-[0_0_10px_rgba(251,191,36,0.45)] ring-2 ring-[#06060f]"
+                >
+                  <Crown className="size-2.5" strokeWidth={2.5} aria-hidden />
+                </span>
+              ) : null}
             </button>
           </div>
         )}

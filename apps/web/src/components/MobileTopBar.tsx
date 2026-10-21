@@ -7,10 +7,18 @@
 
 import { QelsaLogo } from "@/components/QelsaLogo";
 import { useAuth } from "@/contexts/AuthContext";
-import { Menu } from "lucide-react";
+import { Crown, Menu } from "lucide-react";
 import { useRouter } from "next/navigation";
 
-export function MobileTopBar({ onMenuClick }: { onMenuClick?: () => void }) {
+export function MobileTopBar({
+  onMenuClick,
+  isPro = false,
+  premiumLoading = false,
+}: {
+  onMenuClick?: () => void;
+  isPro?: boolean;
+  premiumLoading?: boolean;
+}) {
   const router = useRouter();
   const { user, isAuthenticated } = useAuth();
 
@@ -27,13 +35,25 @@ export function MobileTopBar({ onMenuClick }: { onMenuClick?: () => void }) {
 
       <div className="flex items-center gap-2">
         {isAuthenticated && user?.account_type !== "recruiter" ? (
-          <button
-            type="button"
-            onClick={() => router.push("/pricing")}
-            className="rounded-full bg-gradient-to-r from-[#623dd6] via-[#8433ae] to-[#be2680] px-3.5 py-1.5 text-xs font-bold text-white shadow-lg shadow-purple-900/30 transition-opacity hover:opacity-95"
-          >
-            Get Pro
-          </button>
+          premiumLoading ? (
+            <span aria-hidden className="h-7 w-[62px] animate-pulse rounded-full bg-white/[0.06]" />
+          ) : isPro ? (
+            <span
+              title="Qelsa Pro member"
+              className="inline-flex items-center gap-1 rounded-full border border-amber-300/30 bg-amber-300/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.08em] text-amber-200"
+            >
+              <Crown className="size-3" strokeWidth={2.5} aria-hidden />
+              Pro
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={() => router.push("/pricing")}
+              className="rounded-full bg-gradient-to-r from-[#623dd6] via-[#8433ae] to-[#be2680] px-3.5 py-1.5 text-xs font-bold text-white shadow-lg shadow-purple-900/30 transition-opacity hover:opacity-95"
+            >
+              Get Pro
+            </button>
+          )
         ) : null}
         <button
           type="button"
