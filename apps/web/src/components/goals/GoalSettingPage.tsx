@@ -1,27 +1,13 @@
 "use client";
 
 import { useAuth } from "@/contexts/AuthContext";
-import {
-  useExtractCareerGoalAction,
-  useGetMyCareerGoalQuery,
-  useLazySearchIndustriesQuery,
-  useUpsertCareerGoalMutation,
-} from "@/features/api/careerGoalsApi";
+import { useExtractCareerGoalAction, useGetMyCareerGoalQuery, useLazySearchIndustriesQuery, useUpsertCareerGoalMutation } from "@/features/api/careerGoalsApi";
 import { useGetExperiencesQuery } from "@/features/api/experiencesApi";
 import { useLazySearchJobTitlesQuery } from "@/features/api/jobTitlesApi";
 import { useGetUserSkillsQuery, useLazySearchSkillsQuery } from "@/features/api/userSkillsApi";
-import {
-  GOAL_EXPERIENCE_OPTIONS,
-  GOAL_TIMELINE_OPTIONS,
-  STANDARD_INDUSTRIES,
-  parseCareerGoalText,
-} from "@/lib/careerGoal";
+import { GOAL_EXPERIENCE_OPTIONS, GOAL_TIMELINE_OPTIONS, STANDARD_INDUSTRIES, parseCareerGoalText } from "@/lib/careerGoal";
 import { toastUnknownError } from "@/lib/errors";
-import type {
-  CareerGoal,
-  CareerGoalExperienceLevel,
-  CareerGoalTimeline,
-} from "@/types/careerGoal";
+import type { CareerGoal, CareerGoalExperienceLevel, CareerGoalTimeline } from "@/types/careerGoal";
 import { Loader2, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -46,12 +32,7 @@ const EMPTY_FORM: GoalForm = {
 
 function formFromSaved(goal: CareerGoal | null | undefined): GoalForm {
   if (!goal) return EMPTY_FORM;
-  const roles =
-    goal.target_roles && goal.target_roles.length > 0
-      ? goal.target_roles
-      : goal.target_role
-        ? [goal.target_role]
-        : [];
+  const roles = goal.target_roles && goal.target_roles.length > 0 ? goal.target_roles : goal.target_role ? [goal.target_role] : [];
   return {
     description: goal.description ?? "",
     target_roles: roles,
@@ -134,8 +115,7 @@ export function GoalSettingPage() {
     setHydrated(true);
   }, [authLoading, isAuthenticated, goalLoading, savedGoal, hydrated]);
 
-  const patch = (partial: Partial<GoalForm>) =>
-    setForm((current) => ({ ...current, ...partial }));
+  const patch = (partial: Partial<GoalForm>) => setForm((current) => ({ ...current, ...partial }));
 
   const handleGenerate = async () => {
     const text = form.description.trim();
@@ -152,27 +132,11 @@ export function GoalSettingPage() {
       const result = await extractGoalAction({ description: text });
       setForm((cur) => ({
         ...cur,
-        target_roles:
-          result.target_roles && result.target_roles.length > 0
-            ? result.target_roles
-            : rules.target_roles.length > 0
-              ? rules.target_roles
-              : cur.target_roles,
-        skills:
-          result.skills && result.skills.length > 0
-            ? result.skills
-            : rules.skills.length > 0
-              ? rules.skills
-              : cur.skills,
-        industries:
-          result.industries && result.industries.length > 0
-            ? result.industries
-            : rules.industries.length > 0
-              ? rules.industries
-              : cur.industries,
+        target_roles: result.target_roles && result.target_roles.length > 0 ? result.target_roles : rules.target_roles.length > 0 ? rules.target_roles : cur.target_roles,
+        skills: result.skills && result.skills.length > 0 ? result.skills : rules.skills.length > 0 ? rules.skills : cur.skills,
+        industries: result.industries && result.industries.length > 0 ? result.industries : rules.industries.length > 0 ? rules.industries : cur.industries,
         timeline: result.timeline ?? rules.timeline ?? cur.timeline,
-        experience_level:
-          result.experience_level ?? rules.experience_level ?? cur.experience_level,
+        experience_level: result.experience_level ?? rules.experience_level ?? cur.experience_level,
       }));
       setIsGenerated(true);
     } catch (err) {
@@ -244,21 +208,9 @@ export function GoalSettingPage() {
   };
 
   // Autocomplete lists
-  const titleNames = useMemo(
-    () =>
-      (titleResults as Array<{ name?: string }>)
-        .map((r) => r.name)
-        .filter((n): n is string => Boolean(n)),
-    [titleResults],
-  );
+  const titleNames = useMemo(() => (titleResults as Array<{ name?: string }>).map((r) => r.name).filter((n): n is string => Boolean(n)), [titleResults]);
 
-  const skillNames = useMemo(
-    () =>
-      (skillResults as Array<{ name?: string }>)
-        .map((r) => r.name)
-        .filter((n): n is string => Boolean(n)),
-    [skillResults],
-  );
+  const skillNames = useMemo(() => (skillResults as Array<{ name?: string }>).map((r) => r.name).filter((n): n is string => Boolean(n)), [skillResults]);
 
   const industryNames = useMemo(() => {
     const fromApi = (industryResults as string[]) || [];
@@ -269,13 +221,8 @@ export function GoalSettingPage() {
     <div className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8 text-white">
       {/* Page Header */}
       <div>
-        <h1 className="text-3xl font-extrabold tracking-tight sm:text-4xl">
-          Where do you want your career to go?
-        </h1>
-        <p className="mt-2 text-sm text-white/50 sm:text-base">
-          Tell Qelsa where you want to go. We&apos;ll turn your vision into a personalized
-          career goal.
-        </p>
+        <h1 className="text-3xl font-extrabold tracking-tight sm:text-4xl">Where do you want your career to go?</h1>
+        <p className="mt-2 text-sm text-white/50 sm:text-base">Tell Qelsa where you want to go. We&apos;ll turn your vision into a personalized career goal.</p>
       </div>
 
       {/* Main Container */}
@@ -293,17 +240,6 @@ export function GoalSettingPage() {
             rows={5}
             className="w-full resize-none rounded-2xl border border-white/10 bg-[#090B16] p-4 text-sm sm:text-base text-white placeholder:text-white/30 focus:border-white/20 focus:outline-none transition-colors"
           />
-        </div>
-
-        {/* Qelsa will figure out the rest */}
-        <div className="rounded-2xl border border-white/10 bg-[#090B16]/50 p-4 sm:p-5">
-          <h4 className="text-sm font-semibold text-neon-cyan">
-            Qelsa will figure out the rest
-          </h4>
-          <p className="mt-1 text-xs sm:text-sm text-white/60">
-            From your description, Qelsa will identify your target role, skills, industry,
-            career level and timeline.
-          </p>
         </div>
 
         {/* Action Button: Create vs Reset */}
@@ -328,18 +264,13 @@ export function GoalSettingPage() {
               )}
             </button>
           ) : (
-            <button
-              type="button"
-              onClick={handleReset}
-              className="rounded-full border border-white/20 bg-transparent px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-white/5"
-            >
+            <button type="button" onClick={handleReset} className="rounded-full border border-white/20 bg-transparent px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-white/5">
               Reset goal
             </button>
           )}
 
           <p className="mt-3 text-xs text-white/40">
-            Don&apos;t worry about getting it perfect. Just describe what you want in your
-            own words.
+            Don&apos;t worry about getting it perfect. Just describe what you want in your own words. Qelsa will figure out the rest, From your description, Qelsa will identify your target role, skills, industry, career level and timeline.
           </p>
         </div>
 
@@ -351,9 +282,7 @@ export function GoalSettingPage() {
               <div className="absolute inset-0 flex items-center">
                 <div className="w-full border-t border-white/10" />
               </div>
-              <span className="relative bg-[#050814] px-4 text-xs font-medium text-white/40">
-                Qelsa suggested
-              </span>
+              <span className="relative bg-[#050814] px-4 text-xs font-medium text-white/40">Qelsa suggested</span>
             </div>
 
             {/* Field 1: Target Roles */}
@@ -361,51 +290,24 @@ export function GoalSettingPage() {
               <label className="text-sm font-medium text-white/90">
                 What roles you should aim for? <span className="text-white/40">*</span>
               </label>
-              <GoalTagField
-                values={form.target_roles}
-                onChange={(target_roles) => patch({ target_roles })}
-                placeholder="Add a role..."
-                suggestions={titleNames}
-                onSearch={(q) => searchJobTitles(q)}
-                max={6}
-              />
+              <GoalTagField values={form.target_roles} onChange={(target_roles) => patch({ target_roles })} placeholder="Add a role..." suggestions={titleNames} onSearch={(q) => searchJobTitles(q)} max={6} />
             </div>
 
             {/* Field 2: Target Skills */}
             <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium text-white/90">
-                What skills you should build?
-              </label>
-              <GoalTagField
-                values={form.skills}
-                onChange={(skills) => patch({ skills })}
-                placeholder="Add a skill..."
-                suggestions={skillNames}
-                onSearch={(q) => searchSkills(q)}
-                max={12}
-              />
+              <label className="text-sm font-medium text-white/90">What skills you should build?</label>
+              <GoalTagField values={form.skills} onChange={(skills) => patch({ skills })} placeholder="Add a skill..." suggestions={skillNames} onSearch={(q) => searchSkills(q)} max={12} />
             </div>
 
             {/* Field 3: Target Industries */}
             <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium text-white/90">
-                Industries you&apos;re interested in (optional)
-              </label>
-              <GoalTagField
-                values={form.industries}
-                onChange={(industries) => patch({ industries })}
-                placeholder="Add an industry..."
-                suggestions={industryNames}
-                onSearch={(q) => searchIndustries(q)}
-                max={6}
-              />
+              <label className="text-sm font-medium text-white/90">Industries you&apos;re interested in (optional)</label>
+              <GoalTagField values={form.industries} onChange={(industries) => patch({ industries })} placeholder="Add an industry..." suggestions={industryNames} onSearch={(q) => searchIndustries(q)} max={6} />
             </div>
 
             {/* Field 4: Timeline */}
             <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium text-white/90">
-                What is your timeline?
-              </label>
+              <label className="text-sm font-medium text-white/90">What is your timeline?</label>
               <div className="flex flex-wrap gap-2.5">
                 {GOAL_TIMELINE_OPTIONS.map((option) => {
                   const selected = form.timeline === option.value;
@@ -413,13 +315,9 @@ export function GoalSettingPage() {
                     <button
                       key={option.value}
                       type="button"
-                      onClick={() =>
-                        patch({ timeline: selected ? undefined : option.value })
-                      }
+                      onClick={() => patch({ timeline: selected ? undefined : option.value })}
                       className={`rounded-full px-5 py-2 text-sm font-medium transition-all ${
-                        selected
-                          ? "border border-neon-cyan bg-neon-cyan/10 text-neon-cyan"
-                          : "border border-white/10 bg-white/[0.04] text-white/70 hover:bg-white/[0.08] hover:text-white"
+                        selected ? "border border-neon-cyan bg-neon-cyan/10 text-neon-cyan" : "border border-white/10 bg-white/[0.04] text-white/70 hover:bg-white/[0.08] hover:text-white"
                       }`}
                     >
                       {option.label}
@@ -431,9 +329,7 @@ export function GoalSettingPage() {
 
             {/* Field 5: Target Seniority */}
             <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium text-white/90">
-                Target seniority
-              </label>
+              <label className="text-sm font-medium text-white/90">Target seniority</label>
               <div className="flex flex-wrap gap-2.5">
                 {GOAL_EXPERIENCE_OPTIONS.map((option) => {
                   const selected = form.experience_level === option.value;
@@ -447,9 +343,7 @@ export function GoalSettingPage() {
                         })
                       }
                       className={`rounded-full px-5 py-2 text-sm font-medium transition-all ${
-                        selected
-                          ? "border border-neon-cyan bg-neon-cyan/10 text-neon-cyan"
-                          : "border border-white/10 bg-white/[0.04] text-white/70 hover:bg-white/[0.08] hover:text-white"
+                        selected ? "border border-neon-cyan bg-neon-cyan/10 text-neon-cyan" : "border border-white/10 bg-white/[0.04] text-white/70 hover:bg-white/[0.08] hover:text-white"
                       }`}
                     >
                       {option.label}
@@ -461,12 +355,7 @@ export function GoalSettingPage() {
 
             {/* Bottom Actions */}
             <div className="mt-8 flex items-center justify-between gap-4">
-              <button
-                type="button"
-                onClick={handleCancel}
-                disabled={saving}
-                className="rounded-full border border-white/20 bg-transparent px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-white/5"
-              >
+              <button type="button" onClick={handleCancel} disabled={saving} className="rounded-full border border-white/20 bg-transparent px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-white/5">
                 Cancel
               </button>
               <button

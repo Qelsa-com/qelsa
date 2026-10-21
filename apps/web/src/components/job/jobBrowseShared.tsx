@@ -23,7 +23,7 @@ import { hasCareerGoal } from "@/lib/careerGoal";
 import { ALMOST_MAX, ALMOST_MIN, GOAL_MATCH, MATCH_TIER, matchRingColor, type MatchTierId } from "@/lib/matchTiers";
 import { City } from "@/types/city";
 import { Job } from "@/types/job";
-import { BarChart3, Building2, Check, ChevronDown, MapPin, Search, ShieldCheck, Sparkle, Sparkles, Target, X } from "lucide-react";
+import { BarChart3, Building2, Check, ChevronDown, MapPin, Search, Sparkle, Target, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
@@ -145,7 +145,10 @@ function companyDomainFromJob(job: Job) {
       /* ignore */
     }
   }
-  const slug = (job.company_name ?? "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "");
+  const slug = (job.company_name ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "");
   return slug ? `${slug}.com` : undefined;
 }
 
@@ -164,17 +167,7 @@ export function companyLogoUrl(job: Job) {
   return domain ? logoUrlForDomain(domain) : undefined;
 }
 
-export function CompanyLogo({
-  job,
-  name,
-  className = "size-full object-cover",
-  fallback,
-}: {
-  job: Job;
-  name?: string;
-  className?: string;
-  fallback: ReactNode;
-}) {
+export function CompanyLogo({ job, name, className = "size-full object-cover", fallback }: { job: Job; name?: string; className?: string; fallback: ReactNode }) {
   const src = companyLogoUrl(job);
   const [failed, setFailed] = useState(false);
   if (!src || failed) return <>{fallback}</>;
@@ -312,15 +305,7 @@ export function useJobBrowseFilters(tier?: MatchTierId) {
 
 /* ------------------------------ job card ---------------------------------- */
 
-export function JobCard({
-  job,
-  onClick,
-  variant = "all",
-}: {
-  job: Job;
-  onClick: () => void;
-  variant?: "all" | "smart" | "goal";
-}) {
+export function JobCard({ job, onClick, variant = "all" }: { job: Job; onClick: () => void; variant?: "all" | "smart" | "goal" }) {
   const title = job.job_title?.name ?? job.title;
   const company = displayCompanyName(job.page?.name || job.company_name);
   const location = displayLocation(job);
@@ -343,24 +328,16 @@ export function JobCard({
       className="flex flex-col gap-4 rounded-2xl border border-glass-border bg-white/[0.04] p-4 text-left transition-all hover:-translate-y-0.5 hover:border-neon-cyan/30 hover:bg-white/[0.06] sm:rounded-[20px] sm:p-5"
     >
       <div className="flex items-center justify-between">
-        <div
-          className="flex size-9 items-center justify-center overflow-hidden rounded-lg"
-          style={hasLogo ? undefined : { backgroundColor: `${tint}22`, border: `1px solid ${tint}55` }}
-        >
+        <div className="flex size-9 items-center justify-center overflow-hidden rounded-lg" style={hasLogo ? undefined : { backgroundColor: `${tint}22`, border: `1px solid ${tint}55` }}>
           <CompanyLogo job={job} name={company} fallback={<Building2 className="size-4" style={{ color: tint }} />} />
         </div>
-        {score != null && (
-          <MatchRing
-            value={score}
-            tone={score}
-            color={variant === "goal" ? GOAL_MATCH.color : undefined}
-            label={ringLabel}
-          />
-        )}
+        {score != null && <MatchRing value={score} tone={score} color={variant === "goal" ? GOAL_MATCH.color : undefined} label={ringLabel} />}
       </div>
 
       <div className="flex flex-col gap-1">
-        <p className="line-clamp-1 text-[15px] font-bold text-white" title={title}>{title}</p>
+        <p className="line-clamp-1 text-[15px] font-bold text-white" title={title}>
+          {title}
+        </p>
         {company && <p className="line-clamp-1 text-[13px] text-white/55">{company}</p>}
         {location && <p className="line-clamp-1 text-xs text-white/40">{location}</p>}
       </div>
@@ -436,17 +413,7 @@ export function MatchRing({
  * Figma: Qelsa-Screen — all-jobs-filter-active (262:10); the pill turns cyan
  * once anything is picked, and the picks surface as chips under the row.
  */
-export function MultiSelectPill({
-  label,
-  options,
-  values,
-  onChange,
-}: {
-  label: string;
-  options: { label: string; value: string }[];
-  values: string[];
-  onChange: (values: string[]) => void;
-}) {
+export function MultiSelectPill({ label, options, values, onChange }: { label: string; options: { label: string; value: string }[]; values: string[]; onChange: (values: string[]) => void }) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const [alignRight, setAlignRight] = useState(false);
@@ -479,24 +446,12 @@ export function MultiSelectPill({
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div
-            className={`absolute z-20 mt-2 flex w-[220px] max-w-[calc(100vw-24px)] flex-col gap-0.5 rounded-xl border border-glass-border bg-[#1a1a24] p-2 shadow-2xl ${
-              alignRight ? "right-0" : "left-0"
-            }`}
-          >
+          <div className={`absolute z-20 mt-2 flex w-[220px] max-w-[calc(100vw-24px)] flex-col gap-0.5 rounded-xl border border-glass-border bg-[#1a1a24] p-2 shadow-2xl ${alignRight ? "right-0" : "left-0"}`}>
             {options.map((o) => {
               const checked = values.includes(o.value);
               return (
-                <button
-                  key={o.value}
-                  onClick={() => toggle(o.value)}
-                  className={`flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors ${checked ? "bg-white/[0.08]" : "hover:bg-white/5"}`}
-                >
-                  <span
-                    className={`flex size-[18px] shrink-0 items-center justify-center rounded border-2 ${
-                      checked ? "border-neon-cyan bg-neon-cyan" : "border-white/35"
-                    }`}
-                  >
+                <button key={o.value} onClick={() => toggle(o.value)} className={`flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors ${checked ? "bg-white/[0.08]" : "hover:bg-white/5"}`}>
+                  <span className={`flex size-[18px] shrink-0 items-center justify-center rounded border-2 ${checked ? "border-neon-cyan bg-neon-cyan" : "border-white/35"}`}>
                     {checked && <Check className="size-2.5 text-[#06060f]" strokeWidth={4} />}
                   </span>
                   <span className="text-sm font-medium text-white/90">{o.label}</span>
@@ -534,17 +489,7 @@ export function AppliedFilters({ chips, onClear }: { chips: { key: string; label
 
 /* ------------------------------ filter pill ------------------------------- */
 
-export function PillDropdown({
-  label,
-  value,
-  options,
-  onSelect,
-}: {
-  label: string;
-  value: string;
-  options: { label: string; value: string }[];
-  onSelect: (value: string) => void;
-}) {
+export function PillDropdown({ label, value, options, onSelect }: { label: string; value: string; options: { label: string; value: string }[]; onSelect: (value: string) => void }) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const [alignRight, setAlignRight] = useState(false);
@@ -571,11 +516,7 @@ export function PillDropdown({
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div
-            className={`absolute z-20 mt-2 min-w-[180px] max-w-[calc(100vw-24px)] overflow-hidden rounded-xl border border-glass-border bg-[#0d0d1a] p-1 shadow-2xl ${
-              alignRight ? "right-0" : "left-0"
-            }`}
-          >
+          <div className={`absolute z-20 mt-2 min-w-[180px] max-w-[calc(100vw-24px)] overflow-hidden rounded-xl border border-glass-border bg-[#0d0d1a] p-1 shadow-2xl ${alignRight ? "right-0" : "left-0"}`}>
             {options.map((o) => (
               <button
                 key={o.value || "any"}
@@ -627,18 +568,7 @@ interface JobsBrowseHeaderProps {
   suppressGoalBanner?: boolean;
 }
 
-export function JobsBrowseHeader({
-  activeTab,
-  query,
-  setQuery,
-  onSearch,
-  filters,
-  onApplyFilters,
-  cityFilter,
-  setCityFilter,
-  resultsCount,
-  suppressGoalBanner = false,
-}: JobsBrowseHeaderProps) {
+export function JobsBrowseHeader({ activeTab, query, setQuery, onSearch, filters, onApplyFilters, cityFilter, setCityFilter, resultsCount, suppressGoalBanner = false }: JobsBrowseHeaderProps) {
   const router = useRouter();
   const { user, isAuthenticated } = useAuth();
   const showGoalBanner = !suppressGoalBanner && isAuthenticated && Boolean(user) && !hasCareerGoal(user?.career_goal);
@@ -706,25 +636,15 @@ export function JobsBrowseHeader({
       <div className="flex flex-wrap items-start justify-between gap-5 sm:gap-4">
         <div className="flex flex-col gap-2 sm:gap-3">
           <h1 className="text-[30px] font-extrabold text-white sm:text-4xl md:text-5xl">Job opportunities.</h1>
-          <p className="text-sm text-white/70 sm:text-lg">
-            {hasCareerGoal(user?.career_goal)
-              ? `Roles matched to your goal: ${user?.career_goal?.target_role}.`
-              : "Find your next career move with AI-powered matching."}
-          </p>
+          <p className="text-sm text-white/70 sm:text-lg">{hasCareerGoal(user?.career_goal) ? `Roles matched to your goal: ${user?.career_goal?.target_role}.` : "Find your next career move with AI-powered matching."}</p>
         </div>
         {/* Posting and managing are recruiter-only — hidden for candidates and while signed out. */}
         {isAuthenticated && user?.account_type === "recruiter" && (
           <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-            <button
-              onClick={() => router.push("/jobs/create-job")}
-              className="rounded-full gradient-primary px-4 py-2.5 text-[13px] font-bold text-white transition-opacity hover:opacity-90 sm:px-6 sm:py-3 sm:text-sm"
-            >
+            <button onClick={() => router.push("/jobs/create-job")} className="rounded-full gradient-primary px-4 py-2.5 text-[13px] font-bold text-white transition-opacity hover:opacity-90 sm:px-6 sm:py-3 sm:text-sm">
               Post job
             </button>
-            <button
-              onClick={() => router.push("/jobs/posted")}
-              className="rounded-full border border-white/20 px-4 py-2.5 text-[13px] font-bold text-white transition-colors hover:bg-white/5 sm:px-6 sm:py-3 sm:text-sm"
-            >
+            <button onClick={() => router.push("/jobs/posted")} className="rounded-full border border-white/20 px-4 py-2.5 text-[13px] font-bold text-white transition-colors hover:bg-white/5 sm:px-6 sm:py-3 sm:text-sm">
               <span className="sm:hidden">Manage</span>
               <span className="hidden sm:inline">Manage job post</span>
             </button>
@@ -755,26 +675,9 @@ export function JobsBrowseHeader({
 
       {/* Filter pills */}
       <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-        {activeTab === "all" && (
-          <PillDropdown
-            label="Sort"
-            value={filters.sort_by}
-            options={SORT_OPTIONS}
-            onSelect={(v) => onApplyFilters({ sort_by: v as SearchFilters["sort_by"] })}
-          />
-        )}
-        <PillDropdown
-          label="Date posted"
-          value={filters.date_posted}
-          options={DATE_POSTED_OPTIONS}
-          onSelect={(v) => onApplyFilters({ date_posted: v as SearchFilters["date_posted"] })}
-        />
-        <MultiSelectPill
-          label="Workplace type"
-          options={WORKPLACE_TYPE_OPTIONS}
-          values={filters.workplace_types}
-          onChange={(v) => onApplyFilters({ workplace_types: v })}
-        />
+        {activeTab === "all" && <PillDropdown label="Sort" value={filters.sort_by} options={SORT_OPTIONS} onSelect={(v) => onApplyFilters({ sort_by: v as SearchFilters["sort_by"] })} />}
+        <PillDropdown label="Date posted" value={filters.date_posted} options={DATE_POSTED_OPTIONS} onSelect={(v) => onApplyFilters({ date_posted: v as SearchFilters["date_posted"] })} />
+        <MultiSelectPill label="Workplace type" options={WORKPLACE_TYPE_OPTIONS} values={filters.workplace_types} onChange={(v) => onApplyFilters({ workplace_types: v })} />
         <MultiSelectPill label="Work type" options={WORK_TYPE_OPTIONS} values={filters.job_types} onChange={(v) => onApplyFilters({ job_types: v })} />
         <Autocomplete
           className="w-[136px] sm:w-[221px]"
@@ -825,19 +728,7 @@ export function TabButton({ active, label, onClick }: { active: boolean; label: 
   );
 }
 
-export function MatchSection({
-  dotColor,
-  title,
-  subtitle,
-  viewAllHref,
-  children,
-}: {
-  dotColor: string;
-  title: string;
-  subtitle: string;
-  viewAllHref?: string;
-  children: ReactNode;
-}) {
+export function MatchSection({ dotColor, title, subtitle, viewAllHref, children }: { dotColor: string; title: string; subtitle: string; viewAllHref?: string; children: ReactNode }) {
   const router = useRouter();
   return (
     <div className="flex flex-col gap-4 sm:gap-6">
@@ -850,11 +741,7 @@ export function MatchSection({
           <p className="text-[13px] text-white/45 sm:text-sm">{subtitle}</p>
         </div>
         {viewAllHref && (
-          <button
-            type="button"
-            onClick={() => router.push(viewAllHref)}
-            className="shrink-0 pt-0.5 text-[13px] font-semibold text-white/50 transition-colors hover:text-white sm:text-sm"
-          >
+          <button type="button" onClick={() => router.push(viewAllHref)} className="shrink-0 pt-0.5 text-[13px] font-semibold text-white/50 transition-colors hover:text-white sm:text-sm">
             View All
           </button>
         )}
@@ -866,19 +753,7 @@ export function MatchSection({
 
 export type SmartMatchTier = "strong" | "almost" | "growth";
 
-export function MatchEmptyState({
-  tier = "strong",
-  title,
-  subtitle,
-  actionLabel,
-  onAction,
-}: {
-  tier?: SmartMatchTier;
-  title?: string;
-  subtitle?: string;
-  actionLabel?: string;
-  onAction?: () => void;
-}) {
+export function MatchEmptyState({ tier = "strong", title, subtitle, actionLabel, onAction }: { tier?: SmartMatchTier; title?: string; subtitle?: string; actionLabel?: string; onAction?: () => void }) {
   if (title && !actionLabel && !onAction) {
     // If just custom title was passed without tier, keep simple fallback
     return (
@@ -917,20 +792,10 @@ export function MatchEmptyState({
         <Sparkle className="size-5 fill-current" />
       </div>
 
-      {content.statusTitle && (
-        <h3 className="mt-3.5 text-base font-semibold text-white sm:text-lg">
-          {content.statusTitle}
-        </h3>
-      )}
-      {content.statusSubtitle && (
-        <p className="mt-1 text-xs text-white/50 sm:text-sm">
-          {content.statusSubtitle}
-        </p>
-      )}
+      {content.statusTitle && <h3 className="mt-3.5 text-base font-semibold text-white sm:text-lg">{content.statusTitle}</h3>}
+      {content.statusSubtitle && <p className="mt-1 text-xs text-white/50 sm:text-sm">{content.statusSubtitle}</p>}
 
-      <h4 className={`${content.statusTitle ? "mt-4 sm:mt-5" : "mt-3.5"} text-base font-bold text-white sm:text-lg`}>
-        How to improve your match score
-      </h4>
+      <h4 className={`${content.statusTitle ? "mt-4 sm:mt-5" : "mt-3.5"} text-base font-bold text-white sm:text-lg`}>How to improve your match score</h4>
 
       {/* Two explanation boxes */}
       <div className="mt-6 sm:mt-8 grid w-full grid-cols-1 gap-4 text-left md:grid-cols-2">
@@ -941,9 +806,7 @@ export function MatchEmptyState({
             </div>
             <span className="text-sm font-semibold text-neon-cyan">Readiness score</span>
           </div>
-          <p className="mt-3 text-xs leading-relaxed text-white/60 sm:text-[13px]">
-            {content.readinessText}
-          </p>
+          <p className="mt-3 text-xs leading-relaxed text-white/60 sm:text-[13px]">{content.readinessText}</p>
         </div>
 
         <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
@@ -953,9 +816,7 @@ export function MatchEmptyState({
             </div>
             <span className="text-sm font-semibold text-neon-cyan">Career goal alignment</span>
           </div>
-          <p className="mt-3 text-xs leading-relaxed text-white/60 sm:text-[13px]">
-            {content.goalText}
-          </p>
+          <p className="mt-3 text-xs leading-relaxed text-white/60 sm:text-[13px]">{content.goalText}</p>
         </div>
       </div>
 
@@ -979,59 +840,12 @@ export function MatchEmptyState({
   );
 }
 
-export function JobGrid({
-  jobs,
-  onOpen,
-  variant = "all",
-}: {
-  jobs: Job[];
-  onOpen: (id: string | number) => void;
-  variant?: "all" | "smart" | "goal";
-}) {
+export function JobGrid({ jobs, onOpen, variant = "all" }: { jobs: Job[]; onOpen: (id: string | number) => void; variant?: "all" | "smart" | "goal" }) {
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
       {jobs.map((job) => (
         <JobCard key={job.id} job={job} onClick={() => onOpen(job.id)} variant={variant} />
       ))}
-    </div>
-  );
-}
-
-export interface ResumePromptBannerProps {
-  title: string;
-  description: string;
-  disclaimer: string;
-  onUpload?: () => void;
-  className?: string;
-}
-
-export function ResumePromptBanner({
-  title,
-  description,
-  disclaimer,
-  onUpload,
-  className,
-}: ResumePromptBannerProps) {
-  const router = useRouter();
-  return (
-    <div className={cn("rounded-2xl border border-glass-border bg-white/[0.03] p-5 sm:p-6 space-y-4", className)}>
-      <div className="space-y-1.5">
-        <h2 className="text-lg sm:text-xl font-bold text-white">{title}</h2>
-        <p className="text-sm text-white/60">{description}</p>
-      </div>
-      <div>
-        <button
-          type="button"
-          onClick={onUpload ?? (() => router.push("/profile"))}
-          className="rounded-full bg-gradient-to-r from-[#7c2ff3] to-[#d73e9d] px-6 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
-        >
-          Upload resume
-        </button>
-      </div>
-      <div className="flex items-center gap-2 rounded-xl bg-white/[0.02] border border-white/8 px-4 py-3 text-xs text-white/60">
-        <ShieldCheck className="size-4 text-neon-cyan shrink-0" />
-        <span>{disclaimer}</span>
-      </div>
     </div>
   );
 }

@@ -49,7 +49,7 @@ export function PublicNavbar({ activeSection }: PublicNavbarProps) {
 
         <div className="hidden items-center gap-3 sm:flex">
           <Link href="/auth?returnUrl=/profile" className="rounded-full border border-white/20 bg-white/[0.04] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/35 hover:bg-white/[0.08]">
-            Find your role
+            Get a job
           </Link>
           <Link
             href="/employer/auth?returnUrl=/jobs/posted"
@@ -82,7 +82,7 @@ export function PublicNavbar({ activeSection }: PublicNavbarProps) {
           </nav>
           <div className="mt-6 flex flex-col gap-3">
             <Link href="/auth?returnUrl=/profile" onClick={() => setMobileMenuOpen(false)} className="rounded-full border border-white/20 bg-white/[0.04] py-3 text-center text-sm font-semibold text-white">
-              Find your role
+              Get a job
             </Link>
             <Link
               href="/employer/auth?returnUrl=/jobs/posted"

@@ -52,6 +52,21 @@ const nextConfig = {
         destination: "/employers",
         permanent: true,
       },
+      {
+        source: "/profile/work-experience",
+        destination: "/profile?edit=experience",
+        permanent: false,
+      },
+      {
+        source: "/profile/skills",
+        destination: "/profile?edit=skills",
+        permanent: false,
+      },
+      {
+        source: "/profile/skills/edit",
+        destination: "/profile?edit=skills",
+        permanent: false,
+      },
     ];
   },
 };

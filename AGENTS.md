@@ -95,7 +95,7 @@ Reference/catalog data (degrees, skills, cities, etc.) is not present on a fresh
 
 ### Auth / sign-in gotcha (how to log in during testing)
 
-Auth is email + password and email OTP (Better Auth). **No email provider is wired** — the OTP is only `console.log`ed by the backend. To sign in via OTP at `/auth` (candidate) or `/employer/auth` (company email), enter an email, then read the code from the Convex backend terminal (line format `[emailOTP] <email>: <code>`) and enter it. New candidates continue to `/onboarding` as seekers; employer accounts are provisioned as recruiters. Email/password signup also works (`requireEmailVerification: false`).
+Auth is email + password and email OTP (Better Auth). **No email provider is wired** — the OTP is only `console.log`ed by the backend. To sign in via OTP at `/auth` (candidate) or `/employer/auth` (company email), enter an email, then read the code from the Convex backend terminal (line format `[emailOTP] <email>: <code>`) and enter it. New candidates land directly on My Space (`/`) as seekers; employer accounts are provisioned as recruiters and still go through employer onboarding. Email/password signup also works (`requireEmailVerification: false`).
 
 ### Optional integrations (app degrades gracefully without them)
 

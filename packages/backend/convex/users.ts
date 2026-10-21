@@ -373,7 +373,12 @@ export const setAccountType = authedMutation({
   returns: v.any(),
   handler: async (ctx, args) => {
     if (args.account_type === "recruiter") assertEmployerEmail(ctx.user.email);
-    await ctx.db.patch(ctx.user._id, { account_type: args.account_type });
+    await ctx.db.patch(ctx.user._id, {
+      account_type: args.account_type,
+      // Candidate onboarding is retired. Mark candidate signup complete here;
+      // employer onboarding still uses its own flow.
+      ...(args.account_type === "seeker" ? { onboarding_completed: true } : {}),
+    });
     // Keep the admin dashboard counters in step with the change.
     await applyUserStatDeltas(ctx, ctx.user, { ...ctx.user, account_type: args.account_type });
     const user = (await ctx.db.get(ctx.user._id)) as Doc<"users">;

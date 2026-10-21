@@ -1,35 +1,19 @@
 "use client";
 
-import type { AccountType } from "@/features/api/authApi";
 import { useGetProfileQuery, useGoogleLoginMutation, useRequestOtpMutation, useResendOtpMutation, useSetAccountTypeMutation, useVerifyOtpMutation } from "@/features/api/authApi";
 import { authClient } from "@/lib/auth-client";
 import { toastUnknownError } from "@/lib/errors";
 import { clearResumeDraft } from "@/lib/resumeDraft";
 import { safeReturnUrl } from "@/lib/returnUrl";
-import type { User } from "@/types/user";
 import { AnimatePresence, motion } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "../components/ui/input-otp";
 
-type Step = "method" | "email" | "otp" | "role";
-
-/** Tokens are held here until the flow finishes — see finishAuth below. */
-type PendingAuth = {
-  user?: User | null;
-};
-
-const ROLE_OPTIONS: { value: AccountType; Icon: () => React.ReactElement; title: string; description: string }[] = [
-  {
-    value: "seeker",
-    Icon: SearchIcon,
-    title: "I'm looking for a job",
-    description: "See roles matched to your skills and signal your readiness.",
-  },
-];
+type Step = "method" | "email" | "otp";
 
 // Shared button styles. Tailwind v4's preflight no longer sets `cursor: pointer`
 // on <button>, so it has to be opted into explicitly.
@@ -47,21 +31,19 @@ export default function AuthPage() {
   const [step, setStep] = useState<Step>("method");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
-  const [accountType, setAccountType] = useState<AccountType | null>(null);
-  const [pendingAuth, setPendingAuth] = useState<PendingAuth | null>(null);
   const [resendIn, setResendIn] = useState(0);
+  const finishingRef = useRef(false);
 
   const [googleLogin, { isLoading: isGoogleLoading }] = useGoogleLoginMutation();
   const [requestOtp, { isLoading: isSendingOtp }] = useRequestOtpMutation();
   const [resendOtp, { isLoading: isResending }] = useResendOtpMutation();
   const [verifyOtp, { isLoading: isVerifying }] = useVerifyOtpMutation();
-  const [saveAccountType, { isLoading: isSavingRole }] = useSetAccountTypeMutation();
+  const [saveAccountType] = useSetAccountTypeMutation();
   const { data: session } = authClient.useSession();
   const { data: profile } = useGetProfileQuery(undefined, { skip: !session });
 
   const searchParams = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
   const returnUrl = safeReturnUrl(searchParams.get("returnUrl"));
-  const onboardingUrl = returnUrl ? `/onboarding?returnUrl=${encodeURIComponent(returnUrl)}` : "/onboarding";
   const isSwitching = searchParams.get("switch") === "true" || searchParams.get("logout") === "true";
 
   // Resend cooldown ticker.
@@ -79,33 +61,35 @@ export default function AuthPage() {
   }, [isSwitching]);
 
   /**
-   * Commit the session and leave the auth flow.
-   *
-   * This is the only place credentials get persisted. Doing it earlier would
-   * let RouteGuard redirect away from /auth before the role step can render.
-   * New users go to /onboarding for the role-specific setup.
+   * Candidates now land on My Space immediately after sign-in. There is no
+   * candidate onboarding step anymore; employer onboarding still runs through
+   * its own /employer/auth flow.
    */
-  const finishAuth = useCallback(
-    (isNewUser: boolean) => {
-      router.push(isNewUser ? onboardingUrl : returnUrl || "/");
-    },
-    [router, returnUrl, onboardingUrl]
-  );
+  const finishAuth = useCallback(() => {
+    router.replace(returnUrl || "/");
+  }, [router, returnUrl]);
 
   useEffect(() => {
     if (isSwitching || !session || !profile) return;
-    if (!profile.account_type) {
-      setPendingAuth({ user: profile as User });
-      setStep("role");
+
+    if (profile.account_type) {
+      finishAuth();
       return;
     }
-    // If onboarding is incomplete, do not auto-redirect away from /auth
-    // so user can switch accounts or continue.
-    if (!profile.onboarding_completed) {
-      return;
-    }
-    finishAuth(false);
-  }, [session, profile, finishAuth, isSwitching]);
+
+    // Older/new OTP users may not have an account_type yet. Stamp them as
+    // candidates before landing on My Space so matching and navigation are
+    // consistent. `setAccountType` also marks candidate onboarding complete.
+    if (finishingRef.current) return;
+    finishingRef.current = true;
+    saveAccountType({ account_type: "seeker" })
+      .unwrap()
+      .then(() => finishAuth())
+      .catch((err) => {
+        finishingRef.current = false;
+        toastUnknownError(err, "Could not finish setting up your account. Please try again.");
+      });
+  }, [finishAuth, isSwitching, profile, saveAccountType, session]);
 
   const handleSendCode = async () => {
     const trimmed = email.trim();
@@ -141,7 +125,7 @@ export default function AuthPage() {
     if (submitted.length !== 6) return;
     try {
       await verifyOtp({ email, code: submitted }).unwrap();
-      // Session + profile effect routes to role or home.
+      // The session/profile effect finishes the handoff to My Space.
     } catch (err) {
       setCode("");
       toastUnknownError(err, "That code didn't work. Please try again.");
@@ -153,16 +137,6 @@ export default function AuthPage() {
       await googleLogin().unwrap();
     } catch (err) {
       toastUnknownError(err, "Google sign-in failed. Please try again.");
-    }
-  };
-
-  const handleContinueWithRole = async () => {
-    if (!accountType || !pendingAuth) return;
-    try {
-      await saveAccountType({ account_type: accountType }).unwrap();
-      finishAuth(true);
-    } catch (err) {
-      toastUnknownError(err, "Could not save your choice. Please try again.");
     }
   };
 
@@ -180,21 +154,19 @@ export default function AuthPage() {
         <div className="absolute left-1/2 top-1/2 h-[540px] w-[540px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-neon-purple/10 blur-[130px]" />
       </div>
 
-      {step !== "role" && (
-        <button
-          type="button"
-          onClick={() => {
-            if (returnUrl) {
-              router.push(returnUrl);
-              return;
-            }
-            router.push(typeof window !== "undefined" && sessionStorage.getItem("qelsa.resumeDraft") ? "/start" : "/candidates");
-          }}
-          className={`absolute left-4 top-4 z-10 flex items-center gap-2 sm:left-8 sm:top-8 ${QUIET_LINK}`}
-        >
-          <ArrowLeft /> Back
-        </button>
-      )}
+      <button
+        type="button"
+        onClick={() => {
+          if (returnUrl) {
+            router.push(returnUrl);
+            return;
+          }
+          router.push(typeof window !== "undefined" && sessionStorage.getItem("qelsa.resumeDraft") ? "/start" : "/candidates");
+        }}
+        className={`absolute left-4 top-4 z-10 flex items-center gap-2 sm:left-8 sm:top-8 ${QUIET_LINK}`}
+      >
+        <ArrowLeft /> Back
+      </button>
 
       {/* Swap public/qelsa-logo.svg for the official export to update the mark
           everywhere — no code change needed. */}
@@ -202,35 +174,8 @@ export default function AuthPage() {
 
       <div className="w-full max-w-[460px]">
         <AnimatePresence mode="wait">
-          {/* ---------- Step 1: choose a method or switch account ---------- */}
-          {step === "method" && !isSwitching && session && profile && !profile.onboarding_completed ? (
-            <motion.div key="switch" {...cardMotion} className="rounded-3xl border border-white/10 bg-white/[0.03] p-8">
-              <h2 className="text-3xl font-bold text-white">Already signed in</h2>
-              <p className="mt-2 text-[15px] leading-relaxed text-muted-foreground">
-                You are currently signed in as <span className="font-semibold text-neon-cyan">{profile.email}</span>.
-              </p>
-
-              <button
-                type="button"
-                onClick={() => router.push(onboardingUrl)}
-                className={`mt-7 ${PRIMARY_BTN}`}
-              >
-                Continue onboarding
-              </button>
-
-              <button
-                type="button"
-                onClick={async () => {
-                  clearResumeDraft();
-                  await authClient.signOut();
-                  setStep("method");
-                }}
-                className={`mt-3 ${SECONDARY_BTN}`}
-              >
-                Sign in with a different email
-              </button>
-            </motion.div>
-          ) : step === "method" ? (
+          {/* ---------- Step 1: choose a method ---------- */}
+          {step === "method" ? (
             <motion.div key="method" {...cardMotion} className="rounded-3xl border border-white/10 bg-white/[0.03] p-8">
               <h2 className="text-3xl font-bold text-white">Good to have you here.</h2>
               <p className="mt-2 text-[15px] leading-relaxed text-gray-500">Sign in or create your account — takes 30 seconds.</p>
@@ -384,81 +329,6 @@ export default function AuthPage() {
             </motion.div>
           )}
 
-          {/* ---------- Step 5: what to focus on ---------- */}
-          {step === "role" && (
-            <motion.div key="role" {...cardMotion}>
-              <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-8">
-                <h2 className="text-3xl font-bold text-white">Set up your job search.</h2>
-                <p className="mt-2 text-[15px] text-muted-foreground">Your candidate profile is ready to personalize.</p>
-
-                <div className="mt-6 space-y-3">
-                  {ROLE_OPTIONS.map((option) => {
-                    const selected = accountType === option.value;
-                    return (
-                      <button
-                        key={option.value}
-                        type="button"
-                        onClick={() => setAccountType(option.value)}
-                        aria-pressed={selected}
-                        className={`flex w-full cursor-pointer items-start gap-3 rounded-2xl border p-5 text-left transition-colors ${
-                          selected ? "border-neon-purple bg-neon-purple/10" : "border-white/10 bg-white/[0.02] hover:bg-white/[0.05]"
-                        }`}
-                      >
-                        <span className={`mt-0.5 shrink-0 transition-colors ${selected ? "text-neon-purple" : "text-muted-foreground"}`}>
-                          <option.Icon />
-                        </span>
-                        <span className="flex-1">
-                          <span className="block font-medium text-white">{option.title}</span>
-                          <span className="mt-1 block text-sm leading-relaxed text-muted-foreground">{option.description}</span>
-                        </span>
-                        <span
-                          className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border transition-colors ${
-                            selected ? "border-neon-purple bg-neon-purple" : "border-white/25"
-                          }`}
-                        >
-                          {selected && <CheckIcon />}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <button
-                  type="button"
-                  onClick={handleContinueWithRole}
-                  disabled={!accountType || isSavingRole}
-                  className={`mt-6 ${PRIMARY_BTN}`}
-                >
-                  {isSavingRole ? "Saving…" : "Continue"}
-                  {!isSavingRole && <ArrowRight />}
-                </button>
-
-                <p className="mt-4 text-center text-xs text-gray-500">
-                  Hiring instead?{" "}
-                  <Link href="/employer/auth" className="text-neon-cyan underline underline-offset-2 hover:text-white">
-                    Employer sign in
-                  </Link>
-                </p>
-              </div>
-
-              {/* Returns to the start rather than the previous step: the code has
-                  already been redeemed, so the OTP screen can no longer be
-                  re-submitted. The account survives — signing in again lands
-                  back here until a focus is chosen. */}
-              <button
-                type="button"
-                onClick={() => {
-                  setPendingAuth(null);
-                  setAccountType(null);
-                  setCode("");
-                  setStep("method");
-                }}
-                className={`mx-auto mt-6 block ${QUIET_LINK}`}
-              >
-                ← Back
-              </button>
-            </motion.div>
-          )}
         </AnimatePresence>
       </div>
     </div>
@@ -489,23 +359,6 @@ function ArrowLeft() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <path d="M19 12H5M12 19l-7-7 7-7" />
-    </svg>
-  );
-}
-
-function CheckIcon() {
-  return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M20 6L9 17l-5-5" />
-    </svg>
-  );
-}
-
-function SearchIcon() {
-  return (
-    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <circle cx="11" cy="11" r="7" />
-      <path d="m20 20-3.5-3.5" />
     </svg>
   );
 }

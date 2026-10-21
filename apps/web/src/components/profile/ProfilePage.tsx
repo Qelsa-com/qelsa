@@ -49,15 +49,16 @@ export function ProfilePage({ isOwner = false, username }: ProfilePageProps) {
   const [modal, setModal] = useState<ProfileModal | null>(null);
   const closeModal = useCallback(() => {
     setModal(null);
-    if (isOwner && searchParams.get("edit") === "skills") {
+    if (isOwner && searchParams.get("edit")) {
       router.replace("/profile");
     }
   }, [isOwner, router, searchParams]);
 
   useEffect(() => {
-    if (isOwner && searchParams.get("edit") === "skills") {
-      setModal({ kind: "skills" });
-    }
+    if (!isOwner) return;
+    const edit = searchParams.get("edit");
+    if (edit === "skills") setModal({ kind: "skills" });
+    else if (edit === "experience") setModal({ kind: "experience", item: null });
   }, [isOwner, searchParams]);
 
   // Two ways into the same page. The owner reads the authenticated endpoints,
