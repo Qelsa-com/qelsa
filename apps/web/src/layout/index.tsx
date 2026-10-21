@@ -2,7 +2,6 @@
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { EmployerSidebar } from "@/components/EmployerSidebar";
-import { PublicNavbar } from "@/components/PublicNavbar";
 import { QelsaLogo } from "@/components/QelsaLogo";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGetMyBillingQuery } from "@/features/api/billingApi";
@@ -101,17 +100,13 @@ const Layout = ({ activeSection, children }: LayoutProps) => {
         </>
       ) : (
         <>
-          {isAuthenticated && user ? (
-            <MainNavigation
-              activeSection={activeSection ?? "profile"}
-              onProfileClick={handleProfileClick}
-              isPro={isPro}
-              premiumLoading={premiumLoading}
-              scrolled={scrolled}
-            />
-          ) : (
-            <PublicNavbar activeSection={activeSection} onProfileClick={handleProfileClick} />
-          )}
+          <MainNavigation
+            activeSection={activeSection ?? (isAuthenticated ? "profile" : "home")}
+            onProfileClick={handleProfileClick}
+            isPro={isPro}
+            premiumLoading={premiumLoading}
+            scrolled={scrolled}
+          />
 
           <div className="flex flex-1 flex-col">
             <ErrorBoundary label="this page">{children}</ErrorBoundary>

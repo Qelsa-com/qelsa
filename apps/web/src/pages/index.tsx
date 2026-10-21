@@ -19,7 +19,11 @@ export default function App() {
   if (isLoading) return null;
 
   if (!isAuthenticated || !user) {
-    return <LandingPage />;
+    return (
+      <Layout activeSection="home">
+        <LandingPage />
+      </Layout>
+    );
   }
 
   return (

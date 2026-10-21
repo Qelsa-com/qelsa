@@ -5,10 +5,9 @@
  * four-step intelligence pipeline, the origin-to-action row, job matching,
  * skill gaps, the AI chat, resume/JD match, and the learning path.
  *
- * The page carries its own marketing header and footer rather than the app
- * shell (Layout/PublicNavbar), because the design's nav is a marketing nav
- * (For Candidates / For Employers / Jobs / Blogs + Sign in) and the footer
- * carries the brand and tagline the app footer does not.
+ * The page lives inside the app shell so it shares the same scroll-aware header
+ * as the rest of the marketing pages; its footer carries the brand and tagline
+ * the app footer does not.
  */
 
 import { Check, ChevronRight, MoreHorizontal, Target } from "lucide-react";
