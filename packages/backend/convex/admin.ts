@@ -1,8 +1,8 @@
 import { v } from "convex/values";
 import { paginationOptsValidator, paginationResultValidator } from "convex/server";
-import { internal } from "./_generated/api";
+import { components, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import { internalMutation, type QueryCtx } from "./_generated/server";
+import { internalAction, internalMutation, type QueryCtx } from "./_generated/server";
 import { adminMutation, adminQuery } from "./lib/customFunctions";
 import { deleteJobCascade } from "./lib/deleteUserData";
 import { bumpOpenJobCount, openCountDelta } from "./lib/jobCounts";
@@ -463,6 +463,11 @@ export const setUserRole = adminMutation({
     const before = { role: user.role };
     await ctx.db.patch(args.userId, { role: args.role });
     await applyUserStatDeltas(ctx, user, { ...user, role: args.role });
+    if (args.role === "user") {
+      await ctx.scheduler.runAfter(0, internal.admin.revokeBetterAuthSessions, {
+        authId: user.authId,
+      });
+    }
 
     await ctx.db.insert("admin_audit_log", {
       admin_user_id: ctx.user._id,
@@ -485,6 +490,21 @@ export const setUserRole = adminMutation({
  * the web app both check `isActive` before trusting the session. An admin
  * cannot suspend themselves.
  */
+/** Revokes Better Auth sessions through the component adapter. */
+export const revokeBetterAuthSessions = internalAction({
+  args: { authId: v.string() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.runMutation(components.betterAuth.adapter.deleteMany as any, {
+      input: {
+        model: "session",
+        where: [{ field: "userId", operator: "eq", value: args.authId }],
+      },
+    });
+    return null;
+  },
+});
+
 export const setUserActive = adminMutation({
   args: {
     userId: v.id("users"),
@@ -506,6 +526,11 @@ export const setUserActive = adminMutation({
     const before = { is_active: user.isActive };
     await ctx.db.patch(args.userId, { isActive: args.isActive });
     await applyUserStatDeltas(ctx, user, { ...user, isActive: args.isActive });
+    if (!args.isActive) {
+      await ctx.scheduler.runAfter(0, internal.admin.revokeBetterAuthSessions, {
+        authId: user.authId,
+      });
+    }
 
     await ctx.db.insert("admin_audit_log", {
       admin_user_id: ctx.user._id,
