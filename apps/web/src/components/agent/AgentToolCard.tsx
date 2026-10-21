@@ -571,10 +571,18 @@ function ToolBody({
   if (name === "get_skill_courses") {
     const courses = asArray(output.courses) as AgentCourse[];
     const unmatched = asArray(output.unmatched_skills).filter((skill) => typeof skill === "string");
+    if (!courses.length) {
+      return (
+        <p className="mt-2 text-xs text-white/45">
+          {unmatched.length
+            ? `No curated course yet for ${unmatched.slice(0, 4).join(", ")}. Try a learning platform search for these skills.`
+            : output.note}
+        </p>
+      );
+    }
     return (
       <div className="mt-2 space-y-2">
         <CourseList courses={courses} jobId={jobId} />
-        {!courses.length && <p className="text-xs text-white/45">{output.note}</p>}
         {unmatched.length > 0 && (
           <p className="text-[10px] text-white/35">
             No curated course yet for {unmatched.slice(0, 4).join(", ")}.
@@ -1233,14 +1241,22 @@ export function AgentToolCard({
         : running
           ? meta.running
           : meta.done;
+  const emptyCourseSearch =
+    name === "get_skill_courses" &&
+    !failed &&
+    !denied &&
+    !running &&
+    Boolean(output) &&
+    asArray(output?.courses).length === 0;
+  const traceLabel = emptyCourseSearch ? "No curated courses found" : label;
   const traceTitle =
     singleJob && (name === "get_job_readiness" || name === "run_job_match" || name === "analyze_external_job") ? (
       <>
-        {label}
+        {traceLabel}
         <span className="font-normal text-white/35"> · {singleJob.title}</span>
       </>
     ) : (
-      label
+      traceLabel
     );
   const resultsInFinalAnswer = name === "search_jobs" || name === "list_saved_jobs";
   const resultCount =
@@ -1248,13 +1264,15 @@ export function AgentToolCard({
       ? output.jobs.length
       : null;
   const traceDescription =
-    (name === "get_job_readiness" || name === "run_job_match" || name === "analyze_external_job") && output?.available === false
-      ? "No analysis yet"
-      : resultCount != null
-        ? resultCount === 0
-          ? "No jobs"
-          : `${resultCount} ${resultCount === 1 ? "job" : "jobs"}`
-        : undefined;
+    emptyCourseSearch
+      ? "No catalog match"
+      : (name === "get_job_readiness" || name === "run_job_match" || name === "analyze_external_job") && output?.available === false
+        ? "No analysis yet"
+        : resultCount != null
+          ? resultCount === 0
+            ? "No jobs"
+            : `${resultCount} ${resultCount === 1 ? "job" : "jobs"}`
+          : undefined;
   const showBody = Boolean(output) && !failed && !denied && !resultsInFinalAnswer;
   const bodyDefaultOpen =
     name === "get_job_readiness" || name === "run_job_match" || name === "analyze_external_job"

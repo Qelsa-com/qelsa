@@ -242,9 +242,7 @@ function MessageBubble({
             />
           );
         })}
-        {showJobResults
-          ? jobResults.map((group) => <AgentJobResults key={group.key} label={group.label} jobs={group.jobs} />)
-          : null}
+        {showJobResults ? jobResults.map((group) => <AgentJobResults key={group.key} label={group.label} jobs={group.jobs} />) : null}
         {showThinking && <AgentThinkingLine />}
         {showRetry && (
           <div className="flex flex-wrap items-center gap-2 text-[12px] text-white/40">
@@ -818,9 +816,7 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
 
   const handleBriefReview = useCallback(() => {
     if (!latestBrief) return;
-    setInput(
-      `What's new from my saved searches? Review "${latestBrief.title}" and tell me which roles I should act on first.`,
-    );
+    setInput(`What's new from my saved searches? Review "${latestBrief.title}" and tell me which roles I should act on first.`);
     setActiveThreadId(null);
     setAwaitingReply(false);
     syncThreadUrl(null);
@@ -990,10 +986,11 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
             {pushEnabled && <Check className="size-3.5 text-emerald-300" />}
           </button>
         )}
-        <div className="flex items-center justify-between gap-2 px-1 text-[10px] text-white/30">
+        {/* Comment this section out for now */}
+        {/* <div className="flex items-center justify-between gap-2 px-1 text-[10px] text-white/30">
           <span className="truncate">{agentStatus?.configured ? agentStatus.model : "AI not configured"}</span>
           {usage && <span className={cn("shrink-0 tabular-nums", quotaExhausted ? "text-amber-300/80" : "")}>{usage.remaining} left today</span>}
-        </div>
+        </div> */}
       </div>
     </>
   );
@@ -1046,11 +1043,7 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
           <div className="min-w-0 flex-1">
             <p className="truncate text-[13px] font-semibold text-white sm:text-sm">{title}</p>
             <p className="truncate text-[10px] text-white/40 sm:text-[11px]">
-              {configured
-                ? isRecruiter
-                  ? "Can review jobs, search applicants, and draft outreach"
-                  : "Can search jobs, check fit, tailor your resume, and prepare applications"
-                : "AI is not configured"}
+              {configured ? (isRecruiter ? "Can review jobs, search applicants, and draft outreach" : "Can search jobs, check fit, tailor your resume, and prepare applications") : "AI is not configured"}
             </p>
           </div>
           <button
@@ -1098,18 +1091,10 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
                   </div>
                 )}
                 <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={handleBriefReview}
-                    className="rounded-full border border-sky-400/25 bg-sky-400/10 px-2.5 py-1 text-[10px] font-semibold text-sky-200 transition-colors hover:bg-sky-400/[0.16]"
-                  >
+                  <button type="button" onClick={handleBriefReview} className="rounded-full border border-sky-400/25 bg-sky-400/10 px-2.5 py-1 text-[10px] font-semibold text-sky-200 transition-colors hover:bg-sky-400/[0.16]">
                     Review with Qelsa
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => void handleBriefDismiss()}
-                    className="text-[10px] font-medium text-white/35 transition-colors hover:text-white/65"
-                  >
+                  <button type="button" onClick={() => void handleBriefDismiss()} className="text-[10px] font-medium text-white/35 transition-colors hover:text-white/65">
                     Dismiss
                   </button>
                 </div>
