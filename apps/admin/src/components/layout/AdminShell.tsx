@@ -105,9 +105,12 @@ export function AdminShell({ children }: { children: ReactNode }) {
           </button>
         </header>
 
-        <main className="min-w-0 flex-1 overflow-x-auto">{children}</main>
+        <main className="min-w-0 flex-1 overflow-x-auto pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">{children}</main>
 
-        <nav className="flex border-t border-glass-border bg-[#08080f]/90 lg:hidden">
+        <nav
+          aria-label="Admin navigation"
+          className="fixed inset-x-0 bottom-0 z-40 flex border-t border-glass-border bg-[#08080f]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md lg:hidden"
+        >
           {NAV_ITEMS.map((item) => {
             const active = isActive(pathname, item.href);
             const Icon = item.icon;
