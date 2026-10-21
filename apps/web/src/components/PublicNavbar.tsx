@@ -1,6 +1,7 @@
 "use client";
 
 import { QelsaLogo } from "@/components/QelsaLogo";
+import { useScrolled } from "@/lib/useScrolled";
 import { Menu, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -20,7 +21,9 @@ const NAV_LINKS = [
 
 export function PublicNavbar({ activeSection }: PublicNavbarProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const scrolled = useScrolled();
   const pathname = usePathname();
+  const headerSolid = scrolled || mobileMenuOpen;
 
   const isLinkActive = (id: string, href: string) => {
     if (activeSection) return activeSection === id;
@@ -29,7 +32,11 @@ export function PublicNavbar({ activeSection }: PublicNavbarProps) {
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-white/[0.08] bg-[#0a0c16]/85 backdrop-blur-md">
+    <header
+      className={`sticky top-0 z-50 w-full border-b backdrop-blur-xl transition-colors duration-300 ${
+        headerSolid ? "border-white/[0.08] bg-[#06060f]/80" : "border-transparent bg-transparent"
+      }`}
+    >
       <div className="mx-auto flex h-20 w-full max-w-7xl items-center justify-between px-6">
         <div className="flex items-center gap-10">
           <Link href="/" className="flex items-center" aria-label="Qelsa home">

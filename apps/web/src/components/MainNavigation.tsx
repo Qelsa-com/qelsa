@@ -6,9 +6,16 @@ interface MainNavigationProps {
   onProfileClick?: () => void;
   isPro?: boolean;
   premiumLoading?: boolean;
+  scrolled?: boolean;
 }
 
-export function MainNavigation({ activeSection, onProfileClick, isPro = false, premiumLoading = false }: MainNavigationProps) {
+export function MainNavigation({
+  activeSection,
+  onProfileClick,
+  isPro = false,
+  premiumLoading = false,
+  scrolled = false,
+}: MainNavigationProps) {
   return (
     <>
       <DesktopTopBar
@@ -16,11 +23,13 @@ export function MainNavigation({ activeSection, onProfileClick, isPro = false, p
         onProfileClick={onProfileClick}
         isPro={isPro}
         premiumLoading={premiumLoading}
+        scrolled={scrolled}
       />
       <MobileTopBar
         onMenuClick={onProfileClick}
         isPro={isPro}
         premiumLoading={premiumLoading}
+        scrolled={scrolled}
       />
     </>
   );
