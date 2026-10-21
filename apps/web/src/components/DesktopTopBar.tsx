@@ -79,9 +79,19 @@ export function DesktopTopBar({ activeSection, onProfileClick }: { activeSection
           </div>
         ) : (
           <div className="flex items-center gap-6">
-            <button type="button" aria-label="Search jobs" onClick={() => router.push("/jobs/all")} className="text-white/70 transition-colors hover:text-white">
-              <Search className="size-5" />
-            </button>
+            {user?.account_type !== "recruiter" ? (
+              <button
+                type="button"
+                onClick={() => router.push("/pricing")}
+                className="rounded-full bg-gradient-to-r from-[#623dd6] via-[#8433ae] to-[#be2680] px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-purple-900/30 transition-opacity hover:opacity-95"
+              >
+                Get Pro
+              </button>
+            ) : (
+              <button type="button" aria-label="Search jobs" onClick={() => router.push("/jobs/all")} className="text-white/70 transition-colors hover:text-white">
+                <Search className="size-5" />
+              </button>
+            )}
             <button type="button" aria-label="Open profile" onClick={onProfileClick} className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/[0.12] bg-white/[0.04]">
               {user?.profile_image ? (
                 // eslint-disable-next-line @next/next/no-img-element
