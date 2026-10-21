@@ -929,6 +929,27 @@ export default defineSchema({
     .index("by_user", ["user_id"])
     .index("by_user_and_granted_at", ["user_id", "granted_at"]),
 
+  // Admin-managed external courses. Static catalog entries still live in
+  // lib/courseCatalog.ts; these are courses an admin adds with a partner link
+  // and optional AI-prefilled metadata.
+  affiliate_courses: defineTable({
+    provider: v.string(),
+    title: v.string(),
+    description: v.string(),
+    url: v.string(),
+    skills: v.array(v.string()),
+    level: v.string(),
+    duration: v.string(),
+    free: v.boolean(),
+    status: v.union(v.literal("draft"), v.literal("published"), v.literal("archived")),
+    ai_filled: v.boolean(),
+    created_by: v.id("users"),
+    created_at: v.number(),
+    updated_at: v.number(),
+  })
+    .index("by_status", ["status"])
+    .index("by_provider", ["provider"]),
+
   // Idempotency ledger for signed Dodo webhooks. A retried event must not
   // duplicate subscriptions or corrupt entitlement state.
   billing_events: defineTable({

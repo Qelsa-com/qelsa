@@ -42,8 +42,7 @@ export const listPublished = query({
 });
 
 /** Public detail. Questions are returned in author order for learn/flashcard modes. */
-export const getBySlug = query({
-  args: { slug: v.string() },
+export const getBySlug = query({  args: { slug: v.string() },
   returns: v.any(),
   handler: async (ctx, args) => {
     const track = await ctx.db
@@ -77,11 +76,49 @@ export const getBySlug = query({
   },
 });
 
+export const findTrackBySlug = internalQuery({
+  args: { slug: v.string() },
+  returns: v.any(),
+  handler: async (ctx, args) =>
+    await ctx.db
+      .query("interview_prep_tracks")
+      .withIndex("by_slug", (q) => q.eq("slug", args.slug))
+      .first(),
+});
+
 /** Curated external resources. Affiliate URLs are labeled so the UI can disclose them. */
 export const listExternal = query({
   args: {},
   returns: v.any(),
-  handler: async () => listExternalCourses(),
+  handler: async (ctx) => {
+    const managed = await ctx.db
+      .query("affiliate_courses")
+      .withIndex("by_status", (q) => q.eq("status", "published"))
+      .take(200);
+    const managedCourses = managed.map((row) => ({
+      course_id: row._id,
+      title: row.title,
+      provider: row.provider,
+      url: row.url,
+      level: row.level,
+      duration: row.duration,
+      free: row.free,
+      description: row.description,
+      skills: row.skills,
+      affiliate: true,
+    }));
+    return [...managedCourses, ...listExternalCourses()].sort((a, b) => a.title.localeCompare(b.title));
+  },
+});
+
+export const listPublishedAffiliateCourses = internalQuery({
+  args: {},
+  returns: v.any(),
+  handler: async (ctx) =>
+    await ctx.db
+      .query("affiliate_courses")
+      .withIndex("by_status", (q) => q.eq("status", "published"))
+      .take(200),
 });
 
 function slugify(value: string) {

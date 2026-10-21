@@ -2,16 +2,20 @@
 
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  useGenerateForRoleAction,
   useListCurriculumRunsQuery,
   useListCurriculumTracksQuery,
+  useListRoleOptionsQuery,
   useRunCurriculumAgentAction,
   useSetCurriculumTrackStatusMutation,
   type CurriculumRun,
   type CurriculumTrack,
 } from "@/features/api/curriculumApi";
-import { Bot, CheckCircle2, Clock3, GraduationCap, Loader2, ShieldCheck, Sparkles } from "lucide-react";
+import { Bot, CheckCircle2, Clock3, GraduationCap, Loader2, Plus, ShieldCheck, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -62,9 +66,13 @@ function StatCard({ label, value, hint }: { label: string; value: string | numbe
 export default function InterviewPrepPage() {
   const { data: runsData, isLoading: runsLoading } = useListCurriculumRunsQuery();
   const { data: tracksData, isLoading: tracksLoading } = useListCurriculumTracksQuery();
+  const { data: roleOptionsData } = useListRoleOptionsQuery();
   const [runAgent, { isLoading: isRunning }] = useRunCurriculumAgentAction();
+  const [generateForRole, { isLoading: isGenerating }] = useGenerateForRoleAction();
   const [setTrackStatus, { isLoading: isUpdating }] = useSetCurriculumTrackStatusMutation();
   const [maxTracks, setMaxTracks] = useState(2);
+  const [role, setRole] = useState("");
+  const [level, setLevel] = useState("All");
 
   const runs = (runsData as CurriculumRun[] | undefined) ?? [];
   const tracks = (tracksData as CurriculumTrack[] | undefined) ?? [];
@@ -88,6 +96,29 @@ export default function InterviewPrepPage() {
       );
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not run the curriculum agent.");
+    }
+  };
+
+  const handleGenerateForRole = async () => {
+    if (!role.trim()) {
+      toast.error("Choose a role or type one in.");
+      return;
+    }
+    try {
+      const result = (await generateForRole({ role: role.trim(), level }).unwrap()) as {
+        created: number;
+        published: number;
+        decisions: Array<{ status?: string; error?: string }>;
+      };
+      const failure = result.decisions.find((decision) => decision.status === "failed");
+      if (!result.created) {
+        toast.error(failure?.error ?? "The track could not be generated.");
+        return;
+      }
+      toast.success(`Track generated and ${result.published ? "published" : "saved as draft"}.`);
+      setRole("");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not generate the track.");
     }
   };
 
@@ -138,6 +169,60 @@ export default function InterviewPrepPage() {
           <StatCard label="Average quality" value={avgQuality} hint="0–10 quality score" />
           <StatCard label="Last run" value={lastRun ? formatDate(lastRun.started_at) : "Not run yet"} hint={lastRun?.trigger ?? "Run the planner manually"} />
         </div>
+
+        <section className="rounded-2xl border border-glass-border bg-white/[0.025] p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="flex items-center gap-2 text-sm font-bold">
+                <Plus className="size-4 text-neon-cyan" />
+                Create a track for a role
+              </h2>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Choose a role or type one in. The builder agent writes the questions, then the quality gate publishes clean tracks.
+              </p>
+            </div>
+          </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_180px_auto] sm:items-end">
+            <div className="space-y-2">
+              <Label htmlFor="track-role">Role</Label>
+              <Input
+                id="track-role"
+                list="role-options"
+                value={role}
+                onChange={(event) => setRole(event.target.value)}
+                placeholder="e.g. Product Manager"
+              />
+              <datalist id="role-options">
+                {((roleOptionsData as { roles?: string[] } | undefined)?.roles ?? []).map((option) => (
+                  <option key={option} value={option} />
+                ))}
+              </datalist>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="track-level">Level</Label>
+              <select
+                id="track-level"
+                value={level}
+                onChange={(event) => setLevel(event.target.value)}
+                className="h-9 w-full rounded-xl border border-glass-border bg-[#0c0d16] px-3 text-xs font-medium text-white outline-none"
+              >
+                {["All", "Entry", "Mid", "Senior"].map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <Button
+              onClick={() => void handleGenerateForRole()}
+              disabled={isGenerating || !role.trim()}
+              className="gradient-primary h-9 rounded-xl px-4 text-xs font-bold text-white"
+            >
+              {isGenerating ? <Loader2 className="size-3.5 animate-spin" /> : <Sparkles className="size-3.5" />}
+              {isGenerating ? "Building…" : "Generate track"}
+            </Button>
+          </div>
+        </section>
 
         <section className="overflow-hidden rounded-2xl border border-glass-border bg-white/[0.02]">
           <div className="flex flex-col gap-2 border-b border-glass-border px-5 py-4 sm:flex-row sm:items-center sm:justify-between">

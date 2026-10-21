@@ -9,6 +9,7 @@
  */
 
 import type * as admin from "../admin.js";
+import type * as affiliateCourses from "../affiliateCourses.js";
 import type * as agentAutofill from "../agentAutofill.js";
 import type * as agentCourseTracking from "../agentCourseTracking.js";
 import type * as agentNotifications from "../agentNotifications.js";
@@ -98,6 +99,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   admin: typeof admin;
+  affiliateCourses: typeof affiliateCourses;
   agentAutofill: typeof agentAutofill;
   agentCourseTracking: typeof agentCourseTracking;
   agentNotifications: typeof agentNotifications;

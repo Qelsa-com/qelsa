@@ -1432,10 +1432,27 @@ export const getSkillCoursesTool = createTool({
   inputSchema: z.object({
     skills: z.array(z.string()).min(1).max(12),
   }),
-  execute: async (_ctx, args): Promise<any> => {
+  execute: async (ctx, args): Promise<any> => {
     const skills = [...new Set(args.skills.map((skill) => skill.trim()).filter(Boolean))];
-    const courses = recommendCourses(skills, 8);
-    const matched = new Set(courses.flatMap((course) => course.matched_skills.map((skill) => skill.toLowerCase())));
+    const managed: any = await ctx.runQuery(internal.interviewPrep.listPublishedAffiliateCourses, {});
+    const managedMatches = managed
+      .map((row: any) => ({
+        course_id: row._id,
+        title: row.title,
+        provider: row.provider,
+        url: row.url,
+        level: row.level,
+        duration: row.duration,
+        free: row.free,
+        description: row.description,
+        affiliate: true,
+        matched_skills: skills.filter((skill: string) =>
+          row.skills.some((rowSkill: string) => skillMatchKey(rowSkill) === skillMatchKey(skill)),
+        ),
+      }))
+      .filter((row: any) => row.matched_skills.length > 0);
+    const courses = [...managedMatches, ...recommendCourses(skills, 8)].slice(0, 8);
+    const matched = new Set(courses.flatMap((course: any) => course.matched_skills.map((skill: string) => skill.toLowerCase())));
     const unmatched = skills.filter((skill) => !matched.has(skill.toLowerCase()));
     return {
       skills,

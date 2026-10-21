@@ -244,6 +244,87 @@ function deterministicQa(track: GeneratedTrack) {
   return { score: Math.max(0, score), flags: [...new Set(flags)] };
 }
 
+async function buildTracks(
+  ctx: ActionCtx,
+  runId: any,
+  planned: PlannedTrack[],
+): Promise<{ decisions: any[]; created: number; published: number }> {
+  const decisions: any[] = [];
+  let created = 0;
+  let published = 0;
+
+  for (const decision of planned) {
+    try {
+      const raw = await callJson(builderPrompt(decision));
+      const track = parseGeneratedTrack(raw, decision);
+      const deterministic = deterministicQa(track);
+      let aiScore = deterministic.score;
+      let flags = deterministic.flags;
+      try {
+        const qa = await callJson(qaPrompt(track));
+        aiScore = Math.max(0, Math.min(10, numberValue(qa.score, deterministic.score)));
+        flags = [...new Set([...flags, ...stringList(qa.flags, 10)])];
+      } catch (error) {
+        console.warn("[curriculum] QA agent failed; using deterministic score", error);
+      }
+
+      const qualityScore = Math.min(deterministic.score, aiScore);
+      const result: any = await ctx.runMutation(internal.interviewPrep.insertGeneratedTrack, {
+        runId,
+        slug: decision.slug,
+        title: track.title,
+        roleFamily: decision.roleFamily,
+        level: decision.level,
+        summary: track.summary,
+        description: track.description,
+        skills: track.skills,
+        interviewTypes: track.interviewTypes,
+        estimatedMinutes: track.estimatedMinutes,
+        qualityScore,
+        qualityFlags: flags,
+        demandScore: decision.demandScore,
+        model: AI_AGENT_MODEL,
+        promptVersion: `${PLANNER_PROMPT_VERSION}+${PROMPT_VERSION}`,
+        contentHash: contentHash(JSON.stringify({ decision, track })),
+        publish: qualityScore >= 8 && flags.length === 0,
+        questions: track.questions.map((question) => ({
+          category: question.category,
+          question: question.question,
+          answer: question.answer,
+          keyPoints: question.keyPoints,
+          followUps: question.followUps,
+          difficulty: question.difficulty,
+          skills: question.skills,
+        })),
+      });
+
+      decisions.push({
+        ...decision,
+        track_id: result.trackId ?? null,
+        status: result.skipped ? "skipped" : result.status,
+        quality_score: qualityScore,
+        flags,
+      });
+      if (!result.skipped) {
+        created += 1;
+        if (result.status === "published") published += 1;
+      }
+    } catch (error) {
+      decisions.push({ ...decision, status: "failed", error: error instanceof Error ? error.message : String(error) });
+    }
+  }
+
+  return { decisions, created, published };
+}
+
+async function requireAdmin(ctx: ActionCtx) {
+  const identity = await ctx.auth.getUserIdentity();
+  if (!identity) throw new Error("Admin sign-in required.");
+  const admin: any = await ctx.runQuery(internal.billingCustomers.getUserByAuthId, { authId: identity.subject });
+  if (!admin || admin.role !== "admin" || !admin.isActive) throw new Error("Admin access required.");
+  return admin;
+}
+
 async function runAgentPipeline(
   ctx: ActionCtx,
   args: { maxTracks: number; trigger: string; actorUserId?: any },
@@ -285,71 +366,7 @@ async function runAgentPipeline(
     throw new Error("Curriculum planner returned no tracks to build.");
   }
 
-  const decisions: any[] = [];
-  let created = 0;
-  let published = 0;
-
-  for (const decision of planned) {
-    try {
-      const raw = await callJson(builderPrompt(decision));
-      const track = parseGeneratedTrack(raw, decision);
-      const deterministic = deterministicQa(track);
-      let aiScore = deterministic.score;
-      let flags = deterministic.flags;
-      try {
-        const qa = await callJson(qaPrompt(track));
-        aiScore = Math.max(0, Math.min(10, numberValue(qa.score, deterministic.score)));
-        flags = [...new Set([...flags, ...stringList(qa.flags, 10)])];
-      } catch (error) {
-        console.warn("[curriculum] QA agent failed; using deterministic score", error);
-      }
-
-      const qualityScore = Math.min(deterministic.score, aiScore);
-      const questions = track.questions;
-      const result: any = await ctx.runMutation(internal.interviewPrep.insertGeneratedTrack, {
-        runId,
-        slug: decision.slug,
-        title: track.title,
-        roleFamily: decision.roleFamily,
-        level: decision.level,
-        summary: track.summary,
-        description: track.description,
-        skills: track.skills,
-        interviewTypes: track.interviewTypes,
-        estimatedMinutes: track.estimatedMinutes,
-        qualityScore,
-        qualityFlags: flags,
-        demandScore: decision.demandScore,
-        model: AI_AGENT_MODEL,
-        promptVersion: `${PLANNER_PROMPT_VERSION}+${PROMPT_VERSION}`,
-        contentHash: contentHash(JSON.stringify({ decision, track })),
-        publish: qualityScore >= 8 && flags.length === 0,
-        questions: questions.map((question) => ({
-          category: question.category,
-          question: question.question,
-          answer: question.answer,
-          keyPoints: question.keyPoints,
-          followUps: question.followUps,
-          difficulty: question.difficulty,
-          skills: question.skills,
-        })),
-      });
-
-      decisions.push({
-        ...decision,
-        track_id: result.trackId ?? null,
-        status: result.skipped ? "skipped" : result.status,
-        quality_score: qualityScore,
-        flags,
-      });
-      if (!result.skipped) {
-        created += 1;
-        if (result.status === "published") published += 1;
-      }
-    } catch (error) {
-      decisions.push({ ...decision, status: "failed", error: error instanceof Error ? error.message : String(error) });
-    }
-  }
+  const { decisions, created, published } = await buildTracks(ctx, runId, planned);
 
   await ctx.runMutation(internal.interviewPrep.finishRun, {
     runId,
@@ -382,10 +399,7 @@ export const runAgent = action({
   args: { maxTracks: v.optional(v.number()) },
   returns: v.any(),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Admin sign-in required.");
-    const admin: any = await ctx.runQuery(internal.billingCustomers.getUserByAuthId, { authId: identity.subject });
-    if (!admin || admin.role !== "admin" || !admin.isActive) throw new Error("Admin access required.");
+    const admin = await requireAdmin(ctx);
     const recent: any = await ctx.runQuery(internal.curriculum.latestRun, {});
     if (recent && Date.now() - recent.started_at < 5 * 60_000) {
       throw new Error("The curriculum agent ran recently. Wait a few minutes before starting another run.");
@@ -395,6 +409,58 @@ export const runAgent = action({
       trigger: "admin",
       actorUserId: admin._id,
     });
+  },
+});
+
+export const generateForRole = action({
+  args: {
+    role: v.string(),
+    level: v.optional(v.string()),
+    skills: v.optional(v.array(v.string())),
+    interviewTypes: v.optional(v.array(v.string())),
+  },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    const admin = await requireAdmin(ctx);
+    if (!openRouter) throw new Error("OPENROUTER_API_KEY is not configured on this deployment.");
+
+    const role = args.role.trim().slice(0, 120);
+    if (role.length < 2) throw new Error("Enter a role to build a track for.");
+    const level = (args.level?.trim() || "All").slice(0, 40);
+    const slug = slugify(`${role}-${level === "All" ? "interview" : level}`);
+    const existing: any = await ctx.runQuery(internal.interviewPrep.findTrackBySlug, { slug });
+    if (existing) throw new Error("A track for this role already exists.");
+
+    const decision: PlannedTrack = {
+      slug,
+      title: `${role} Interview Track`,
+      roleFamily: role,
+      level,
+      summary: `Interview practice for ${role}.`,
+      skills: (args.skills ?? []).map((skill) => skill.trim()).filter(Boolean).slice(0, 10),
+      interviewTypes: (args.interviewTypes ?? []).map((type) => type.trim()).filter(Boolean).slice(0, 6),
+      demandScore: 50,
+      reason: "Created manually by an admin.",
+    };
+
+    const runId: any = await ctx.runMutation(internal.interviewPrep.startRun, {
+      trigger: "admin_manual",
+      model: AI_AGENT_MODEL,
+      demandSnapshot: { source: "admin_manual", role, level },
+      actorUserId: admin._id,
+    });
+
+    const { decisions, created, published } = await buildTracks(ctx, runId, [decision]);
+    await ctx.runMutation(internal.interviewPrep.finishRun, {
+      runId,
+      status: created > 0 ? "completed" : "failed",
+      decisions,
+      tracksCreated: created,
+      tracksPublished: published,
+      error: created > 0 ? undefined : "The track could not be generated.",
+    });
+
+    return { runId, created, published, decisions };
   },
 });
 
@@ -418,6 +484,19 @@ export const latestRun = internalQuery({
     const run = await ctx.db.query("curriculum_runs").withIndex("by_started_at").order("desc").first();
     if (!run) return null;
     return { started_at: run.started_at, status: run.status, trigger: run.trigger };
+  },
+});
+
+export const listRoleOptions = adminQuery({
+  args: {},
+  returns: v.any(),
+  handler: async (ctx) => {
+    const titles = await ctx.db.query("job_titles").withIndex("by_name").take(300);
+    const tracks = await ctx.db.query("interview_prep_tracks").take(100);
+    const roles = [
+      ...new Set([...titles.map((title) => title.name.trim()).filter(Boolean), ...tracks.map((track) => track.role_family.trim()).filter(Boolean)]),
+    ];
+    return { roles: roles.slice(0, 300) };
   },
 });
 

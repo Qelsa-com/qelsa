@@ -47,6 +47,33 @@ export type AffiliateCourse = {
   affiliate: boolean;
 };
 
+export type ManagedAffiliateCourse = {
+  id: string;
+  provider: string;
+  title: string;
+  description: string;
+  url: string;
+  skills: string[];
+  level: string;
+  duration: string;
+  free: boolean;
+  status: "draft" | "published" | "archived";
+  ai_filled: boolean;
+  created_at: number;
+  updated_at: number;
+};
+
+export type AffiliatePrefill = {
+  provider: string;
+  url: string;
+  title: string;
+  description: string;
+  skills: string[];
+  level: string;
+  duration: string;
+  free: boolean;
+};
+
 export function useListCurriculumRunsQuery() {
   return useConvexQueryHook(api.curriculum.listRuns, {});
 }
@@ -59,10 +86,67 @@ export function useListAffiliateCatalogQuery() {
   return useConvexQueryHook(api.curriculum.listAffiliateCatalog, {});
 }
 
+export function useListManagedAffiliateCoursesQuery() {
+  return useConvexQueryHook(api.affiliateCourses.listManaged, {});
+}
+
+export function useAffiliatePlatformsQuery() {
+  return useConvexQueryHook(api.affiliateCourses.listPlatforms, {});
+}
+
+export function usePrefillAffiliateCourseAction() {
+  const prefill = useAction(api.affiliateCourses.prefill);
+  const [isLoading, setIsLoading] = useState(false);
+  const trigger = (input: { provider: string; url: string; hint?: string }) => {
+    setIsLoading(true);
+    return withUnwrap(
+      Promise.resolve(prefill(input as never) as Promise<AffiliatePrefill>).finally(() => setIsLoading(false)),
+    );
+  };
+  return [trigger, { isLoading }] as const;
+}
+
+export function useCreateAffiliateCourseMutation() {
+  return useConvexMutationHook(api.affiliateCourses.create, (input: {
+    provider: string;
+    title: string;
+    description: string;
+    url: string;
+    skills: string[];
+    level: string;
+    duration: string;
+    free: boolean;
+    aiFilled?: boolean;
+  }) => input);
+}
+
+export function useSetAffiliateCourseStatusMutation() {
+  return useConvexMutationHook(api.affiliateCourses.setStatus, (input: { courseId: string; status: "draft" | "published" | "archived" }) => ({
+    courseId: input.courseId,
+    status: input.status,
+  }));
+}
+
+export function useListRoleOptionsQuery() {
+  return useConvexQueryHook(api.curriculum.listRoleOptions, {});
+}
+
 export function useRunCurriculumAgentAction() {
   const run = useAction(api.curriculum.runAgent);
   const [isLoading, setIsLoading] = useState(false);
   const trigger = (input: { maxTracks?: number }) => {
+    setIsLoading(true);
+    return withUnwrap(
+      Promise.resolve(run(input as never)).finally(() => setIsLoading(false)),
+    );
+  };
+  return [trigger, { isLoading }] as const;
+}
+
+export function useGenerateForRoleAction() {
+  const run = useAction(api.curriculum.generateForRole);
+  const [isLoading, setIsLoading] = useState(false);
+  const trigger = (input: { role: string; level?: string }) => {
     setIsLoading(true);
     return withUnwrap(
       Promise.resolve(run(input as never)).finally(() => setIsLoading(false)),
