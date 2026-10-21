@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "(lsof -ti tcp:3001 | xargs kill -9) 2>/dev/null || true; next dev --port=3001",
     "build": "next build",
-    "start": "next start --port=3001",
+    "start": "next start -p ${PORT:-3001}",
     "lint": "eslint .",
     "check-types": "tsc --noEmit"
   },
