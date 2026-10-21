@@ -181,7 +181,14 @@ function GuestMenu({ activeSection, pathname, onGo }: { activeSection?: string; 
         );
       })}
       <button type="button" onClick={() => onGo("/auth")} className="mt-6 rounded-full border border-white/20 px-6 py-3.5 text-[22px] font-semibold text-white transition-colors hover:bg-white/[0.04]">
-        Sign in
+        Candidate sign in
+      </button>
+      <button
+        type="button"
+        onClick={() => onGo("/employer/auth?returnUrl=/jobs/posted")}
+        className="rounded-full border border-neon-cyan/30 bg-neon-cyan/[0.06] px-6 py-3.5 text-[22px] font-semibold text-white transition-colors hover:bg-neon-cyan/[0.1]"
+      >
+        Employer sign in
       </button>
     </nav>
   );

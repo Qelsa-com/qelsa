@@ -32,6 +32,8 @@ Env:
 - `packages/backend/.env.local` — `CONVEX_DEPLOYMENT`
 - `apps/web/.env.local` — `NEXT_PUBLIC_CONVEX_URL`, `NEXT_PUBLIC_CONVEX_SITE_URL`, `NEXT_PUBLIC_SITE_URL`, optional `NEXT_PUBLIC_ADMIN_APP_URL`
 - `apps/admin/.env.local` — `NEXT_PUBLIC_CONVEX_URL`, `NEXT_PUBLIC_CONVEX_SITE_URL`, `CONVEX_SITE_URL`, `NEXT_PUBLIC_SITE_URL`
+- Convex deployment — `ADMIN_SITE_URL` (the admin app origin, e.g. `http://localhost:3001` or `https://admin.qelsa.ai`)
+- Convex deployment (optional) — `EMPLOYER_EMAIL_ALLOWLIST` / `EMPLOYER_EMAIL_BLOCKLIST` for employer-domain exceptions
 
 ## Admin panel
 
@@ -46,11 +48,12 @@ three places:
 - `convex/admin.ts` — every query and mutation re-checks the role server side.
 - `convex/lib/customFunctions.ts` — the shared `adminQuery` / `adminMutation` wrappers.
 
-Because the admin app is a different origin, add it to the Convex deployment's
-trusted origins so Better Auth accepts its sign-in requests:
+Because the admin app is a different origin, set its origin on the Convex
+deployment. This both trusts the origin for Better Auth and enables the
+admin-only auth route gate:
 
 ```bash
-npx convex env set TRUSTED_ORIGINS "https://admin.qelsa.ai"
+npx convex env set ADMIN_SITE_URL "https://admin.qelsa.ai"
 ```
 
 From `apps/admin`, set `NEXT_PUBLIC_SITE_URL` to the admin origin (for example
@@ -59,6 +62,38 @@ From `apps/admin`, set `NEXT_PUBLIC_SITE_URL` to the admin origin (for example
 
 To promote a user to admin, set `role: "admin"` on their row in the `users`
 table (for example from the Convex dashboard).
+
+## Employer authentication
+
+Candidates sign in at `/auth`. Employers use the separate `/employer/auth`
+screen, which supports Google and email OTP but rejects consumer and disposable
+email domains.
+
+The policy is enforced in the backend, not only in the form:
+
+- `apps/web/src/app/api/employer-auth/[...all]/route.ts` forwards the employer
+  flow through Better Auth with an employer-flow header.
+- `packages/backend/convex/auth.ts` rejects personal/disposable domains for that
+  flow before an OTP is sent or a password/OTP session is created.
+- Every mutation that grants the recruiter role (`users.setAccountType`,
+  `onboarding.setAccountTypeAndResetOnboarding`, and
+  `onboarding.completeHrOnboarding`) calls `assertEmployerEmail`.
+- `users.updateProfile` cannot change `account_type`; it was removed from the
+  profile patch allowlist to prevent role escalation.
+
+`EMPLOYER_EMAIL_ALLOWLIST` is a comma-separated list of exact emails or domains
+that should bypass the policy for legacy/test accounts. `EMPLOYER_EMAIL_BLOCKLIST`
+adds domains that must be rejected. Both are optional and live on the Convex
+deployment.
+
+Google OAuth reveals the email only after the callback, so the employer page
+checks that address before granting recruiter access; the recruiter role itself
+is still server-gated. OTP/password employer sign-in is rejected at the auth
+endpoint before a session is created.
+
+This is a policy gate, not proof of employment. A user can still own a domain
+that is not a real company. If you need a stronger guarantee, add DNS/domain
+verification or an admin approval step for new employer domains.
 
 ## Email OTP
 

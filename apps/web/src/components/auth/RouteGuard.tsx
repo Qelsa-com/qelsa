@@ -12,6 +12,7 @@ const PUBLIC_ROUTES = [
   "/login",
   "/register",
   "/auth",
+  "/employer/auth",
   "/jobs/all",
   "/jobs",
   "/blogs",
@@ -23,7 +24,7 @@ const PUBLIC_ROUTES = [
   "/terms",
   "/cookies",
 ];
-const ONBOARDING_EXEMPT = new Set(["/onboarding", "/auth", "/privacy", "/terms", "/cookies"]);
+const ONBOARDING_EXEMPT = new Set(["/onboarding", "/auth", "/employer/auth", "/privacy", "/terms", "/cookies"]);
 const JOB_STATIC = new Set(["all", "posted", "smart-matches", "create-job", "match", "ready", "almost", "smart_matches"]);
 const PUBLIC_JOB = /^\/jobs\/([^/]+)$/;
 const PUBLIC_PAGE = /^\/pages\/([^/]+)$/;

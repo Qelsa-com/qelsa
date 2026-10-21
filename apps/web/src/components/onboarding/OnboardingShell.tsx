@@ -1,18 +1,21 @@
 "use client";
 
+import { useAuth } from "@/contexts/AuthContext";
 import { authClient } from "@/lib/auth-client";
 import { clearResumeDraft } from "@/lib/resumeDraft";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 
 export function OnboardingShell({ children, onBack }: { children: ReactNode; onBack?: () => void }) {
-  const router = useRouter();
+  const { user } = useAuth();
 
   const handleSignOut = async () => {
+    const signOutPath = user?.account_type === "recruiter" ? "/employer/auth" : "/auth";
     clearResumeDraft();
     await authClient.signOut();
-    router.push("/auth");
+    // Use a hard navigation: RouteGuard can otherwise race the client-side
+    // push while the session is being cleared and send the user home.
+    window.location.assign(signOutPath);
   };
 
   return (

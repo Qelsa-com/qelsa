@@ -6,6 +6,7 @@ import { query, type MutationCtx } from "./_generated/server";
 import { authedMutation, optionalAuthQuery } from "./lib/customFunctions";
 import { deleteAppUserData } from "./lib/deleteUserData";
 import { applyUserStatDeltas } from "./lib/adminStats";
+import { assertEmployerEmail } from "./lib/employerEmail";
 import { asUserJson, iso, withId } from "./lib/helpers";
 import { deleteR2Keys, signedFileUrl } from "./lib/r2";
 import { refreshInferredSkillLevels } from "./lib/skillLevels";
@@ -275,11 +276,7 @@ const USER_PATCH_KEYS = new Set([
   "show_contact_to_recruiters",
   "allow_profile_downloads",
   "profile_view_analytics",
-  "account_type",
   "job_seeking_status",
-  "hiring_role",
-  "active_page_id",
-  "onboarding_completed",
   "profile_type",
   "find_job",
   "explore_career",
@@ -375,6 +372,7 @@ export const setAccountType = authedMutation({
   args: { account_type: v.union(v.literal("seeker"), v.literal("recruiter")) },
   returns: v.any(),
   handler: async (ctx, args) => {
+    if (args.account_type === "recruiter") assertEmployerEmail(ctx.user.email);
     await ctx.db.patch(ctx.user._id, { account_type: args.account_type });
     // Keep the admin dashboard counters in step with the change.
     await applyUserStatDeltas(ctx, ctx.user, { ...ctx.user, account_type: args.account_type });

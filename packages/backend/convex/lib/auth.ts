@@ -9,14 +9,16 @@ export async function getAppUser(ctx: QueryCtx | MutationCtx): Promise<Doc<"user
     .withIndex("by_authId", (q) => q.eq("authId", authUser._id))
     .unique();
   if (!user) throw new Error("User not found");
+  if (!user.isActive) throw new Error("This account has been suspended.");
   return user;
 }
 
 export async function getAppUserOrNull(ctx: QueryCtx | MutationCtx): Promise<Doc<"users"> | null> {
   const authUser = await authComponent.safeGetAuthUser(ctx);
   if (!authUser) return null;
-  return await ctx.db
+  const user = await ctx.db
     .query("users")
     .withIndex("by_authId", (q) => q.eq("authId", authUser._id))
     .unique();
+  return user?.isActive ? user : null;
 }

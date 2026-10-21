@@ -39,13 +39,7 @@ export function PublicNavbar({ activeSection }: PublicNavbarProps) {
             {NAV_LINKS.map((link) => {
               const active = isLinkActive(link.id, link.href);
               return (
-                <Link
-                  key={link.id}
-                  href={link.href}
-                  className={`text-sm transition-colors ${
-                    active ? "font-semibold text-white" : "font-medium text-white/70 hover:text-white"
-                  }`}
-                >
+                <Link key={link.id} href={link.href} className={`text-sm transition-colors ${active ? "font-semibold text-white" : "font-medium text-white/70 hover:text-white"}`}>
                   {link.label}
                 </Link>
               );
@@ -54,14 +48,11 @@ export function PublicNavbar({ activeSection }: PublicNavbarProps) {
         </div>
 
         <div className="hidden items-center gap-3 sm:flex">
-          <Link
-            href="/auth?returnUrl=/profile"
-            className="rounded-full border border-white/20 bg-white/[0.04] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/35 hover:bg-white/[0.08]"
-          >
-            Start your profile
+          <Link href="/auth?returnUrl=/profile" className="rounded-full border border-white/20 bg-white/[0.04] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/35 hover:bg-white/[0.08]">
+            Find your role
           </Link>
           <Link
-            href={pathname === "/employers" ? "/auth?account_type=recruiter" : "/employers"}
+            href="/employer/auth?returnUrl=/jobs/posted"
             className="rounded-full bg-gradient-to-r from-[#623dd6] via-[#8433ae] to-[#be2680] px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-purple-900/30 transition-opacity hover:opacity-95"
           >
             Hire talent
@@ -70,12 +61,7 @@ export function PublicNavbar({ activeSection }: PublicNavbarProps) {
 
         {/* Mobile hamburger */}
         <div className="flex items-center sm:hidden">
-          <button
-            type="button"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="flex size-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/80"
-            aria-label="Toggle navigation"
-          >
+          <button type="button" onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="flex size-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/80" aria-label="Toggle navigation">
             {mobileMenuOpen ? <X className="size-5" /> : <Menu className="size-5" />}
           </button>
         </div>
@@ -88,29 +74,18 @@ export function PublicNavbar({ activeSection }: PublicNavbarProps) {
             {NAV_LINKS.map((link) => {
               const active = isLinkActive(link.id, link.href);
               return (
-                <Link
-                  key={link.id}
-                  href={link.href}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={`transition-colors ${
-                    active ? "font-semibold text-white" : "font-medium text-white/80 hover:text-white"
-                  }`}
-                >
+                <Link key={link.id} href={link.href} onClick={() => setMobileMenuOpen(false)} className={`transition-colors ${active ? "font-semibold text-white" : "font-medium text-white/80 hover:text-white"}`}>
                   {link.label}
                 </Link>
               );
             })}
           </nav>
           <div className="mt-6 flex flex-col gap-3">
-            <Link
-              href="/auth?returnUrl=/profile"
-              onClick={() => setMobileMenuOpen(false)}
-              className="rounded-full border border-white/20 bg-white/[0.04] py-3 text-center text-sm font-semibold text-white"
-            >
-              Start your profile
+            <Link href="/auth?returnUrl=/profile" onClick={() => setMobileMenuOpen(false)} className="rounded-full border border-white/20 bg-white/[0.04] py-3 text-center text-sm font-semibold text-white">
+              Find your role
             </Link>
             <Link
-              href={pathname === "/employers" ? "/auth?account_type=recruiter" : "/employers"}
+              href="/employer/auth?returnUrl=/jobs/posted"
               onClick={() => setMobileMenuOpen(false)}
               className="rounded-full bg-gradient-to-r from-[#623dd6] via-[#8433ae] to-[#be2680] py-3 text-center text-sm font-semibold text-white shadow-lg"
             >

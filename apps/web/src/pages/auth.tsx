@@ -29,12 +29,6 @@ const ROLE_OPTIONS: { value: AccountType; Icon: () => React.ReactElement; title:
     title: "I'm looking for a job",
     description: "See roles matched to your skills and signal your readiness.",
   },
-  {
-    value: "recruiter",
-    Icon: BuildingIcon,
-    title: "I'm hiring",
-    description: "Find candidates who are ready now, not just available.",
-  },
 ];
 
 // Shared button styles. Tailwind v4's preflight no longer sets `cursor: pointer`
@@ -270,6 +264,13 @@ export default function AuthPage() {
                   Privacy Policy
                 </Link>
               </p>
+
+              <p className="mt-4 text-center text-xs text-gray-500">
+                Hiring?{" "}
+                <Link href="/employer/auth" className="text-neon-cyan underline underline-offset-2 hover:text-white">
+                  Employer sign in
+                </Link>
+              </p>
             </motion.div>
           ) : null}
 
@@ -387,8 +388,8 @@ export default function AuthPage() {
           {step === "role" && (
             <motion.div key="role" {...cardMotion}>
               <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-8">
-                <h2 className="text-3xl font-bold text-white">Here&apos;s what to focus on.</h2>
-                <p className="mt-2 text-[15px] text-muted-foreground">Pick your starting point — you can switch anytime.</p>
+                <h2 className="text-3xl font-bold text-white">Set up your job search.</h2>
+                <p className="mt-2 text-[15px] text-muted-foreground">Your candidate profile is ready to personalize.</p>
 
                 <div className="mt-6 space-y-3">
                   {ROLE_OPTIONS.map((option) => {
@@ -431,6 +432,13 @@ export default function AuthPage() {
                   {isSavingRole ? "Saving…" : "Continue"}
                   {!isSavingRole && <ArrowRight />}
                 </button>
+
+                <p className="mt-4 text-center text-xs text-gray-500">
+                  Hiring instead?{" "}
+                  <Link href="/employer/auth" className="text-neon-cyan underline underline-offset-2 hover:text-white">
+                    Employer sign in
+                  </Link>
+                </p>
               </div>
 
               {/* Returns to the start rather than the previous step: the code has
@@ -498,17 +506,6 @@ function SearchIcon() {
     <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <circle cx="11" cy="11" r="7" />
       <path d="m20 20-3.5-3.5" />
-    </svg>
-  );
-}
-
-function BuildingIcon() {
-  return (
-    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M3 21h18" />
-      <path d="M5 21V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16" />
-      <path d="M15 21V9h2a2 2 0 0 1 2 2v10" />
-      <path d="M9 7h2M9 11h2M9 15h2" />
     </svg>
   );
 }
