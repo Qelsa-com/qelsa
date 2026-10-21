@@ -69,7 +69,7 @@ export default function PricingPage() {
       const result = await createCheckout({ interval, returnUrl: "/settings?billing=success" }).unwrap();
       window.location.href = result.checkout_url;
     } catch (error) {
-      toastUnknownError(error, "Could not start checkout. Please try again.");
+      toastUnknownError(error, "We're working on it. ");
     }
   };
 

@@ -1,11 +1,7 @@
 "use client";
 
 import { useAuth } from "@/contexts/AuthContext";
-import {
-  useCreateCheckoutAction,
-  useGetLivePricesAction,
-  type BillingInterval,
-} from "@/features/api/billingApi";
+import { useCreateCheckoutAction, useGetLivePricesAction, type BillingInterval } from "@/features/api/billingApi";
 import { toastUnknownError } from "@/lib/errors";
 import { ArrowRight, Check, Loader2, Sparkles, X } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -18,33 +14,22 @@ type LivePrices = {
   year: { amount: number; currency: string; available: boolean };
 };
 
-const COPY: Record<
-  UpgradeReason,
-  { eyebrow: string; title: string; description: string; used: string }
-> = {
+const COPY: Record<UpgradeReason, { eyebrow: string; title: string; description: string; used: string }> = {
   applications: {
     eyebrow: "Free application used",
     title: "Ready to apply to more roles?",
-    description:
-      "Your free plan includes one active application. Qelsa Pro removes the cap so you can keep applying while your search is hot.",
+    description: "Your free plan includes one active application. Qelsa Pro removes the cap so you can keep applying while your search is hot.",
     used: "1 active application",
   },
   agent: {
     eyebrow: "Free messages used",
     title: "Keep the conversation going.",
-    description:
-      "Your free plan includes 5 Qelsa Agent messages per day. Upgrade to keep planning, tailoring, and applying with Qelsa Agent.",
+    description: "Your free plan includes 5 Qelsa Agent messages per day. Upgrade to keep planning, tailoring, and applying with Qelsa Agent.",
     used: "5 Qelsa Agent messages per day",
   },
 };
 
-const PRO_FEATURES = [
-  "Unlimited active job applications",
-  "500 Qelsa Agent messages per day",
-  "Advanced readiness reports",
-  "Mock interview practice and skill-gap analysis",
-  "Priority job matching",
-];
+const PRO_FEATURES = ["Unlimited active job applications", "500 Qelsa Agent messages per day", "Advanced readiness reports", "Mock interview practice and skill-gap analysis", "Priority job matching"];
 
 function formatPrice(amount: number, currency: string) {
   if (!amount) return "—";
@@ -59,15 +44,7 @@ function formatPrice(amount: number, currency: string) {
   }
 }
 
-export function SubscriptionUpgradeModal({
-  open,
-  reason,
-  onClose,
-}: {
-  open: boolean;
-  reason: UpgradeReason;
-  onClose: () => void;
-}) {
+export function SubscriptionUpgradeModal({ open, reason, onClose }: { open: boolean; reason: UpgradeReason; onClose: () => void }) {
   const router = useRouter();
   const { isAuthenticated } = useAuth();
   const [getLivePrices] = useGetLivePricesAction();
@@ -104,10 +81,7 @@ export function SubscriptionUpgradeModal({
   const price = livePrices?.[interval];
   const yearly = livePrices?.year;
   const monthly = livePrices?.month;
-  const yearlySaving =
-    monthly?.amount && yearly?.amount && monthly.amount > 0
-      ? Math.max(0, Math.round((1 - yearly.amount / (monthly.amount * 12)) * 100))
-      : 0;
+  const yearlySaving = monthly?.amount && yearly?.amount && monthly.amount > 0 ? Math.max(0, Math.round((1 - yearly.amount / (monthly.amount * 12)) * 100)) : 0;
 
   const handleUpgrade = async () => {
     if (!isAuthenticated) {
@@ -127,22 +101,13 @@ export function SubscriptionUpgradeModal({
       }).unwrap();
       window.location.href = result.checkout_url;
     } catch (error) {
-      toastUnknownError(error, "Could not start checkout. Please try again.");
+      toastUnknownError(error, "We're working on it. ");
     }
   };
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="upgrade-title"
-      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
-      onClick={onClose}
-    >
-      <div
-        className="relative max-h-[92vh] w-full max-w-[480px] overflow-y-auto rounded-[26px] border border-white/12 bg-[#080a14] text-white shadow-2xl"
-        onClick={(event) => event.stopPropagation()}
-      >
+    <div role="dialog" aria-modal="true" aria-labelledby="upgrade-title" className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm" onClick={onClose}>
+      <div className="relative max-h-[92vh] w-full max-w-[480px] overflow-y-auto rounded-[26px] border border-white/12 bg-[#080a14] text-white shadow-2xl" onClick={(event) => event.stopPropagation()}>
         <div aria-hidden className="pointer-events-none absolute inset-0">
           <div className="absolute -right-24 -top-28 size-64 rounded-full bg-neon-purple/25 blur-[80px]" />
           <div className="absolute -bottom-28 -left-24 size-64 rounded-full bg-neon-cyan/10 blur-[80px]" />
@@ -171,31 +136,17 @@ export function SubscriptionUpgradeModal({
           <p className="mt-2.5 text-sm leading-relaxed text-white/55">{copy.description}</p>
 
           <div className="mt-5 inline-flex rounded-full border border-white/10 bg-white/[0.03] p-1">
-            <button
-              type="button"
-              onClick={() => setInterval("month")}
-              className={`rounded-full px-4 py-1.5 text-xs font-semibold transition ${
-                interval === "month" ? "bg-white text-[#06060f]" : "text-white/55 hover:text-white"
-              }`}
-            >
+            <button type="button" onClick={() => setInterval("month")} className={`rounded-full px-4 py-1.5 text-xs font-semibold transition ${interval === "month" ? "bg-white text-[#06060f]" : "text-white/55 hover:text-white"}`}>
               Monthly
             </button>
-            <button
-              type="button"
-              onClick={() => setInterval("year")}
-              className={`rounded-full px-4 py-1.5 text-xs font-semibold transition ${
-                interval === "year" ? "bg-white text-[#06060f]" : "text-white/55 hover:text-white"
-              }`}
-            >
+            <button type="button" onClick={() => setInterval("year")} className={`rounded-full px-4 py-1.5 text-xs font-semibold transition ${interval === "year" ? "bg-white text-[#06060f]" : "text-white/55 hover:text-white"}`}>
               Yearly
               {yearlySaving > 0 ? <span className="ml-1.5 text-emerald-500">Save {yearlySaving}%</span> : null}
             </button>
           </div>
 
           <div className="mt-4 flex items-end gap-1.5">
-            <span className="text-[34px] font-extrabold leading-none">
-              {price ? formatPrice(price.amount, price.currency) : "—"}
-            </span>
+            <span className="text-[34px] font-extrabold leading-none">{price ? formatPrice(price.amount, price.currency) : "—"}</span>
             <span className="pb-0.5 text-sm text-white/40">/{interval}</span>
             {interval === "year" ? <span className="pb-0.5 text-xs text-white/35">billed yearly</span> : null}
           </div>
@@ -238,9 +189,7 @@ export function SubscriptionUpgradeModal({
             </button>
           </div>
 
-          <p className="mt-4 text-[10px] leading-relaxed text-white/25">
-            Your free plan includes {copy.used}. Cancel Qelsa Pro anytime from Settings.
-          </p>
+          <p className="mt-4 text-[10px] leading-relaxed text-white/25">Your free plan includes {copy.used}. Cancel Qelsa Pro anytime from Settings.</p>
         </div>
       </div>
     </div>
