@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/collapsible";
 import { useCreateJobApplicationMutation } from "@/features/api/jobApplicationsApi";
 import { toastUnknownError } from "@/lib/errors";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import {
   AlertCircle,
   ArrowUpRight,
@@ -26,6 +26,7 @@ import {
   Copy,
   ExternalLink,
   FileText,
+  GraduationCap,
   Loader2,
   PanelRight,
   ShieldQuestion,
@@ -34,6 +35,7 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { artifactFromToolPart, type AgentArtifact } from "./agentArtifacts";
 import {
+  type AgentCourse,
   type AgentJobSummary,
   type AgentToolPart,
   toolMetaFor,
@@ -169,6 +171,74 @@ export function AgentJobResults({ label, jobs }: { label: string; jobs: AgentJob
         ))}
       </div>
     </section>
+  );
+}
+
+function CourseList({ courses, jobId }: { courses: AgentCourse[]; jobId?: string }) {
+  const trackClick = useMutation(api.agentCourseTracking.trackClick);
+  if (!courses.length) return null;
+  const hasAffiliate = courses.some((course) => course.affiliate);
+  return (
+    <div className="space-y-1.5">
+      <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/35">
+        <GraduationCap className="size-3 text-neon-cyan/80" />
+        Courses to close the gap
+      </p>
+      {courses.slice(0, 4).map((course) => (
+        <a
+          key={course.course_id}
+          href={course.url}
+          target="_blank"
+          rel={course.affiliate ? "noopener noreferrer sponsored" : "noopener noreferrer"}
+          onClick={() => {
+            void trackClick({
+              courseId: course.course_id,
+              provider: course.provider,
+              jobId: jobId as any,
+              source: "agent_fit",
+              matchedSkills: course.matched_skills ?? [],
+            }).catch(() => undefined);
+          }}
+          className="group flex items-start gap-2.5 rounded-lg border border-white/[0.07] bg-white/[0.03] px-2.5 py-2 transition-colors hover:border-sky-400/30 hover:bg-white/[0.06]"
+        >
+          <div className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md border border-white/10 bg-white/[0.04] text-sky-300">
+            <GraduationCap className="size-3.5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <p className="min-w-0 flex-1 truncate text-[11px] font-semibold text-white/85 group-hover:text-white">
+                {course.title}
+              </p>
+              {course.free && (
+                <span className="shrink-0 rounded-full border border-emerald-400/20 bg-emerald-400/[0.08] px-1.5 py-0.5 text-[9px] font-semibold text-emerald-300">
+                  Free
+                </span>
+              )}
+              {course.affiliate && (
+                <span className="shrink-0 rounded-full border border-amber-400/20 bg-amber-400/[0.08] px-1.5 py-0.5 text-[9px] font-semibold text-amber-300">
+                  Affiliate
+                </span>
+              )}
+            </div>
+            <p className="truncate text-[10px] text-white/40">
+              {[course.provider, course.duration].filter(Boolean).join(" · ")}
+            </p>
+            {course.matched_skills && course.matched_skills.length > 0 && (
+              <p className="mt-0.5 truncate text-[10px] text-sky-300/60">
+                For {course.matched_skills.slice(0, 3).join(", ")}
+              </p>
+            )}
+          </div>
+          <ArrowUpRight className="mt-0.5 size-3 shrink-0 text-white/25 transition-colors group-hover:text-sky-300" />
+        </a>
+      ))}
+      {hasAffiliate && (
+        <p className="text-[9px] leading-relaxed text-white/30">
+          Some links are affiliate links. Qelsa may earn a commission at no extra cost to you. Recommendations are
+          ranked by skill fit, not commission.
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -478,6 +548,7 @@ function ToolBody({
         <ChipList label="Strong" items={asArray(output.strong)} tone="border-emerald-400/25 bg-emerald-400/10 text-emerald-300" />
         <ChipList label="Partial" items={asArray(output.partial)} tone="border-amber-400/25 bg-amber-400/10 text-amber-300" />
         <ChipList label="Missing" items={asArray(output.missing)} tone="border-rose-400/25 bg-rose-400/10 text-rose-300" />
+        <CourseList courses={asArray(output.courses) as AgentCourse[]} jobId={jobId} />
         <div className="flex flex-wrap items-center gap-3">
           {artifact && onOpenArtifact && (
             <ArtifactButton onClick={() => onOpenArtifact(artifact)} label="Open fit report" />
@@ -493,6 +564,30 @@ function ToolBody({
             </a>
           )}
         </div>
+      </div>
+    );
+  }
+
+  if (name === "get_skill_courses") {
+    const courses = asArray(output.courses) as AgentCourse[];
+    const unmatched = asArray(output.unmatched_skills).filter((skill) => typeof skill === "string");
+    if (!courses.length) {
+      return (
+        <p className="mt-2 text-xs text-white/45">
+          {unmatched.length
+            ? `No curated course yet for ${unmatched.slice(0, 4).join(", ")}. Try a learning platform search for these skills.`
+            : output.note}
+        </p>
+      );
+    }
+    return (
+      <div className="mt-2 space-y-2">
+        <CourseList courses={courses} jobId={jobId} />
+        {unmatched.length > 0 && (
+          <p className="text-[10px] text-white/35">
+            No curated course yet for {unmatched.slice(0, 4).join(", ")}.
+          </p>
+        )}
       </div>
     );
   }
@@ -1146,14 +1241,22 @@ export function AgentToolCard({
         : running
           ? meta.running
           : meta.done;
+  const emptyCourseSearch =
+    name === "get_skill_courses" &&
+    !failed &&
+    !denied &&
+    !running &&
+    Boolean(output) &&
+    asArray(output?.courses).length === 0;
+  const traceLabel = emptyCourseSearch ? "No curated courses found" : label;
   const traceTitle =
     singleJob && (name === "get_job_readiness" || name === "run_job_match" || name === "analyze_external_job") ? (
       <>
-        {label}
+        {traceLabel}
         <span className="font-normal text-white/35"> · {singleJob.title}</span>
       </>
     ) : (
-      label
+      traceLabel
     );
   const resultsInFinalAnswer = name === "search_jobs" || name === "list_saved_jobs";
   const resultCount =
@@ -1161,13 +1264,15 @@ export function AgentToolCard({
       ? output.jobs.length
       : null;
   const traceDescription =
-    (name === "get_job_readiness" || name === "run_job_match" || name === "analyze_external_job") && output?.available === false
-      ? "No analysis yet"
-      : resultCount != null
-        ? resultCount === 0
-          ? "No jobs"
-          : `${resultCount} ${resultCount === 1 ? "job" : "jobs"}`
-        : undefined;
+    emptyCourseSearch
+      ? "No catalog match"
+      : (name === "get_job_readiness" || name === "run_job_match" || name === "analyze_external_job") && output?.available === false
+        ? "No analysis yet"
+        : resultCount != null
+          ? resultCount === 0
+            ? "No jobs"
+            : `${resultCount} ${resultCount === 1 ? "job" : "jobs"}`
+          : undefined;
   const showBody = Boolean(output) && !failed && !denied && !resultsInFinalAnswer;
   const bodyDefaultOpen =
     name === "get_job_readiness" || name === "run_job_match" || name === "analyze_external_job"

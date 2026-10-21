@@ -16,6 +16,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { internalAction, internalMutation, internalQuery } from "./_generated/server";
 import { createAgentChatModel, requireOpenRouter } from "./lib/ai";
 import { WITHDRAWN_STATUS, isWithdrawn } from "./lib/applications";
+import { recommendCourses } from "./lib/courseCatalog";
 import { bumpJobCount } from "./lib/jobCounts";
 import { clipPlainText, skillMatchKey } from "./lib/skillMatch";
 
@@ -358,6 +359,7 @@ export const getJobReadinessInternal = internalQuery({
       responsibilities_match: analysis.responsibilities_match,
       actions: analysis.actions.slice(0, 8),
       can_apply: analysis.can_apply,
+      courses: recommendCourses([...analysis.missing, ...analysis.partial], 4),
       match_url_path: `/jobs/match/${session._id}`,
     };
   },
@@ -1420,6 +1422,28 @@ export const updateCareerGoalTool = createTool({
     }),
 });
 
+export const getSkillCoursesTool = createTool({
+  description:
+    "Find curated courses for specific missing skills. Use this when the user asks how to learn a skill or what course would close a gap. Returns only real catalog resources; unmatched skills are returned separately.",
+  inputSchema: z.object({
+    skills: z.array(z.string()).min(1).max(12),
+  }),
+  execute: async (_ctx, args): Promise<any> => {
+    const skills = [...new Set(args.skills.map((skill) => skill.trim()).filter(Boolean))];
+    const courses = recommendCourses(skills, 8);
+    const matched = new Set(courses.flatMap((course) => course.matched_skills.map((skill) => skill.toLowerCase())));
+    const unmatched = skills.filter((skill) => !matched.has(skill.toLowerCase()));
+    return {
+      skills,
+      courses,
+      unmatched_skills: unmatched,
+      note: courses.length
+        ? "Review the course before recommending it; availability and pricing can change."
+        : "No curated course matched those skills yet. Search a learning platform for the skill.",
+    };
+  },
+});
+
 export const runJobMatchTool = createTool({
   description:
     "Run (or refresh) the full Qelsa Match readiness analysis for a job. Use this when no analysis exists or the user asks to check or re-check their fit. Readiness is the skill/profile score; never call it goal fit.",
@@ -1451,6 +1475,7 @@ export const runJobMatchTool = createTool({
       responsibilities_match: session.analysis.responsibilities_match,
       actions: session.analysis.actions,
       can_apply: session.analysis.can_apply,
+      courses: recommendCourses([...session.analysis.missing, ...session.analysis.partial], 4),
       match_url_path: `/jobs/match/${session.id}`,
       job_url_path: session.job_id ? `/jobs/${session.job_id}` : null,
     };
@@ -1492,6 +1517,7 @@ export const analyzeExternalJobTool = createTool({
       responsibilities_match: session.analysis.responsibilities_match,
       actions: session.analysis.actions,
       can_apply: session.analysis.can_apply,
+      courses: recommendCourses([...session.analysis.missing, ...session.analysis.partial], 4),
       match_url_path: `/jobs/match/${session.id}`,
     };
   },
@@ -1825,6 +1851,7 @@ export const qelsaAgentTools = {
   list_my_applications: listMyApplicationsTool,
   list_saved_jobs: listSavedJobsTool,
   get_job_readiness: getJobReadinessTool,
+  get_skill_courses: getSkillCoursesTool,
   run_job_match: runJobMatchTool,
   analyze_external_job: analyzeExternalJobTool,
   write_cover_letter: writeCoverLetterTool,

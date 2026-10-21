@@ -65,6 +65,7 @@ Set these on the local Convex deployment with `npx convex env set <NAME> <value>
 - `VAPID_PUBLIC_KEY` + `VAPID_PRIVATE_KEY` — browser push for saved-search briefs. Optional `VAPID_SUBJECT` (defaults to a Qelsa mailto). Without these, the Enable browser alerts control is hidden and push is skipped.
 - `SITE_URL` — absolute web URL used in brief emails, autofill bookmarklets, and notification links. Falls back to `NEXT_PUBLIC_SITE_URL`, then `http://localhost:3000`.
 - Email briefs reuse the existing Cloudflare Email Sending or Resend configuration in `packages/backend/convex/lib/email.ts`; with no provider configured they log to the Convex console.
+- `COURSE_AFFILIATE_LINKS` — optional JSON object mapping catalog `course_id` values to affiliate URLs, e.g. `{"python-py4e":"https://..."}`. Only configured links are labeled Affiliate; ranking never uses commission.
 
 ### Pre-existing lint/type failures (NOT environment problems)
 

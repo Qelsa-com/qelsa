@@ -13,6 +13,7 @@ import type { Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { internalAction, type ActionCtx } from "./_generated/server";
 import { createAgentChatModel, requireOpenRouter } from "./lib/ai";
+import { recommendCourses } from "./lib/courseCatalog";
 import { parseJsonObject } from "./lib/parsedProfile";
 import { clipPlainText } from "./lib/skillMatch";
 
@@ -237,6 +238,20 @@ function resumePlanMarkdown(
   sections.push(
     "## Gaps and next steps",
     nextSteps.length ? nextSteps.map((item) => `- ${item}`).join("\n") : "- Add evidence for the missing keywords before applying.",
+  );
+  const courses = recommendCourses(missingKeywords, 4);
+  if (courses.length) {
+    sections.push(
+      "## Courses to close gaps",
+      courses
+        .map(
+          (course) =>
+            `- [${course.title}](${course.url}) · ${course.provider}${course.free ? " · Free" : ""}`,
+        )
+        .join("\n"),
+    );
+  }
+  sections.push(
     "## ATS checklist",
     "- Keep one column and standard section headings.\n- Use the target job title in your headline when it is truthful.\n- Put the most relevant evidence in the top half of page one.\n- Never add a skill or metric you cannot defend in an interview.",
   );
@@ -306,6 +321,7 @@ Rules:
       resume,
       missing_keywords: generated.missing_keywords,
       next_steps: generated.next_steps,
+      courses: recommendCourses(generated.missing_keywords, 4),
       job_title: String(job.title ?? "this role"),
       company: job.company ?? null,
       job_id: args.jobId,

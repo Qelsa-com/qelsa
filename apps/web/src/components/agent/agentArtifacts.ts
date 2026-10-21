@@ -126,6 +126,7 @@ function fitReportArtifact(
   const partial = asArray(output.partial).filter((item) => typeof item === "string") as string[];
   const missing = asArray(output.missing).filter((item) => typeof item === "string") as string[];
   const actions = asArray(output.actions).filter((item) => typeof item === "string") as string[];
+  const courses = asArray(output.courses).filter((course) => course && typeof course.title === "string" && typeof course.url === "string");
   const rows = scoreRows(output);
   const matchUrl = typeof output.match_url_path === "string" ? output.match_url_path : null;
 
@@ -143,6 +144,19 @@ function fitReportArtifact(
   if (partial.length) sections.push(`## Partial matches\n\n${partial.map((item) => `- ${item}`).join("\n")}`);
   if (missing.length) sections.push(`## Gaps\n\n${missing.map((item) => `- ${item}`).join("\n")}`);
   if (actions.length) sections.push(`## Suggested next steps\n\n${actions.map((item) => `- ${item}`).join("\n")}`);
+  if (courses.length) {
+    sections.push(
+      `## Courses to close gaps\n\n${courses
+        .slice(0, 4)
+        .map((course: any) => {
+          const meta = [course.provider, course.duration, course.free ? "Free" : null, course.affiliate ? "Affiliate" : null]
+            .filter(Boolean)
+            .join(" · ");
+          return `- [${course.title}](${course.url})${meta ? ` — ${meta}` : ""}`;
+        })
+        .join("\n")}`,
+    );
+  }
   if (matchUrl) sections.push(`[Open the full Qelsa Match analysis](${matchUrl})`);
 
   return {
