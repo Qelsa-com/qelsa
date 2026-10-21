@@ -119,7 +119,7 @@ For every question include:
 - related skills
 
 Return ONLY valid JSON:
-{"title":"...","summary":"...","description":"...","skills":["..."],"interview_types":["..."],"estimated_minutes":30,"questions":[{"category":"Behavioral","question":"...","answer":"...","key_points":["..."],"follow_ups":["..."],"difficulty":"Mid","skills":["..."]}]}`;
+{"title":"...","summary":"max 120 characters","description":"max 240 characters","skills":["..."],"interview_types":["..."],"estimated_minutes":30,"questions":[{"category":"Behavioral","question":"...","answer":"...","key_points":["..."],"follow_ups":["..."],"difficulty":"Mid","skills":["..."]}]}`;
 }
 
 function qaPrompt(track: GeneratedTrack) {

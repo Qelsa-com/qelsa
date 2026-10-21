@@ -47,6 +47,16 @@ Google OAuth reveals the address only after the callback, so the employer screen
 
 A work-email blocklist plus OTP proves the user controls that inbox; it does not prove the domain belongs to a real employer. Domain/DNS verification or admin approval is the stronger follow-up if we need that guarantee.
 
+## User-facing copy
+
+Keep UI copy tight. Customer-facing pages should say more with fewer words:
+
+- Prefer one short sentence or a 1–2 line summary per card, section, or modal.
+- Do not stack multiple explanatory paragraphs on a page; move detail into the flow, a tooltip, or admin documentation.
+- Avoid repeating the same idea in a heading, subtitle, and helper text.
+- Labels should be direct. If the control already explains itself, do not add a second sentence for it.
+- AI-generated marketing/learning summaries must stay short (roughly 120 characters for card summaries, 240 for descriptions).
+
 ## Performance is a first-pass requirement
 
 Treat cost, latency, data growth, and external-service usage as acceptance criteria for every implementation—not cleanup for later.

@@ -3,12 +3,12 @@
 import { Button } from "@/components/ui/button";
 import { cn } from "@/components/ui/utils";
 import { api } from "@/lib/convexApi";
-import { ArrowLeft, ArrowRight, ArrowUpRight, Check, ChevronDown, ChevronLeft, Layers, ListChecks, RotateCcw, Shuffle, Sparkles } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, ChevronDown, ChevronLeft, Layers, ListChecks, RotateCcw, Shuffle, Sparkles } from "lucide-react";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery } from "convex/react";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 type Question = {
   id: string;
@@ -244,12 +244,6 @@ export function InterviewPrepCourse({ slug }: { slug?: string }) {
   const track = useQuery(api.interviewPrep.getBySlug, slug ? { slug } : "skip") as Track | undefined;
   const [mode, setMode] = useState<"learn" | "flashcards">("learn");
 
-  const categories = useMemo(() => {
-    const set = new Set<string>();
-    for (const question of track?.questions ?? []) set.add(question.category);
-    return [...set];
-  }, [track]);
-
   if (!slug) return null;
 
   if (track === undefined) {
@@ -291,7 +285,7 @@ export function InterviewPrepCourse({ slug }: { slug?: string }) {
           <div>
             <p className="text-[11px] font-mono font-semibold uppercase tracking-[0.16em] text-neon-cyan">{track.role_family}</p>
             <h1 className="mt-3 text-3xl font-extrabold tracking-[-0.03em] sm:text-4xl">{track.title}</h1>
-            <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/55">{track.summary}</p>
+            <p className="mt-3 line-clamp-2 max-w-2xl text-sm leading-relaxed text-white/55">{track.summary}</p>
             <div className="mt-4 flex flex-wrap gap-2">
               <Badge>AI-built</Badge>
               <Badge>{track.level}</Badge>
@@ -304,8 +298,8 @@ export function InterviewPrepCourse({ slug }: { slug?: string }) {
           </div>
 
           <div className="rounded-[18px] border border-white/[0.08] bg-white/[0.025] p-4">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/35">Keep going</p>
-            <p className="mt-2 text-xs leading-relaxed text-white/50">Practice one question at a time with Qelsa Agent and get feedback on your answer.</p>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/35">Practice</p>
+            <p className="mt-2 text-xs leading-relaxed text-white/50">Mock interview, one question at a time.</p>
             <Link href={`/agent?prompt=${encodeURIComponent(prompt)}`} className="mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-full border border-neon-cyan/30 bg-neon-cyan/10 px-3 py-2.5 text-xs font-semibold text-neon-cyan transition-colors hover:bg-neon-cyan/15">
               <Sparkles className="size-3.5" />
               Practice with Agent
@@ -332,24 +326,9 @@ export function InterviewPrepCourse({ slug }: { slug?: string }) {
               Flashcards
             </button>
           </div>
-          <p className="text-[11px] text-white/30">
-            {mode === "learn" ? "Read the framework, then try answering out loud." : "Cover the answer, say your version, then flip."}
-            {categories.length ? ` · ${categories.join(" · ")}` : ""}
-          </p>
         </div>
 
         <div className="mt-6">{mode === "learn" ? <LearnMode questions={track.questions} /> : <FlashcardMode questions={track.questions} />}</div>
-
-        <div className="mt-10 flex flex-wrap items-center justify-between gap-4 rounded-[18px] border border-white/[0.08] bg-white/[0.02] p-5">
-          <div>
-            <p className="text-sm font-semibold">Want the full role prep experience?</p>
-            <p className="mt-1 text-xs text-white/45">Ask Qelsa Agent to run a mock interview using this track.</p>
-          </div>
-          <Link href={`/agent?prompt=${encodeURIComponent(prompt)}`} className="gradient-primary inline-flex items-center gap-1.5 rounded-full px-4 py-2.5 text-xs font-bold text-white transition-opacity hover:opacity-90">
-            Start mock interview
-            <ArrowUpRight className="size-3.5" />
-          </Link>
-        </div>
       </div>
     </main>
   );

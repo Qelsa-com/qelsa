@@ -3,7 +3,7 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { api } from "@/lib/convexApi";
 import { cn } from "@/components/ui/utils";
-import { ArrowRight, ArrowUpRight, BookOpen, GraduationCap, Layers, Search, Sparkles, Timer } from "lucide-react";
+import { ArrowRight, ArrowUpRight, BookOpen, GraduationCap, Search, Sparkles, Timer } from "lucide-react";
 import Link from "next/link";
 import { useMutation, useQuery } from "convex/react";
 import { useMemo, useState, type ReactNode } from "react";
@@ -104,10 +104,7 @@ export function CoursesCatalog() {
           </p>
           <h1 className="mt-4 text-4xl font-extrabold tracking-[-0.035em] sm:text-5xl">Walk in ready.</h1>
           <p className="mt-4 text-sm leading-relaxed text-white/55 sm:text-base">
-            Role-based interview prep built by Qelsa, plus curated courses for the skills you want to close next.
-          </p>
-          <p className="mt-2 text-[11px] text-white/30">
-            AI-built practice frameworks, quality-checked before publishing. Use them to rehearse — not as leaked interview questions.
+            Role-based interview practice, built and quality-checked by Qelsa.
           </p>
         </div>
 
@@ -156,12 +153,8 @@ export function CoursesCatalog() {
             <div className="flex flex-wrap items-end justify-between gap-3">
               <div>
                 <h2 className="text-xl font-bold">Interview prep tracks</h2>
-                <p className="mt-1 text-xs text-white/40">Common questions, answer frameworks, and follow-ups for the role you are targeting.</p>
+                <p className="mt-1 text-xs text-white/40">Frequently asked questions with answer frameworks.</p>
               </div>
-              <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-white/35">
-                <Layers className="size-3.5" />
-                Learn or switch to flashcards
-              </span>
             </div>
 
             {tracksQuery === undefined ? (
@@ -208,9 +201,11 @@ export function CoursesCatalog() {
             ) : (
               <div className="mt-5 rounded-[22px] border border-dashed border-white/15 bg-white/[0.02] px-6 py-14 text-center">
                 <GraduationCap className="mx-auto size-8 text-white/25" />
-                <p className="mt-3 text-sm font-semibold">{tracks.length ? "No track matches that search." : "The curriculum agent is building the first tracks."}</p>
+                <p className="mt-3 text-sm font-semibold">
+                  {tracks.length ? "No tracks match that search." : "New tracks are being built."}
+                </p>
                 <p className="mt-1 text-xs text-white/40">
-                  {tracks.length ? "Try a role family or skill instead." : "Check back shortly — new role-based prep tracks are added automatically."}
+                  {tracks.length ? "Try a role family or skill." : "Check back soon."}
                 </p>
               </div>
             )}
@@ -220,7 +215,7 @@ export function CoursesCatalog() {
             <div className="flex flex-wrap items-end justify-between gap-3">
               <div>
                 <h2 className="text-xl font-bold">Skill courses</h2>
-                <p className="mt-1 text-xs text-white/40">Curated external resources for the gaps that need a deeper skill course.</p>
+                <p className="mt-1 text-xs text-white/40">Curated courses for deeper skill gaps.</p>
               </div>
             </div>
 
@@ -260,7 +255,7 @@ export function CoursesCatalog() {
                         {course.free ? "Free" : "Paid"}
                       </span>
                     </div>
-                    {course.affiliate ? <p className="mt-2 text-[10px] text-white/25">Partner link · Qelsa may earn a commission</p> : null}
+                    {course.affiliate ? <p className="mt-2 text-[10px] text-white/25">Partner link</p> : null}
                   </a>
                 ))}
               </div>
