@@ -112,12 +112,7 @@ function LoginForm() {
     await signInWithPassword();
   };
 
-  const canSubmit =
-    mode === "otp"
-      ? otpSent
-        ? Boolean(otp.trim())
-        : Boolean(email.trim())
-      : Boolean(email.trim() && password);
+  const canSubmit = mode === "otp" ? (otpSent ? Boolean(otp.trim()) : Boolean(email.trim())) : Boolean(email.trim() && password);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#06060f] px-6 text-white">
@@ -127,27 +122,14 @@ function LoginForm() {
             <ShieldCheck className="h-6 w-6 text-neon-cyan" />
           </div>
           <h1 className="text-2xl font-bold">Qelsa Admin</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Sign in with an admin account to continue.
-          </p>
+          <p className="mt-2 text-sm text-muted-foreground">Sign in with an admin account to continue.</p>
         </div>
 
         <form onSubmit={handleSubmit} className="rounded-2xl border border-glass-border glass p-6">
-          {notAdmin && (
-            <p className="mb-4 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-300">
-              That account does not have admin access.
-            </p>
-          )}
-          {error && (
-            <p className="mb-4 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-rose-300">
-              {error}
-            </p>
-          )}
+          {error && <p className="mb-4 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-rose-300">{error}</p>}
 
           {mode === "otp" && otpSent && (
-            <p className="mb-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">
-              If this email has admin access, a verification code was sent. Check the inbox for {email}.
-            </p>
+            <p className="mb-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">If this email has admin access, a verification code was sent. Check the inbox for {email}.</p>
           )}
 
           <div className="space-y-4">
@@ -173,51 +155,20 @@ function LoginForm() {
             {mode === "otp" && otpSent && (
               <div className="space-y-2">
                 <Label htmlFor="otp">Verification code</Label>
-                <Input
-                  id="otp"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  maxLength={6}
-                  required
-                  value={otp}
-                  onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))}
-                  placeholder="000000"
-                />
+                <Input id="otp" inputMode="numeric" autoComplete="one-time-code" maxLength={6} required value={otp} onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="000000" />
               </div>
             )}
 
             {mode === "password" && (
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  autoComplete="current-password"
-                  required
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  placeholder="••••••••"
-                />
+                <Input id="password" type="password" autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)} placeholder="••••••••" />
               </div>
             )}
           </div>
 
-          <Button
-            type="submit"
-            className="mt-6 w-full rounded-full bg-gradient-to-r from-neon-purple to-neon-pink text-white hover:opacity-90"
-            disabled={isSubmitting || !canSubmit}
-          >
-            {isSubmitting
-              ? mode === "otp"
-                ? otpSent
-                  ? "Verifying…"
-                  : "Sending code…"
-                : "Signing in…"
-              : mode === "otp"
-                ? otpSent
-                  ? "Verify and sign in"
-                  : "Email me a code"
-                : "Sign in"}
+          <Button type="submit" className="mt-6 w-full rounded-full bg-gradient-to-r from-neon-purple to-neon-pink text-white hover:opacity-90" disabled={isSubmitting || !canSubmit}>
+            {isSubmitting ? (mode === "otp" ? (otpSent ? "Verifying…" : "Sending code…") : "Signing in…") : mode === "otp" ? (otpSent ? "Verify and sign in" : "Email me a code") : "Sign in"}
           </Button>
 
           {mode === "otp" && otpSent && (
@@ -249,13 +200,7 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="flex min-h-screen items-center justify-center bg-[#06060f] text-sm text-muted-foreground">
-          Loading…
-        </div>
-      }
-    >
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-[#06060f] text-sm text-muted-foreground">Loading…</div>}>
       <LoginForm />
     </Suspense>
   );
