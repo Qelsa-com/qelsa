@@ -283,34 +283,41 @@ export function HrOnboarding({ onBack, onComplete }: { onBack: () => void; onCom
           </div>
 
           <label className="mt-5 block text-sm text-muted-foreground">Company size</label>
-          <button
-            type="button"
-            onClick={() => setSizeOpen((open) => !open)}
-            className="relative mt-2 flex h-14 w-full cursor-pointer items-center justify-between rounded-full border border-white/12 bg-white/[0.04] px-5 text-[15px] text-white"
-          >
-            <span className={selectedSize ? "text-white" : "text-muted-foreground"}>
-              {selectedSize?.label ?? "Select headcount range"}
-            </span>
-            <ChevronDown className="h-4 w-4 text-muted-foreground" />
-          </button>
-          {sizeOpen && (
-            <ul className="mt-2 overflow-hidden rounded-2xl border border-white/10 bg-[#121218]">
-              {sizes.map((row: { id: string; label: string }) => (
-                <li key={row.id}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSizeId(row.id);
-                      setSizeOpen(false);
-                    }}
-                    className="flex w-full cursor-pointer px-5 py-3 text-left text-[15px] text-white hover:bg-white/[0.06]"
-                  >
-                    {row.label}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
+          <div className="relative mt-2">
+            <button
+              type="button"
+              onClick={() => setSizeOpen((open) => !open)}
+              aria-expanded={sizeOpen}
+              aria-haspopup="listbox"
+              className="flex h-14 w-full cursor-pointer items-center justify-between rounded-full border border-white/12 bg-white/[0.04] px-5 text-[15px] text-white"
+            >
+              <span className={selectedSize ? "text-white" : "text-muted-foreground"}>
+                {selectedSize?.label ?? "Select headcount range"}
+              </span>
+              <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${sizeOpen ? "rotate-180" : ""}`} />
+            </button>
+            {sizeOpen && (
+              <ul
+                role="listbox"
+                className="absolute z-20 mt-2 max-h-60 w-full overflow-y-auto rounded-2xl border border-white/10 bg-[#121218] py-1 shadow-xl"
+              >
+                {sizes.map((row: { id: string; label: string }) => (
+                  <li key={row.id} role="option" aria-selected={sizeId === row.id}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSizeId(row.id);
+                        setSizeOpen(false);
+                      }}
+                      className="flex w-full cursor-pointer px-5 py-3 text-left text-[15px] text-white hover:bg-white/[0.06]"
+                    >
+                      {row.label}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-5">
             <div>
