@@ -4,7 +4,7 @@ import { User } from "@/types/user";
 import { api } from "@/lib/convexApi";
 import { authClient } from "@/lib/auth-client";
 import { useGetProfileQuery } from "@/features/api/authApi";
-import { useMutation } from "convex/react";
+import { useConvexAuth, useMutation } from "convex/react";
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 
 interface AuthContextType {
@@ -18,7 +18,10 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { data: session, isPending } = authClient.useSession();
-  const { data: profile, isFetching } = useGetProfileQuery(undefined, { skip: !session });
+  const { isAuthenticated: isConvexAuthenticated, isLoading: isConvexAuthLoading } = useConvexAuth();
+  const { data: profile, isFetching } = useGetProfileQuery(undefined, {
+    skip: !session || !isConvexAuthenticated,
+  });
   const user = (profile as User | undefined) ?? null;
 
   const ensureAppUser = useMutation(api.auth.ensureCurrentAppUser);
@@ -32,13 +35,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       provisionAttempted.current = false;
       return;
     }
+    // Wait for Convex to attach the Better Auth token; otherwise this
+    // mutation races the provider and fails with "Unauthenticated".
+    if (!isConvexAuthenticated) return;
     if (profile !== null || provisionAttempted.current) return;
     provisionAttempted.current = true;
     setIsProvisioning(true);
     void ensureAppUser({})
       .catch(() => undefined)
       .finally(() => setIsProvisioning(false));
-  }, [session, profile, ensureAppUser]);
+  }, [session, isConvexAuthenticated, profile, ensureAppUser]);
 
   const logout = useCallback(async () => {
     await authClient.signOut().catch(() => undefined);
@@ -47,11 +53,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       user,
-      isAuthenticated: Boolean(session && user),
-      isLoading: isPending || Boolean(session && (isFetching || isProvisioning)),
+      isAuthenticated: Boolean(session && user && isConvexAuthenticated),
+      isLoading:
+        isPending ||
+        isConvexAuthLoading ||
+        Boolean(session && (isFetching || isProvisioning)),
       logout,
     }),
-    [user, session, isPending, isFetching, isProvisioning, logout],
+    [user, session, isConvexAuthenticated, isConvexAuthLoading, isPending, isFetching, isProvisioning, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
