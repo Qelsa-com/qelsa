@@ -85,6 +85,164 @@ async function writeMarkdown(prompt: string, effort: "low" | "medium" = "low") {
   return text;
 }
 
+function text(value: unknown, fallback = ""): string {
+  return typeof value === "string" && value.trim() ? value.trim() : fallback;
+}
+
+function textList(value: unknown, max: number): string[] {
+  if (!Array.isArray(value)) return [];
+  const out: string[] = [];
+  for (const item of value) {
+    const next = text(item);
+    if (!next) continue;
+    out.push(next.slice(0, 500));
+    if (out.length >= max) break;
+  }
+  return out;
+}
+
+type ResumeDocument = {
+  name: string;
+  headline: string | null;
+  email: string | null;
+  phone: string | null;
+  location: string | null;
+  links: Array<{ label: string; url: string }>;
+  summary: string;
+  experience: Array<{
+    title: string;
+    company: string;
+    start_date: number | null;
+    end_date: number | null;
+    is_current: boolean;
+    bullets: string[];
+    skills: string[];
+  }>;
+  education: Array<{
+    degree: string;
+    college: string;
+    field: string | null;
+    start_year: number | null;
+    end_year: number | null;
+  }>;
+  certifications: string[];
+  skills: string[];
+  projects: string[];
+};
+
+function buildResumeDocument(
+  candidate: CandidateContext,
+  generated: {
+    summary: string;
+    experience: Array<{ index: number; bullets: string[] }>;
+    missing_keywords: string[];
+    next_steps: string[];
+  },
+): ResumeDocument {
+  const profile = candidate.profile as Record<string, any>;
+  const bulletsByIndex = new Map<number, string[]>();
+  for (const row of generated.experience) {
+    if (!Number.isInteger(row.index) || row.index < 0) continue;
+    if (row.index >= candidate.experiences.length) continue;
+    bulletsByIndex.set(row.index, row.bullets.slice(0, 5));
+  }
+  const experience = candidate.experiences.map((raw, index) => {
+    const row = raw as Record<string, any>;
+    const fallback = [
+      text(row.description),
+      ...textList(row.responsibilities, 6),
+    ].filter(Boolean).slice(0, 4);
+    const bullets = (bulletsByIndex.get(index) ?? []).length
+      ? bulletsByIndex.get(index)!
+      : fallback;
+    return {
+      title: text(row.title, "Role"),
+      company: text(row.company, "Company"),
+      start_date: typeof row.start_date === "number" ? row.start_date : null,
+      end_date: typeof row.end_date === "number" ? row.end_date : null,
+      is_current: Boolean(row.is_current),
+      bullets: bullets.map((bullet) => text(bullet)).filter(Boolean).slice(0, 5),
+      skills: textList(row.skills, 8),
+    };
+  });
+  const education = candidate.educations.map((raw) => {
+    const row = raw as Record<string, any>;
+    return {
+      degree: text(row.degree, "Degree"),
+      college: text(row.college, "School"),
+      field: text(row.field) || null,
+      start_year: typeof row.start_year === "number" ? row.start_year : null,
+      end_year: typeof row.end_year === "number" ? row.end_year : null,
+    };
+  });
+  const links: Array<{ label: string; url: string }> = [];
+  if (text(profile.linkedin_url)) links.push({ label: "LinkedIn", url: text(profile.linkedin_url) });
+  if (text(profile.github_url)) links.push({ label: "GitHub", url: text(profile.github_url) });
+  if (text(profile.website)) links.push({ label: "Portfolio", url: text(profile.website) });
+  for (const raw of Array.isArray(profile.portfolio_links) ? profile.portfolio_links : []) {
+    const link = raw as Record<string, unknown>;
+    const url = text(link.url);
+    if (url) links.push({ label: text(link.title, "Portfolio"), url });
+  }
+  return {
+    name: text(profile.name, "Candidate"),
+    headline: text(profile.headline) || null,
+    email: text(profile.email) || null,
+    phone: text(profile.phone) || null,
+    location: text(profile.city) || null,
+    links: links.slice(0, 4),
+    summary: generated.summary,
+    experience,
+    education,
+    certifications: candidate.certifications.slice(0, 10),
+    skills: candidate.skills.map((skill) => skill.name).slice(0, 30),
+    projects: candidate.projects.slice(0, 8),
+  };
+}
+
+function resumePlanMarkdown(
+  resume: ResumeDocument,
+  job: any,
+  missingKeywords: string[],
+  nextSteps: string[],
+): string {
+  const sections: string[] = [
+    `# Tailored resume plan — ${text(job.title, "role")}${job.company ? ` at ${job.company}` : ""}`,
+    "## Target summary",
+    resume.summary,
+  ];
+  if (resume.experience.length) {
+    sections.push("## Experience");
+    for (const role of resume.experience) {
+      sections.push(`### ${role.title} · ${role.company}`);
+      if (role.bullets.length) sections.push(role.bullets.map((bullet) => `- ${bullet}`).join("\n"));
+    }
+  }
+  sections.push(
+    "## Skills and keywords",
+    `**Already evidenced:** ${resume.skills.join(", ") || "None listed"}`,
+    `**Missing — do not claim:** ${missingKeywords.join(", ") || "None identified"}`,
+  );
+  if (resume.education.length) {
+    sections.push(
+      "## Education",
+      resume.education
+        .map((row) => `- ${[row.degree, row.field, row.college].filter(Boolean).join(" · ")}`)
+        .join("\n"),
+    );
+  }
+  if (resume.certifications.length) {
+    sections.push("## Certifications", resume.certifications.map((item) => `- ${item}`).join("\n"));
+  }
+  sections.push(
+    "## Gaps and next steps",
+    nextSteps.length ? nextSteps.map((item) => `- ${item}`).join("\n") : "- Add evidence for the missing keywords before applying.",
+    "## ATS checklist",
+    "- Keep one column and standard section headings.\n- Use the target job title in your headline when it is truthful.\n- Put the most relevant evidence in the top half of page one.\n- Never add a skill or metric you cannot defend in an interview.",
+  );
+  return sections.join("\n\n").slice(0, 12_000);
+}
+
 export const tailorResumeInternal = internalAction({
   args: {
     authId: v.string(),
@@ -97,8 +255,8 @@ export const tailorResumeInternal = internalAction({
       loadCandidate(ctx, args.authId),
       loadJob(ctx, args.authId, args.jobId),
     ]);
-    const markdown = await writeMarkdown(
-      `You are a senior resume editor. Tailor this candidate's existing resume to the target job. This is a draft for the candidate to review — never invent employers, dates, degrees, metrics, or skills they did not provide.
+    const response = await writeMarkdown(
+      `You are a senior resume editor. Tailor this candidate's existing resume to the target job. Never invent employers, dates, degrees, metrics, or skills.
 
 TARGET JOB
 ${JSON.stringify(jobPayload(job))}
@@ -108,24 +266,46 @@ ${JSON.stringify(candidatePayload(candidate))}
 
 ${args.instructions ? `CANDIDATE INSTRUCTIONS\n${clipPlainText(args.instructions, 800)}\n` : ""}
 
-Return GitHub-flavored Markdown with exactly these sections:
-# Tailored resume plan — <job title> at <company>
-## Target summary
-A 2–3 sentence professional summary using only real evidence.
-## Experience rewrites
-For each relevant role, show 2–4 bullets. Use "Before:" and "After:" lines. If the original has no bullet, write "Before: <original description>" and make the After version truthful. Never add a number or outcome that is not in the source material.
-## Skills and keywords
-Two subsections: "Already evidenced" and "Missing — do not claim".
-## Gaps and next steps
-3–6 concrete actions, ordered by impact.
-## ATS checklist
-Short checklist covering title alignment, keyword coverage, formatting, and evidence.
+Return JSON only:
+{"summary":"2–3 sentence summary using only real evidence","experience":[{"index":0,"bullets":["2–4 truthful bullets"]}],"missing_keywords":["keywords the job asks for that the profile does not evidence"],"next_steps":["3–6 concrete actions"]}
 
-Keep the whole answer under 900 words. Do not output JSON.`,
+Rules:
+- The experience index must match the candidate's experience array order.
+- Only include an experience entry when you have relevant evidence. Never change the company or title.
+- Do not add a number, outcome, or technology that is not in the source material.
+- Do not claim a missing keyword. List it under missing_keywords instead.
+- The summary may use the target role language only when the evidence supports it.`,
       "medium",
     );
+    const parsed = parseJsonObject(response) as Record<string, unknown> | null;
+    if (!parsed || typeof parsed !== "object") {
+      throw new Error("I couldn't structure the tailored resume. Try again.");
+    }
+    const generatedExperience = Array.isArray(parsed.experience)
+      ? parsed.experience
+          .map((raw) => {
+            const row = raw as Record<string, unknown>;
+            const index = typeof row.index === "number" ? Math.round(row.index) : -1;
+            return { index, bullets: textList(row.bullets, 4) };
+          })
+          .filter((row) => row.index >= 0 && row.bullets.length > 0)
+      : [];
+    const generated = {
+      summary:
+        text(parsed.summary) ||
+        text((candidate.profile as Record<string, unknown>).professional_summary) ||
+        text((candidate.profile as Record<string, unknown>).about) ||
+        "Candidate profile.",
+      experience: generatedExperience,
+      missing_keywords: textList(parsed.missing_keywords, 12),
+      next_steps: textList(parsed.next_steps, 8),
+    };
+    const resume = buildResumeDocument(candidate, generated);
     return {
-      markdown,
+      markdown: resumePlanMarkdown(resume, job, generated.missing_keywords, generated.next_steps),
+      resume,
+      missing_keywords: generated.missing_keywords,
+      next_steps: generated.next_steps,
       job_title: String(job.title ?? "this role"),
       company: job.company ?? null,
       job_id: args.jobId,

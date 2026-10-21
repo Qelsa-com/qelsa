@@ -314,16 +314,19 @@ function ApprovalBody({
         </p>
       )}
       {name === "save_job_search" && (
-        <p className="text-[11px] text-white/45">
-          {[
-            input?.query,
-            input?.city,
-            input?.remote ? "remote" : input?.workplace_type,
-            input?.salary_min ? `${input.salary_min}+` : null,
-          ]
-            .filter(Boolean)
-            .join(" · ") || "All open roles"}
-        </p>
+        <>
+          <p className="text-[11px] text-white/45">
+            {[
+              input?.query,
+              input?.city,
+              input?.remote ? "remote" : input?.workplace_type,
+              input?.salary_min ? `${input.salary_min}+` : null,
+            ]
+              .filter(Boolean)
+              .join(" · ") || "All open roles"}
+          </p>
+          <p className="text-[10px] text-white/30">Email and browser alerts are on by default.</p>
+        </>
       )}
       <div className="flex flex-wrap gap-2">
         <button
@@ -566,6 +569,45 @@ function ToolBody({
               Open application page <ExternalLink className="size-3.5" />
             </a>
           )}
+          {typeof output.autofill?.bookmarklet === "string" && (
+            <button
+              type="button"
+              onClick={async () => {
+                const tab =
+                  typeof output.application_url === "string"
+                    ? window.open(output.application_url, "_blank", "noopener,noreferrer")
+                    : null;
+                try {
+                  await navigator.clipboard.writeText(output.autofill.bookmarklet);
+                  toast.success(
+                    "Autofill bookmarklet copied. Save it to your bookmarks bar once, then click it on the application tab.",
+                  );
+                } catch {
+                  toast.error("Couldn't copy the autofill bookmarklet. Select it from the application kit.");
+                }
+                void tab;
+              }}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-sky-400/25 bg-sky-400/[0.08] px-3 py-1.5 text-[12px] font-semibold text-sky-200 transition-colors hover:bg-sky-400/[0.14]"
+            >
+              <Copy className="size-3.5" />
+              Autofill external form
+            </button>
+          )}
+          {typeof output.autofill?.bookmarklet === "string" && (
+            <a
+              href={output.autofill.bookmarklet}
+              draggable
+              onClick={(event) => {
+                event.preventDefault();
+                void navigator.clipboard.writeText(output.autofill.bookmarklet);
+                toast.success("Autofill bookmarklet copied.");
+              }}
+              className="inline-flex cursor-grab items-center gap-1.5 rounded-lg border border-white/15 bg-white/[0.04] px-3 py-1.5 text-[11px] font-semibold text-white/60 transition-colors hover:border-white/30 hover:text-white active:cursor-grabbing"
+              title="Drag this link to your bookmarks bar"
+            >
+              Drag to bookmarks
+            </a>
+          )}
           {typeof output.resume_link?.url === "string" && (
             <a
               href={output.resume_link.url}
@@ -583,6 +625,13 @@ function ToolBody({
             <CopyButton text={output.cover_letter} label="Copy cover letter" />
           )}
         </div>
+        {typeof output.autofill?.bookmarklet === "string" && (
+          <p className="text-[10px] leading-relaxed text-white/35">
+            For this application, drag “Drag to bookmarks” into your bookmarks bar. On the application tab, click that
+            bookmark. Qelsa fills recognized fields and attaches your resume; it never submits. The link expires in
+            20 minutes.
+          </p>
+        )}
         {checklist.length > 0 && (
           <ol className="space-y-1 text-[11px] text-white/50">
             {checklist.map((item: string, index: number) => (
@@ -822,6 +871,15 @@ function ToolBody({
           </div>
         ))}
       </div>
+    );
+  }
+
+  if (name === "update_job_search_alerts") {
+    if (!output.updated) return <p className="mt-2 text-xs text-white/45">No alert changes.</p>;
+    return (
+      <p className="mt-2 text-xs text-white/55">
+        {output.name}: email {output.email_alerts ? "on" : "off"} · browser push {output.push_alerts ? "on" : "off"}
+      </p>
     );
   }
 

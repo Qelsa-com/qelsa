@@ -980,6 +980,8 @@ export const saveSavedSearchInternal = internalMutation({
     workplaceType: v.optional(v.string()),
     remote: v.optional(v.boolean()),
     salaryMin: v.optional(v.number()),
+    emailAlerts: v.optional(v.boolean()),
+    pushAlerts: v.optional(v.boolean()),
   },
   returns: v.any(),
   handler: async (ctx, args) => {
@@ -1010,6 +1012,8 @@ export const saveSavedSearchInternal = internalMutation({
       workplace_type: normalizeWorkplace(args.workplaceType),
       remote: args.remote,
       salary_min: args.salaryMin,
+      email_alerts: args.emailAlerts ?? true,
+      push_alerts: args.pushAlerts ?? true,
       active: true,
       created_at: Date.now(),
       seen_job_ids: seen.slice(0, 50),
@@ -1037,6 +1041,8 @@ export const listSavedSearchesInternal = internalQuery({
         workplace_type: row.workplace_type ?? null,
         remote: row.remote ?? null,
         salary_min: row.salary_min ?? null,
+        email_alerts: row.email_alerts ?? true,
+        push_alerts: row.push_alerts ?? true,
         active: row.active,
         last_checked_at: row.last_checked_at ?? null,
       })),
@@ -1053,6 +1059,32 @@ export const deleteSavedSearchInternal = internalMutation({
     if (!row || row.user_id !== user._id) throw new Error("Saved search not found.");
     await ctx.db.delete(row._id);
     return { deleted: true, name: row.name };
+  },
+});
+
+export const updateSavedSearchAlertsInternal = internalMutation({
+  args: {
+    authId: v.string(),
+    savedSearchId: v.id("agent_saved_searches"),
+    emailAlerts: v.optional(v.boolean()),
+    pushAlerts: v.optional(v.boolean()),
+  },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    const user = await appUser(ctx, args.authId);
+    const row = await ctx.db.get(args.savedSearchId);
+    if (!row || row.user_id !== user._id) throw new Error("Saved search not found.");
+    const patch: Record<string, unknown> = {};
+    if (args.emailAlerts !== undefined) patch.email_alerts = args.emailAlerts;
+    if (args.pushAlerts !== undefined) patch.push_alerts = args.pushAlerts;
+    if (!Object.keys(patch).length) return { updated: false, name: row.name };
+    await ctx.db.patch(row._id, patch);
+    return {
+      updated: true,
+      name: row.name,
+      email_alerts: patch.email_alerts ?? row.email_alerts ?? true,
+      push_alerts: patch.push_alerts ?? row.push_alerts ?? true,
+    };
   },
 });
 
@@ -1306,16 +1338,34 @@ export const prepareExternalApplicationTool = createTool({
       });
       coverLetter = draft.cover_letter;
     }
+    const packet: any = await ctx.runMutation(internal.agentAutofill.createPacketInternal, {
+      authId,
+      jobId: args.job_id as Id<"jobs">,
+      coverLetter: coverLetter ?? undefined,
+      resumeUrl: resume?.url ?? undefined,
+      resumeTitle: resume?.title ?? undefined,
+    });
+    const origin = (process.env.SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
+    const token = String(packet.token);
+    const bookmarklet = `javascript:(()=>{window.__qelsaAutofillToken=${JSON.stringify(token)};window.__qelsaAutofillApi=${JSON.stringify(origin)};var s=document.createElement("script");s.src=${JSON.stringify(`${origin}/autofill.js`)};document.documentElement.appendChild(s)})()`;
     return {
       application_url: job.application_url,
       job_title: job.title,
       company: job.company,
       resume_link: resume,
       cover_letter: coverLetter,
+      autofill: {
+        token,
+        expires_at: packet.expires_at,
+        bookmarklet,
+        api_url: `${origin}/api/agent/autofill?token=${encodeURIComponent(token)}`,
+        script_url: `${origin}/autofill.js`,
+      },
       checklist: [
         "Open the application URL.",
+        "Use the Qelsa autofill bookmarklet on the application page, then review every field.",
         "Upload or paste the resume that matches this role.",
-        coverLetter ? "Paste the drafted cover letter." : "Attach a resume and any requested details.",
+        coverLetter ? "Paste the drafted cover letter if the form asks for one." : "Attach a resume and any requested details.",
         "Submit the form on the external site.",
         "Come back here and tell the agent you applied so it can record the application.",
       ],
@@ -1698,6 +1748,8 @@ export const saveJobSearchTool = createTool({
     workplace_type: z.enum(["on-site", "hybrid", "remote"]).optional(),
     remote: z.boolean().optional(),
     salary_min: z.number().optional(),
+    email_alerts: z.boolean().optional().describe("Send an email when new matches appear. Default true."),
+    push_alerts: z.boolean().optional().describe("Send a browser push notification when new matches appear. Default true."),
   }),
   needsApproval: true,
   execute: async (ctx, args): Promise<any> =>
@@ -1709,6 +1761,8 @@ export const saveJobSearchTool = createTool({
       workplaceType: args.workplace_type,
       remote: args.remote,
       salaryMin: args.salary_min,
+      emailAlerts: args.email_alerts,
+      pushAlerts: args.push_alerts,
     }),
 });
 
@@ -1731,6 +1785,23 @@ export const deleteJobSearchTool = createTool({
     ctx.runMutation(internal.qelsaAgentTools.deleteSavedSearchInternal, {
       authId: authIdOf(ctx),
       savedSearchId: args.saved_search_id as Id<"agent_saved_searches">,
+    }),
+});
+
+export const updateJobSearchAlertsTool = createTool({
+  description:
+    "Turn email or browser push alerts on or off for an existing saved job search. Does not change the search filters.",
+  inputSchema: z.object({
+    saved_search_id: z.string(),
+    email_alerts: z.boolean().optional(),
+    push_alerts: z.boolean().optional(),
+  }),
+  execute: async (ctx, args): Promise<any> =>
+    ctx.runMutation(internal.qelsaAgentTools.updateSavedSearchAlertsInternal, {
+      authId: authIdOf(ctx),
+      savedSearchId: args.saved_search_id as Id<"agent_saved_searches">,
+      emailAlerts: args.email_alerts,
+      pushAlerts: args.push_alerts,
     }),
 });
 
@@ -1775,6 +1846,7 @@ export const qelsaAgentTools = {
   update_career_goal: updateCareerGoalTool,
   save_job_search: saveJobSearchTool,
   list_saved_searches: listJobSearchesTool,
+  update_job_search_alerts: updateJobSearchAlertsTool,
   delete_job_search: deleteJobSearchTool,
   get_unread_briefs: getUnreadBriefsTool,
 };

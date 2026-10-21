@@ -223,6 +223,18 @@ export async function deleteAppUserData(ctx: MutationCtx, user: Doc<"users">) {
     .collect();
   for (const row of agentUsage) await ctx.db.delete(row._id);
 
+  const pushSubscriptions = await ctx.db
+    .query("agent_push_subscriptions")
+    .withIndex("by_user", (q) => q.eq("user_id", userId))
+    .collect();
+  for (const row of pushSubscriptions) await ctx.db.delete(row._id);
+
+  const autofillTokens = await ctx.db
+    .query("agent_autofill_tokens")
+    .withIndex("by_user", (q) => q.eq("user_id", userId))
+    .collect();
+  for (const row of autofillTokens) await ctx.db.delete(row._id);
+
   const agentThreads = await ctx.db
     .query("qelsa_agent_threads")
     .withIndex("by_user", (q) => q.eq("user_id", userId))

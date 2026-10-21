@@ -8,7 +8,10 @@
  * @module
  */
 
+import type * as agentAutofill from "../agentAutofill.js";
+import type * as agentNotifications from "../agentNotifications.js";
 import type * as agentProactive from "../agentProactive.js";
+import type * as agentPush from "../agentPush.js";
 import type * as applicantSearch from "../applicantSearch.js";
 import type * as applicantSearchGenerate from "../applicantSearchGenerate.js";
 import type * as atsIntegrations from "../atsIntegrations.js";
@@ -81,7 +84,10 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  agentAutofill: typeof agentAutofill;
+  agentNotifications: typeof agentNotifications;
   agentProactive: typeof agentProactive;
+  agentPush: typeof agentPush;
   applicantSearch: typeof applicantSearch;
   applicantSearchGenerate: typeof applicantSearchGenerate;
   atsIntegrations: typeof atsIntegrations;

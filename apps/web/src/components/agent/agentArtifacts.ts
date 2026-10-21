@@ -25,6 +25,35 @@ export type AgentArtifactKind =
   | "follow_up"
   | "document";
 
+export type AgentResumeDocument = {
+  name: string;
+  headline: string | null;
+  email: string | null;
+  phone: string | null;
+  location: string | null;
+  links: Array<{ label: string; url: string }>;
+  summary: string;
+  experience: Array<{
+    title: string;
+    company: string;
+    start_date: number | null;
+    end_date: number | null;
+    is_current: boolean;
+    bullets: string[];
+    skills: string[];
+  }>;
+  education: Array<{
+    degree: string;
+    college: string;
+    field: string | null;
+    start_year: number | null;
+    end_year: number | null;
+  }>;
+  certifications: string[];
+  skills: string[];
+  projects: string[];
+};
+
 export type AgentArtifact = {
   id: string;
   kind: AgentArtifactKind;
@@ -36,9 +65,17 @@ export type AgentArtifact = {
   resumeUrl?: string;
   checklist?: string[];
   coverLetter?: string;
+  resumeDocument?: AgentResumeDocument;
   alreadyApplied?: boolean;
   markdown: string;
 };
+
+function asResumeDocument(value: unknown): AgentResumeDocument | null {
+  const row = asRecord(value);
+  if (!row || typeof row.name !== "string" || typeof row.summary !== "string") return null;
+  if (!Array.isArray(row.experience) || !Array.isArray(row.education)) return null;
+  return row as AgentResumeDocument;
+}
 
 function asRecord(value: unknown): Record<string, any> | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
@@ -221,6 +258,7 @@ export function artifactFromToolPart(
       title: `Resume plan · ${jobTitle}`,
       subtitle,
       jobId,
+      resumeDocument: asResumeDocument(output.resume) ?? undefined,
       markdown: output.markdown,
     };
   }

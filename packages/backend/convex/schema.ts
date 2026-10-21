@@ -689,6 +689,8 @@ export default defineSchema({
     workplace_type: v.optional(v.string()),
     remote: v.optional(v.boolean()),
     salary_min: v.optional(v.number()),
+    email_alerts: v.optional(v.boolean()),
+    push_alerts: v.optional(v.boolean()),
     active: v.boolean(),
     created_at: v.number(),
     last_checked_at: v.optional(v.number()),
@@ -713,6 +715,8 @@ export default defineSchema({
     read: v.boolean(),
     created_at: v.number(),
     read_at: v.optional(v.number()),
+    email_sent_at: v.optional(v.number()),
+    push_sent_at: v.optional(v.number()),
   })
     .index("by_user_and_created", ["user_id", "created_at"])
     .index("by_user_and_read", ["user_id", "read"]),
@@ -724,4 +728,30 @@ export default defineSchema({
     text: v.string(),
     created_at: v.number(),
   }).index("by_application", ["application_id"]),
+
+  // Short-lived, one-time packets for the external-application bookmarklet.
+  // The document id is the unguessable token; packet data is never public
+  // except through the one-time HTTP consumer.
+  agent_autofill_tokens: defineTable({
+    user_id: v.id("users"),
+    job_id: v.id("jobs"),
+    packet: v.any(),
+    created_at: v.number(),
+    expires_at: v.number(),
+    used_at: v.optional(v.number()),
+  })
+    .index("by_user", ["user_id"])
+    .index("by_expires_at", ["expires_at"]),
+
+  // One row per browser/device. Endpoints are opaque Web Push URLs.
+  agent_push_subscriptions: defineTable({
+    user_id: v.id("users"),
+    endpoint: v.string(),
+    p256dh: v.string(),
+    auth: v.string(),
+    created_at: v.number(),
+    last_used_at: v.optional(v.number()),
+  })
+    .index("by_user", ["user_id"])
+    .index("by_endpoint", ["endpoint"]),
 });

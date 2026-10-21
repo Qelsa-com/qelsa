@@ -28,11 +28,13 @@
     "convex-helpers": "catalog:",
     "mammoth": "^1.12.1",
     "unpdf": "^1.8.1",
+    "web-push": "^3.6.7",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "@convex-dev/eslint-plugin": "^4.0.0",
     "@types/node": "24.9.1",
+    "@types/web-push": "^3.6.4",
     "eslint": "^9",
     "typescript": "catalog:"
   }
