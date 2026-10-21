@@ -7,10 +7,8 @@ import { OnboardingShell } from "@/components/onboarding/OnboardingShell";
 import { useAuth } from "@/contexts/AuthContext";
 import type { AccountType } from "@/features/api/authApi";
 import { useSetAccountTypeAndResetOnboardingMutation } from "@/features/api/onboardingApi";
-import { authClient } from "@/lib/auth-client";
 import { toastUnknownError } from "@/lib/errors";
 import { homeForAccount } from "@/lib/onboarding";
-import { clearResumeDraft } from "@/lib/resumeDraft";
 import { safeReturnUrl } from "@/lib/returnUrl";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -49,12 +47,6 @@ export default function OnboardingPage() {
     } catch (err) {
       toastUnknownError(err, "Could not save your choice. Please try again.");
     }
-  };
-
-  const handleSignOut = async () => {
-    clearResumeDraft();
-    await authClient.signOut();
-    router.push(user?.account_type === "recruiter" ? "/employer/auth" : "/auth");
   };
 
   if (pickingRole || !accountType) {

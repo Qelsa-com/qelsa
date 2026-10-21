@@ -45,13 +45,14 @@ export default function EmployerAuthPage() {
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isCheckingEmail, setIsCheckingEmail] = useState(false);
+  const [isFinishing, setIsFinishing] = useState(false);
   const [resendIn, setResendIn] = useState(0);
 
   const [googleLogin, { isLoading: isGoogleLoading }] = useEmployerGoogleLoginMutation();
   const [requestOtp, { isLoading: isSendingOtp }] = useEmployerRequestOtpMutation();
   const [verifyOtp, { isLoading: isVerifying }] = useEmployerVerifyOtpMutation();
   const [saveAccountType] = useSetAccountTypeMutation();
-  const { data: session } = authClient.useSession();
+  const { data: session, refetch: refetchSession } = authClient.useSession();
   const { data: rawProfile } = useGetProfileQuery(undefined, { skip: !session });
   const profile = (rawProfile as User | null | undefined) ?? null;
   const finalizingRef = useRef(false);
@@ -67,6 +68,7 @@ export default function EmployerAuthPage() {
   }, [session]);
 
   const signOutWithError = useCallback(async (message: string) => {
+    setIsFinishing(false);
     setError(message);
     clearResumeDraft();
     await authClient.signOut().catch(() => undefined);
@@ -161,20 +163,21 @@ export default function EmployerAuthPage() {
   const handleVerify = async (submitted = code) => {
     if (submitted.length !== 6) return;
     setError(null);
+    setIsFinishing(true);
     try {
       await verifyOtp({ email, code: submitted }).unwrap();
-      // The employer client established the session. Reload through the normal
-      // app so the shared auth client and Convex provider read the new cookie.
-      const destination = new URL("/employer/auth", window.location.origin);
-      if (returnUrl) destination.searchParams.set("returnUrl", returnUrl);
-      window.location.assign(destination.toString());
+      // The employer client established the cookie. Refresh the shared auth
+      // client so Convex picks up the session without a second full-page
+      // "checking" pass.
+      await refetchSession({ query: { disableCookieCache: true } });
     } catch (err) {
+      setIsFinishing(false);
       setCode("");
       setError(errorMessage(err, "That code didn't work. Please try again."));
     }
   };
 
-  const isBusy = isGoogleLoading || isSendingOtp || isVerifying || isCheckingEmail;
+  const isBusy = isGoogleLoading || isSendingOtp || isVerifying || isCheckingEmail || isFinishing;
   const isResolving = Boolean(session && !profile);
   const cardMotion = {
     initial: { opacity: 0, y: 12 },
@@ -202,10 +205,10 @@ export default function EmployerAuthPage() {
 
       <div className="w-full max-w-[460px]">
         <AnimatePresence mode="wait">
-          {isResolving ? (
+          {isFinishing || isResolving ? (
             <motion.div key="resolving" {...cardMotion} className="rounded-3xl border border-white/10 bg-white/[0.03] p-8 text-center">
-              <h2 className="text-2xl font-bold text-white">Checking your account…</h2>
-              <p className="mt-2 text-sm text-muted-foreground">Confirming your employer access.</p>
+              <h2 className="text-2xl font-bold text-white">{isFinishing ? "Finishing sign-in…" : "Checking your account…"}</h2>
+              <p className="mt-2 text-sm text-muted-foreground">{isFinishing ? "Confirming your employer access." : "Loading your profile."}</p>
             </motion.div>
           ) : step === "method" ? (
             <motion.div key="method" {...cardMotion} className="rounded-3xl border border-white/10 bg-white/[0.03] p-8">
