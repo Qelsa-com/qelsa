@@ -248,12 +248,42 @@ export function InterviewPrepCourse({ slug }: { slug?: string }) {
 
   if (track === undefined) {
     return (
-      <div className="mx-auto max-w-4xl animate-pulse px-5 py-16">
-        <div className="h-4 w-28 rounded bg-white/5" />
-        <div className="mt-6 h-10 w-2/3 rounded bg-white/5" />
-        <div className="mt-4 h-5 w-full rounded bg-white/5" />
-        <div className="mt-10 h-72 rounded-[22px] bg-white/[0.03]" />
-      </div>
+      <main className="min-h-screen text-white">
+        <div className="mx-auto w-full max-w-5xl animate-pulse px-5 py-10 sm:px-8 lg:py-14">
+          <div className="h-3 w-24 rounded bg-white/[0.06]" />
+
+          <div className="mt-6 grid gap-8 lg:grid-cols-[1fr_280px] lg:items-start">
+            <div>
+              <div className="h-3 w-28 rounded bg-white/[0.06]" />
+              <div className="mt-4 h-9 w-4/5 rounded bg-white/[0.07] sm:h-10" />
+              <div className="mt-4 h-4 w-full rounded bg-white/[0.05]" />
+              <div className="mt-2 h-4 w-2/3 rounded bg-white/[0.05]" />
+              <div className="mt-5 flex flex-wrap gap-2">
+                {[64, 44, 78, 56, 52].map((width) => (
+                  <div key={width} className="h-7 rounded-md border border-white/[0.06] bg-white/[0.04]" style={{ width }} />
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-[18px] border border-white/[0.08] bg-white/[0.025] p-4">
+              <div className="h-2.5 w-16 rounded bg-white/[0.06]" />
+              <div className="mt-3 h-3 w-full rounded bg-white/[0.05]" />
+              <div className="mt-2 h-3 w-3/4 rounded bg-white/[0.05]" />
+              <div className="mt-4 h-10 w-full rounded-full bg-white/[0.06]" />
+            </div>
+          </div>
+
+          <div className="mt-8 flex items-center justify-between border-b border-white/[0.08] pb-4">
+            <div className="h-10 w-52 rounded-full border border-white/10 bg-white/[0.04]" />
+          </div>
+
+          <div className="mt-6 space-y-3">
+            <div className="h-44 rounded-[18px] border border-white/[0.08] bg-white/[0.025]" />
+            <div className="h-16 rounded-[18px] border border-white/[0.08] bg-white/[0.025]" />
+            <div className="h-16 rounded-[18px] border border-white/[0.08] bg-white/[0.025]" />
+          </div>
+        </div>
+      </main>
     );
   }
 
