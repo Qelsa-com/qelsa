@@ -24,6 +24,7 @@ const GUEST_ITEMS = [
   { id: "candidates", label: "For Candidates", href: "/candidates" },
   { id: "employers", label: "For Employers", href: "/employers" },
   { id: "jobs", label: "Jobs", href: "/jobs/all" },
+  { id: "courses", label: "Courses", href: "/courses" },
   { id: "pricing", label: "Pricing", href: "/pricing" },
   { id: "blog", label: "Blog", href: "/blogs" },
 ];
@@ -65,6 +66,7 @@ function isItemActive(itemId: string, href: string, activeSection?: string, path
   if (href === "/blogs") return pathname === "/blogs" || pathname.startsWith("/blogs/");
   if (href === "/network") return pathname === "/network" || pathname.startsWith("/network/");
   if (href === "/goals") return pathname === "/goals" || pathname.startsWith("/goals/");
+  if (href === "/courses") return pathname === "/courses" || pathname.startsWith("/courses/");
   if (href === "/courses") return pathname === "/courses" || pathname.startsWith("/courses/");
   if (href === "/settings") return pathname === "/settings" || pathname.startsWith("/settings/");
   return pathname === href;

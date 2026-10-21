@@ -1428,7 +1428,7 @@ export const updateCareerGoalTool = createTool({
 
 export const getSkillCoursesTool = createTool({
   description:
-    "Find curated courses for specific missing skills. Use this when the user asks how to learn a skill or what course would close a gap. Returns only real catalog resources; unmatched skills are returned separately.",
+    "Find curated external courses for specific missing skills. Use this when the user asks how to learn a skill or what course would close a gap. Returns only real catalog resources; unmatched skills are returned separately.",
   inputSchema: z.object({
     skills: z.array(z.string()).min(1).max(12),
   }),
@@ -1448,6 +1448,24 @@ export const getSkillCoursesTool = createTool({
   },
 });
 
+export const getInterviewPrepTool = createTool({
+  description:
+    "Find Qelsa's internal interview-prep tracks for a role or job. Use this when the user wants interview practice, commonly asked questions, or a structured prep plan. These are Qelsa-authored courses, separate from external skill courses.",
+  inputSchema: z.object({
+    job_id: z.string().optional().describe("Job id to match against, when the user is preparing for a specific job."),
+    role: z.string().optional().describe("Target role title, e.g. 'Product Manager' or 'Frontend Engineer'."),
+    skills: z.array(z.string()).max(12).optional().describe("Skills the user wants to focus on."),
+    limit: z.number().int().min(1).max(5).optional(),
+  }),
+  execute: async (ctx, args): Promise<any> =>
+    ctx.runQuery(internal.interviewPrep.recommend, {
+      jobId: args.job_id as Id<"jobs"> | undefined,
+      role: args.role,
+      skills: args.skills,
+      limit: args.limit ?? 3,
+    }),
+});
+
 export const runJobMatchTool = createTool({
   description:
     "Run (or refresh) the full Qelsa Match readiness analysis for a job. Use this when no analysis exists or the user asks to check or re-check their fit. Readiness is the skill/profile score; never call it goal fit.",
@@ -1461,6 +1479,13 @@ export const runJobMatchTool = createTool({
       jobId: args.job_id as Id<"jobs">,
       refresh: args.refresh,
     });
+    const interviewPrep: any = await ctx
+      .runQuery(internal.interviewPrep.recommend, {
+        jobId: args.job_id as Id<"jobs">,
+        skills: [...session.analysis.missing, ...session.analysis.partial],
+        limit: 2,
+      })
+      .catch(() => []);
     return {
       available: true,
       session_id: session.id,
@@ -1480,6 +1505,7 @@ export const runJobMatchTool = createTool({
       actions: session.analysis.actions,
       can_apply: session.analysis.can_apply,
       courses: recommendCourses([...session.analysis.missing, ...session.analysis.partial], 4),
+      interview_prep: interviewPrep,
       match_url_path: `/jobs/match/${session.id}`,
       job_url_path: session.job_id ? `/jobs/${session.job_id}` : null,
     };
@@ -1856,6 +1882,7 @@ export const qelsaAgentTools = {
   list_saved_jobs: listSavedJobsTool,
   get_job_readiness: getJobReadinessTool,
   get_skill_courses: getSkillCoursesTool,
+  get_interview_prep: getInterviewPrepTool,
   run_job_match: runJobMatchTool,
   analyze_external_job: analyzeExternalJobTool,
   write_cover_letter: writeCoverLetterTool,
