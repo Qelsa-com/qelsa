@@ -23,6 +23,7 @@ const GUEST_ITEMS = [
   { id: "candidates", label: "For Candidates", href: "/candidates" },
   { id: "employers", label: "For Employers", href: "/employers" },
   { id: "jobs", label: "Jobs", href: "/jobs/all" },
+  { id: "pricing", label: "Pricing", href: "/pricing" },
   { id: "blog", label: "Blog", href: "/blogs" },
 ];
 

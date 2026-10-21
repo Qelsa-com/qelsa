@@ -1,6 +1,7 @@
 "use client";
 
 import { AccountBadge, formatHiringRole } from "@/components/AccountBadge";
+import { BillingSettings } from "@/components/settings/BillingSettings";
 import { ADMIN_APP_URL } from "@/constants/admin";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDeleteAccountMutation } from "@/features/api/authApi";
@@ -110,6 +111,8 @@ const Settings = () => {
             </div>
           </div>
         )}
+
+        <BillingSettings />
 
         {user?.role === "admin" && (
           <a

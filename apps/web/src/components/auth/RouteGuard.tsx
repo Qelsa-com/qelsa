@@ -13,6 +13,7 @@ const PUBLIC_ROUTES = [
   "/register",
   "/auth",
   "/employer/auth",
+  "/pricing",
   "/jobs/all",
   "/jobs",
   "/blogs",

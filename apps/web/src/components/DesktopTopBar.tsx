@@ -32,6 +32,7 @@ const GUEST_NAV_LINKS = [
   { id: "candidates", label: "For Candidates", href: "/candidates" },
   { id: "employers", label: "For Employers", href: "/employers" },
   { id: "jobs", label: "Jobs", href: "/jobs/all" },
+  { id: "pricing", label: "Pricing", href: "/pricing" },
 ];
 
 export function DesktopTopBar({ activeSection, onProfileClick }: { activeSection?: string; onProfileClick?: () => void }) {

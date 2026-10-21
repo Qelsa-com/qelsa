@@ -806,4 +806,63 @@ export default defineSchema({
   })
     .index("by_user", ["user_id"])
     .index("by_endpoint", ["endpoint"]),
+
+  // Dodo Payments customer mapping. One app user can own one billing customer.
+  billing_customers: defineTable({
+    user_id: v.id("users"),
+    dodo_customer_id: v.string(),
+    email: v.string(),
+    name: v.optional(v.string()),
+    created_at: v.number(),
+    updated_at: v.number(),
+  })
+    .index("by_user", ["user_id"])
+    .index("by_dodo_customer_id", ["dodo_customer_id"]),
+
+  // Current and historical subscriptions. Dodo webhooks are authoritative;
+  // this table is the cheap read model used for entitlements and settings UI.
+  billing_subscriptions: defineTable({
+    user_id: v.id("users"),
+    page_id: v.optional(v.id("pages")),
+    dodo_customer_id: v.string(),
+    dodo_subscription_id: v.string(),
+    product_id: v.string(),
+    plan: v.literal("pro"),
+    interval: v.union(v.literal("month"), v.literal("year")),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("active"),
+      v.literal("on_hold"),
+      v.literal("paused"),
+      v.literal("cancelled"),
+      v.literal("failed"),
+      v.literal("expired"),
+    ),
+    quantity: v.number(),
+    currency: v.string(),
+    recurring_amount: v.number(),
+    current_period_start: v.optional(v.number()),
+    current_period_end: v.optional(v.number()),
+    cancel_at_period_end: v.boolean(),
+    cancelled_at: v.optional(v.number()),
+    created_at: v.number(),
+    updated_at: v.number(),
+    last_event_at: v.number(),
+  })
+    .index("by_user", ["user_id"])
+    .index("by_user_and_updated_at", ["user_id", "updated_at"])
+    .index("by_dodo_subscription_id", ["dodo_subscription_id"])
+    .index("by_dodo_customer_id", ["dodo_customer_id"])
+    .index("by_page", ["page_id"]),
+
+  // Idempotency ledger for signed Dodo webhooks. A retried event must not
+  // duplicate subscriptions or corrupt entitlement state.
+  billing_events: defineTable({
+    event_key: v.string(),
+    type: v.string(),
+    subscription_id: v.optional(v.string()),
+    payment_id: v.optional(v.string()),
+    event_at: v.number(),
+    received_at: v.number(),
+  }).index("by_event_key", ["event_key"]),
 });
