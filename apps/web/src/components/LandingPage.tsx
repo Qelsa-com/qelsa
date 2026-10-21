@@ -11,10 +11,13 @@ export function LandingPage() {
   const router = useRouter();
 
   return (
-    <div className="relative min-h-screen overflow-hidden text-white selection:bg-neon-cyan/20 selection:text-neon-cyan font-sans">
-      {/* Subtle ambient lighting */}
-      <div aria-hidden="true" className="pointer-events-none absolute -left-40 -top-40 size-[500px] rounded-full bg-cyan-500/[0.07] blur-[150px]" />
-      <div aria-hidden="true" className="pointer-events-none absolute -right-40 top-32 size-[600px] rounded-full bg-purple-600/[0.09] blur-[160px]" />
+    <div className="relative isolate min-h-screen overflow-hidden text-white selection:bg-neon-cyan/20 selection:text-neon-cyan font-sans">
+      {/* Top glows sit in a fixed layer so they continue behind the
+          transparent header instead of starting below it. */}
+      <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-10">
+        <div className="absolute -left-40 -top-40 size-[500px] rounded-full bg-cyan-500/[0.07] blur-[150px]" />
+        <div className="absolute -right-40 top-32 size-[600px] rounded-full bg-purple-600/[0.09] blur-[160px]" />
+      </div>
       <div aria-hidden="true" className="pointer-events-none absolute left-1/3 top-[2200px] size-[700px] rounded-full bg-indigo-600/[0.06] blur-[180px]" />
 
       {/* ------------------------------ Hero ---------------------------------- */}
