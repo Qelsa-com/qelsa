@@ -9,11 +9,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAdminAuth } from "@/contexts/AuthContext";
 import {
   useGetUserQuery,
+  useGrantManualProMutation,
+  useRevokeManualProMutation,
   useSetUserActiveMutation,
   useSetUserRoleMutation,
   useUpdateUserMutation,
 } from "@/features/api/adminApi";
-import { ArrowLeft, ShieldAlert } from "lucide-react";
+import { ArrowLeft, Crown, ShieldAlert } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -46,6 +48,8 @@ export default function UserDetailPage() {
   const [updateUser, { isLoading: isSaving }] = useUpdateUserMutation();
   const [setUserRole, { isLoading: isChangingRole }] = useSetUserRoleMutation();
   const [setUserActive, { isLoading: isChangingStatus }] = useSetUserActiveMutation();
+  const [grantManualPro, { isLoading: isGrantingPro }] = useGrantManualProMutation();
+  const [revokeManualPro, { isLoading: isRevokingPro }] = useRevokeManualProMutation();
 
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [about, setAbout] = useState("");
@@ -135,6 +139,34 @@ export default function UserDetailPage() {
       setNote("");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not change the status.");
+    }
+  };
+
+  const handleGrantPro = async () => {
+    if (!userId || !user) return;
+    if (!window.confirm(`Give ${user.email} complimentary Qelsa Pro access? They will not need a subscription.`)) {
+      return;
+    }
+    try {
+      const result = await grantManualPro({ userId, note: note.trim() || undefined }).unwrap();
+      toast.success(result.already ? "This user already has manual Pro access." : "Pro access granted.");
+      setNote("");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not grant Pro access.");
+    }
+  };
+
+  const handleRevokePro = async () => {
+    if (!userId || !user) return;
+    if (!window.confirm(`Remove manual Qelsa Pro access from ${user.email}?`)) {
+      return;
+    }
+    try {
+      const result = await revokeManualPro({ userId, note: note.trim() || undefined }).unwrap();
+      toast.success(result.revoked ? "Manual Pro access removed." : "No manual Pro access to remove.");
+      setNote("");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not remove Pro access.");
     }
   };
 
@@ -303,6 +335,60 @@ export default function UserDetailPage() {
                   </p>
                 )}
               </div>
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-glass-border glass p-5">
+            <h2 className="flex items-center gap-2 text-sm font-semibold">
+              <Crown className="h-4 w-4 text-amber-300" />
+              Premium access
+            </h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Complimentary Qelsa Pro access. No subscription needed.
+            </p>
+
+            <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] p-3.5">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm font-semibold">
+                  {user.manual_pro ? "Qelsa Pro" : "Free"}
+                </span>
+                {user.manual_pro ? (
+                  <span className="rounded-md bg-amber-300/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-300">
+                    Granted
+                  </span>
+                ) : null}
+              </div>
+              {user.manual_pro && user.manual_pro_since ? (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Since {new Date(user.manual_pro_since).toLocaleDateString()}
+                </p>
+              ) : null}
+              {user.manual_pro_note ? (
+                <p className="mt-1 text-xs text-muted-foreground">{user.manual_pro_note}</p>
+              ) : null}
+            </div>
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              {user.manual_pro ? (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  disabled={isRevokingPro}
+                  onClick={() => void handleRevokePro()}
+                  className="rounded-full"
+                >
+                  {isRevokingPro ? "Removing…" : "Remove Pro access"}
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  disabled={isGrantingPro}
+                  onClick={() => void handleGrantPro()}
+                  className="rounded-full bg-gradient-to-r from-amber-300 to-amber-500 text-[#2a1a03] hover:opacity-90"
+                >
+                  {isGrantingPro ? "Granting…" : "Give Pro access"}
+                </Button>
+              )}
             </div>
           </section>
 

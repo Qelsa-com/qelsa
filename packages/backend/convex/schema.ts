@@ -914,6 +914,21 @@ export default defineSchema({
     .index("by_dodo_customer_id", ["dodo_customer_id"])
     .index("by_page", ["page_id"]),
 
+  // Complimentary Pro access granted by an admin. This is independent of Dodo:
+  // a user with an active row here is treated as Pro until the grant is revoked,
+  // and a real subscription can coexist with it.
+  manual_entitlements: defineTable({
+    user_id: v.id("users"),
+    plan: v.literal("pro"),
+    granted_by: v.id("users"),
+    granted_at: v.number(),
+    revoked_at: v.optional(v.number()),
+    revoked_by: v.optional(v.id("users")),
+    note: v.optional(v.string()),
+  })
+    .index("by_user", ["user_id"])
+    .index("by_user_and_granted_at", ["user_id", "granted_at"]),
+
   // Idempotency ledger for signed Dodo webhooks. A retried event must not
   // duplicate subscriptions or corrupt entitlement state.
   billing_events: defineTable({

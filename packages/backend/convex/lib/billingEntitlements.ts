@@ -18,7 +18,19 @@ export function isSubscriptionEntitled(
   return Boolean(subscription.current_period_end && subscription.current_period_end > now);
 }
 
+export async function hasManualProGrant(ctx: ReadCtx, userId: Id<"users">) {
+  const grants = await ctx.db
+    .query("manual_entitlements")
+    .withIndex("by_user_and_granted_at", (q) => q.eq("user_id", userId))
+    .order("desc")
+    .take(10);
+
+  return grants.some((grant) => grant.plan === "pro" && !grant.revoked_at);
+}
+
 export async function isProSubscriber(ctx: ReadCtx, userId: Id<"users">) {
+  if (await hasManualProGrant(ctx, userId)) return true;
+
   const latest = await ctx.db
     .query("billing_subscriptions")
     .withIndex("by_user_and_updated_at", (q) => q.eq("user_id", userId))

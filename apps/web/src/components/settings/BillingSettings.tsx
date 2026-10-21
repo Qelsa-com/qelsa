@@ -172,6 +172,8 @@ export function BillingSettings() {
               <p className="mt-1 text-sm text-muted-foreground">
                 {isPro && subscription
                   ? `${billing.plan.name} · ${subscription.interval === "year" ? "Yearly" : "Monthly"} billing`
+                  : isPro && billing.manual_pro
+                  ? "Complimentary Qelsa Pro access."
                   : "Free includes 1 active application and 5 Qelsa Agent messages per day. Upgrade for unlimited applications and 500 messages per day."}
               </p>
             </div>
@@ -196,6 +198,11 @@ export function BillingSettings() {
               {subscription.cancel_at_period_end ? `Access until ${formatDate(subscription.current_period_end) ?? "period end"}` : `Renews ${formatDate(subscription.current_period_end) ?? "automatically"}`}
             </p>
             <p>{statusLabel(subscription)}</p>
+            <p>Agent limit: {billing.agent_daily_limit}/day</p>
+          </div>
+        ) : isPro && billing.manual_pro ? (
+          <div className="mt-5 grid gap-2 text-xs text-white/50 sm:grid-cols-2">
+            <p>Granted by the Qelsa team</p>
             <p>Agent limit: {billing.agent_daily_limit}/day</p>
           </div>
         ) : null}
@@ -243,6 +250,13 @@ export function BillingSettings() {
               </button>
               {isCancelledAtEnd ? <span className="self-center text-xs text-white/35">You keep Pro access until the end of this period.</span> : null}
             </div>
+          </div>
+        ) : isPro && billing.manual_pro ? (
+          <div className="rounded-xl border border-amber-300/20 bg-amber-300/[0.05] p-4">
+            <p className="text-sm font-semibold text-white">Qelsa Pro is active</p>
+            <p className="mt-1 text-xs leading-relaxed text-white/50">
+              This access was granted by the Qelsa team, so there is nothing to pay and nothing to cancel.
+            </p>
           </div>
         ) : (
           <div className="space-y-5">
