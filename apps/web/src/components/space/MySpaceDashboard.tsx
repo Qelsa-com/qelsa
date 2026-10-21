@@ -72,7 +72,9 @@ export function MySpaceDashboard() {
   }, [goal]);
   const targetRole = targetRoles[0] ?? null;
 
-  const checklist = useMemo<ChecklistItem[]>(
+  // Goal setup is tracked separately. Keeping it out of the profile checklist
+  // means "Profile 0%" actually reflects the profile, not the goal.
+  const profileChecklist = useMemo<ChecklistItem[]>(
     () => [
       {
         id: "resume",
@@ -104,18 +106,19 @@ export function MySpaceDashboard() {
         done: Boolean(skills?.length),
         href: "/profile/skills",
       },
-      {
-        id: "goal",
-        label: "Set a career goal",
-        done: goalReady,
-        href: "/goals",
-      },
     ],
-    [experiences, goalReady, resumes, skills, user],
+    [experiences, resumes, skills, user],
   );
-  const completedCount = checklist.filter((item) => item.done).length;
-  const profilePercent = checklist.length ? Math.round((completedCount / checklist.length) * 100) : 0;
-  const profileComplete = !profileDataLoading && completedCount === checklist.length;
+  const completedCount = profileChecklist.filter((item) => item.done).length;
+  const profilePercent = profileChecklist.length ? Math.round((completedCount / profileChecklist.length) * 100) : 0;
+  const profileComplete = !profileDataLoading && completedCount === profileChecklist.length;
+  const experienceCount = experiences?.length ?? 0;
+  const skillCount = skills?.length ?? 0;
+  const resumeCount = resumes?.length ?? 0;
+  // A resume is a valid way to start a profile, even before the parsed profile
+  // fields exist. Keep the setup card from asking for one that is already there.
+  const profileStarted = hasProfile || resumeCount > 0;
+  const setupVisible = !goalReady || !profileStarted;
 
   // The backend is authoritative once loaded; before then, infer the mode from
   // experience so the hero doesn't flash profile stats for a fresher.
@@ -124,13 +127,13 @@ export function MySpaceDashboard() {
   // Freshers get the most value from experience/skills; those unlock readiness
   // scores. Professionals keep the usual resume/headline/summary order.
   const nextProfileItems = useMemo(() => {
-    const priority = goalFirst ? ["experience", "skills", "resume", "headline", "summary", "goal"] : ["resume", "headline", "summary", "experience", "skills", "goal"];
-    const byId = new Map(checklist.map((item) => [item.id, item] as const));
+    const priority = goalFirst ? ["experience", "skills", "resume", "headline", "summary"] : ["resume", "headline", "summary", "experience", "skills"];
+    const byId = new Map(profileChecklist.map((item) => [item.id, item] as const));
     return priority
       .map((id) => byId.get(id))
       .filter((item): item is ChecklistItem => item !== undefined && !item.done)
       .slice(0, 3);
-  }, [checklist, goalFirst]);
+  }, [profileChecklist, goalFirst]);
 
   const rankedMatches = useMemo<MatchRowData[]>(() => {
     if (!matchData) return [];
@@ -159,12 +162,16 @@ export function MySpaceDashboard() {
   const hero: HeroContent =
     heroState === "goal"
       ? {
-          eyebrow: hasProfile ? "One step left" : "Start with a goal",
+          eyebrow: profileComplete ? "One step left" : profileStarted ? "Set your direction" : "Start with a goal",
           title: "Where do you want to go next?",
-          body: "Set the role you're aiming for. A goal is enough to see matching roles — your profile adds readiness scores later.",
+          body: profileComplete
+            ? "Your profile is ready. Set the role you're aiming for and Qelsa will rank open roles against it."
+            : profileStarted
+              ? "Your profile is started. Set the role you're aiming for and Qelsa will rank open roles against it — you can keep improving your profile any time."
+              : "Set the role you're aiming for. A goal is enough to see matching roles — your profile adds readiness scores later.",
           primaryLabel: "Set career goal",
           primaryHref: "/goals",
-          secondary: hasProfile
+          secondary: profileStarted
             ? {
                 label: "Ask Qelsa",
                 prompt: "Help me choose a career goal based on my experience and skills. Ask me questions and recommend a target role.",
@@ -178,7 +185,7 @@ export function MySpaceDashboard() {
             body: "Ranked by your target role, skills, and industries. You don't need experience to see matches — add it later to unlock readiness scores.",
             primaryLabel: "See goal matches",
             primaryHref: "/jobs/smart-matches",
-            secondary: { label: "Build profile", href: "/profile" },
+            secondary: { label: profileStarted ? "View profile" : "Build profile", href: "/profile" },
           }
         : heroState === "no-matches"
           ? {
@@ -234,29 +241,31 @@ export function MySpaceDashboard() {
               <h2 className="mt-2 text-[22px] font-semibold leading-tight tracking-tight text-white sm:text-[26px]">{hero.title}</h2>
               <p className="mt-2 max-w-xl text-sm leading-relaxed text-white/50">{hero.body}</p>
 
-              <div className="mt-5 flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => router.push(hero.primaryHref)}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-[#7c2ff3] to-[#d73e9d] px-4 py-2 text-xs font-semibold text-white transition-[filter] hover:brightness-110"
-                >
-                  {hero.primaryLabel}
-                  <ArrowRight className="size-3.5" />
-                </button>
-                {hero.secondary ? (
+              {!setupVisible ? (
+                <div className="mt-5 flex flex-wrap items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => {
-                      if (hero.secondary?.href) router.push(hero.secondary.href);
-                      else if (hero.secondary?.prompt) goToAgent(hero.secondary.prompt);
-                    }}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.12] bg-white/[0.03] px-4 py-2 text-xs font-medium text-white/65 transition-colors hover:border-white/20 hover:text-white"
+                    onClick={() => router.push(hero.primaryHref)}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-[#7c2ff3] to-[#d73e9d] px-4 py-2 text-xs font-semibold text-white transition-[filter] hover:brightness-110"
                   >
-                    {hero.secondary.label}
-                    {hero.secondary.href ? <ArrowRight className="size-3.5" /> : <ArrowUpRight className="size-3.5" />}
+                    {hero.primaryLabel}
+                    <ArrowRight className="size-3.5" />
                   </button>
-                ) : null}
-              </div>
+                  {hero.secondary ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (hero.secondary?.href) router.push(hero.secondary.href);
+                        else if (hero.secondary?.prompt) goToAgent(hero.secondary.prompt);
+                      }}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.12] bg-white/[0.03] px-4 py-2 text-xs font-medium text-white/65 transition-colors hover:border-white/20 hover:text-white"
+                    >
+                      {hero.secondary.label}
+                      {hero.secondary.href ? <ArrowRight className="size-3.5" /> : <ArrowUpRight className="size-3.5" />}
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
 
               {goalReady && (heroState === "matches" || heroState === "goal-matches" || heroState === "no-matches") ? (
                 <div className="mt-6 grid grid-cols-3 gap-2 border-t border-white/[0.07] pt-4">
@@ -280,13 +289,7 @@ export function MySpaceDashboard() {
                     </>
                   )}
                 </div>
-              ) : (
-                <div className="mt-5 flex flex-wrap items-center gap-2">
-                  <SetupStep label="Profile" done={hasProfile} active={false} onClick={() => router.push("/profile")} />
-                  <span className="text-white/20">→</span>
-                  <SetupStep label="Career goal" done={goalReady} active={heroState === "goal"} onClick={() => router.push("/goals")} />
-                </div>
-              )}
+              ) : null}
             </div>
 
             {(heroState === "matches" || heroState === "goal-matches") && bestScore != null ? (
@@ -298,6 +301,16 @@ export function MySpaceDashboard() {
                   <p className="mt-0.5 max-w-[220px] truncate text-xs text-white/40">{bestCompany}</p>
                 </div>
               </div>
+            ) : setupVisible ? (
+              <HeroSnapshot
+                goalReady={goalReady}
+                targetRole={targetRole}
+                profilePercent={profilePercent}
+                profileDataLoading={profileDataLoading}
+                experienceCount={experienceCount}
+                skillCount={skillCount}
+                resumeCount={resumeCount}
+              />
             ) : (
               <div className="hidden size-24 shrink-0 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.025] md:flex">
                 {heroState === "no-matches" ? <Search className="size-8 text-white/25" /> : <Target className="size-9 text-neon-cyan/60" />}
@@ -306,18 +319,36 @@ export function MySpaceDashboard() {
           </div>
         </section>
 
-        <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1.65fr)_minmax(320px,1fr)]">
+        {setupVisible ? (
+          <SetupCard
+            goalReady={goalReady}
+            targetRoles={targetRoles}
+            profileStarted={profileStarted}
+            profileComplete={profileComplete}
+            profilePercent={profilePercent}
+            profileDataLoading={profileDataLoading}
+            experienceCount={experienceCount}
+            skillCount={skillCount}
+            resumeCount={resumeCount}
+            onGoal={() => router.push("/goals")}
+            onProfile={() => router.push("/profile")}
+          />
+        ) : null}
+
+        <div className={cn("mt-5 grid grid-cols-1 gap-5", !setupVisible && "lg:grid-cols-[minmax(0,1.65fr)_minmax(320px,1fr)]")}>
           <div className="flex flex-col gap-5">
-            <TopMatchesCard
-              rows={rankedMatches}
-              loading={matchesLoading}
-              mode={goalFirst ? "goal" : "profile"}
-              goalReady={goalReady}
-              onOpenJob={openJob}
-              onSeeAll={() => router.push("/jobs/smart-matches")}
-              onSetGoal={() => router.push("/goals")}
-              onBrowseJobs={() => router.push("/jobs/all")}
-            />
+            {!(setupVisible && !goalReady && rankedMatches.length === 0) ? (
+              <TopMatchesCard
+                rows={rankedMatches}
+                loading={matchesLoading}
+                mode={goalFirst ? "goal" : "profile"}
+                goalReady={goalReady}
+                onOpenJob={openJob}
+                onSeeAll={() => router.push("/jobs/smart-matches")}
+                onSetGoal={() => router.push("/goals")}
+                onBrowseJobs={() => router.push("/jobs/all")}
+              />
+            ) : null}
             <ApplicationsCard
               summary={summary}
               loading={summaryLoading}
@@ -328,21 +359,23 @@ export function MySpaceDashboard() {
             />
           </div>
 
-          <div className="flex flex-col gap-5">
-            <GoalCard goal={goal} targetRoles={targetRoles} onEdit={() => router.push("/goals")} onExplore={() => router.push("/jobs/smart-matches")} />
-            {!profileComplete ? (
-              <ProfileStrengthCard
-                percent={profilePercent}
-                completedCount={completedCount}
-                total={checklist.length}
-                items={nextProfileItems}
-                loading={profileDataLoading}
-                goalFirst={goalFirst}
-                onViewProfile={() => router.push("/profile")}
-                onOpenItem={(href) => router.push(href)}
-              />
-            ) : null}
-          </div>
+          {!setupVisible ? (
+            <div className="flex flex-col gap-5">
+              <GoalCard goal={goal} targetRoles={targetRoles} onEdit={() => router.push("/goals")} onExplore={() => router.push("/jobs/smart-matches")} />
+              {!profileComplete ? (
+                <ProfileStrengthCard
+                  percent={profilePercent}
+                  completedCount={completedCount}
+                  total={profileChecklist.length}
+                  items={nextProfileItems}
+                  loading={profileDataLoading}
+                  goalFirst={goalFirst}
+                  onViewProfile={() => router.push("/profile")}
+                  onOpenItem={(href) => router.push(href)}
+                />
+              ) : null}
+            </div>
+          ) : null}
         </div>
 
         <AgentStrip targetRole={targetRole} goalFirst={goalFirst} onPrompt={goToAgent} />
@@ -386,21 +419,165 @@ function HeroStat({ label, value, suffix = "" }: { label: string; value: number 
   );
 }
 
-function SetupStep({ label, done, active, onClick }: { label: string; done: boolean; active?: boolean; onClick: () => void }) {
+function SetupCard({
+  goalReady,
+  targetRoles,
+  profileStarted,
+  profileComplete,
+  profilePercent,
+  profileDataLoading,
+  experienceCount,
+  skillCount,
+  resumeCount,
+  onGoal,
+  onProfile,
+}: {
+  goalReady: boolean;
+  targetRoles: string[];
+  profileStarted: boolean;
+  profileComplete: boolean;
+  profilePercent: number;
+  profileDataLoading: boolean;
+  experienceCount: number;
+  skillCount: number;
+  resumeCount: number;
+  onGoal: () => void;
+  onProfile: () => void;
+}) {
+  const profileBits = [
+    experienceCount > 0 ? `${experienceCount} ${experienceCount === 1 ? "experience" : "experiences"}` : null,
+    skillCount > 0 ? `${skillCount} ${skillCount === 1 ? "skill" : "skills"}` : null,
+    resumeCount > 0 ? `${resumeCount} ${resumeCount === 1 ? "resume" : "resumes"}` : null,
+  ].filter((bit): bit is string => Boolean(bit));
+  const profileSummary = profileBits.join(" · ");
+  const profileDescription = profileDataLoading
+    ? "Loading your profile details…"
+    : profileStarted
+      ? profileComplete
+        ? profileSummary || "Your profile details are saved."
+        : `Profile ${profilePercent}% complete${profileSummary ? ` · ${profileSummary}` : ""}`
+      : "Add your resume, education, experience, and skills. A fuller profile unlocks readiness scores.";
+  const profileTitle = profileStarted ? (profileComplete ? "Your profile is built" : "Your profile is started") : "Set up your profile";
+
+  return (
+    <section className="relative mt-5 overflow-hidden rounded-[24px] border border-white/[0.09] bg-[#0a0a14]">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(124,47,243,0.13),transparent_55%),radial-gradient(ellipse_at_bottom_right,rgba(34,211,238,0.06),transparent_50%)]" />
+      <div className="relative divide-y divide-white/[0.07]">
+        <div className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:px-6 sm:py-5">
+          <div className="flex min-w-0 items-start gap-3">
+            <SetupBadge done={goalReady} step={1} />
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-white">{goalReady ? "Your target roles" : "Set your career goal"}</p>
+              <p className="mt-1 max-w-2xl text-xs leading-relaxed text-white/45">
+                {goalReady ? "Qelsa ranks open roles against these — you can refine them any time." : "Tell Qelsa the role you're aiming for. You'll see goal matches even before adding experience."}
+              </p>
+              {goalReady && targetRoles.length > 0 ? (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {targetRoles.slice(0, 3).map((role) => (
+                    <span key={role} className="rounded-full border border-neon-cyan/20 bg-neon-cyan/[0.06] px-2.5 py-1 text-[10px] font-medium text-neon-cyan/80">
+                      {role}
+                    </span>
+                  ))}
+                  {targetRoles.length > 3 ? <span className="px-1 py-1 text-[10px] text-white/30">+{targetRoles.length - 3}</span> : null}
+                </div>
+              ) : null}
+            </div>
+          </div>
+          <div className="shrink-0">
+            <SetupAction label={goalReady ? "Edit goal" : "Set goal"} onClick={onGoal} primary={!goalReady} />
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:px-6 sm:py-5">
+          <div className="flex min-w-0 items-start gap-3">
+            <SetupBadge done={profileComplete} step={2} />
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-white">{profileTitle}</p>
+              <p className="mt-1 max-w-2xl text-xs leading-relaxed text-white/45">{profileDescription}</p>
+            </div>
+          </div>
+          <div className="shrink-0">
+            <SetupAction label={profileStarted ? (profileComplete ? "View profile" : "Continue profile") : "Set up profile"} onClick={onProfile} primary={goalReady && !profileStarted} />
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function SetupBadge({ done, step }: { done: boolean; step: number }) {
+  return (
+    <span
+      className={cn(
+        "mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full border text-[11px] font-semibold",
+        done ? "border-emerald-400/30 bg-emerald-400 text-[#06060f]" : "border-neon-purple/40 bg-neon-purple/[0.12] text-neon-purple/80",
+      )}
+    >
+      {done ? <Check className="size-3.5" /> : step}
+    </span>
+  );
+}
+
+function SetupAction({ label, onClick, primary }: { label: string; onClick: () => void; primary: boolean }) {
   return (
     <button
       type="button"
       onClick={onClick}
       className={cn(
-        "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-medium transition-colors",
-        done ? "border-emerald-400/20 bg-emerald-400/[0.06] text-emerald-300" : active ? "border-neon-cyan/30 bg-neon-cyan/[0.08] text-neon-cyan" : "border-white/[0.1] bg-white/[0.03] text-white/45",
+        "inline-flex w-full items-center justify-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold transition sm:w-auto",
+        primary
+          ? "bg-gradient-to-r from-[#7c2ff3] to-[#d73e9d] text-white hover:brightness-110"
+          : "border border-white/[0.12] bg-white/[0.03] text-white/65 hover:border-white/20 hover:text-white",
       )}
     >
-      <span className={cn("flex size-3.5 items-center justify-center rounded-full border", done ? "border-emerald-400/40 bg-emerald-400/15" : active ? "border-neon-cyan/50" : "border-white/20")}>
-        {done ? <Check className="size-2.5" /> : active ? <span className="size-1.5 rounded-full bg-current" /> : null}
-      </span>
       {label}
+      <ArrowRight className="size-3.5" />
     </button>
+  );
+}
+
+function HeroSnapshot({
+  goalReady,
+  targetRole,
+  profilePercent,
+  profileDataLoading,
+  experienceCount,
+  skillCount,
+  resumeCount,
+}: {
+  goalReady: boolean;
+  targetRole: string | null;
+  profilePercent: number;
+  profileDataLoading: boolean;
+  experienceCount: number;
+  skillCount: number;
+  resumeCount: number;
+}) {
+  const profileBits = [
+    experienceCount > 0 ? `${experienceCount} ${experienceCount === 1 ? "experience" : "experiences"}` : null,
+    skillCount > 0 ? `${skillCount} ${skillCount === 1 ? "skill" : "skills"}` : null,
+    resumeCount > 0 ? `${resumeCount} ${resumeCount === 1 ? "resume" : "resumes"}` : null,
+  ].filter((bit): bit is string => Boolean(bit));
+  const profileMeta = profileDataLoading ? "Loading profile…" : profileBits.join(" · ") || (profilePercent > 0 ? "Profile details added" : "No profile details yet");
+
+  return (
+    <div className="hidden w-[240px] shrink-0 rounded-2xl border border-white/[0.08] bg-white/[0.025] p-4 md:block">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/30">Your snapshot</p>
+      <div className="mt-3">
+        <div className="flex items-center justify-between gap-3 text-[11px]">
+          <span className="text-white/45">Profile</span>
+          <span className="font-semibold tabular-nums text-white/80">{profileDataLoading ? "—" : `${profilePercent}%`}</span>
+        </div>
+        <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-white/[0.07]">
+          <div className="h-full rounded-full bg-gradient-to-r from-neon-cyan to-neon-purple transition-[width] duration-500" style={{ width: `${profilePercent}%` }} />
+        </div>
+        <p className="mt-1.5 truncate text-[10px] text-white/30">{profileMeta}</p>
+      </div>
+      <div className="mt-3 flex items-start justify-between gap-3 border-t border-white/[0.06] pt-3 text-[11px]">
+        <span className="text-white/45">Goal</span>
+        <span className="max-w-[140px] text-right font-medium leading-snug text-white/75">{goalReady ? targetRole ?? "Set" : "Not set"}</span>
+      </div>
+    </div>
   );
 }
 
