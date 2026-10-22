@@ -247,6 +247,12 @@ export async function deleteAppUserData(ctx: MutationCtx, user: Doc<"users">) {
     .collect();
   for (const row of courseClicks) await ctx.db.delete(row._id);
 
+  const manualEntitlements = await ctx.db
+    .query("manual_entitlements")
+    .withIndex("by_user", (q) => q.eq("user_id", userId))
+    .collect();
+  for (const row of manualEntitlements) await ctx.db.delete(row._id);
+
   const agentThreads = await ctx.db
     .query("qelsa_agent_threads")
     .withIndex("by_user", (q) => q.eq("user_id", userId))

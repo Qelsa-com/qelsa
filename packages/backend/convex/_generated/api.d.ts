@@ -9,6 +9,7 @@
  */
 
 import type * as admin from "../admin.js";
+import type * as affiliateCourses from "../affiliateCourses.js";
 import type * as agentAutofill from "../agentAutofill.js";
 import type * as agentCourseTracking from "../agentCourseTracking.js";
 import type * as agentNotifications from "../agentNotifications.js";
@@ -28,6 +29,7 @@ import type * as careerGoalsGenerate from "../careerGoalsGenerate.js";
 import type * as certifications from "../certifications.js";
 import type * as coverLetter from "../coverLetter.js";
 import type * as crons from "../crons.js";
+import type * as curriculum from "../curriculum.js";
 import type * as dashboard from "../dashboard.js";
 import type * as dodo from "../dodo.js";
 import type * as educations from "../educations.js";
@@ -35,6 +37,7 @@ import type * as employerAuth from "../employerAuth.js";
 import type * as experiences from "../experiences.js";
 import type * as files from "../files.js";
 import type * as http from "../http.js";
+import type * as interviewPrep from "../interviewPrep.js";
 import type * as jobApplications from "../jobApplications.js";
 import type * as jobMatch from "../jobMatch.js";
 import type * as jobMatchGenerate from "../jobMatchGenerate.js";
@@ -96,6 +99,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   admin: typeof admin;
+  affiliateCourses: typeof affiliateCourses;
   agentAutofill: typeof agentAutofill;
   agentCourseTracking: typeof agentCourseTracking;
   agentNotifications: typeof agentNotifications;
@@ -115,6 +119,7 @@ declare const fullApi: ApiFromModules<{
   certifications: typeof certifications;
   coverLetter: typeof coverLetter;
   crons: typeof crons;
+  curriculum: typeof curriculum;
   dashboard: typeof dashboard;
   dodo: typeof dodo;
   educations: typeof educations;
@@ -122,6 +127,7 @@ declare const fullApi: ApiFromModules<{
   experiences: typeof experiences;
   files: typeof files;
   http: typeof http;
+  interviewPrep: typeof interviewPrep;
   jobApplications: typeof jobApplications;
   jobMatch: typeof jobMatch;
   jobMatchGenerate: typeof jobMatchGenerate;

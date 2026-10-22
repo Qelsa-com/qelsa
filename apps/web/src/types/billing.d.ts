@@ -36,6 +36,7 @@ export type MyBilling = {
   plan: BillingPlan;
   subscription: BillingSubscription | null;
   is_pro: boolean;
+  manual_pro: boolean;
   has_customer: boolean;
   agent_daily_limit: number;
 };

@@ -67,6 +67,9 @@ export type AdminUserDetail = {
   relocate_locations: string[] | null;
   created_at: number;
   last_login_at: number | null;
+  manual_pro: boolean;
+  manual_pro_since: number | null;
+  manual_pro_note: string | null;
 };
 
 export type AdminJobSummary = {
@@ -190,6 +193,26 @@ export function useSetUserActiveMutation() {
     (input: { userId: string; isActive: boolean; note?: string }) => ({
       userId: input.userId as never,
       isActive: input.isActive,
+      note: input.note,
+    }),
+  );
+}
+
+export function useGrantManualProMutation() {
+  return useConvexMutationHook(
+    api.admin.grantManualPro,
+    (input: { userId: string; note?: string }) => ({
+      userId: input.userId as never,
+      note: input.note,
+    }),
+  );
+}
+
+export function useRevokeManualProMutation() {
+  return useConvexMutationHook(
+    api.admin.revokeManualPro,
+    (input: { userId: string; note?: string }) => ({
+      userId: input.userId as never,
       note: input.note,
     }),
   );

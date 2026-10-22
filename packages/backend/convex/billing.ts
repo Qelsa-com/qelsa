@@ -4,7 +4,7 @@ import { action, internalMutation, internalQuery, query } from "./_generated/ser
 import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { authedQuery } from "./lib/customFunctions";
-import { isSubscriptionEntitled as isEntitled } from "./lib/billingEntitlements";
+import { hasManualProGrant, isSubscriptionEntitled as isEntitled } from "./lib/billingEntitlements";
 import {
   BILLING_PLAN_ID,
   FREE_AGENT_DAILY_LIMIT,
@@ -99,14 +99,16 @@ export const getMyBilling = authedQuery({
   handler: async (ctx) => {
     const subscription = await currentSubscriptionForUser(ctx, ctx.user._id);
     const customer = await billingCustomerForUser(ctx, ctx.user._id);
+    const manualPro = await hasManualProGrant(ctx, ctx.user._id);
     const plan = publicBillingPlan();
 
     return {
       plan,
       subscription: subscription ? asBillingSubscription(subscription) : null,
-      is_pro: isEntitled(subscription),
+      is_pro: isEntitled(subscription) || manualPro,
+      manual_pro: manualPro,
       has_customer: Boolean(customer),
-      agent_daily_limit: isEntitled(subscription) ? PRO_AGENT_DAILY_LIMIT : FREE_AGENT_DAILY_LIMIT,
+      agent_daily_limit: isEntitled(subscription) || manualPro ? PRO_AGENT_DAILY_LIMIT : FREE_AGENT_DAILY_LIMIT,
     };
   },
 });

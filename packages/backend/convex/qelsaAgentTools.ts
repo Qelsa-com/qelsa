@@ -1428,14 +1428,31 @@ export const updateCareerGoalTool = createTool({
 
 export const getSkillCoursesTool = createTool({
   description:
-    "Find curated courses for specific missing skills. Use this when the user asks how to learn a skill or what course would close a gap. Returns only real catalog resources; unmatched skills are returned separately.",
+    "Find curated external courses for specific missing skills. Use this when the user asks how to learn a skill or what course would close a gap. Returns only real catalog resources; unmatched skills are returned separately.",
   inputSchema: z.object({
     skills: z.array(z.string()).min(1).max(12),
   }),
-  execute: async (_ctx, args): Promise<any> => {
+  execute: async (ctx, args): Promise<any> => {
     const skills = [...new Set(args.skills.map((skill) => skill.trim()).filter(Boolean))];
-    const courses = recommendCourses(skills, 8);
-    const matched = new Set(courses.flatMap((course) => course.matched_skills.map((skill) => skill.toLowerCase())));
+    const managed: any = await ctx.runQuery(internal.interviewPrep.listPublishedAffiliateCourses, {});
+    const managedMatches = managed
+      .map((row: any) => ({
+        course_id: row._id,
+        title: row.title,
+        provider: row.provider,
+        url: row.url,
+        level: row.level,
+        duration: row.duration,
+        free: row.free,
+        description: row.description,
+        affiliate: true,
+        matched_skills: skills.filter((skill: string) =>
+          row.skills.some((rowSkill: string) => skillMatchKey(rowSkill) === skillMatchKey(skill)),
+        ),
+      }))
+      .filter((row: any) => row.matched_skills.length > 0);
+    const courses = [...managedMatches, ...recommendCourses(skills, 8)].slice(0, 8);
+    const matched = new Set(courses.flatMap((course: any) => course.matched_skills.map((skill: string) => skill.toLowerCase())));
     const unmatched = skills.filter((skill) => !matched.has(skill.toLowerCase()));
     return {
       skills,
@@ -1446,6 +1463,24 @@ export const getSkillCoursesTool = createTool({
         : "No curated course matched those skills yet. Search a learning platform for the skill.",
     };
   },
+});
+
+export const getInterviewPrepTool = createTool({
+  description:
+    "Find Qelsa's internal interview-prep tracks for a role or job. Use this when the user wants interview practice, commonly asked questions, or a structured prep plan. These are Qelsa-authored courses, separate from external skill courses.",
+  inputSchema: z.object({
+    job_id: z.string().optional().describe("Job id to match against, when the user is preparing for a specific job."),
+    role: z.string().optional().describe("Target role title, e.g. 'Product Manager' or 'Frontend Engineer'."),
+    skills: z.array(z.string()).max(12).optional().describe("Skills the user wants to focus on."),
+    limit: z.number().int().min(1).max(5).optional(),
+  }),
+  execute: async (ctx, args): Promise<any> =>
+    ctx.runQuery(internal.interviewPrep.recommend, {
+      jobId: args.job_id as Id<"jobs"> | undefined,
+      role: args.role,
+      skills: args.skills,
+      limit: args.limit ?? 3,
+    }),
 });
 
 export const runJobMatchTool = createTool({
@@ -1461,6 +1496,13 @@ export const runJobMatchTool = createTool({
       jobId: args.job_id as Id<"jobs">,
       refresh: args.refresh,
     });
+    const interviewPrep: any = await ctx
+      .runQuery(internal.interviewPrep.recommend, {
+        jobId: args.job_id as Id<"jobs">,
+        skills: [...session.analysis.missing, ...session.analysis.partial],
+        limit: 2,
+      })
+      .catch(() => []);
     return {
       available: true,
       session_id: session.id,
@@ -1480,6 +1522,7 @@ export const runJobMatchTool = createTool({
       actions: session.analysis.actions,
       can_apply: session.analysis.can_apply,
       courses: recommendCourses([...session.analysis.missing, ...session.analysis.partial], 4),
+      interview_prep: interviewPrep,
       match_url_path: `/jobs/match/${session.id}`,
       job_url_path: session.job_id ? `/jobs/${session.job_id}` : null,
     };
@@ -1856,6 +1899,7 @@ export const qelsaAgentTools = {
   list_saved_jobs: listSavedJobsTool,
   get_job_readiness: getJobReadinessTool,
   get_skill_courses: getSkillCoursesTool,
+  get_interview_prep: getInterviewPrepTool,
   run_job_match: runJobMatchTool,
   analyze_external_job: analyzeExternalJobTool,
   write_cover_letter: writeCoverLetterTool,

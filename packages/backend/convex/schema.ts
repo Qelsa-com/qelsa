@@ -795,6 +795,65 @@ export default defineSchema({
     .index("by_user_and_created", ["user_id", "created_at"])
     .index("by_course", ["course_id"]),
 
+  // AI-generated, role-based interview prep. Tracks and questions are separate
+  // so a guide can grow without approaching a single document's size limits.
+  interview_prep_tracks: defineTable({
+    slug: v.string(),
+    title: v.string(),
+    role_family: v.string(),
+    level: v.string(),
+    summary: v.string(),
+    description: v.string(),
+    skills: v.array(v.string()),
+    interview_types: v.array(v.string()),
+    question_count: v.number(),
+    estimated_minutes: v.number(),
+    status: v.union(v.literal("draft"), v.literal("published"), v.literal("archived")),
+    quality_score: v.number(),
+    quality_flags: v.array(v.string()),
+    demand_score: v.number(),
+    generation_run_id: v.optional(v.id("curriculum_runs")),
+    model: v.string(),
+    prompt_version: v.string(),
+    content_hash: v.string(),
+    published_at: v.optional(v.number()),
+    created_at: v.number(),
+    updated_at: v.number(),
+  })
+    .index("by_slug", ["slug"])
+    .index("by_status", ["status"])
+    .index("by_role_family", ["role_family"])
+    .index("by_status_and_role_family", ["status", "role_family"]),
+
+  interview_prep_questions: defineTable({
+    track_id: v.id("interview_prep_tracks"),
+    order: v.number(),
+    category: v.string(),
+    question: v.string(),
+    answer: v.string(),
+    key_points: v.array(v.string()),
+    follow_ups: v.array(v.string()),
+    difficulty: v.string(),
+    skills: v.array(v.string()),
+  }).index("by_track_and_order", ["track_id", "order"]),
+
+  // Audit trail for autonomous curriculum runs. The run stores the demand
+  // snapshot and planner decisions so a generated track can always be traced
+  // back to the data and model version that produced it.
+  curriculum_runs: defineTable({
+    status: v.union(v.literal("running"), v.literal("completed"), v.literal("failed")),
+    trigger: v.string(),
+    started_at: v.number(),
+    completed_at: v.optional(v.number()),
+    model: v.string(),
+    demand_snapshot: v.any(),
+    decisions: v.array(v.any()),
+    tracks_created: v.number(),
+    tracks_published: v.number(),
+    error: v.optional(v.string()),
+    actor_user_id: v.optional(v.id("users")),
+  }).index("by_started_at", ["started_at"]),
+
   // One row per browser/device. Endpoints are opaque Web Push URLs.
   agent_push_subscriptions: defineTable({
     user_id: v.id("users"),
@@ -854,6 +913,42 @@ export default defineSchema({
     .index("by_dodo_subscription_id", ["dodo_subscription_id"])
     .index("by_dodo_customer_id", ["dodo_customer_id"])
     .index("by_page", ["page_id"]),
+
+  // Complimentary Pro access granted by an admin. This is independent of Dodo:
+  // a user with an active row here is treated as Pro until the grant is revoked,
+  // and a real subscription can coexist with it.
+  manual_entitlements: defineTable({
+    user_id: v.id("users"),
+    plan: v.literal("pro"),
+    granted_by: v.id("users"),
+    granted_at: v.number(),
+    revoked_at: v.optional(v.number()),
+    revoked_by: v.optional(v.id("users")),
+    note: v.optional(v.string()),
+  })
+    .index("by_user", ["user_id"])
+    .index("by_user_and_granted_at", ["user_id", "granted_at"]),
+
+  // Admin-managed external courses. Static catalog entries still live in
+  // lib/courseCatalog.ts; these are courses an admin adds with a partner link
+  // and optional AI-prefilled metadata.
+  affiliate_courses: defineTable({
+    provider: v.string(),
+    title: v.string(),
+    description: v.string(),
+    url: v.string(),
+    skills: v.array(v.string()),
+    level: v.string(),
+    duration: v.string(),
+    free: v.boolean(),
+    status: v.union(v.literal("draft"), v.literal("published"), v.literal("archived")),
+    ai_filled: v.boolean(),
+    created_by: v.id("users"),
+    created_at: v.number(),
+    updated_at: v.number(),
+  })
+    .index("by_status", ["status"])
+    .index("by_provider", ["provider"]),
 
   // Idempotency ledger for signed Dodo webhooks. A retried event must not
   // duplicate subscriptions or corrupt entitlement state.

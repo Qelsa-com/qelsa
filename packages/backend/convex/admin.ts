@@ -128,6 +128,9 @@ const userDetailValidator = v.object({
   relocate_locations: v.union(v.array(v.string()), v.null()),
   created_at: v.number(),
   last_login_at: v.union(v.number(), v.null()),
+  manual_pro: v.boolean(),
+  manual_pro_since: v.union(v.number(), v.null()),
+  manual_pro_note: v.union(v.string(), v.null()),
 });
 
 const cityRowValidator = v.object({
@@ -320,6 +323,13 @@ export const getUser = adminQuery({
 
     const city = user.city_id ? await ctx.db.get(user.city_id) : null;
     const state = city?.state_id ? await ctx.db.get(city.state_id) : null;
+    const manualGrant = (
+      await ctx.db
+        .query("manual_entitlements")
+        .withIndex("by_user_and_granted_at", (q) => q.eq("user_id", user._id))
+        .order("desc")
+        .take(10)
+    ).find((grant) => !grant.revoked_at);
 
     return {
       id: user._id,
@@ -367,6 +377,9 @@ export const getUser = adminQuery({
       relocate_locations: user.relocate_locations ?? null,
       created_at: user._creationTime,
       last_login_at: user.last_login_at ?? null,
+      manual_pro: Boolean(manualGrant),
+      manual_pro_since: manualGrant?.granted_at ?? null,
+      manual_pro_note: manualGrant?.note ?? null,
     };
   },
 });
@@ -546,8 +559,78 @@ export const setUserActive = adminMutation({
   },
 });
 
-const jobSummaryValidator = v.object({
-  id: v.id("jobs"),
+export const grantManualPro = adminMutation({
+  args: {
+    userId: v.id("users"),
+    note: v.optional(v.string()),
+  },
+  returns: v.object({ granted: v.boolean(), already: v.boolean() }),
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.userId);
+    if (!user) throw new Error("User not found");
+
+    const existing = (
+      await ctx.db
+        .query("manual_entitlements")
+        .withIndex("by_user_and_granted_at", (q) => q.eq("user_id", args.userId))
+        .order("desc")
+        .take(10)
+    ).find((grant) => !grant.revoked_at);
+    if (existing) return { granted: false, already: true };
+
+    await ctx.db.insert("manual_entitlements", {
+      user_id: args.userId,
+      plan: "pro",
+      granted_by: ctx.user._id,
+      granted_at: Date.now(),
+      note: args.note?.slice(0, 500),
+    });
+    await ctx.db.insert("admin_audit_log", {
+      admin_user_id: ctx.user._id,
+      action: "billing.manual_pro_granted",
+      target_user_id: args.userId,
+      after: { plan: "pro" },
+      note: args.note,
+      created_at: Date.now(),
+    });
+    return { granted: true, already: false };
+  },
+});
+
+export const revokeManualPro = adminMutation({
+  args: {
+    userId: v.id("users"),
+    note: v.optional(v.string()),
+  },
+  returns: v.object({ revoked: v.boolean() }),
+  handler: async (ctx, args) => {
+    const active = (
+      await ctx.db
+        .query("manual_entitlements")
+        .withIndex("by_user_and_granted_at", (q) => q.eq("user_id", args.userId))
+        .order("desc")
+        .take(10)
+    ).find((grant) => !grant.revoked_at);
+    if (!active) return { revoked: false };
+
+    await ctx.db.patch(active._id, {
+      revoked_at: Date.now(),
+      revoked_by: ctx.user._id,
+      note: args.note?.slice(0, 500) ?? active.note,
+    });
+    await ctx.db.insert("admin_audit_log", {
+      admin_user_id: ctx.user._id,
+      action: "billing.manual_pro_revoked",
+      target_user_id: args.userId,
+      before: { plan: "pro" },
+      note: args.note,
+      created_at: Date.now(),
+    });
+    return { revoked: true };
+  },
+});
+
+const jobSummaryValidator = v.object({  id: v.id("jobs"),
   title: v.union(v.string(), v.null()),
   company_name: v.union(v.string(), v.null()),
   status: v.string(),

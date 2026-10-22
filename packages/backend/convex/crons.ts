@@ -15,4 +15,8 @@ crons.cron("agent saved searches", "0 7 * * *", internal.agentProactive.runSaved
 // Autofill tokens are one-time and expire in 20 minutes; remove old rows daily.
 crons.cron("cleanup autofill tokens", "17 3 * * *", internal.agentAutofill.cleanupExpired, {});
 
+// AI curriculum agent. It no-ops unless CURRICULUM_AGENT_ENABLED is true, so
+// deployments must explicitly opt in to autonomous publishing.
+crons.cron("interview prep curriculum", "0 6 * * 2", internal.curriculum.scheduledRun, {});
+
 export default crons;

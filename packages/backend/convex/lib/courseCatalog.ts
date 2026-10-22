@@ -512,6 +512,31 @@ export function recommendCourses(skills: string[], limit = 4): CourseRecommendat
   return selected.map(({ score: _score, skills: _skills, aliases: _aliases, ...course }) => course);
 }
 
+export type ExternalCourse = Omit<CourseRecommendation, "matched_skills"> & {
+  skills: string[];
+};
+
+/** Full public catalog for the Courses page; affiliate links stay server-side
+ * until the card is rendered, and every card still names the provider. */
+export function listExternalCourses(): ExternalCourse[] {
+  const affiliates = affiliateLinks();
+  return COURSES.map((course) => {
+    const affiliateUrl = affiliates[course.course_id];
+    return {
+      course_id: course.course_id,
+      title: course.title,
+      provider: course.provider,
+      url: affiliateUrl ?? course.url,
+      level: course.level,
+      duration: course.duration,
+      free: course.free,
+      description: course.description,
+      skills: course.skills,
+      affiliate: Boolean(affiliateUrl),
+    };
+  }).sort((a, b) => a.title.localeCompare(b.title));
+}
+
 export function courseSearchUrl(skill: string) {
   return `https://www.coursera.org/search?query=${encodeURIComponent(skill.trim())}`;
 }
