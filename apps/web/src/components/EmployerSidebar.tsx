@@ -81,8 +81,8 @@ export function EmployerSidebar({ collapsed: controlledCollapsed, onToggleCollap
       id: "agent",
       label: "Agent",
       icon: BotMessageSquare,
-      href: "/agent",
-      isActive: pathname === "/agent",
+      href: "/employer/agent",
+      isActive: pathname === "/employer/agent",
     },
     {
       id: "applications",

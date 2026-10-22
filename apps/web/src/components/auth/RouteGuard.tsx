@@ -33,6 +33,30 @@ const PUBLIC_PAGE = /^\/pages\/([^/]+)$/;
 const PUBLIC_PROFILE = /^\/profile\/([^/]+)$/;
 const RESERVED_PROFILE_HANDLES = ["edit", "certifications", "educations", "skills", "work-experience"];
 
+const EMPLOYER_ONLY_PREFIXES = [
+  "/employer/agent",
+  "/jobs/posted",
+  "/jobs/create-job",
+  "/jobs/edit/",
+  "/jobs/applications",
+  "/team",
+  "/settings/integrations",
+  "/pages/create",
+  "/pages/create-page",
+];
+
+const CANDIDATE_ONLY_PREFIXES = ["/agent", "/jobs/my-jobs", "/jobs/match", "/goals"];
+
+function isEmployerOnlyPath(path: string) {
+  if (path === "/pages") return true;
+  if (path.startsWith("/pages/") && (path.endsWith("/edit") || path.endsWith("/manage"))) return true;
+  return EMPLOYER_ONLY_PREFIXES.some((prefix) => path === prefix || path.startsWith(prefix));
+}
+
+function isCandidateOnlyPath(path: string) {
+  return CANDIDATE_ONLY_PREFIXES.some((prefix) => path === prefix || path.startsWith(prefix));
+}
+
 const isPublicPath = (path: string) => {
   if (PUBLIC_ROUTES.includes(path)) return true;
   if (PUBLIC_COURSE.test(path)) return true;
@@ -78,6 +102,28 @@ export default function RouteGuard({ children }: { children: ReactNode }) {
     if (user?.account_type && ["/login", "/register"].includes(path)) {
       router.replace("/jobs/all");
       return;
+    }
+
+    if (user) {
+      const isEmployer = user.account_type === "recruiter";
+      const employerHome = user.active_page_id ? `/pages/${user.active_page_id}` : "/pages";
+
+      if (path === "/agent" && isEmployer) {
+        router.replace("/employer/agent");
+        return;
+      }
+      if (path.startsWith("/employer/agent") && !isEmployer) {
+        router.replace("/agent");
+        return;
+      }
+      if (isEmployerOnlyPath(path) && !isEmployer) {
+        router.replace("/");
+        return;
+      }
+      if (isCandidateOnlyPath(path) && isEmployer) {
+        router.replace(employerHome);
+        return;
+      }
     }
 
     if (session && needsOnboarding(user) && !ONBOARDING_EXEMPT.has(path)) {
