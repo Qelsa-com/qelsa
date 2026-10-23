@@ -681,7 +681,7 @@ function MatchRow({ row, onClick }: { row: MatchRowData; onClick: () => void }) 
           {jobLocation ? ` · ${jobLocation}` : ""}
         </p>
       </div>
-      {score != null ? <MatchRing value={score} label={goalMode ? "Goal" : tier === "ready" ? "Match" : "Near"} color={goalMode ? GOAL_MATCH.color : undefined} /> : null}
+      {score != null ? <MatchRing value={score} label={goalMode ? "Goal" : "Match"} color={goalMode ? GOAL_MATCH.color : undefined} /> : null}
       <ChevronRight className="size-4 shrink-0 text-white/15 transition-colors group-hover:text-white/50" />
     </button>
   );
