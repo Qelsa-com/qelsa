@@ -70,6 +70,14 @@ export type AdminUserDetail = {
   manual_pro: boolean;
   manual_pro_since: number | null;
   manual_pro_note: string | null;
+  pro_access: boolean;
+  pro_access_source: "subscription" | "manual" | "none";
+  pro_subscription: {
+    status: string;
+    interval: string;
+    current_period_end: number | null;
+    cancel_at_period_end: boolean;
+  } | null;
 };
 
 export type AdminJobSummary = {

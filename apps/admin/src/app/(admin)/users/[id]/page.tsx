@@ -344,23 +344,34 @@ export default function UserDetailPage() {
               Premium access
             </h2>
             <p className="mt-1 text-xs text-muted-foreground">
-              Complimentary Qelsa Pro access. No subscription needed.
+              Subscription or complimentary access.
             </p>
 
             <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] p-3.5">
               <div className="flex items-center justify-between gap-3">
                 <span className="text-sm font-semibold">
-                  {user.manual_pro ? "Qelsa Pro" : "Free"}
+                  {user.pro_access ? "Qelsa Pro" : "Free"}
                 </span>
-                {user.manual_pro ? (
+                {user.pro_access_source === "subscription" ? (
+                  <span className="rounded-md bg-emerald-400/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-300">
+                    Subscribed
+                  </span>
+                ) : user.pro_access_source === "manual" ? (
                   <span className="rounded-md bg-amber-300/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-300">
                     Granted
                   </span>
                 ) : null}
               </div>
-              {user.manual_pro && user.manual_pro_since ? (
+              {user.pro_subscription ? (
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Since {new Date(user.manual_pro_since).toLocaleDateString()}
+                  {user.pro_subscription.interval === "year" ? "Yearly" : "Monthly"} · {user.pro_subscription.status}
+                  {user.pro_subscription.current_period_end
+                    ? ` · ${user.pro_subscription.cancel_at_period_end ? "ends" : "renews"} ${new Date(user.pro_subscription.current_period_end).toLocaleDateString()}`
+                    : ""}
+                </p>
+              ) : user.manual_pro ? (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Complimentary access{user.manual_pro_since ? ` since ${new Date(user.manual_pro_since).toLocaleDateString()}` : ""}
                 </p>
               ) : null}
               {user.manual_pro_note ? (
@@ -368,7 +379,7 @@ export default function UserDetailPage() {
               ) : null}
             </div>
 
-            <div className="mt-4 flex flex-wrap gap-2">
+            <div className="mt-4 flex flex-wrap items-center gap-2">
               {user.manual_pro ? (
                 <Button
                   variant="destructive"
@@ -377,8 +388,10 @@ export default function UserDetailPage() {
                   onClick={() => void handleRevokePro()}
                   className="rounded-full"
                 >
-                  {isRevokingPro ? "Removing…" : "Remove Pro access"}
+                  {isRevokingPro ? "Removing…" : "Remove manual Pro"}
                 </Button>
+              ) : user.pro_access ? (
+                <p className="text-xs text-muted-foreground">Managed by the active Dodo subscription.</p>
               ) : (
                 <Button
                   size="sm"

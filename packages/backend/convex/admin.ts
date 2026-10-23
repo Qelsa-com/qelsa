@@ -4,6 +4,7 @@ import { components, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { internalAction, internalMutation, type QueryCtx } from "./_generated/server";
 import { adminMutation, adminQuery } from "./lib/customFunctions";
+import { isSubscriptionEntitled } from "./lib/billingEntitlements";
 import { deleteJobCascade } from "./lib/deleteUserData";
 import { bumpOpenJobCount, openCountDelta } from "./lib/jobCounts";
 import {
@@ -131,6 +132,17 @@ const userDetailValidator = v.object({
   manual_pro: v.boolean(),
   manual_pro_since: v.union(v.number(), v.null()),
   manual_pro_note: v.union(v.string(), v.null()),
+  pro_access: v.boolean(),
+  pro_access_source: v.union(v.literal("subscription"), v.literal("manual"), v.literal("none")),
+  pro_subscription: v.union(
+    v.null(),
+    v.object({
+      status: v.string(),
+      interval: v.string(),
+      current_period_end: v.union(v.number(), v.null()),
+      cancel_at_period_end: v.boolean(),
+    }),
+  ),
 });
 
 const cityRowValidator = v.object({
@@ -330,6 +342,18 @@ export const getUser = adminQuery({
         .order("desc")
         .take(10)
     ).find((grant) => !grant.revoked_at);
+    const subscriptions = await ctx.db
+      .query("billing_subscriptions")
+      .withIndex("by_user_and_updated_at", (q) => q.eq("user_id", user._id))
+      .order("desc")
+      .take(10);
+    const subscription = subscriptions.find((row) => isSubscriptionEntitled(row)) ?? null;
+    const proAccess = Boolean(subscription || manualGrant);
+    const proAccessSource = subscription
+      ? ("subscription" as const)
+      : manualGrant
+      ? ("manual" as const)
+      : ("none" as const);
 
     return {
       id: user._id,
@@ -380,6 +404,16 @@ export const getUser = adminQuery({
       manual_pro: Boolean(manualGrant),
       manual_pro_since: manualGrant?.granted_at ?? null,
       manual_pro_note: manualGrant?.note ?? null,
+      pro_access: proAccess,
+      pro_access_source: proAccessSource,
+      pro_subscription: subscription
+        ? {
+            status: subscription.status,
+            interval: subscription.interval,
+            current_period_end: subscription.current_period_end ?? null,
+            cancel_at_period_end: subscription.cancel_at_period_end,
+          }
+        : null,
     };
   },
 });
