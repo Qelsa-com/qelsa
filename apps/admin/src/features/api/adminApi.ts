@@ -10,6 +10,7 @@ export type AdminUserSummary = {
   username: string | null;
   role: string;
   account_type: string | null;
+  premium_plan: "plus" | "pro" | null;
   is_active: boolean;
   profile_image: string | null;
   headline: string | null;

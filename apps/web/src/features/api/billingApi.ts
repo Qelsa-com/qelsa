@@ -11,8 +11,8 @@ export type BillingPlanId = "plus" | "pro";
 type LivePlanPrice = { month: { amount: number; currency: string; available: boolean }; year: { amount: number; currency: string; available: boolean } };
 export type LivePlanPrices = Record<BillingPlanId, LivePlanPrice>;
 
-export function useGetPlansQuery() {
-  return useConvexQueryHook(api.billing.getPlans, {});
+export function useGetPlansQuery(options?: { skip?: boolean }) {
+  return useConvexQueryHook(api.billing.getPlans, {}, options);
 }
 
 export function useGetMyBillingQuery(options?: { skip?: boolean }) {

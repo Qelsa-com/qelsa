@@ -13,7 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useListUsersQuery } from "@/features/api/adminApi";
-import { ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, Crown, Search, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
@@ -24,7 +24,7 @@ type StatusFilter = "all" | "active" | "suspended";
 function Badge({ children, tone }: { children: React.ReactNode; tone: string }) {
   return (
     <span
-      className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold tracking-wide uppercase ${tone}`}
+      className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold tracking-wide uppercase ${tone}`}
     >
       {children}
     </span>
@@ -140,6 +140,7 @@ export default function UsersPage() {
                 <TableHead className="text-muted-foreground">User</TableHead>
                 <TableHead className="text-muted-foreground">Role</TableHead>
                 <TableHead className="text-muted-foreground">Type</TableHead>
+                <TableHead className="text-muted-foreground">Premium</TableHead>
                 <TableHead className="text-muted-foreground">Status</TableHead>
                 <TableHead className="text-muted-foreground">Joined</TableHead>
                 <TableHead className="text-right text-muted-foreground">Action</TableHead>
@@ -150,7 +151,7 @@ export default function UsersPage() {
                 !data &&
                 [0, 1, 2, 3, 4].map((key) => (
                   <TableRow key={key} className="border-glass-border">
-                    <TableCell colSpan={6}>
+                    <TableCell colSpan={7}>
                       <Skeleton className="h-10 w-full" />
                     </TableCell>
                   </TableRow>
@@ -177,6 +178,21 @@ export default function UsersPage() {
                     {user.account_type ?? "—"}
                   </TableCell>
                   <TableCell>
+                    {user.premium_plan === "pro" ? (
+                      <Badge tone="bg-amber-400/15 text-amber-300">
+                        <Crown className="h-3 w-3" />
+                        Pro
+                      </Badge>
+                    ) : user.premium_plan === "plus" ? (
+                      <Badge tone="bg-neon-cyan/15 text-neon-cyan">
+                        <Sparkles className="h-3 w-3" />
+                        Plus
+                      </Badge>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">Free</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
                     {user.is_active ? (
                       <Badge tone="bg-emerald-500/15 text-emerald-400">Active</Badge>
                     ) : (
@@ -200,7 +216,7 @@ export default function UsersPage() {
               {!isLoading && !rows.length && (
                 <TableRow className="border-glass-border">
                   <TableCell
-                    colSpan={6}
+                    colSpan={7}
                     className="py-10 text-center text-sm text-muted-foreground"
                   >
                     No users match these filters.
