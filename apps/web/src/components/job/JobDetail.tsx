@@ -594,7 +594,7 @@ export function JobDetail() {
                       onClick={handleAskAgent}
                       aria-label="Ask Qelsa Agent about this job"
                       title="Ask Qelsa Agent about this job"
-                      className="h-auto shrink-0 rounded-full border-[1.5px] border-white/20 bg-transparent px-4 py-3 text-sm text-white hover:bg-white/5 lg:px-4 lg:py-3.5"
+                      className="h-11 w-11 shrink-0 rounded-full border-[1.5px] border-white/20 bg-transparent p-0 text-sm text-white hover:bg-white/5 xl:h-auto xl:w-auto xl:px-4 xl:py-3.5"
                     >
                       <Sparkles className="size-4 text-neon-cyan xl:mr-2" />
                       <span className="hidden xl:inline">Ask Qelsa Agent</span>
