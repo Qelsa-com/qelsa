@@ -139,12 +139,16 @@ export default function handler(req: NextRequest) {
                     height: 22,
                     borderRadius: 11,
                     backgroundColor: "#10b981",
-                    color: "#ffffff",
-                    fontSize: 14,
-                    fontWeight: 900,
                   }}
                 >
-                  ✓
+                  <div
+                    style={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: 4,
+                      backgroundColor: "#ffffff",
+                    }}
+                  />
                 </div>
               </div>
 
