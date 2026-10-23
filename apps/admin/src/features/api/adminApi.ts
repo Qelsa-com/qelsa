@@ -74,6 +74,7 @@ export type AdminUserDetail = {
   pro_access_source: "subscription" | "manual" | "none";
   pro_subscription: {
     status: string;
+    plan: string;
     interval: string;
     current_period_end: number | null;
     cancel_at_period_end: boolean;

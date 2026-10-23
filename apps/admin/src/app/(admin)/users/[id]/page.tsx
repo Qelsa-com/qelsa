@@ -364,6 +364,7 @@ export default function UserDetailPage() {
               </div>
               {user.pro_subscription ? (
                 <p className="mt-1 text-xs text-muted-foreground">
+                  {user.pro_subscription.plan === "plus" ? "Qelsa Plus" : "Qelsa Pro"} ·{" "}
                   {user.pro_subscription.interval === "year" ? "Yearly" : "Monthly"} · {user.pro_subscription.status}
                   {user.pro_subscription.current_period_end
                     ? ` · ${user.pro_subscription.cancel_at_period_end ? "ends" : "renews"} ${new Date(user.pro_subscription.current_period_end).toLocaleDateString()}`

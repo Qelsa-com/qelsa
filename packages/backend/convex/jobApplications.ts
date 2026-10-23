@@ -278,6 +278,7 @@ export const applicationUsage = authedQuery({
   args: {},
   returns: v.object({
     is_pro: v.boolean(),
+    plan_id: v.union(v.literal("plus"), v.literal("pro"), v.null()),
     used: v.number(),
     limit: v.union(v.number(), v.null()),
     remaining: v.union(v.number(), v.null()),

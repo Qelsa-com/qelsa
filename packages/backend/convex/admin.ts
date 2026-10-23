@@ -138,6 +138,7 @@ const userDetailValidator = v.object({
     v.null(),
     v.object({
       status: v.string(),
+      plan: v.string(),
       interval: v.string(),
       current_period_end: v.union(v.number(), v.null()),
       cancel_at_period_end: v.boolean(),
@@ -409,6 +410,7 @@ export const getUser = adminQuery({
       pro_subscription: subscription
         ? {
             status: subscription.status,
+            plan: subscription.plan,
             interval: subscription.interval,
             current_period_end: subscription.current_period_end ?? null,
             cancel_at_period_end: subscription.cancel_at_period_end,

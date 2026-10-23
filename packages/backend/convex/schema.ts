@@ -886,7 +886,7 @@ export default defineSchema({
     dodo_customer_id: v.string(),
     dodo_subscription_id: v.string(),
     product_id: v.string(),
-    plan: v.literal("pro"),
+    plan: v.union(v.literal("plus"), v.literal("pro")),
     interval: v.union(v.literal("month"), v.literal("year")),
     status: v.union(
       v.literal("pending"),
@@ -965,10 +965,13 @@ export default defineSchema({
   // fetched server-side so the browser never sees product IDs or invents an
   // amount from stale copy.
   billing_price_cache: defineTable({
+    plan: v.optional(v.union(v.literal("plus"), v.literal("pro"))),
     interval: v.union(v.literal("month"), v.literal("year")),
     product_id: v.string(),
     amount: v.number(),
     currency: v.string(),
     fetched_at: v.number(),
-  }).index("by_interval", ["interval"]),
+  })
+    .index("by_interval", ["interval"])
+    .index("by_plan_and_interval", ["plan", "interval"]),
 });

@@ -3,7 +3,8 @@ import type { MutationCtx, QueryCtx } from "../_generated/server";
 import {
   FREE_AGENT_DAILY_LIMIT,
   FREE_APPLICATION_LIMIT,
-  PRO_AGENT_DAILY_LIMIT,
+  agentDailyLimitForPlan,
+  type BillingPlanId,
 } from "../billingPlans";
 
 type ReadCtx = QueryCtx | MutationCtx;
@@ -28,8 +29,9 @@ export async function hasManualProGrant(ctx: ReadCtx, userId: Id<"users">) {
   return grants.some((grant) => grant.plan === "pro" && !grant.revoked_at);
 }
 
-export async function isProSubscriber(ctx: ReadCtx, userId: Id<"users">) {
-  if (await hasManualProGrant(ctx, userId)) return true;
+/** Paid plan currently attached to the account, or null for free. */
+export async function getUserPlan(ctx: ReadCtx, userId: Id<"users">): Promise<BillingPlanId | null> {
+  if (await hasManualProGrant(ctx, userId)) return "pro";
 
   const latest = await ctx.db
     .query("billing_subscriptions")
@@ -37,11 +39,12 @@ export async function isProSubscriber(ctx: ReadCtx, userId: Id<"users">) {
     .order("desc")
     .take(5);
 
-  return latest.some((subscription) => isSubscriptionEntitled(subscription));
+  const active = latest.find((subscription) => isSubscriptionEntitled(subscription));
+  return active?.plan ?? null;
 }
 
 export async function getAgentDailyLimit(ctx: ReadCtx, userId: Id<"users">) {
-  return (await isProSubscriber(ctx, userId)) ? PRO_AGENT_DAILY_LIMIT : FREE_AGENT_DAILY_LIMIT;
+  return agentDailyLimitForPlan(await getUserPlan(ctx, userId));
 }
 
 /** Statuses that still use one of the free plan's application slots. */
@@ -66,6 +69,7 @@ async function countActiveApplications(ctx: ReadCtx, userId: Id<"users">, cap: n
 
 export type ApplicationUsage = {
   is_pro: boolean;
+  plan_id: BillingPlanId | null;
   used: number;
   limit: number | null;
   remaining: number | null;
@@ -76,13 +80,15 @@ export async function getApplicationUsage(
   ctx: ReadCtx,
   userId: Id<"users">,
 ): Promise<ApplicationUsage> {
-  if (await isProSubscriber(ctx, userId)) {
-    return { is_pro: true, used: 0, limit: null, remaining: null, can_apply: true };
+  const plan = await getUserPlan(ctx, userId);
+  if (plan) {
+    return { is_pro: plan === "pro", plan_id: plan, used: 0, limit: null, remaining: null, can_apply: true };
   }
 
   const used = await countActiveApplications(ctx, userId, FREE_APPLICATION_LIMIT + 1);
   return {
     is_pro: false,
+    plan_id: null,
     used,
     limit: FREE_APPLICATION_LIMIT,
     remaining: Math.max(0, FREE_APPLICATION_LIMIT - used),
@@ -94,7 +100,7 @@ export async function assertCanApply(ctx: ReadCtx, userId: Id<"users">) {
   const usage = await getApplicationUsage(ctx, userId);
   if (!usage.can_apply) {
     throw new Error(
-      "Your free plan includes 1 application. Upgrade to Qelsa Pro to apply to more roles.",
+      "Your free plan includes 1 application. Upgrade to Qelsa Plus or Pro to apply to more roles.",
     );
   }
 }

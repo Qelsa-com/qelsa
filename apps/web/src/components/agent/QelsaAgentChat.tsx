@@ -1232,11 +1232,13 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
             {quotaExhausted && (
               <div className="mb-2 flex flex-col items-center justify-between gap-2 rounded-xl border border-amber-400/20 bg-amber-400/[0.07] px-3 py-2 text-center sm:flex-row sm:text-left">
                 <p className="text-[11px] text-amber-200">
-                  {usage?.is_pro
+                  {usage?.plan_id === "pro"
                     ? `You've used all ${usage.limit} messages for today. It resets at midnight UTC.`
+                    : usage?.plan_id === "plus"
+                    ? `You've used all ${usage.limit} Plus messages today. Upgrade to Pro for 500/day.`
                     : `You've used all ${usage?.limit ?? 5} free messages for today. Upgrade to keep chatting.`}
                 </p>
-                {!usage?.is_pro ? (
+                {usage?.can_upgrade ? (
                   <button
                     type="button"
                     onClick={() => setUpgradeReason("agent")}
@@ -1269,7 +1271,7 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
                     void handleSend();
                   }
                 }}
-                placeholder={threadResolving ? "Loading conversation…" : quotaExhausted ? (usage?.is_pro ? "Daily message limit reached" : "Free message limit reached — tap send to upgrade") : configured ? "Ask anything…" : "AI is not configured on this deployment"}
+                placeholder={threadResolving ? "Loading conversation…" : quotaExhausted ? (usage?.can_upgrade ? "Daily limit reached — tap send to upgrade" : "Daily message limit reached") : configured ? "Ask anything…" : "AI is not configured on this deployment"}
                 className="max-h-[152px] min-h-[36px] flex-1 resize-none bg-transparent py-1.5 text-[14px] leading-relaxed text-white/90 placeholder:text-white/30 focus:outline-none disabled:cursor-not-allowed"
               />
               <button

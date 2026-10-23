@@ -1,4 +1,5 @@
 export type BillingInterval = "month" | "year";
+export type BillingPlanId = "plus" | "pro";
 
 export type BillingPrice = {
   interval: BillingInterval;
@@ -9,7 +10,7 @@ export type BillingPrice = {
 };
 
 export type BillingPlan = {
-  id: "pro";
+  id: BillingPlanId;
   name: string;
   description: string;
   features: string[];
@@ -19,7 +20,7 @@ export type BillingPlan = {
 export type BillingSubscription = {
   id: string;
   subscription_id: string;
-  plan: "pro";
+  plan: BillingPlanId;
   interval: BillingInterval;
   status: "pending" | "active" | "on_hold" | "paused" | "cancelled" | "failed" | "expired";
   quantity: number;
@@ -33,7 +34,9 @@ export type BillingSubscription = {
 };
 
 export type MyBilling = {
+  plans: BillingPlan[];
   plan: BillingPlan;
+  plan_id: BillingPlanId | null;
   subscription: BillingSubscription | null;
   is_pro: boolean;
   manual_pro: boolean;

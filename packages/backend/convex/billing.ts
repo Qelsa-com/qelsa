@@ -4,15 +4,16 @@ import { action, internalMutation, internalQuery, query } from "./_generated/ser
 import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { authedQuery } from "./lib/customFunctions";
-import { hasManualProGrant, isSubscriptionEntitled as isEntitled } from "./lib/billingEntitlements";
+import { hasManualProGrant, getUserPlan, isSubscriptionEntitled as isEntitled } from "./lib/billingEntitlements";
 import {
-  BILLING_PLAN_ID,
   FREE_AGENT_DAILY_LIMIT,
-  PRO_AGENT_DAILY_LIMIT,
-  intervalForProductId,
-  productForInterval,
+  agentDailyLimitForPlan,
+  planForProductId,
+  productForPlan,
   publicBillingPlan,
+  publicBillingPlans,
   type BillingInterval,
+  type BillingPlanId,
 } from "./billingPlans";
 import { checkout, customerPortal } from "./dodo";
 
@@ -88,13 +89,10 @@ export const getPlans = query({
   args: {},
   returns: v.any(),
   handler: async () => ({
-    plan: publicBillingPlan(),
+    plans: publicBillingPlans(),
     free: {
       name: "Free",
       agent_daily_limit: FREE_AGENT_DAILY_LIMIT,
-    },
-    pro: {
-      agent_daily_limit: PRO_AGENT_DAILY_LIMIT,
     },
   }),
 });
@@ -107,42 +105,54 @@ export const getMyBilling = authedQuery({
     const subscription = await currentSubscriptionForUser(ctx, ctx.user._id);
     const customer = await billingCustomerForUser(ctx, ctx.user._id);
     const manualPro = await hasManualProGrant(ctx, ctx.user._id);
-    const plan = publicBillingPlan();
+    const planId = await getUserPlan(ctx, ctx.user._id);
+    const activePlan = publicBillingPlan(planId ?? "pro");
 
     return {
-      plan,
+      plans: publicBillingPlans(),
+      plan: activePlan,
+      plan_id: planId,
       subscription: subscription ? asBillingSubscription(subscription) : null,
-      is_pro: isEntitled(subscription) || manualPro,
+      is_pro: Boolean(planId),
       manual_pro: manualPro,
       has_customer: Boolean(customer),
-      agent_daily_limit: isEntitled(subscription) || manualPro ? PRO_AGENT_DAILY_LIMIT : FREE_AGENT_DAILY_LIMIT,
+      agent_daily_limit: agentDailyLimitForPlan(planId),
     };
   },
 });
 
 const PRICE_CACHE_MS = 5 * 60 * 1000;
 
-function fallbackPrices() {
-  const plan = publicBillingPlan();
-  return {
-    month: {
-      amount: plan.prices.month.amount,
-      currency: plan.prices.month.currency,
-      available: plan.prices.month.available,
-    },
-    year: {
-      amount: plan.prices.year.amount,
-      currency: plan.prices.year.currency,
-      available: plan.prices.year.available,
-    },
-  };
+type LivePlanPrices = Record<
+  BillingPlanId,
+  Record<BillingInterval, { amount: number; currency: string; available: boolean }>
+>;
+
+function fallbackPrices(): LivePlanPrices {
+  const plans = publicBillingPlans();
+  const result = {} as LivePlanPrices;
+  for (const plan of plans) {
+    result[plan.id] = {
+      month: {
+        amount: plan.prices.month.amount,
+        currency: plan.prices.month.currency,
+        available: plan.prices.month.available,
+      },
+      year: {
+        amount: plan.prices.year.amount,
+        currency: plan.prices.year.currency,
+        available: plan.prices.year.available,
+      },
+    };
+  }
+  return result;
 }
 
 export const getCachedPrices = internalQuery({
   args: {},
   returns: v.any(),
   handler: async (ctx) => {
-    return await ctx.db.query("billing_price_cache").take(2);
+    return await ctx.db.query("billing_price_cache").take(20);
   },
 });
 
@@ -150,6 +160,7 @@ export const saveBillingPrices = internalMutation({
   args: {
     prices: v.array(
       v.object({
+        plan: v.union(v.literal("plus"), v.literal("pro")),
         interval: v.union(v.literal("month"), v.literal("year")),
         productId: v.string(),
         amount: v.number(),
@@ -163,9 +174,12 @@ export const saveBillingPrices = internalMutation({
     for (const price of args.prices) {
       const existing = await ctx.db
         .query("billing_price_cache")
-        .withIndex("by_interval", (q) => q.eq("interval", price.interval))
+        .withIndex("by_plan_and_interval", (q) =>
+          q.eq("plan", price.plan).eq("interval", price.interval),
+        )
         .first();
       const patch = {
+        plan: price.plan,
         interval: price.interval,
         product_id: price.productId,
         amount: price.amount,
@@ -179,17 +193,14 @@ export const saveBillingPrices = internalMutation({
   },
 });
 
-/** Fetch authoritative product prices from Dodo, with a short server cache. */
+/** Fetch authoritative product prices for every paid plan from Dodo. */
 export const getLivePrices = action({
   args: {},
   returns: v.any(),
   handler: async (ctx) => {
-    const month = productForInterval("month");
-    const year = productForInterval("year");
     const fallback = fallbackPrices();
-    if (!month.productId || !year.productId) return fallback;
-
     const cached = (await ctx.runQuery(internal.billing.getCachedPrices, {})) as Array<{
+      plan?: "plus" | "pro";
       interval: "month" | "year";
       product_id: string;
       amount: number;
@@ -197,60 +208,78 @@ export const getLivePrices = action({
       fetched_at: number;
     }>;
     const now = Date.now();
-    const cachedMonth = cached.find((row) => row.interval === "month");
-    const cachedYear = cached.find((row) => row.interval === "year");
-    const cacheIsFresh =
-      Boolean(cachedMonth && cachedYear) &&
-      now - cachedMonth!.fetched_at < PRICE_CACHE_MS &&
-      now - cachedYear!.fetched_at < PRICE_CACHE_MS &&
-      cachedMonth!.product_id === month.productId &&
-      cachedYear!.product_id === year.productId;
-    if (cacheIsFresh) {
-      return {
-        month: { amount: cachedMonth!.amount, currency: cachedMonth!.currency, available: true },
-        year: { amount: cachedYear!.amount, currency: cachedYear!.currency, available: true },
-      };
+    const result = fallback;
+    const missing: Array<{ plan: BillingPlanId; interval: BillingInterval; productId: string }> = [];
+
+    for (const plan of ["plus", "pro"] as const) {
+      for (const interval of ["month", "year"] as const) {
+        const price = productForPlan(plan, interval);
+        if (!price.productId) continue;
+        const cacheRow = cached.find(
+          (row) =>
+            row.plan === plan &&
+            row.interval === interval &&
+            row.product_id === price.productId &&
+            now - row.fetched_at < PRICE_CACHE_MS,
+        );
+        if (cacheRow) {
+          result[plan][interval] = {
+            amount: cacheRow.amount,
+            currency: cacheRow.currency,
+            available: true,
+          };
+        } else {
+          missing.push({ plan, interval, productId: price.productId });
+        }
+      }
     }
 
-    try {
-      const [monthProduct, yearProduct] = await Promise.all([
-        dodoProduct(month.productId),
-        dodoProduct(year.productId),
-      ]);
-      const prices = [
-        {
-          interval: "month" as const,
-          productId: month.productId,
-          amount: Number(monthProduct.price?.price ?? 0) / 100,
-          currency: String(monthProduct.price?.currency ?? fallback.month.currency),
-        },
-        {
-          interval: "year" as const,
-          productId: year.productId,
-          amount: Number(yearProduct.price?.price ?? 0) / 100,
-          currency: String(yearProduct.price?.currency ?? fallback.year.currency),
-        },
-      ];
-      await ctx.runMutation(internal.billing.saveBillingPrices, { prices });
-      return {
-        month: { amount: prices[0].amount, currency: prices[0].currency, available: true },
-        year: { amount: prices[1].amount, currency: prices[1].currency, available: true },
+    if (!missing.length) return result;
+
+    const fetched = await Promise.all(
+      missing.map(async (item) => {
+        try {
+          const product = await dodoProduct(item.productId);
+          return {
+            ...item,
+            amount: Number(product.price?.price ?? 0) / 100,
+            currency: String(product.price?.currency ?? fallback[item.plan][item.interval].currency),
+          };
+        } catch (error) {
+          console.error(`[billing] could not load Dodo price for ${item.plan}/${item.interval}`, error);
+          return null;
+        }
+      }),
+    );
+
+    const save: Array<{
+      plan: BillingPlanId;
+      interval: BillingInterval;
+      productId: string;
+      amount: number;
+      currency: string;
+    }> = [];
+
+    for (const item of fetched) {
+      if (!item) continue;
+      result[item.plan][item.interval] = {
+        amount: item.amount,
+        currency: item.currency,
+        available: true,
       };
-    } catch (error) {
-      console.error("[billing] could not load Dodo product prices", error);
-      return {
-        month: {
-          amount: cachedMonth?.amount ?? fallback.month.amount,
-          currency: cachedMonth?.currency ?? fallback.month.currency,
-          available: Boolean(month.productId),
-        },
-        year: {
-          amount: cachedYear?.amount ?? fallback.year.amount,
-          currency: cachedYear?.currency ?? fallback.year.currency,
-          available: Boolean(year.productId),
-        },
-      };
+      save.push({
+        plan: item.plan,
+        interval: item.interval,
+        productId: item.productId,
+        amount: item.amount,
+        currency: item.currency,
+      });
     }
+
+    if (save.length) {
+      await ctx.runMutation(internal.billing.saveBillingPrices, { prices: save });
+    }
+    return result;
   },
 });
 
@@ -276,6 +305,7 @@ async function requireIdentityUser(ctx: { auth: { getUserIdentity: () => Promise
 
 export const createCheckout = action({
   args: {
+    plan: v.union(v.literal("plus"), v.literal("pro")),
     interval: v.union(v.literal("month"), v.literal("year")),
     returnUrl: v.optional(v.string()),
     cancelUrl: v.optional(v.string()),
@@ -283,7 +313,7 @@ export const createCheckout = action({
   returns: v.object({ checkout_url: v.string() }),
   handler: async (ctx, args) => {
     const user = await requireIdentityUser(ctx);
-    const price = productForInterval(args.interval as BillingInterval);
+    const price = productForPlan(args.plan as BillingPlanId, args.interval as BillingInterval);
     if (!price.available || !price.productId) {
       throw new Error("This plan is not available for checkout yet.");
     }
@@ -300,7 +330,7 @@ export const createCheckout = action({
           : { email: user.email, name: user.name },
         metadata: {
           user_id: String(user._id),
-          plan: BILLING_PLAN_ID,
+          plan: args.plan,
           interval: args.interval,
         },
         return_url: safeReturnUrl(args.returnUrl),
@@ -381,14 +411,23 @@ async function activeSubscriptionForAction(ctx: any, user: Doc<"users">) {
 }
 
 export const changePlan = action({
-  args: { interval: v.union(v.literal("month"), v.literal("year")) },
-  returns: v.object({ ok: v.boolean(), interval: v.union(v.literal("month"), v.literal("year")) }),
+  args: {
+    plan: v.union(v.literal("plus"), v.literal("pro")),
+    interval: v.union(v.literal("month"), v.literal("year")),
+  },
+  returns: v.object({
+    ok: v.boolean(),
+    plan: v.union(v.literal("plus"), v.literal("pro")),
+    interval: v.union(v.literal("month"), v.literal("year")),
+  }),
   handler: async (ctx, args) => {
     const user = await requireIdentityUser(ctx);
     const subscription = await activeSubscriptionForAction(ctx, user);
-    const price = productForInterval(args.interval as BillingInterval);
-    if (!price.available || !price.productId) throw new Error("That billing interval is not available yet.");
-    if (subscription.interval === args.interval) return { ok: true, interval: args.interval };
+    const price = productForPlan(args.plan as BillingPlanId, args.interval as BillingInterval);
+    if (!price.available || !price.productId) throw new Error("That plan is not available yet.");
+    if (subscription.plan === args.plan && subscription.interval === args.interval) {
+      return { ok: true, plan: args.plan, interval: args.interval };
+    }
 
     await dodoRequest(`/subscriptions/${encodeURIComponent(subscription.dodo_subscription_id)}/change-plan`, "POST", {
       product_id: price.productId,
@@ -406,10 +445,11 @@ export const changePlan = action({
 
     await ctx.runMutation(internal.billing.applyLocalPlanChange, {
       subscriptionId: subscription._id,
+      plan: args.plan,
       interval: args.interval,
       cancelAtPeriodEnd: false,
     });
-    return { ok: true, interval: args.interval };
+    return { ok: true, plan: args.plan, interval: args.interval };
   },
 });
 
@@ -434,6 +474,7 @@ export const setCancelAtPeriodEnd = action({
 export const applyLocalPlanChange = internalMutation({
   args: {
     subscriptionId: v.id("billing_subscriptions"),
+    plan: v.union(v.literal("plus"), v.literal("pro")),
     interval: v.union(v.literal("month"), v.literal("year")),
     cancelAtPeriodEnd: v.boolean(),
   },
@@ -441,8 +482,9 @@ export const applyLocalPlanChange = internalMutation({
   handler: async (ctx, args) => {
     const existing = await ctx.db.get(args.subscriptionId);
     if (!existing) return null;
-    const price = productForInterval(args.interval);
+    const price = productForPlan(args.plan, args.interval);
     await ctx.db.patch(args.subscriptionId, {
+      plan: args.plan,
       interval: args.interval,
       product_id: price.productId || existing.product_id,
       cancel_at_period_end: args.cancelAtPeriodEnd,
@@ -576,15 +618,17 @@ export const upsertSubscriptionFromWebhook = internalMutation({
       return null;
     }
 
-    const interval =
-      intervalForProductId(args.productId) ??
-      (metadata.interval === "year" ? "year" : "month");
+    const product = planForProductId(args.productId);
+    const interval: "month" | "year" =
+      product?.interval ?? (metadata.interval === "year" ? "year" : "month");
+    const plan: BillingPlanId =
+      product?.plan ?? (metadata.plan === "plus" ? "plus" : "pro");
     const patch = {
       user_id: user._id,
       dodo_customer_id: args.customerId,
       dodo_subscription_id: args.subscriptionId,
       product_id: args.productId,
-      plan: BILLING_PLAN_ID,
+      plan,
       interval,
       status: asStatus(args.status),
       quantity: args.quantity,
