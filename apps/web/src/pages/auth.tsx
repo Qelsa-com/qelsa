@@ -6,6 +6,7 @@ import { toastUnknownError } from "@/lib/errors";
 import { clearResumeDraft } from "@/lib/resumeDraft";
 import { safeReturnUrl } from "@/lib/returnUrl";
 import { AnimatePresence, motion } from "motion/react";
+import { Loader2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -15,13 +16,15 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from "../components/ui/input-ot
 
 type Step = "method" | "email" | "otp";
 
+const OAUTH_PENDING_KEY = "qelsa.oauth.pending";
+
 // Shared button styles. Tailwind v4's preflight no longer sets `cursor: pointer`
 // on <button>, so it has to be opted into explicitly.
 const PRIMARY_BTN =
   "flex h-14 w-full cursor-pointer items-center justify-center gap-2 rounded-full gradient-primary text-[15px] font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40";
 
 const SECONDARY_BTN =
-  "flex h-14 w-full cursor-pointer items-center justify-center gap-3 rounded-full border border-white/12 bg-white/[0.02] text-[15px] font-medium text-white transition-colors hover:bg-white/[0.06]";
+  "flex h-14 w-full cursor-pointer items-center justify-center gap-3 rounded-full border border-white/12 bg-white/[0.02] text-[15px] font-medium text-white transition-colors hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-40";
 
 const QUIET_LINK = "cursor-pointer text-sm text-muted-foreground transition-colors hover:text-white";
 
@@ -32,6 +35,7 @@ export default function AuthPage() {
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [resendIn, setResendIn] = useState(0);
+  const [oauthPending, setOauthPending] = useState(false);
   const finishingRef = useRef(false);
 
   const [googleLogin, { isLoading: isGoogleLoading }] = useGoogleLoginMutation();
@@ -39,7 +43,7 @@ export default function AuthPage() {
   const [resendOtp, { isLoading: isResending }] = useResendOtpMutation();
   const [verifyOtp, { isLoading: isVerifying }] = useVerifyOtpMutation();
   const [saveAccountType] = useSetAccountTypeMutation();
-  const { data: session } = authClient.useSession();
+  const { data: session, isPending: isSessionPending } = authClient.useSession();
   const { data: profile } = useGetProfileQuery(undefined, { skip: !session });
 
   const searchParams = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
@@ -60,12 +64,27 @@ export default function AuthPage() {
     }
   }, [isSwitching]);
 
+  // A Google redirect reloads this page. The flag lets us show a finishing
+  // state instead of flashing the sign-in form while the session is verified.
+  useEffect(() => {
+    if (typeof window !== "undefined" && sessionStorage.getItem(OAUTH_PENDING_KEY) === "1") {
+      setOauthPending(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!oauthPending || isSessionPending || session) return;
+    sessionStorage.removeItem(OAUTH_PENDING_KEY);
+    setOauthPending(false);
+  }, [oauthPending, isSessionPending, session]);
+
   /**
    * Candidates now land on My Space immediately after sign-in. There is no
    * candidate onboarding step anymore; employer onboarding still runs through
    * its own /employer/auth flow.
    */
   const finishAuth = useCallback(() => {
+    if (typeof window !== "undefined") sessionStorage.removeItem(OAUTH_PENDING_KEY);
     router.replace(returnUrl || "/");
   }, [router, returnUrl]);
 
@@ -90,6 +109,8 @@ export default function AuthPage() {
         toastUnknownError(err, "Could not finish setting up your account. Please try again.");
       });
   }, [finishAuth, isSwitching, profile, saveAccountType, session]);
+
+  const showSigningIn = !isSwitching && (oauthPending || Boolean(session));
 
   const handleSendCode = async () => {
     const trimmed = email.trim();
@@ -133,9 +154,13 @@ export default function AuthPage() {
   };
 
   const handleGoogle = async () => {
+    if (typeof window !== "undefined") sessionStorage.setItem(OAUTH_PENDING_KEY, "1");
     try {
-      await googleLogin().unwrap();
+      await googleLogin(returnUrl).unwrap();
+      setOauthPending(true);
     } catch (err) {
+      if (typeof window !== "undefined") sessionStorage.removeItem(OAUTH_PENDING_KEY);
+      setOauthPending(false);
       toastUnknownError(err, "Google sign-in failed. Please try again.");
     }
   };
@@ -189,8 +214,17 @@ export default function AuthPage() {
 
       <div className="w-full max-w-[460px]">
         <AnimatePresence mode="wait">
-          {/* ---------- Step 1: choose a method ---------- */}
-          {step === "method" ? (
+          {showSigningIn ? (
+            <motion.div key="resolving" {...cardMotion} role="status" aria-live="polite" className="rounded-3xl border border-white/10 bg-white/[0.03] p-8 text-center">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-neon-cyan/25 bg-neon-cyan/10">
+                <Loader2 className="h-5 w-5 animate-spin text-neon-cyan" />
+              </div>
+              <h2 className="mt-5 text-2xl font-bold text-white">Finishing sign-in…</h2>
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                Verifying your account. This only takes a moment.
+              </p>
+            </motion.div>
+          ) : step === "method" ? (
             <motion.div key="method" {...cardMotion} className="rounded-3xl border border-white/10 bg-white/[0.03] p-8">
               <h2 className="text-3xl font-bold text-white">Good to have you here.</h2>
               <p className="mt-2 text-[15px] leading-relaxed text-gray-500">Sign in or create your account — takes 30 seconds.</p>
@@ -199,15 +233,17 @@ export default function AuthPage() {
                 type="button"
                 onClick={() => handleGoogle()}
                 disabled={isGoogleLoading}
+                aria-busy={isGoogleLoading}
                 className={`mt-7 ${PRIMARY_BTN}`}
               >
-                <GoogleMark />
+                {isGoogleLoading ? <Loader2 className="h-[18px] w-[18px] animate-spin" /> : <GoogleMark />}
                 {isGoogleLoading ? "Signing in…" : "Continue with Google"}
               </button>
 
               <button
                 type="button"
                 onClick={() => setStep("email")}
+                disabled={isGoogleLoading}
                 className={`mt-3 ${SECONDARY_BTN}`}
               >
                 <MailIcon />
@@ -326,6 +362,7 @@ export default function AuthPage() {
                   disabled={code.length !== 6 || isVerifying}
                   className={`mt-6 ${PRIMARY_BTN}`}
                 >
+                  {isVerifying ? <Loader2 className="h-[18px] w-[18px] animate-spin" /> : null}
                   {isVerifying ? "Verifying…" : "Verify email"}
                   {!isVerifying && <ArrowRight />}
                 </button>
