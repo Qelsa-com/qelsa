@@ -4,6 +4,7 @@ import {
   FREE_AGENT_DAILY_LIMIT,
   FREE_APPLICATION_LIMIT,
   agentDailyLimitForPlan,
+  planForProductId,
   type BillingPlanId,
 } from "../billingPlans";
 
@@ -17,6 +18,18 @@ export function isSubscriptionEntitled(
   if (!subscription || subscription.status !== "active") return false;
   if (!subscription.cancel_at_period_end) return true;
   return Boolean(subscription.current_period_end && subscription.current_period_end > now);
+}
+
+/**
+ * The product ID is the durable source of truth for which plan a subscription
+ * belongs to. The stored `plan` remains a fallback for products that are no
+ * longer configured (for example a retired package), and for rows written
+ * before the plan split.
+ */
+export function effectiveSubscriptionPlan(
+  subscription: Doc<"billing_subscriptions">,
+): BillingPlanId {
+  return planForProductId(subscription.product_id)?.plan ?? subscription.plan;
 }
 
 export async function hasManualProGrant(ctx: ReadCtx, userId: Id<"users">) {
@@ -40,7 +53,7 @@ export async function getUserPlan(ctx: ReadCtx, userId: Id<"users">): Promise<Bi
     .take(5);
 
   const active = latest.find((subscription) => isSubscriptionEntitled(subscription));
-  return active?.plan ?? null;
+  return active ? effectiveSubscriptionPlan(active) : null;
 }
 
 export async function getAgentDailyLimit(ctx: ReadCtx, userId: Id<"users">) {

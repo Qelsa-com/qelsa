@@ -4,7 +4,7 @@ import { components, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { internalAction, internalMutation, type QueryCtx } from "./_generated/server";
 import { adminMutation, adminQuery } from "./lib/customFunctions";
-import { isSubscriptionEntitled } from "./lib/billingEntitlements";
+import { effectiveSubscriptionPlan, isSubscriptionEntitled } from "./lib/billingEntitlements";
 import { deleteJobCascade } from "./lib/deleteUserData";
 import { bumpOpenJobCount, openCountDelta } from "./lib/jobCounts";
 import {
@@ -410,7 +410,7 @@ export const getUser = adminQuery({
       pro_subscription: subscription
         ? {
             status: subscription.status,
-            plan: subscription.plan,
+            plan: effectiveSubscriptionPlan(subscription),
             interval: subscription.interval,
             current_period_end: subscription.current_period_end ?? null,
             cancel_at_period_end: subscription.cancel_at_period_end,

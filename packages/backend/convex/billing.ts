@@ -4,7 +4,12 @@ import { action, internalMutation, internalQuery, query } from "./_generated/ser
 import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { authedQuery } from "./lib/customFunctions";
-import { hasManualProGrant, getUserPlan, isSubscriptionEntitled as isEntitled } from "./lib/billingEntitlements";
+import {
+  hasManualProGrant,
+  effectiveSubscriptionPlan,
+  getUserPlan,
+  isSubscriptionEntitled as isEntitled,
+} from "./lib/billingEntitlements";
 import {
   FREE_AGENT_DAILY_LIMIT,
   agentDailyLimitForPlan,
@@ -70,7 +75,7 @@ function asBillingSubscription(row: Doc<"billing_subscriptions">) {
   return {
     id: row._id,
     subscription_id: row.dodo_subscription_id,
-    plan: row.plan,
+    plan: effectiveSubscriptionPlan(row),
     interval: row.interval,
     status: row.status,
     quantity: row.quantity,
@@ -425,7 +430,7 @@ export const changePlan = action({
     const subscription = await activeSubscriptionForAction(ctx, user);
     const price = productForPlan(args.plan as BillingPlanId, args.interval as BillingInterval);
     if (!price.available || !price.productId) throw new Error("That plan is not available yet.");
-    if (subscription.plan === args.plan && subscription.interval === args.interval) {
+    if (effectiveSubscriptionPlan(subscription) === args.plan && subscription.interval === args.interval) {
       return { ok: true, plan: args.plan, interval: args.interval };
     }
 
