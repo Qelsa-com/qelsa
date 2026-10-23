@@ -12,8 +12,9 @@ import {
   type LivePlanPrices,
 } from "@/features/api/billingApi";
 import { toastUnknownError } from "@/lib/errors";
+import { EMPLOYER_PLAN_COPY, EMPLOYER_PRICING_HEADER } from "@/lib/employerPlanCopy";
 import type { BillingPlan, MyBilling } from "@/types/billing";
-import { ArrowRight, Briefcase, Check, Loader2, Mail, Sparkles } from "lucide-react";
+import { ArrowRight, Check, Loader2, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -37,8 +38,8 @@ export default function PricingPage() {
   const router = useRouter();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const isRecruiter = isAuthenticated && user?.account_type === "recruiter";
-  const { data: plansData, isLoading: plansLoading } = useGetPlansQuery({ skip: isRecruiter });
-  const { data: billingData } = useGetMyBillingQuery({ skip: !isAuthenticated || isRecruiter });
+  const { data: plansData, isLoading: plansLoading } = useGetPlansQuery();
+  const { data: billingData } = useGetMyBillingQuery({ skip: !isAuthenticated });
   const [getLivePrices, { isLoading: pricesLoading }] = useGetLivePricesAction();
   const [createCheckout, { isLoading: isCheckingOut }] = useCreateCheckoutAction();
   const [changePlan, { isLoading: isChangingPlan }] = useChangePlanAction();
@@ -49,11 +50,10 @@ export default function PricingPage() {
   const currentPlanId = billing?.plan_id ?? null;
   const currentInterval = billing?.subscription?.interval ?? null;
   const manualOnly = Boolean(billing?.manual_pro && !billing?.subscription);
-  const billingLoading = isAuthenticated && !isRecruiter && billingData === undefined;
+  const billingLoading = isAuthenticated && billingData === undefined;
   const plans = ((plansData as { plans?: BillingPlan[] } | undefined)?.plans ?? []) as BillingPlan[];
 
   useEffect(() => {
-    if (isRecruiter) return;
     let cancelled = false;
     void getLivePrices()
       .unwrap()
@@ -64,54 +64,11 @@ export default function PricingPage() {
     return () => {
       cancelled = true;
     };
-  }, [isRecruiter]);
+  }, []);
 
   useEffect(() => {
     if (billing?.subscription?.interval) setInterval(billing.subscription.interval);
   }, [billing?.subscription?.interval]);
-
-  if (isRecruiter) {
-    return (
-      <Layout activeSection="pricing">
-        <main className="relative min-h-screen overflow-hidden bg-[#06060f] text-white">
-          <div aria-hidden className="pointer-events-none absolute inset-0">
-            <div className="absolute left-1/2 top-0 h-[520px] w-[760px] -translate-x-1/2 rounded-full bg-neon-purple/[0.12] blur-[150px]" />
-            <div className="absolute bottom-0 right-0 h-[360px] w-[360px] rounded-full bg-neon-cyan/[0.06] blur-[120px]" />
-          </div>
-          <div className="relative mx-auto flex min-h-[70vh] w-full max-w-2xl flex-col items-center justify-center px-6 py-16 text-center sm:py-24">
-            <div className="flex size-12 items-center justify-center rounded-2xl border border-neon-cyan/25 bg-neon-cyan/10 text-neon-cyan">
-              <Briefcase className="size-5" />
-            </div>
-            <p className="mt-6 text-[11px] font-mono font-semibold uppercase tracking-[0.2em] text-neon-cyan">
-              Qelsa for Employers
-            </p>
-            <h1 className="mt-4 text-4xl font-extrabold tracking-[-0.03em] sm:text-5xl">
-              Candidate plans don&apos;t apply here.
-            </h1>
-            <p className="mt-4 max-w-md text-sm leading-relaxed text-white/55 sm:text-base">
-              Employer access is set up with our team. Tell us about your hiring needs.
-            </p>
-            <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row">
-              <a
-                href="mailto:support@qelsa.com?subject=Qelsa%20for%20Employers"
-                className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#623dd6] via-[#8433ae] to-[#be2680] px-5 py-3 text-sm font-bold text-white transition-opacity hover:opacity-95"
-              >
-                <Mail className="size-4" />
-                Talk to our team
-              </a>
-              <Link
-                href="/employers"
-                className="inline-flex items-center justify-center gap-2 rounded-full border border-white/15 bg-white/[0.04] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/[0.08]"
-              >
-                Explore Qelsa for Employers
-                <ArrowRight className="size-4" />
-              </Link>
-            </div>
-          </div>
-        </main>
-      </Layout>
-    );
-  }
 
   const handlePlan = async (planId: BillingPlanId) => {
     if (!isAuthenticated) {
@@ -169,10 +126,16 @@ export default function PricingPage() {
 
         <div className="relative mx-auto w-full max-w-6xl px-6 py-16 sm:py-24">
           <div className="mx-auto max-w-2xl text-center">
-            <p className="text-[11px] font-mono font-semibold uppercase tracking-[0.2em] text-neon-cyan">Qelsa plans</p>
-            <h1 className="mt-4 text-4xl font-extrabold tracking-[-0.03em] sm:text-5xl">Choose your pace.</h1>
+            <p className="text-[11px] font-mono font-semibold uppercase tracking-[0.2em] text-neon-cyan">
+              {isRecruiter ? EMPLOYER_PRICING_HEADER.eyebrow : "Qelsa plans"}
+            </p>
+            <h1 className="mt-4 text-4xl font-extrabold tracking-[-0.03em] sm:text-5xl">
+              {isRecruiter ? EMPLOYER_PRICING_HEADER.title : "Choose your pace."}
+            </h1>
             <p className="mt-4 text-sm leading-relaxed text-white/55 sm:text-base">
-              Start with Plus for the essentials, or go Pro for deeper prep and more Agent time.
+              {isRecruiter
+                ? EMPLOYER_PRICING_HEADER.description
+                : "Start with Plus for the essentials, or go Pro for deeper prep and more Agent time."}
             </p>
           </div>
 
@@ -205,6 +168,7 @@ export default function PricingPage() {
               {plans.map((plan) => {
                 const isPro = plan.id === "pro";
                 const isCurrent = currentPlanId === plan.id;
+                const planCopy = isRecruiter ? EMPLOYER_PLAN_COPY[plan.id] : plan;
                 const price = livePrices?.[plan.id]?.[interval] ?? plan.prices[interval];
                 const currentIntervalPrice =
                   livePrices?.[plan.id]?.[currentInterval ?? "month"] ?? plan.prices[currentInterval ?? "month"];
@@ -261,7 +225,7 @@ export default function PricingPage() {
                       </div>
 
                       <h2 className="mt-3 text-2xl font-bold">{plan.name}</h2>
-                      <p className="mt-2 text-sm leading-relaxed text-white/55">{plan.description}</p>
+                      <p className="mt-2 text-sm leading-relaxed text-white/55">{planCopy.description}</p>
 
                       <div className="mt-8 flex items-end gap-1.5">
                         <span className="text-4xl font-extrabold">{formatPrice(price?.amount ?? 0, price?.currency ?? "USD")}</span>
@@ -279,7 +243,7 @@ export default function PricingPage() {
                       ) : null}
 
                       <ul className="mt-8 space-y-3">
-                        {plan.features.map((feature) => (
+                        {planCopy.features.map((feature) => (
                           <li key={feature} className="flex items-start gap-2.5 text-sm text-white/75">
                             <span className={`mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full ${isPro ? "bg-neon-cyan/15 text-neon-cyan" : "bg-white/[0.06] text-white/50"}`}>
                               <Check className="size-3" />
@@ -319,7 +283,7 @@ export default function PricingPage() {
 
           <p className="mt-10 text-center text-xs leading-relaxed text-white/30">
             Need the free plan?{" "}
-            <Link href={isAuthenticated ? "/" : `/auth?returnUrl=${encodeURIComponent("/")}`} className="text-white/50 underline underline-offset-2 hover:text-white">
+            <Link href={isAuthenticated ? (isRecruiter ? "/jobs/posted" : "/") : `/auth?returnUrl=${encodeURIComponent("/")}`} className="text-white/50 underline underline-offset-2 hover:text-white">
               Start free
             </Link>
             . Prices are shown in the configured billing currency. Taxes and payment methods are handled by Dodo Payments.

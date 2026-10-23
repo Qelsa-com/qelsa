@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useAlert } from "@/components/ui/alert-modal";
 import { useCancelSubscriptionAction, useChangePlanAction, useCreateCheckoutAction, useGetLivePricesAction, useGetMyBillingQuery, useOpenCustomerPortalAction, type BillingInterval, type LivePlanPrices } from "@/features/api/billingApi";
 import { toastUnknownError } from "@/lib/errors";
+import { EMPLOYER_PLAN_COPY } from "@/lib/employerPlanCopy";
 import type { BillingSubscription, MyBilling } from "@/types/billing";
 import { CalendarDays, Check, CreditCard, Loader2, RefreshCw, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -98,6 +99,9 @@ export function BillingSettings() {
   const price = livePrices?.[planId]?.[interval] ?? billing.plan.prices[interval];
   const yearlyPrice = livePrices?.[planId]?.year ?? billing.plan.prices.year;
   const isPro = billing.is_pro;
+  const isRecruiter = user?.account_type === "recruiter";
+  const planDescription = isRecruiter ? EMPLOYER_PLAN_COPY[planId].description : billing.plan.description;
+  const planFeatures = isRecruiter ? EMPLOYER_PLAN_COPY[planId].features : billing.plan.features;
   const isCancelledAtEnd = Boolean(subscription?.cancel_at_period_end);
 
   const startCheckout = async () => {
@@ -192,6 +196,8 @@ export function BillingSettings() {
                   ? `${billing.plan.name} · ${subscription.interval === "year" ? "Yearly" : "Monthly"} billing`
                   : isPro && billing.manual_pro
                   ? "Complimentary Qelsa Pro access."
+                  : isRecruiter
+                  ? "Free includes 5 Qelsa Agent messages per day. Upgrade for more Agent time and applicant insights."
                   : "Free includes 1 active application and 5 Qelsa Agent messages per day. Upgrade for unlimited applications and 500 messages per day."}
               </p>
             </div>
@@ -229,6 +235,19 @@ export function BillingSettings() {
       <div className="p-6">
         {isPro && subscription ? (
           <div className="space-y-5">
+            <div>
+              <p className="text-sm font-semibold text-white">{billing.plan.name}</p>
+              <p className="mt-1 text-xs leading-relaxed text-white/45">{planDescription}</p>
+              <ul className="mt-3 grid gap-2 text-xs text-white/60 sm:grid-cols-2">
+                {planFeatures.map((feature) => (
+                  <li key={feature} className="flex items-start gap-2">
+                    <Check className="mt-0.5 size-3.5 shrink-0 text-neon-cyan" />
+                    {feature}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-white/40">Billing interval</p>
               <div className="mt-2 inline-flex rounded-full border border-white/10 bg-white/[0.03] p-1">
@@ -281,7 +300,7 @@ export function BillingSettings() {
             <div className="flex flex-wrap items-end justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold text-white">{billing.plan.name}</p>
-                <p className="mt-1 max-w-xl text-xs leading-relaxed text-white/45">{billing.plan.description}</p>
+                <p className="mt-1 max-w-xl text-xs leading-relaxed text-white/45">{planDescription}</p>
               </div>
               <p className="text-2xl font-extrabold text-white">
                 {formatAmount(price.amount, price.currency)}
@@ -304,7 +323,7 @@ export function BillingSettings() {
             </div>
 
             <ul className="grid gap-2 text-xs text-white/60 sm:grid-cols-2">
-              {billing.plan.features.map((feature) => (
+              {planFeatures.map((feature) => (
                 <li key={feature} className="flex items-start gap-2">
                   <Check className="mt-0.5 size-3.5 shrink-0 text-neon-cyan" />
                   {feature}

@@ -11,6 +11,7 @@ import {
   type LivePlanPrices,
 } from "@/features/api/billingApi";
 import { toastUnknownError } from "@/lib/errors";
+import { EMPLOYER_PLAN_COPY } from "@/lib/employerPlanCopy";
 import type { MyBilling } from "@/types/billing";
 import { ArrowRight, Check, Loader2, Sparkles, X } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -67,7 +68,7 @@ export function SubscriptionUpgradeModal({
   onClose: () => void;
 }) {
   const router = useRouter();
-  const { isAuthenticated } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const { data: billingData } = useGetMyBillingQuery({ skip: !isAuthenticated });
   const [getLivePrices, { isLoading: pricesLoading }] = useGetLivePricesAction();
   const [createCheckout, { isLoading: isCheckingOut }] = useCreateCheckoutAction();
@@ -76,6 +77,7 @@ export function SubscriptionUpgradeModal({
   const [interval, setInterval] = useState<BillingInterval>("month");
   const [livePrices, setLivePrices] = useState<LivePlanPrices | null>(null);
   const copy = COPY[reason];
+  const isRecruiter = user?.account_type === "recruiter";
   const billing = billingData as MyBilling | undefined;
   const currentPlanId = billing?.plan_id ?? null;
   const currentInterval = billing?.subscription?.interval ?? null;
@@ -114,6 +116,7 @@ export function SubscriptionUpgradeModal({
 
   const price = livePrices?.[planId]?.[interval];
   const planPrices = livePrices?.[planId];
+  const planFeatures = isRecruiter ? EMPLOYER_PLAN_COPY[planId].features : PLAN_FEATURES[planId];
   const yearlySaving =
     planPrices?.month.amount && planPrices?.year.amount && planPrices.month.amount > 0
       ? Math.max(0, Math.round((1 - planPrices.year.amount / (planPrices.month.amount * 12)) * 100))
@@ -262,7 +265,7 @@ export function SubscriptionUpgradeModal({
           </div>
 
           <ul className="mt-5 space-y-2.5">
-            {PLAN_FEATURES[planId].map((feature) => (
+            {planFeatures.map((feature) => (
               <li key={feature} className="flex items-start gap-2.5 text-[13px] text-white/75">
                 <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full bg-neon-cyan/15 text-neon-cyan">
                   <Check className="size-3" />

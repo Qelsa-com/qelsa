@@ -8,7 +8,7 @@ import { useDeleteAccountMutation } from "@/features/api/authApi";
 import { authClient } from "@/lib/auth-client";
 import { toastUnknownError } from "@/lib/errors";
 import { clearResumeDraft } from "@/lib/resumeDraft";
-import { AlertTriangle, Briefcase, ChevronRight, Plug, Settings as SettingsIcon, ShieldCheck, User as UserIcon } from "lucide-react";
+import { AlertTriangle, ChevronRight, Plug, Settings as SettingsIcon, ShieldCheck, User as UserIcon } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../components/ui/alert-dialog";
@@ -112,30 +112,7 @@ const Settings = () => {
           </div>
         )}
 
-        {user?.account_type === "recruiter" ? (
-          <section className="mb-8 overflow-hidden rounded-2xl border border-glass-border glass p-6">
-            <div className="flex items-start gap-4">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-neon-cyan/20">
-                <Briefcase className="h-5 w-5 text-neon-cyan" />
-              </div>
-              <div>
-                <h2 className="text-lg font-bold text-white">Employer access</h2>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Candidate plans don&apos;t apply to employer accounts. Talk to{" "}
-                  <a
-                    href="mailto:support@qelsa.com?subject=Qelsa%20for%20Employers"
-                    className="text-neon-cyan hover:underline"
-                  >
-                    support@qelsa.com
-                  </a>{" "}
-                  about hiring access.
-                </p>
-              </div>
-            </div>
-          </section>
-        ) : user ? (
-          <BillingSettings />
-        ) : null}
+        <BillingSettings />
 
         {user?.role === "admin" && (
           <a
