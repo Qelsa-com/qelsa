@@ -66,7 +66,7 @@ export default function PricingPage() {
       return;
     }
     try {
-      const result = await createCheckout({ interval, returnUrl: "/settings?billing=success" }).unwrap();
+      const result = await createCheckout({ interval, returnUrl: "/settings?billing=success", cancelUrl: "/pricing" }).unwrap();
       window.location.href = result.checkout_url;
     } catch (error) {
       toastUnknownError(error, "We're working on it. ");

@@ -33,7 +33,7 @@ export function useGetLivePricesAction() {
 export function useCreateCheckoutAction() {
   const createCheckout = useAction(api.billing.createCheckout);
   const [isLoading, setIsLoading] = useState(false);
-  const trigger = (input: { interval: BillingInterval; returnUrl?: string }) => {
+  const trigger = (input: { interval: BillingInterval; returnUrl?: string; cancelUrl?: string }) => {
     setIsLoading(true);
     return withUnwrap(
       Promise.resolve(createCheckout(input) as Promise<{ checkout_url: string }>).finally(() => setIsLoading(false)),

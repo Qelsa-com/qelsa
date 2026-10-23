@@ -98,6 +98,10 @@ export function SubscriptionUpgradeModal({ open, reason, onClose }: { open: bool
       const result = await createCheckout({
         interval,
         returnUrl: "/settings?billing=success",
+        cancelUrl:
+          typeof window !== "undefined"
+            ? `${window.location.pathname}${window.location.search}`
+            : "/pricing",
       }).unwrap();
       window.location.href = result.checkout_url;
     } catch (error) {

@@ -102,7 +102,7 @@ export function BillingSettings() {
 
   const startCheckout = async () => {
     try {
-      const result = await createCheckout({ interval, returnUrl: "/settings?billing=success" }).unwrap();
+      const result = await createCheckout({ interval, returnUrl: "/settings?billing=success", cancelUrl: "/settings" }).unwrap();
       window.location.href = result.checkout_url;
     } catch (error) {
       toastUnknownError(error, "We're working on it. ");

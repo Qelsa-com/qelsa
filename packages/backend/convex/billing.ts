@@ -33,6 +33,13 @@ function safeReturnUrl(value?: string) {
   return `${siteUrl()}/settings?billing=success`;
 }
 
+function safeCancelUrl(value?: string) {
+  if (value && value.startsWith("/") && !value.startsWith("//") && !value.includes("\\")) {
+    return `${siteUrl()}${value}`;
+  }
+  return `${siteUrl()}/pricing`;
+}
+
 function newestSubscription(rows: Doc<"billing_subscriptions">[]) {
   return rows.slice().sort((a, b) => b.updated_at - a.updated_at)[0] ?? null;
 }
@@ -271,6 +278,7 @@ export const createCheckout = action({
   args: {
     interval: v.union(v.literal("month"), v.literal("year")),
     returnUrl: v.optional(v.string()),
+    cancelUrl: v.optional(v.string()),
   },
   returns: v.object({ checkout_url: v.string() }),
   handler: async (ctx, args) => {
@@ -296,6 +304,7 @@ export const createCheckout = action({
           interval: args.interval,
         },
         return_url: safeReturnUrl(args.returnUrl),
+        cancel_url: safeCancelUrl(args.cancelUrl),
         billing_currency: price.currency,
         feature_flags: { allow_discount_code: true },
       },
