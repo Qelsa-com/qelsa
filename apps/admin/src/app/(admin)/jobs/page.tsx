@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useAlert } from "@/components/ui/alert-modal";
 import {
   Table,
   TableBody,
@@ -43,6 +44,7 @@ function statusTone(status: string) {
 }
 
 export default function JobsPage() {
+  const alert = useAlert();
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<StatusFilter>("all");
@@ -85,11 +87,16 @@ export default function JobsPage() {
     jobId: string,
     action: "close" | "reopen" | "pause" | "delete",
   ) => {
-    if (
-      action === "delete" &&
-      !window.confirm("Delete this job and every application attached to it? This cannot be undone.")
-    ) {
-      return;
+    if (action === "delete") {
+      const confirmed = await alert({
+        title: "Delete this job?",
+        description:
+          "Every application attached to it will also be deleted. This cannot be undone.",
+        confirmText: "Delete job",
+        cancelText: "Keep job",
+        tone: "danger",
+      });
+      if (!confirmed) return;
     }
     setPendingId(jobId);
     try {

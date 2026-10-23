@@ -1,6 +1,7 @@
 "use client";
 
 import { useAuth } from "@/contexts/AuthContext";
+import { useAlert } from "@/components/ui/alert-modal";
 import { useCancelSubscriptionAction, useChangePlanAction, useCreateCheckoutAction, useGetLivePricesAction, useGetMyBillingQuery, useOpenCustomerPortalAction, type BillingInterval, type LivePlanPrices } from "@/features/api/billingApi";
 import { toastUnknownError } from "@/lib/errors";
 import type { BillingSubscription, MyBilling } from "@/types/billing";
@@ -51,6 +52,7 @@ function statusLabel(subscription: BillingSubscription) {
 
 export function BillingSettings() {
   const { user } = useAuth();
+  const alert = useAlert();
   const { data, isLoading } = useGetMyBillingQuery({ skip: !user });
   const billing = data as MyBilling | undefined;
   const [interval, setInterval] = useState<BillingInterval>("month");
@@ -117,13 +119,19 @@ export function BillingSettings() {
       setInterval(next);
       return;
     }
-    if (!window.confirm(`Switch billing to ${next === "year" ? "yearly" : "monthly"}? Dodo may apply a prorated charge or credit.`)) {
-      return;
-    }
+    const currentLabel = subscription.interval === "year" ? "yearly" : "monthly";
+    const nextLabel = next === "year" ? "yearly" : "monthly";
+    const confirmed = await alert({
+      title: `Switch to ${nextLabel} billing?`,
+      description: "Dodo may apply a prorated charge or credit when the interval changes.",
+      confirmText: `Switch to ${nextLabel}`,
+      cancelText: `Keep ${currentLabel}`,
+    });
+    if (!confirmed) return;
     try {
       await changePlan({ plan: subscription.plan, interval: next }).unwrap();
       setInterval(next);
-      toast.success(`Billing switched to ${next === "year" ? "yearly" : "monthly"}.`);
+      toast.success(`Billing switched to ${nextLabel}.`);
     } catch (error) {
       toastUnknownError(error, "Could not change your billing interval. Please try again.");
     }
@@ -132,9 +140,16 @@ export function BillingSettings() {
   const toggleCancellation = async () => {
     if (!subscription) return;
     const cancelling = !subscription.cancel_at_period_end;
-    if (!window.confirm(cancelling ? "Cancel your subscription at the end of the current billing period? You can resume before it ends." : "Resume your subscription? You will be billed again on the next renewal date.")) {
-      return;
-    }
+    const confirmed = await alert({
+      title: cancelling ? "Cancel subscription?" : "Resume subscription?",
+      description: cancelling
+        ? "You will keep access until the end of the current billing period. You can resume before it ends."
+        : "You will be billed again on the next renewal date.",
+      confirmText: cancelling ? "Cancel at period end" : "Resume subscription",
+      cancelText: cancelling ? "Keep subscription" : "Not now",
+      tone: cancelling ? "danger" : "default",
+    });
+    if (!confirmed) return;
     try {
       await setCancel({ cancel: cancelling }).unwrap();
       toast.success(cancelling ? "Subscription scheduled to cancel at period end." : "Subscription resumed.");

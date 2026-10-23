@@ -2,6 +2,7 @@ import RouteGuard from "@/components/auth/RouteGuard";
 import { ConvexClientProvider } from "@/components/ConvexClientProvider";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ResumeDraftSync } from "@/components/onboarding/ResumeDraftSync";
+import { AlertProvider } from "@/components/ui/alert-modal";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { useJobNavigationTracker } from "@/lib/jobNavigation";
@@ -16,13 +17,15 @@ export default function App({ Component, pageProps }) {
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
       </Head>
       <AuthProvider>
-        <RouteGuard>
-          <ResumeDraftSync />
-          <ErrorBoundary label="this page">
-            <Component {...pageProps} />
-          </ErrorBoundary>
-          <Toaster position="top-center" richColors />
-        </RouteGuard>
+        <AlertProvider>
+          <RouteGuard>
+            <ResumeDraftSync />
+            <ErrorBoundary label="this page">
+              <Component {...pageProps} />
+            </ErrorBoundary>
+            <Toaster position="top-center" richColors />
+          </RouteGuard>
+        </AlertProvider>
       </AuthProvider>
     </ConvexClientProvider>
   );

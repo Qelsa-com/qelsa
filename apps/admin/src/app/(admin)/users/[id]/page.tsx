@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { useAlert } from "@/components/ui/alert-modal";
 import { useAdminAuth } from "@/contexts/AuthContext";
 import {
   useGetUserQuery,
@@ -43,6 +44,7 @@ export default function UserDetailPage() {
   const params = useParams<{ id: string }>();
   const userId = params?.id;
   const { user: adminUser } = useAdminAuth();
+  const alert = useAlert();
 
   const { data: user, isLoading } = useGetUserQuery(userId);
   const [updateUser, { isLoading: isSaving }] = useUpdateUserMutation();
@@ -107,15 +109,16 @@ export default function UserDetailPage() {
 
   const handleRoleChange = async (role: "user" | "admin") => {
     if (!userId || !user || role === user.role) return;
-    if (
-      !window.confirm(
-        role === "admin"
-          ? `Give ${user.email} full admin access? They will be able to manage users and jobs.`
-          : `Remove admin access from ${user.email}?`,
-      )
-    ) {
-      return;
-    }
+    const granting = role === "admin";
+    const confirmed = await alert({
+      title: granting ? "Give admin access?" : "Remove admin access?",
+      description: granting
+        ? `${user.email} will be able to manage users and jobs in Qelsa Admin.`
+        : `${user.email} will lose access to Qelsa Admin.`,
+      confirmText: granting ? "Give admin access" : "Remove admin access",
+      tone: granting ? "default" : "danger",
+    });
+    if (!confirmed) return;
     try {
       await setUserRole({ userId, role, note: note.trim() || undefined }).unwrap();
       toast.success(`Role changed to ${role}.`);
@@ -127,11 +130,15 @@ export default function UserDetailPage() {
 
   const handleStatusChange = async (isActive: boolean) => {
     if (!userId || !user || isActive === user.is_active) return;
-    if (
-      !isActive &&
-      !window.confirm(`Suspend ${user.email}? They will be signed out and unable to access Qelsa.`)
-    ) {
-      return;
+    if (!isActive) {
+      const confirmed = await alert({
+        title: "Suspend this user?",
+        description: `${user.email} will be signed out and unable to access Qelsa.`,
+        confirmText: "Suspend user",
+        cancelText: "Keep active",
+        tone: "danger",
+      });
+      if (!confirmed) return;
     }
     try {
       await setUserActive({ userId, isActive, note: note.trim() || undefined }).unwrap();
@@ -144,9 +151,12 @@ export default function UserDetailPage() {
 
   const handleGrantPro = async () => {
     if (!userId || !user) return;
-    if (!window.confirm(`Give ${user.email} complimentary Qelsa Pro access? They will not need a subscription.`)) {
-      return;
-    }
+    const confirmed = await alert({
+      title: "Grant complimentary Pro?",
+      description: `${user.email} will get Qelsa Pro without a subscription.`,
+      confirmText: "Grant Pro",
+    });
+    if (!confirmed) return;
     try {
       const result = await grantManualPro({ userId, note: note.trim() || undefined }).unwrap();
       toast.success(result.already ? "This user already has manual Pro access." : "Pro access granted.");
@@ -158,9 +168,14 @@ export default function UserDetailPage() {
 
   const handleRevokePro = async () => {
     if (!userId || !user) return;
-    if (!window.confirm(`Remove manual Qelsa Pro access from ${user.email}?`)) {
-      return;
-    }
+    const confirmed = await alert({
+      title: "Remove manual Pro access?",
+      description: `${user.email} will lose the complimentary Pro access granted by the Qelsa team.`,
+      confirmText: "Remove access",
+      cancelText: "Keep access",
+      tone: "danger",
+    });
+    if (!confirmed) return;
     try {
       const result = await revokeManualPro({ userId, note: note.trim() || undefined }).unwrap();
       toast.success(result.revoked ? "Manual Pro access removed." : "No manual Pro access to remove.");
