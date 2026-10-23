@@ -28,6 +28,7 @@ const Layout = ({ activeSection, children }: LayoutProps) => {
   const { isCollapsed: isSidebarCollapsed, toggle: handleToggleSidebar } = useEmployerSidebar();
   const { user, isAuthenticated } = useAuth();
   const scrolled = useScrolled();
+  const isAgentScreen = activeSection === "agent" && isAuthenticated;
 
   const handleProfileClick = useCallback(() => {
     setShowProfileDrawer(true);
@@ -46,8 +47,13 @@ const Layout = ({ activeSection, children }: LayoutProps) => {
   const premiumLoading = isAuthenticated && !isRecruiter && billing === undefined;
 
   return (
-    <div className="min-h-screen relative flex flex-col">
-      {/* Simplified background */}
+    <div
+      className={`min-h-screen relative flex flex-col ${
+        isAgentScreen
+          ? "max-lg:fixed max-lg:inset-x-0 max-lg:top-[var(--agent-vv-offset,0px)] max-lg:h-[var(--agent-vv-height,100dvh)] max-lg:min-h-0 max-lg:overflow-hidden"
+          : ""
+      }`}
+    >      {/* Simplified background */}
       <div className="fixed inset-0 -z-10 bg-gradient-to-br from-background via-background to-background">
         {/* Subtle animated elements - reduced complexity */}
         <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-neon-cyan/3 rounded-full blur-2xl opacity-50"></div>

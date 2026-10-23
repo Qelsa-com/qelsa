@@ -19,7 +19,7 @@ import { useUIMessages } from "@convex-dev/agent/react";
 import { useMutation, useQuery } from "convex/react";
 import { ArrowUp, Bell, Check, Loader2, MessageSquarePlus, PanelLeft, PanelRight, Plus, RotateCcw, Search, Sparkles, Trash2, WifiOff, X } from "lucide-react";
 import { useRouter } from "next/router";
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { AgentArtifactPanel } from "./AgentArtifactPanel";
 import { documentArtifact, type AgentArtifact } from "./agentArtifacts";
@@ -51,23 +51,34 @@ function relativeStamp(timestamp: number) {
 }
 
 /** Track the visible viewport so iOS keyboard insets don't leave a tall blank area. */
-function useVisualViewportHeight() {
-  const [height, setHeight] = useState<number | null>(null);
+function useVisualViewport() {
+  const [viewport, setViewport] = useState<{ height: number; offsetTop: number } | null>(null);
   useEffect(() => {
-    const viewport = window.visualViewport;
-    if (!viewport) return;
-    const update = () => setHeight(Math.round(viewport.height));
+    const visualViewport = window.visualViewport;
+    if (!visualViewport) return;
+    const root = document.documentElement;
+    const update = () => {
+      const next = {
+        height: Math.round(visualViewport.height),
+        offsetTop: Math.round(visualViewport.offsetTop),
+      };
+      setViewport(next);
+      root.style.setProperty("--agent-vv-height", `${next.height}px`);
+      root.style.setProperty("--agent-vv-offset", `${next.offsetTop}px`);
+    };
     update();
-    viewport.addEventListener("resize", update);
-    viewport.addEventListener("scroll", update);
+    visualViewport.addEventListener("resize", update);
+    visualViewport.addEventListener("scroll", update);
     window.addEventListener("orientationchange", update);
     return () => {
-      viewport.removeEventListener("resize", update);
-      viewport.removeEventListener("scroll", update);
+      visualViewport.removeEventListener("resize", update);
+      visualViewport.removeEventListener("scroll", update);
       window.removeEventListener("orientationchange", update);
+      root.style.removeProperty("--agent-vv-height");
+      root.style.removeProperty("--agent-vv-offset");
     };
   }, []);
-  return height;
+  return viewport;
 }
 
 function threadFromQuery(value: string | string[] | undefined): string | null {
@@ -333,7 +344,8 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
   const router = useRouter();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const isRecruiter = user?.account_type === "recruiter";
-  const visualViewportHeight = useVisualViewportHeight();
+  const visualViewport = useVisualViewport();
+  const visualViewportHeight = visualViewport?.height ?? null;
 
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [mobileRailOpen, setMobileRailOpen] = useState(false);
@@ -1070,10 +1082,7 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
   }
 
   return (
-    <div
-      style={visualViewportHeight ? ({ "--agent-vvh": `${visualViewportHeight}px` } as CSSProperties) : undefined}
-      className="flex h-[calc(var(--agent-vvh,100dvh)_-_61px)] w-full overflow-hidden border-t border-white/[0.08] lg:h-[calc(100dvh-59px)]"
-    >
+    <div className="flex h-[calc(var(--agent-vv-height,100dvh)_-_61px)] w-full overflow-hidden border-t border-white/[0.08] lg:h-[calc(100dvh-59px)]">
       <aside className="hidden w-72 shrink-0 flex-col border-r border-white/[0.08] bg-[#080812]/80 lg:flex">{renderRail()}</aside>
 
       {mobileRailOpen && (
@@ -1300,7 +1309,6 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
                 value={input}
                 disabled={!configured || threadResolving}
                 onChange={(event) => setInput(event.target.value)}
-                onFocus={snapToBottom}
                 onKeyDown={(event) => {
                   if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
                     event.preventDefault();
