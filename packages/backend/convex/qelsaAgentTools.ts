@@ -1243,7 +1243,7 @@ export const listSavedJobsTool = createTool({
 
 export const getJobReadinessTool = createTool({
   description:
-    "Get the existing Qelsa Match readiness analysis for one job: overall score, matched skills, gaps, and suggested actions. Only works when an analysis already exists for that job; if not, use run_qelsa_match to run it.",
+    "Get the existing Qelsa Match readiness analysis for one job: overall score, matched skills, gaps, and suggested actions. Only works when an analysis already exists for that job; if not, use run_qelsa_match to run it. Do not repeat the numeric score in prose; the job page is the canonical score.",
   inputSchema: z.object({
     job_id: z.string().describe("The job_id to check readiness for."),
   }),
@@ -1485,7 +1485,7 @@ export const getInterviewPrepTool = createTool({
 
 export const runJobMatchTool = createTool({
   description:
-    "Run (or refresh) the full Qelsa Match readiness analysis for a job. Use this when no analysis exists or the user asks to check or re-check their fit. Readiness is the skill/profile score; never call it goal fit.",
+    "Run (or refresh) the full Qelsa Match readiness analysis for a job. Use this when no analysis exists or the user asks to check or re-check their fit. Readiness is the skill/profile score; never call it goal fit. Do not repeat the numeric score in prose; the job page is the canonical score.",
   inputSchema: z.object({
     job_id: z.string().describe("The job_id to analyze."),
     refresh: z.boolean().optional().describe("Set true to recompute even if the profile has not changed."),
