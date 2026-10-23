@@ -406,6 +406,16 @@ export function JobDetail() {
     router.push(`/agent?prompt=${encodeURIComponent(prompt)}`);
   };
 
+  const handleAskWhy = () => {
+    const prompt = `Explain why "${title}"${companyName ? ` at ${companyName}` : ""} requires these skill levels and how I can reach them. Job id: ${job.id}. Focus on the target levels, my gaps, and a practical plan.`;
+    const agentUrl = `/agent?prompt=${encodeURIComponent(prompt)}`;
+    if (!isAuthenticated) {
+      router.push(`/auth?returnUrl=${encodeURIComponent(agentUrl)}`);
+      return;
+    }
+    router.push(agentUrl);
+  };
+
   const handleConfirmExternalApply = async () => {    if (!isAuthenticated) {
       setShowExternalConfirmModal(false);
       router.push(`/auth?actionType=profile&returnUrl=${encodeURIComponent(`/jobs/${id}`)}`);
@@ -696,7 +706,7 @@ export function JobDetail() {
             {/* How you fit this role. The ring is the Readiness score. */}
             {!isOwner && competency && (
               <div id="how-you-fit" className="scroll-mt-36">
-                <CompetencyTable competency={competency} experienceMatch={matchSession?.analysis?.experience_match ?? experienceMatch} educationMatch={matchSession?.analysis?.education_match ?? educationMatch} />
+                <CompetencyTable competency={competency} experienceMatch={matchSession?.analysis?.experience_match ?? experienceMatch} educationMatch={matchSession?.analysis?.education_match ?? educationMatch} onAskQelsa={handleAskWhy} />
               </div>
             )}
 
