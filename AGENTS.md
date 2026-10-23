@@ -13,6 +13,7 @@ See `README.md` for the canonical setup/dev commands. Package scripts live in th
 - Admin auth is intentionally narrow: the admin origin may only use the session/sign-in routes, only active admins can establish an admin session, and non-admin emails never receive admin-origin OTPs. The admin Next.js proxy stamps `x-qelsa-admin-auth: 1`; the Convex hook trusts that header in addition to `ADMIN_SITE_URL`, so stale origin config cannot silently bypass the gate.
 - Dashboard totals come from the `admin_stats` counter table, updated in the same mutation as the source write (see `convex/lib/adminStats.ts`). Do not replace those counters with `.collect().length` scans.
 - Admin mutations write an `admin_audit_log` row so every privileged action stays attributable.
+- Plan limits and benefit copy are editable at `/plans` and stored in `plan_configs`. Missing rows fall back to `convex/lib/planConfig.ts`; entitlement checks read the row live. Benefit lines support `{{agent_benefit}}`, `{{agent_limit}}`, `{{application_benefit}}`, and `{{application_limit}}` tokens so copy stays in sync with the configured limits.
 - Suspended app users are rejected by `getAppUser()` and are treated as signed out by optional auth reads. Do not add a new `authed*` path that bypasses that check.
 
 ## Public job boards

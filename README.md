@@ -114,6 +114,12 @@ The pricing page is `/pricing`, and subscription management is in `/settings`
 or intervals, cancel at period end, resume a subscription, and open the Dodo
 customer portal.
 
+Plan limits and benefit copy are editable in Qelsa Admin under `/plans`. They
+are stored in `plan_configs`, with code defaults in
+`packages/backend/convex/lib/planConfig.ts`. Entitlement checks read the saved
+configuration live, so changing an Agent or application limit takes effect
+without a deploy.
+
 Set these on the Convex deployment:
 
 ```bash

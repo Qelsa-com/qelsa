@@ -29,7 +29,8 @@ import { internalAction, internalMutation, internalQuery, mutation, query } from
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { AI_AGENT_MODEL, createAgentChatModel, openRouter } from "./lib/ai";
 import { getAgentDailyLimit, getUserPlan } from "./lib/billingEntitlements";
-import { FREE_AGENT_DAILY_LIMIT, agentDailyLimitForPlan } from "./billingPlans";
+import { FREE_AGENT_DAILY_LIMIT } from "./billingPlans";
+import { audienceForUser, getPlanConfig } from "./lib/planConfig";
 import { qelsaAgentTools } from "./qelsaAgentTools";
 import { qelsaRecruiterTools } from "./qelsaRecruiterTools";
 
@@ -188,12 +189,13 @@ function dayKey() {
   return new Date().toISOString().slice(0, 10);
 }
 
-async function consumeQuota(ctx: MutationCtx, userId: Id<"users">) {
+async function consumeQuota(ctx: MutationCtx, user: Doc<"users">) {
   const day = dayKey();
-  const limit = await getAgentDailyLimit(ctx, userId);
+  const limit = await getAgentDailyLimit(ctx, user);
+  if (limit <= 0) throw new Error("Qelsa Agent is not available on your plan.");
   const existing = await ctx.db
     .query("qelsa_agent_usage")
-    .withIndex("by_user_and_day", (q) => q.eq("user_id", userId).eq("day", day))
+    .withIndex("by_user_and_day", (q) => q.eq("user_id", user._id).eq("day", day))
     .unique();
   if (existing) {
     if (existing.count >= limit) {
@@ -204,7 +206,7 @@ async function consumeQuota(ctx: MutationCtx, userId: Id<"users">) {
     await ctx.db.patch(existing._id, { count: existing.count + 1 });
     return;
   }
-  await ctx.db.insert("qelsa_agent_usage", { user_id: userId, day, count: 1 });
+  await ctx.db.insert("qelsa_agent_usage", { user_id: user._id, day, count: 1 });
 }
 
 type AgentThread = Doc<"qelsa_agent_threads">;
@@ -504,7 +506,8 @@ export const agentUsage = query({
       };
     }
     const plan = await getUserPlan(ctx, user._id);
-    const limit = agentDailyLimitForPlan(plan);
+    const config = await getPlanConfig(ctx, audienceForUser(user), plan ?? "free");
+    const limit = config.agent_daily_limit;
     const usage = await ctx.db
       .query("qelsa_agent_usage")
       .withIndex("by_user_and_day", (q) => q.eq("user_id", user._id).eq("day", dayKey()))
@@ -708,7 +711,7 @@ export const sendPrompt = mutation({
     if (!prompt) throw new Error("Type a message first.");
     if (prompt.length > MAX_PROMPT_LENGTH) throw new Error("Keep messages under 4000 characters.");
     await assertCanStartGeneration(ctx, row);
-    await consumeQuota(ctx, user._id);
+    await consumeQuota(ctx, user);
 
     const { messageId } = await saveMessage(ctx, components.agent, {
       threadId: args.threadId,
@@ -963,7 +966,7 @@ export const retryGeneration = mutation({
     if (row.last_generation_status === "succeeded") {
       throw new Error("The last reply already finished.");
     }
-    await consumeQuota(ctx, user._id);
+    await consumeQuota(ctx, user);
 
     const prompt = row.last_prompt_text ?? "Retry the previous response.";
     const generationId = await beginGeneration(ctx, row, {
@@ -994,7 +997,7 @@ export const submitApproval = mutation({
     const { user, authId } = await requireUser(ctx);
     const row = await ownedThread(ctx, user._id, args.threadId);
     await assertCanStartGeneration(ctx, row);
-    await consumeQuota(ctx, user._id);
+    await consumeQuota(ctx, user);
 
     const agent = buildBookkeepingAgent(user.account_type);
     const { messageId } = args.approved

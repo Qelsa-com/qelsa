@@ -122,12 +122,15 @@ export function useDeleteAccountMutation() {
 
 export function useGoogleLoginMutation() {
   const [isLoading, setIsLoading] = useState(false);
-  const trigger = () => {
+  const trigger = (returnUrl?: string | null) => {
     setIsLoading(true);
+    const callbackUrl =
+      typeof window !== "undefined" ? new URL("/auth", window.location.origin) : null;
+    if (callbackUrl && returnUrl) callbackUrl.searchParams.set("returnUrl", returnUrl);
     const promise = authClient.signIn
       .social({
         provider: "google",
-        callbackURL: typeof window !== "undefined" ? `${window.location.origin}/auth` : "/auth",
+        callbackURL: callbackUrl?.toString() ?? "/auth",
       })
       .then(({ error }) => {
         if (error) throw { data: { message: error.message } };

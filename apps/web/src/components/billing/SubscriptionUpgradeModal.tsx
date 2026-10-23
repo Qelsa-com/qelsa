@@ -11,7 +11,7 @@ import {
   type LivePlanPrices,
 } from "@/features/api/billingApi";
 import { toastUnknownError } from "@/lib/errors";
-import { EMPLOYER_PLAN_COPY } from "@/lib/employerPlanCopy";
+import { renderPlanFeatures } from "@/lib/employerPlanCopy";
 import type { MyBilling } from "@/types/billing";
 import { ArrowRight, Check, Loader2, Sparkles, X } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -20,29 +20,22 @@ import { toast } from "sonner";
 
 export type UpgradeReason = "applications" | "agent";
 
-const COPY: Record<UpgradeReason, { eyebrow: string; title: string; description: string; used: string }> = {
+const COPY: Record<UpgradeReason, { eyebrow: string; title: string; description: string }> = {
   applications: {
-    eyebrow: "Free application used",
+    eyebrow: "Application limit reached",
     title: "Ready to apply to more roles?",
-    description: "Paid plans remove the application cap so you can keep moving while your search is hot.",
-    used: "1 active application",
+    description: "Upgrade for a higher application limit so you can keep moving while your search is hot.",
   },
   agent: {
     eyebrow: "Message limit reached",
     title: "Keep the conversation going.",
     description: "Upgrade for more Qelsa Agent time. Plus is lighter; Pro goes deeper.",
-    used: "5 Qelsa Agent messages per day",
   },
 };
 
 const PLAN_NAMES: Record<BillingPlanId, string> = {
   plus: "Qelsa Plus",
   pro: "Qelsa Pro",
-};
-
-const PLAN_FEATURES: Record<BillingPlanId, string[]> = {
-  plus: ["Unlimited job applications", "100 Agent messages/day", "Readiness reports", "Skill-gap analysis"],
-  pro: ["Unlimited job applications", "500 Agent messages/day", "Advanced readiness reports", "Mock interviews + priority matching"],
 };
 
 function formatPrice(amount: number, currency: string) {
@@ -68,7 +61,7 @@ export function SubscriptionUpgradeModal({
   onClose: () => void;
 }) {
   const router = useRouter();
-  const { user, isAuthenticated } = useAuth();
+  const { isAuthenticated } = useAuth();
   const { data: billingData } = useGetMyBillingQuery({ skip: !isAuthenticated });
   const [getLivePrices, { isLoading: pricesLoading }] = useGetLivePricesAction();
   const [createCheckout, { isLoading: isCheckingOut }] = useCreateCheckoutAction();
@@ -77,7 +70,6 @@ export function SubscriptionUpgradeModal({
   const [interval, setInterval] = useState<BillingInterval>("month");
   const [livePrices, setLivePrices] = useState<LivePlanPrices | null>(null);
   const copy = COPY[reason];
-  const isRecruiter = user?.account_type === "recruiter";
   const billing = billingData as MyBilling | undefined;
   const currentPlanId = billing?.plan_id ?? null;
   const currentInterval = billing?.subscription?.interval ?? null;
@@ -116,7 +108,18 @@ export function SubscriptionUpgradeModal({
 
   const price = livePrices?.[planId]?.[interval];
   const planPrices = livePrices?.[planId];
-  const planFeatures = isRecruiter ? EMPLOYER_PLAN_COPY[planId].features : PLAN_FEATURES[planId];
+  const selectedPlan = billing?.plans.find((plan) => plan.id === planId);
+  const planFeatures = selectedPlan
+    ? renderPlanFeatures(selectedPlan.features, selectedPlan.limits)
+    : [];
+  const plusAgentLimit = billing?.plans.find((plan) => plan.id === "plus")?.limits.agent_daily_limit ?? 100;
+  const proAgentLimit = billing?.plans.find((plan) => plan.id === "pro")?.limits.agent_daily_limit ?? 500;
+  const freeAgentLimit = billing?.free.agent_daily_limit ?? 5;
+  const freeApplicationLimit = billing?.free.application_limit;
+  const freeApplicationText =
+    freeApplicationLimit === null || freeApplicationLimit === undefined
+      ? "unlimited applications"
+      : `${freeApplicationLimit} active application${freeApplicationLimit === 1 ? "" : "s"}`;
   const yearlySaving =
     planPrices?.month.amount && planPrices?.year.amount && planPrices.month.amount > 0
       ? Math.max(0, Math.round((1 - planPrices.year.amount / (planPrices.month.amount * 12)) * 100))
@@ -175,11 +178,15 @@ export function SubscriptionUpgradeModal({
     ? `Switch to ${PLAN_NAMES[planId]}`
     : `Choose ${PLAN_NAMES[planId]}`;
   const footnote =
-    currentPlanId === "plus"
-      ? "Plus includes 100 Agent messages per day. Pro raises it to 500."
+    reason === "applications"
+      ? currentPlanId
+        ? "You've reached your plan's active application limit."
+        : `Your free plan includes ${freeApplicationText}.`
+      : currentPlanId === "plus"
+      ? `Plus includes ${plusAgentLimit} Qelsa Agent messages per day.`
       : currentPlanId === "pro"
-      ? "Pro includes 500 Agent messages per day."
-      : `Your free plan includes ${copy.used}.`;
+      ? `Pro includes ${proAgentLimit} Qelsa Agent messages per day.`
+      : `Your free plan includes ${freeAgentLimit} Qelsa Agent messages per day.`;
 
   return (
     <div
@@ -264,16 +271,20 @@ export function SubscriptionUpgradeModal({
             {interval === "year" ? <span className="pb-0.5 text-xs text-white/35">billed yearly</span> : null}
           </div>
 
-          <ul className="mt-5 space-y-2.5">
-            {planFeatures.map((feature) => (
-              <li key={feature} className="flex items-start gap-2.5 text-[13px] text-white/75">
-                <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full bg-neon-cyan/15 text-neon-cyan">
-                  <Check className="size-3" />
-                </span>
-                {feature}
-              </li>
-            ))}
-          </ul>
+          {billingLoading && !selectedPlan ? (
+            <p className="mt-5 text-[13px] text-white/45">Loading benefits…</p>
+          ) : (
+            <ul className="mt-5 space-y-2.5">
+              {planFeatures.map((feature) => (
+                <li key={feature} className="flex items-start gap-2.5 text-[13px] text-white/75">
+                  <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full bg-neon-cyan/15 text-neon-cyan">
+                    <Check className="size-3" />
+                  </span>
+                  {feature}
+                </li>
+              ))}
+            </ul>
+          )}
 
           <button
             type="button"

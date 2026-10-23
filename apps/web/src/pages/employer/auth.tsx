@@ -10,6 +10,7 @@ import { safeReturnUrl } from "@/lib/returnUrl";
 import type { User } from "@/types/user";
 import { useConvex } from "convex/react";
 import { AnimatePresence, motion } from "motion/react";
+import { Loader2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -24,6 +25,7 @@ const SECONDARY_BTN =
   "flex h-14 w-full cursor-pointer items-center justify-center gap-3 rounded-full border border-white/12 bg-white/[0.02] text-[15px] font-medium text-white transition-colors hover:bg-white/[0.06]";
 const QUIET_LINK = "cursor-pointer text-sm text-muted-foreground transition-colors hover:text-white";
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const OAUTH_PENDING_KEY = "qelsa.employer.oauth.pending";
 
 function errorMessage(err: unknown, fallback: string) {
   if (err instanceof Error && err.message) return err.message;
@@ -46,16 +48,33 @@ export default function EmployerAuthPage() {
   const [error, setError] = useState<string | null>(null);
   const [isCheckingEmail, setIsCheckingEmail] = useState(false);
   const [isFinishing, setIsFinishing] = useState(false);
+  const [oauthPending, setOauthPending] = useState(false);
   const [resendIn, setResendIn] = useState(0);
 
   const [googleLogin, { isLoading: isGoogleLoading }] = useEmployerGoogleLoginMutation();
   const [requestOtp, { isLoading: isSendingOtp }] = useEmployerRequestOtpMutation();
   const [verifyOtp, { isLoading: isVerifying }] = useEmployerVerifyOtpMutation();
   const [saveAccountType] = useSetAccountTypeMutation();
-  const { data: session, refetch: refetchSession } = authClient.useSession();
+  const { data: session, isPending: isSessionPending, refetch: refetchSession } = authClient.useSession();
   const { data: rawProfile } = useGetProfileQuery(undefined, { skip: !session });
   const profile = (rawProfile as User | null | undefined) ?? null;
   const finalizingRef = useRef(false);
+
+  const clearOauthPending = useCallback(() => {
+    if (typeof window !== "undefined") sessionStorage.removeItem(OAUTH_PENDING_KEY);
+    setOauthPending(false);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && sessionStorage.getItem(OAUTH_PENDING_KEY) === "1") {
+      setOauthPending(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!oauthPending || isSessionPending || session) return;
+    clearOauthPending();
+  }, [clearOauthPending, isSessionPending, oauthPending, session]);
 
   useEffect(() => {
     if (!resendIn) return;
@@ -69,11 +88,12 @@ export default function EmployerAuthPage() {
 
   const signOutWithError = useCallback(async (message: string) => {
     setIsFinishing(false);
+    clearOauthPending();
     setError(message);
     clearResumeDraft();
     await authClient.signOut().catch(() => undefined);
     setStep("method");
-  }, []);
+  }, [clearOauthPending]);
 
   const finishSession = useCallback(async () => {
     if (!session || !profile || finalizingRef.current) return;
@@ -94,19 +114,22 @@ export default function EmployerAuthPage() {
 
       if (profile.account_type === "recruiter") {
         if (!profile.onboarding_completed) {
+          clearOauthPending();
           router.replace(returnUrl ? `/onboarding?returnUrl=${encodeURIComponent(returnUrl)}` : "/onboarding");
           return;
         }
+        clearOauthPending();
         router.replace(returnUrl ?? homeForAccount(profile));
         return;
       }
 
       await saveAccountType({ account_type: "recruiter" }).unwrap();
+      clearOauthPending();
       router.replace(returnUrl ? `/onboarding?returnUrl=${encodeURIComponent(returnUrl)}` : "/onboarding");
     } catch (err) {
       await signOutWithError(errorMessage(err, "We couldn't finish setting up your employer account. Please try again."));
     }
-  }, [convex, profile, returnUrl, router, saveAccountType, session, signOutWithError]);
+  }, [clearOauthPending, convex, profile, returnUrl, router, saveAccountType, session, signOutWithError]);
 
   useEffect(() => {
     void finishSession();
@@ -114,9 +137,12 @@ export default function EmployerAuthPage() {
 
   const handleGoogle = async () => {
     setError(null);
+    if (typeof window !== "undefined") sessionStorage.setItem(OAUTH_PENDING_KEY, "1");
     try {
       await googleLogin(returnUrl).unwrap();
+      setOauthPending(true);
     } catch (err) {
+      clearOauthPending();
       setError(errorMessage(err, "Google sign-in failed. Please try again."));
     }
   };
@@ -178,7 +204,8 @@ export default function EmployerAuthPage() {
   };
 
   const isBusy = isGoogleLoading || isSendingOtp || isVerifying || isCheckingEmail || isFinishing;
-  const isResolving = Boolean(session && !profile);
+  const isResolving = oauthPending || Boolean(session);
+  const isFinishingCopy = isFinishing || oauthPending;
   const cardMotion = {
     initial: { opacity: 0, y: 12 },
     animate: { opacity: 1, y: 0 },
@@ -206,9 +233,16 @@ export default function EmployerAuthPage() {
       <div className="w-full max-w-[460px]">
         <AnimatePresence mode="wait">
           {isFinishing || isResolving ? (
-            <motion.div key="resolving" {...cardMotion} className="rounded-3xl border border-white/10 bg-white/[0.03] p-8 text-center">
-              <h2 className="text-2xl font-bold text-white">{isFinishing ? "Finishing sign-in…" : "Checking your account…"}</h2>
-              <p className="mt-2 text-sm text-muted-foreground">{isFinishing ? "Confirming your employer access." : "Loading your profile."}</p>
+            <motion.div key="resolving" {...cardMotion} role="status" aria-live="polite" className="rounded-3xl border border-white/10 bg-white/[0.03] p-8 text-center">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-neon-cyan/25 bg-neon-cyan/10">
+                <Loader2 className="h-5 w-5 animate-spin text-neon-cyan" />
+              </div>
+              <h2 className="mt-5 text-2xl font-bold text-white">
+                {isFinishingCopy ? "Finishing sign-in…" : "Checking your account…"}
+              </h2>
+              <p className="mt-2 text-sm text-muted-foreground">
+                {isFinishingCopy ? "Confirming your employer access." : "Loading your profile."}
+              </p>
             </motion.div>
           ) : step === "method" ? (
             <motion.div key="method" {...cardMotion} className="rounded-3xl border border-white/10 bg-white/[0.03] p-8">
@@ -220,8 +254,8 @@ export default function EmployerAuthPage() {
 
               {error ? <ErrorBanner message={error} /> : null}
 
-              <button type="button" onClick={handleGoogle} disabled={isBusy} className={`mt-7 ${PRIMARY_BTN}`}>
-                <GoogleMark />
+              <button type="button" onClick={handleGoogle} disabled={isBusy} aria-busy={isGoogleLoading} className={`mt-7 ${PRIMARY_BTN}`}>
+                {isGoogleLoading ? <Loader2 className="h-[18px] w-[18px] animate-spin" /> : <GoogleMark />}
                 {isGoogleLoading ? "Connecting to Google…" : "Continue with Google"}
               </button>
 

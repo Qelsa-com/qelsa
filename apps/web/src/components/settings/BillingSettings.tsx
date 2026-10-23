@@ -2,11 +2,12 @@
 
 import { useAuth } from "@/contexts/AuthContext";
 import { useAlert } from "@/components/ui/alert-modal";
-import { useCancelSubscriptionAction, useChangePlanAction, useCreateCheckoutAction, useGetLivePricesAction, useGetMyBillingQuery, useOpenCustomerPortalAction, type BillingInterval, type LivePlanPrices } from "@/features/api/billingApi";
+import { useCancelSubscriptionAction, useChangePlanAction, useCreateCheckoutAction, useGetLivePricesAction, useGetMyBillingQuery, useOpenCustomerPortalAction, type BillingInterval, type BillingPlanId, type LivePlanPrices } from "@/features/api/billingApi";
 import { toastUnknownError } from "@/lib/errors";
-import { EMPLOYER_PLAN_COPY } from "@/lib/employerPlanCopy";
+import { renderPlanFeatures } from "@/lib/employerPlanCopy";
 import type { BillingSubscription, MyBilling } from "@/types/billing";
 import { CalendarDays, Check, CreditCard, Loader2, RefreshCw, Sparkles } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -100,8 +101,18 @@ export function BillingSettings() {
   const yearlyPrice = livePrices?.[planId]?.year ?? billing.plan.prices.year;
   const isPro = billing.is_pro;
   const isRecruiter = user?.account_type === "recruiter";
-  const planDescription = isRecruiter ? EMPLOYER_PLAN_COPY[planId].description : billing.plan.description;
-  const planFeatures = isRecruiter ? EMPLOYER_PLAN_COPY[planId].features : billing.plan.features;
+  const planDescription = billing.plan.description;
+  const planFeatures = renderPlanFeatures(billing.plan.features, billing.plan.limits);
+  const freeApplicationText =
+    billing.free.application_limit === null
+      ? "unlimited applications"
+      : `${billing.free.application_limit} active application${billing.free.application_limit === 1 ? "" : "s"}`;
+  const freePlanText = isRecruiter
+    ? `Free includes ${billing.free.agent_daily_limit} Qelsa Agent messages per day.`
+    : `Free includes ${freeApplicationText} and ${billing.free.agent_daily_limit} Qelsa Agent messages per day.`;
+  const upgradePlanText = isRecruiter
+    ? "Upgrade for more Agent time and applicant insight."
+    : "Upgrade for more applications and Agent time.";
   const isCancelledAtEnd = Boolean(subscription?.cancel_at_period_end);
 
   const startCheckout = async () => {
@@ -138,6 +149,26 @@ export function BillingSettings() {
       toast.success(`Billing switched to ${nextLabel}.`);
     } catch (error) {
       toastUnknownError(error, "Could not change your billing interval. Please try again.");
+    }
+  };
+
+  const switchPlan = async (nextPlan: BillingPlanId) => {
+    if (!subscription || subscription.plan === nextPlan) return;
+    const target = billing.plans.find((plan) => plan.id === nextPlan);
+    if (!target) return;
+    const billingLabel = subscription.interval === "year" ? "yearly" : "monthly";
+    const confirmed = await alert({
+      title: `Switch to ${target.name}?`,
+      description: `You'll move from ${billing.plan.name} to ${target.name} on ${billingLabel} billing. Dodo may apply a prorated charge or credit.`,
+      confirmText: `Switch to ${target.name}`,
+      cancelText: "Keep current plan",
+    });
+    if (!confirmed) return;
+    try {
+      await changePlan({ plan: nextPlan, interval: subscription.interval }).unwrap();
+      toast.success(`Switched to ${target.name}.`);
+    } catch (error) {
+      toastUnknownError(error, "Could not change your plan. Please try again.");
     }
   };
 
@@ -196,9 +227,7 @@ export function BillingSettings() {
                   ? `${billing.plan.name} · ${subscription.interval === "year" ? "Yearly" : "Monthly"} billing`
                   : isPro && billing.manual_pro
                   ? "Complimentary Qelsa Pro access."
-                  : isRecruiter
-                  ? "Free includes 5 Qelsa Agent messages per day. Upgrade for more Agent time and applicant insights."
-                  : "Free includes 1 active application and 5 Qelsa Agent messages per day. Upgrade for unlimited applications and 500 messages per day."}
+                  : `${freePlanText} ${upgradePlanText}`}
               </p>
             </div>
           </div>
@@ -273,6 +302,76 @@ export function BillingSettings() {
               ) : null}
             </div>
 
+            <div className="border-t border-white/[0.07] pt-5">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-white/40">Change plan</p>
+                <Link href="/pricing" className="text-xs font-semibold text-neon-cyan underline-offset-2 hover:underline">
+                  Compare benefits
+                </Link>
+              </div>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                {billing.plans.map((plan) => {
+                  const current = subscription.plan === plan.id;
+                  const optionPrice =
+                    livePrices?.[plan.id]?.[subscription.interval] ?? plan.prices[subscription.interval];
+                  return (
+                    <div
+                      key={plan.id}
+                      className={`rounded-xl border p-3.5 ${
+                        current
+                          ? "border-neon-cyan/30 bg-neon-cyan/[0.05]"
+                          : plan.id === "pro"
+                          ? "border-neon-purple/25 bg-neon-purple/[0.05]"
+                          : "border-white/10 bg-white/[0.02]"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-semibold text-white">{plan.name}</p>
+                        {current ? (
+                          <span className="rounded-full border border-neon-cyan/25 bg-neon-cyan/10 px-2 py-0.5 text-[10px] font-semibold text-neon-cyan">
+                            Current
+                          </span>
+                        ) : plan.id === "pro" ? (
+                          <span className="rounded-full border border-neon-purple/25 bg-neon-purple/10 px-2 py-0.5 text-[10px] font-semibold text-neon-purple">
+                            Recommended
+                          </span>
+                        ) : null}
+                      </div>
+                      <p className="mt-1 text-[11px] leading-relaxed text-white/45">{plan.description}</p>
+                      <ul className="mt-2 space-y-1 text-[11px] text-white/55">
+                        {renderPlanFeatures(plan.features, plan.limits)
+                          .slice(0, 3)
+                          .map((feature, index) => (
+                            <li key={`${plan.id}-${index}`} className="flex items-start gap-1.5">
+                              <Check className="mt-0.5 size-3 shrink-0 text-neon-cyan" />
+                              {feature}
+                            </li>
+                          ))}
+                      </ul>
+                      <p className="mt-2 text-sm font-bold text-white">
+                        {optionPrice.amount ? formatAmount(optionPrice.amount, optionPrice.currency) : "—"}
+                        <span className="text-[11px] font-normal text-white/35">/{subscription.interval}</span>
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => void switchPlan(plan.id)}
+                        disabled={current || isChanging}
+                        className={`mt-3 inline-flex w-full items-center justify-center rounded-full px-3 py-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                          current
+                            ? "border border-white/10 bg-white/[0.03] text-white/45"
+                            : plan.id === "pro"
+                            ? "bg-gradient-to-r from-[#623dd6] via-[#8433ae] to-[#be2680] text-white hover:opacity-95"
+                            : "border border-white/12 bg-white/[0.04] text-white/80 hover:bg-white/[0.08]"
+                        }`}
+                      >
+                        {current ? "Current plan" : `Switch to ${plan.name.replace("Qelsa ", "")}`}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
             <div className="flex flex-wrap gap-2 border-t border-white/[0.07] pt-5">
               <button
                 type="button"
@@ -340,6 +439,9 @@ export function BillingSettings() {
               {isCheckingOut ? <Loader2 className="size-3.5 animate-spin" /> : <Sparkles className="size-3.5" />}
               {isCheckingOut ? "Opening checkout…" : price.available ? "Upgrade to Pro" : "Checkout coming soon"}
             </button>
+            <Link href="/pricing" className="block w-fit text-xs font-semibold text-neon-cyan underline-offset-2 hover:underline">
+              Compare Plus and Pro
+            </Link>
           </div>
         )}
       </div>

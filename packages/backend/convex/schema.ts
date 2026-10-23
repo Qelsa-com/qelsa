@@ -974,4 +974,17 @@ export default defineSchema({
   })
     .index("by_interval", ["interval"])
     .index("by_plan_and_interval", ["plan", "interval"]),
+
+  // Admin-editable plan limits and benefit copy. Missing rows fall back to the
+  // defaults in lib/planConfig.ts, so a fresh deployment works without seeding.
+  plan_configs: defineTable({
+    audience: v.union(v.literal("candidate"), v.literal("employer")),
+    plan: v.union(v.literal("free"), v.literal("plus"), v.literal("pro")),
+    agent_daily_limit: v.number(),
+    application_limit: v.union(v.number(), v.null()),
+    description: v.string(),
+    features: v.array(v.string()),
+    updated_at: v.number(),
+    updated_by: v.id("users"),
+  }).index("by_audience_and_plan", ["audience", "plan"]),
 });

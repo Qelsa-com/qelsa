@@ -33,12 +33,10 @@ import { goBackJobs } from "@/lib/jobNavigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { QuickApplyModal } from "../QuickApplyModal";
 import { ExternalApplyConfirmModal } from "./ExternalApplyConfirmModal";
-import { ResumeSelectModal } from "./ResumeSelectModal";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
 import { CompetencyTable } from "./CompetencyMatch";
 import { JobAiSummary } from "./JobAiSummary";
-import { MatchChatDrawer } from "./MatchChatDrawer";
 import { JobDetailSkeleton, SimilarJobCardSkeleton } from "./jobSkeletons";
 import { SubscriptionUpgradeModal, type UpgradeReason } from "../billing/SubscriptionUpgradeModal";
 
@@ -130,9 +128,6 @@ export function JobDetail() {
   const [upgradeReason, setUpgradeReason] = useState<UpgradeReason | null>(null);
   const [justApplied, setJustApplied] = useState(false);
   const [createJobApplication, { isLoading: isApplyingExternal }] = useCreateJobApplicationMutation();
-  const [matchOpen, setMatchOpen] = useState(false);
-  const [resumeSelectOpen, setResumeSelectOpen] = useState(false);
-  const [selectedMatchSessionId, setSelectedMatchSessionId] = useState<string | undefined>(undefined);
 
   const { data: job, error, isLoading } = useGetJobByIdQuery(isReserved ? undefined : id!, { skip: !id || isReserved });
   const isOwner = Boolean(
@@ -148,29 +143,6 @@ export function JobDetail() {
   const { data: educations } = useGetEducationsQuery(undefined, { skip: !isAuthenticated || isOwner });
   const { data: matchSession } = useGetMatchByJobQuery(isReserved ? undefined : id, { skip: !isAuthenticated || !id || isReserved || isOwner });
 
-  const matchedResumeIds = useMemo(() => {
-    if (!matchSession || !id) return [];
-    const stored = typeof window !== "undefined" ? localStorage.getItem(`qelsa_job_match_${id}_resume`) : null;
-    if (stored) return [stored];
-    if (user?.default_resume_id) return [String(user.default_resume_id)];
-    if (myResumes?.[0]?.id) return [String(myResumes[0].id)];
-    return [];
-  }, [matchSession, id, user?.default_resume_id, myResumes]);
-
-  const handleStartMatchFromModal = (resumeId: string) => {
-    if (typeof window !== "undefined" && id) {
-      localStorage.setItem(`qelsa_job_match_${id}_resume`, resumeId);
-    }
-    setSelectedMatchSessionId(undefined);
-    setResumeSelectOpen(false);
-    setMatchOpen(true);
-  };
-
-  const handleViewMatchFromModal = (_resumeId: string) => {
-    setSelectedMatchSessionId(matchSession?.id);
-    setResumeSelectOpen(false);
-    setMatchOpen(true);
-  };
   const [toggleSaveJob] = useToggleSaveJobMutation();
   const { data: savedFromServer } = useIsJobSavedQuery(isReserved ? undefined : id, { skip: !isAuthenticated || !id || isReserved || isOwner });
   const [optimisticSaved, setOptimisticSaved] = useState<boolean | null>(null);
@@ -386,6 +358,10 @@ export function JobDetail() {
       return;
     }
     if (applicationLimitReached) {
+      if (applicationUsage?.plan_id === "pro") {
+        toast.error("You've reached your plan's active application limit.");
+        return;
+      }
       setUpgradeReason("applications");
       return;
     }
@@ -400,6 +376,16 @@ export function JobDetail() {
   const handleAskAgent = () => {
     const prompt = `Help me apply to "${title}"${companyName ? ` at ${companyName}` : ""}. Job id: ${job.id}. Check how well I fit and prepare everything I need to apply.`;
     router.push(`/agent?prompt=${encodeURIComponent(prompt)}`);
+  };
+
+  const handleAskWhy = () => {
+    const prompt = `Explain why "${title}"${companyName ? ` at ${companyName}` : ""} requires these skill levels and how I can reach them. Job id: ${job.id}. Focus on the target levels, my gaps, and a practical plan.`;
+    const agentUrl = `/agent?prompt=${encodeURIComponent(prompt)}`;
+    if (!isAuthenticated) {
+      router.push(`/auth?returnUrl=${encodeURIComponent(agentUrl)}`);
+      return;
+    }
+    router.push(agentUrl);
   };
 
   const handleConfirmExternalApply = async () => {    if (!isAuthenticated) {
@@ -580,7 +566,7 @@ export function JobDetail() {
                       onClick={handleAskAgent}
                       aria-label="Ask Qelsa Agent about this job"
                       title="Ask Qelsa Agent about this job"
-                      className="h-auto shrink-0 rounded-full border-[1.5px] border-white/20 bg-transparent px-4 py-3 text-sm text-white hover:bg-white/5 lg:px-4 lg:py-3.5"
+                      className="h-11 w-11 shrink-0 rounded-full border-[1.5px] border-white/20 bg-transparent p-0 text-sm text-white hover:bg-white/5 xl:h-auto xl:w-auto xl:px-4 xl:py-3.5"
                     >
                       <Sparkles className="size-4 text-neon-cyan xl:mr-2" />
                       <span className="hidden xl:inline">Ask Qelsa Agent</span>
@@ -632,30 +618,6 @@ export function JobDetail() {
           {/* Left */}
           <div className="flex min-w-0 flex-1 flex-col gap-4 lg:gap-6">
             <div id="job-overview" className="flex scroll-mt-36 flex-col gap-4 lg:gap-6">
-            {!isOwner && (
-              <Card className="flex flex-col items-start gap-4 rounded-[20px] border border-white/10 bg-white/[0.03] p-5 sm:flex-row sm:items-center sm:justify-between lg:p-6">
-                <div className="flex w-full flex-1 flex-col gap-1">
-                  <h3 className="text-base font-semibold text-white">Resume Match Intelligence</h3>
-                  <p className="text-sm leading-5 text-white/60">
-                    See how you align with this role based on the JD, and uploaded resume
-                  </p>
-                </div>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    if (!isAuthenticated) {
-                      router.push(`/auth?actionType=profile&returnUrl=${encodeURIComponent(`/jobs/${id}`)}`);
-                      return;
-                    }
-                    setResumeSelectOpen(true);
-                  }}
-                  className="h-auto w-full shrink-0 rounded-full border-neon-cyan/50 bg-[#061820]/60 px-6 py-2.5 text-sm font-semibold text-neon-cyan hover:bg-neon-cyan/10 sm:w-auto"
-                >
-                  Check match
-                </Button>
-              </Card>
-            )}
-
             {!isOwner && user?.account_type !== "recruiter" && (
               <JobAiSummary jobId={String(job.id)} summary={job.ai_summary} />
             )}
@@ -692,7 +654,7 @@ export function JobDetail() {
             {/* How you fit this role. The ring is the Readiness score. */}
             {!isOwner && competency && (
               <div id="how-you-fit" className="scroll-mt-36">
-                <CompetencyTable competency={competency} experienceMatch={matchSession?.analysis?.experience_match ?? experienceMatch} educationMatch={matchSession?.analysis?.education_match ?? educationMatch} />
+                <CompetencyTable competency={competency} experienceMatch={matchSession?.analysis?.experience_match ?? experienceMatch} educationMatch={matchSession?.analysis?.education_match ?? educationMatch} onAskQelsa={handleAskWhy} />
               </div>
             )}
 
@@ -915,18 +877,6 @@ export function JobDetail() {
           </div>
         </div>
       </div>
-
-      <MatchChatDrawer isOpen={matchOpen} onClose={() => setMatchOpen(false)} jobId={String(job.id)} jobTitle={title} company={companyName} existingSessionId={selectedMatchSessionId} />
-
-      <ResumeSelectModal
-        isOpen={resumeSelectOpen}
-        onClose={() => setResumeSelectOpen(false)}
-        resumes={myResumes ?? []}
-        defaultResumeId={user?.default_resume_id}
-        matchedResumeIds={matchedResumeIds}
-        onMatch={handleStartMatchFromModal}
-        onViewMatch={handleViewMatchFromModal}
-      />
 
       <QuickApplyModal
         isOpen={showQuickApplyModal}

@@ -10,7 +10,7 @@ import { useMatchTiersQuery } from "@/features/api/jobsApi";
 import { useGetMyResumesQuery } from "@/features/api/resumeApi";
 import { useGetUserSkillsQuery } from "@/features/api/userSkillsApi";
 import { GOAL_EXPERIENCE_OPTIONS, goalTimelineLabel, hasCareerGoal } from "@/lib/careerGoal";
-import { GOAL_MATCH } from "@/lib/matchTiers";
+import { GOAL_MATCH, matchRingColor } from "@/lib/matchTiers";
 import type { CareerGoal } from "@/types/careerGoal";
 import type { Job } from "@/types/job";
 import { ArrowRight, ArrowUpRight, Bot, Briefcase, Building2, Check, CheckCircle2, ChevronRight, Plus, Search, Sparkles, Target, TrendingUp, type LucideIcon } from "lucide-react";
@@ -294,7 +294,11 @@ export function MySpaceDashboard() {
 
             {(heroState === "matches" || heroState === "goal-matches") && bestScore != null ? (
               <div className="hidden items-center gap-4 md:flex md:flex-col md:items-end">
-                <HeroRing value={bestScore} label={heroState === "goal-matches" ? "Goal fit" : "Match"} />
+                <HeroRing
+                  value={bestScore}
+                  label={heroState === "goal-matches" ? "Goal fit" : "Match"}
+                  color={heroState === "goal-matches" ? GOAL_MATCH.color : undefined}
+                />
                 <div className="min-w-0 md:text-right">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/30">{heroState === "goal-matches" ? "Best goal fit" : "Best match"}</p>
                   <p className="mt-1 line-clamp-2 max-w-[220px] text-sm font-medium leading-snug text-white/85">{bestTitle}</p>
@@ -355,7 +359,7 @@ export function MySpaceDashboard() {
               onViewAll={() => router.push("/jobs/my-jobs/applied")}
               onSaved={() => router.push("/jobs/my-jobs/saved")}
               onOpenJob={(jobId) => router.push(`/jobs/${jobId}`)}
-              onFindJobs={() => router.push("/jobs/smart-matches")}
+              onFindJobs={() => router.push("/jobs/all")}
             />
           </div>
 
@@ -581,22 +585,17 @@ function HeroSnapshot({
   );
 }
 
-function HeroRing({ value, label = "Match" }: { value: number; label?: string }) {
+function HeroRing({ value, label = "Match", color }: { value: number; label?: string; color?: string }) {
   const clamped = Math.min(100, Math.max(0, value));
   const radius = 42;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference * (1 - clamped / 100);
+  const stroke = color ?? matchRingColor(clamped);
   return (
     <div className="relative size-24 shrink-0 sm:size-28">
       <svg className="size-full -rotate-90" viewBox="0 0 100 100" aria-hidden="true">
-        <defs>
-          <linearGradient id="dashboard-match-gradient" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#22d3ee" />
-            <stop offset="100%" stopColor="#a855f7" />
-          </linearGradient>
-        </defs>
         <circle cx="50" cy="50" r={radius} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="6" />
-        <circle cx="50" cy="50" r={radius} fill="none" stroke="url(#dashboard-match-gradient)" strokeWidth="6" strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={offset} />
+        <circle cx="50" cy="50" r={radius} fill="none" stroke={stroke} strokeWidth="6" strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={offset} />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className="text-xl font-semibold tracking-tight text-white sm:text-2xl">{clamped}%</span>
@@ -682,7 +681,7 @@ function MatchRow({ row, onClick }: { row: MatchRowData; onClick: () => void }) 
           {jobLocation ? ` · ${jobLocation}` : ""}
         </p>
       </div>
-      {score != null ? <MatchRing value={score} label={goalMode ? "Goal" : tier === "ready" ? "Match" : "Near"} color={goalMode ? GOAL_MATCH.color : undefined} /> : null}
+      {score != null ? <MatchRing value={score} label={goalMode ? "Goal" : "Match"} color={goalMode ? GOAL_MATCH.color : undefined} /> : null}
       <ChevronRight className="size-4 shrink-0 text-white/15 transition-colors group-hover:text-white/50" />
     </button>
   );

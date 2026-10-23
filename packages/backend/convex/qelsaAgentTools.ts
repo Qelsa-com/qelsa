@@ -342,7 +342,7 @@ export const getJobReadinessInternal = internalQuery({
     if (!session) {
       return {
         available: false,
-        note: "No readiness analysis exists for this job yet. Open the job's Qelsa Match on its page to run one, then ask again.",
+        note: "No readiness analysis exists for this job yet. Ask me to run Qelsa Match for it.",
         job_url_path: `/jobs/${args.jobId}`,
       };
     }
@@ -1243,7 +1243,7 @@ export const listSavedJobsTool = createTool({
 
 export const getJobReadinessTool = createTool({
   description:
-    "Get the existing Qelsa Match readiness analysis for one job: overall score, matched skills, gaps, and suggested actions. Only works when an analysis already exists for that job; if not, tell the user to open the job page and run Qelsa Match.",
+    "Get the existing Qelsa Match readiness analysis for one job: overall score, matched skills, gaps, and suggested actions. Only works when an analysis already exists for that job; if not, use run_qelsa_match to run it.",
   inputSchema: z.object({
     job_id: z.string().describe("The job_id to check readiness for."),
   }),

@@ -1,6 +1,6 @@
 import { jobSkillTypeLabel, JobSkillType, proficiencyBadgeLabel } from "@/constants/skills";
 import { Competency, CompetencyItem } from "@/types/competency";
-import { Zap } from "lucide-react";
+import { ChevronRight, Sparkles, Zap } from "lucide-react";
 
 function statusOf(item: CompetencyItem): "match" | "exceeds" | "gap" {
   const s = (item.status || "").toLowerCase();
@@ -154,11 +154,13 @@ export function CompetencyTable({
   overallMatch,
   experienceMatch,
   educationMatch,
+  onAskQelsa,
 }: {
   competency?: Competency | null;
   overallMatch?: number | null;
   experienceMatch?: number | null;
   educationMatch?: number | null;
+  onAskQelsa?: () => void;
 }) {
   if (!competency) return null;
   const { readiness, matchedCount, totalCount, competencies = [] } = competency;
@@ -223,37 +225,26 @@ export function CompetencyTable({
       )}
 
       {/* Why these levels section */}
-      <div className="space-y-3 pt-4 border-t border-glass-border">
-        <GroupHeader dotClass="bg-neon-pink" label="Why these levels? · Example explanation" />
-        <div className="rounded-2xl border border-glass-border bg-white/[0.02] p-4 sm:p-5 space-y-4">
-          <p className="text-xs sm:text-sm text-white/70 leading-relaxed">
-            Qelsa estimates skill levels from your experience, education, and certifications. This example shows where the supporting profile evidence will appear.
-          </p>
-          <div className="space-y-2">
-            <span className="text-xs font-medium text-white/40 block">Evidence sources · placeholders</span>
-            <ul className="space-y-2">
-              <li className="flex items-start gap-2.5 text-xs sm:text-sm text-white/70 leading-relaxed">
-                <span className="size-1.5 rounded-full bg-neon-cyan shrink-0 mt-1.5" />
-                <span>Work experience - relevant responsibilities and examples of using this skill.</span>
-              </li>
-              <li className="flex items-start gap-2.5 text-xs sm:text-sm text-white/70 leading-relaxed">
-                <span className="size-1.5 rounded-full bg-neon-cyan shrink-0 mt-1.5" />
-                <span>Education - relevant courses and learning outcomes from your profile.</span>
-              </li>
-              <li className="flex items-start gap-2.5 text-xs sm:text-sm text-white/70 leading-relaxed">
-                <span className="size-1.5 rounded-full bg-neon-cyan shrink-0 mt-1.5" />
-                <span>Certifications - relevant credentials and the skills they cover.</span>
-              </li>
-            </ul>
-          </div>
-          <div className="rounded-xl border border-glass-border bg-black/40 p-3.5 space-y-1">
-            <span className="text-xs font-semibold text-white/45 block">AI note</span>
-            <p className="text-xs text-white/60 leading-relaxed">
-              This is an AI estimate, not a verified assessment. Limited profile evidence does not necessarily mean low ability. Add relevant experience, education, or certifications so Qelsa can review the estimate.
-            </p>
-          </div>
+      {onAskQelsa ? (
+        <div className="border-t border-glass-border pt-4">
+          <button
+            type="button"
+            onClick={onAskQelsa}
+            className="group flex w-full items-center gap-4 rounded-2xl border border-neon-purple/30 bg-neon-purple/[0.06] p-4 text-left transition-colors hover:bg-neon-purple/[0.1] sm:p-5"
+          >
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-neon-purple/25 bg-neon-purple/20 text-neon-purple">
+              <Sparkles className="size-5" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-base font-bold text-white">Ask Qelsa why</span>
+              <span className="mt-0.5 block text-xs leading-relaxed text-white/50">
+                Explains each target level and how to reach it
+              </span>
+            </span>
+            <ChevronRight className="size-4 shrink-0 text-white/35 transition-transform group-hover:translate-x-0.5" />
+          </button>
         </div>
-      </div>
+      ) : null}
     </div>
   );
 }

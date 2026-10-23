@@ -5,6 +5,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { internalAction, internalMutation, type QueryCtx } from "./_generated/server";
 import { adminMutation, adminQuery } from "./lib/customFunctions";
 import { effectiveSubscriptionPlan, getUserPlan, isSubscriptionEntitled } from "./lib/billingEntitlements";
+import { defaultPlanConfig, getAllPlanConfigs, type PlanAudience, type PlanTier } from "./lib/planConfig";
 import { deleteJobCascade } from "./lib/deleteUserData";
 import { bumpOpenJobCount, openCountDelta } from "./lib/jobCounts";
 import {
@@ -145,6 +146,17 @@ const userDetailValidator = v.object({
       cancel_at_period_end: v.boolean(),
     }),
   ),
+});
+
+const planConfigValidator = v.object({
+  audience: v.union(v.literal("candidate"), v.literal("employer")),
+  plan: v.union(v.literal("free"), v.literal("plus"), v.literal("pro")),
+  agent_daily_limit: v.number(),
+  application_limit: v.union(v.number(), v.null()),
+  description: v.string(),
+  features: v.array(v.string()),
+  updated_at: v.union(v.number(), v.null()),
+  updated_by: v.union(v.id("users"), v.null()),
 });
 
 const cityRowValidator = v.object({
@@ -441,6 +453,100 @@ export const getUser = adminQuery({
           }
         : null,
     };
+  },
+});
+
+/**
+ * Admin-editable plan limits and benefits.
+ *
+ * Rows are upserted lazily: a missing row means "use the defaults in
+ * lib/planConfig.ts", so a fresh deployment never needs a seed migration.
+ */
+export const getPlanConfigs = adminQuery({
+  args: {},
+  returns: v.object({ configs: v.array(planConfigValidator) }),
+  handler: async (ctx) => ({ configs: await getAllPlanConfigs(ctx) }),
+});
+
+export const updatePlanConfig = adminMutation({
+  args: {
+    audience: v.union(v.literal("candidate"), v.literal("employer")),
+    plan: v.union(v.literal("free"), v.literal("plus"), v.literal("pro")),
+    agentDailyLimit: v.number(),
+    applicationLimit: v.union(v.number(), v.null()),
+    description: v.string(),
+    features: v.array(v.string()),
+    note: v.optional(v.string()),
+  },
+  returns: v.object({ ok: v.boolean() }),
+  handler: async (ctx, args) => {
+    if (!Number.isInteger(args.agentDailyLimit) || args.agentDailyLimit < 0 || args.agentDailyLimit > 100000) {
+      throw new Error("Agent daily limit must be a whole number between 0 and 100000.");
+    }
+    if (args.audience === "employer" && args.applicationLimit !== null) {
+      throw new Error("Employer plans do not use application limits.");
+    }
+    if (
+      args.applicationLimit !== null &&
+      (!Number.isInteger(args.applicationLimit) ||
+        args.applicationLimit < 0 ||
+        args.applicationLimit > 100000)
+    ) {
+      throw new Error("Application limit must be blank or a whole number between 0 and 100000.");
+    }
+
+    const description = args.description.trim();
+    if (!description) throw new Error("Add a short plan description.");
+    if (description.length > 240) throw new Error("Keep the plan description under 240 characters.");
+
+    const features = args.features.map((feature) => feature.trim()).filter(Boolean);
+    if (features.length > 12) throw new Error("Use at most 12 benefit lines.");
+    if (features.some((feature) => feature.length > 160)) {
+      throw new Error("Keep each benefit line under 160 characters.");
+    }
+
+    const existing = await ctx.db
+      .query("plan_configs")
+      .withIndex("by_audience_and_plan", (q) =>
+        q.eq("audience", args.audience as PlanAudience).eq("plan", args.plan as PlanTier),
+      )
+      .unique();
+    const before = existing ?? defaultPlanConfig(args.audience, args.plan);
+    const now = Date.now();
+    const after = {
+      audience: args.audience,
+      plan: args.plan,
+      agent_daily_limit: args.agentDailyLimit,
+      application_limit: args.audience === "employer" ? null : args.applicationLimit,
+      description,
+      features,
+      updated_at: now,
+      updated_by: ctx.user._id,
+    };
+
+    if (existing) await ctx.db.patch(existing._id, after);
+    else await ctx.db.insert("plan_configs", after);
+
+    await ctx.db.insert("admin_audit_log", {
+      admin_user_id: ctx.user._id,
+      action: "plan_config.updated",
+      before: {
+        agent_daily_limit: before.agent_daily_limit,
+        application_limit: before.application_limit,
+        description: before.description,
+        features: before.features,
+      },
+      after: {
+        agent_daily_limit: after.agent_daily_limit,
+        application_limit: after.application_limit,
+        description: after.description,
+        features: after.features,
+      },
+      note: args.note?.trim() || undefined,
+      created_at: now,
+    });
+
+    return { ok: true };
   },
 });
 

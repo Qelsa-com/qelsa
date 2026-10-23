@@ -1,5 +1,11 @@
 export type BillingInterval = "month" | "year";
 export type BillingPlanId = "plus" | "pro";
+export type PlanAudience = "candidate" | "employer";
+
+export type BillingPlanLimits = {
+  agent_daily_limit: number;
+  application_limit: number | null;
+};
 
 export type BillingPrice = {
   interval: BillingInterval;
@@ -14,6 +20,7 @@ export type BillingPlan = {
   name: string;
   description: string;
   features: string[];
+  limits: BillingPlanLimits;
   prices: Record<BillingInterval, BillingPrice>;
 };
 
@@ -34,6 +41,7 @@ export type BillingSubscription = {
 };
 
 export type MyBilling = {
+  audience: PlanAudience;
   plans: BillingPlan[];
   plan: BillingPlan;
   plan_id: BillingPlanId | null;
@@ -42,4 +50,5 @@ export type MyBilling = {
   manual_pro: boolean;
   has_customer: boolean;
   agent_daily_limit: number;
+  free: BillingPlanLimits;
 };
