@@ -9,6 +9,7 @@ import {
   LogOut,
   ScrollText,
   ShieldCheck,
+  SlidersHorizontal,
   Users,
   Waypoints,
 } from "lucide-react";
@@ -21,6 +22,7 @@ const NAV_ITEMS = [
   { href: "/users", label: "Users", icon: Users },
   { href: "/jobs", label: "Jobs", icon: Briefcase },
   { href: "/boards", label: "Job boards", icon: Waypoints },
+  { href: "/plans", label: "Plans", icon: SlidersHorizontal },
   { href: "/interview-prep", label: "Interview prep", icon: GraduationCap },
   { href: "/affiliates", label: "Affiliate courses", icon: Handshake },
   { href: "/audit", label: "Audit log", icon: ScrollText },

@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useAlert } from "@/components/ui/alert-modal";
 import { useCancelSubscriptionAction, useChangePlanAction, useCreateCheckoutAction, useGetLivePricesAction, useGetMyBillingQuery, useOpenCustomerPortalAction, type BillingInterval, type LivePlanPrices } from "@/features/api/billingApi";
 import { toastUnknownError } from "@/lib/errors";
-import { EMPLOYER_PLAN_COPY } from "@/lib/employerPlanCopy";
+import { renderPlanFeatures } from "@/lib/employerPlanCopy";
 import type { BillingSubscription, MyBilling } from "@/types/billing";
 import { CalendarDays, Check, CreditCard, Loader2, RefreshCw, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -100,8 +100,18 @@ export function BillingSettings() {
   const yearlyPrice = livePrices?.[planId]?.year ?? billing.plan.prices.year;
   const isPro = billing.is_pro;
   const isRecruiter = user?.account_type === "recruiter";
-  const planDescription = isRecruiter ? EMPLOYER_PLAN_COPY[planId].description : billing.plan.description;
-  const planFeatures = isRecruiter ? EMPLOYER_PLAN_COPY[planId].features : billing.plan.features;
+  const planDescription = billing.plan.description;
+  const planFeatures = renderPlanFeatures(billing.plan.features, billing.plan.limits);
+  const freeApplicationText =
+    billing.free.application_limit === null
+      ? "unlimited applications"
+      : `${billing.free.application_limit} active application${billing.free.application_limit === 1 ? "" : "s"}`;
+  const freePlanText = isRecruiter
+    ? `Free includes ${billing.free.agent_daily_limit} Qelsa Agent messages per day.`
+    : `Free includes ${freeApplicationText} and ${billing.free.agent_daily_limit} Qelsa Agent messages per day.`;
+  const upgradePlanText = isRecruiter
+    ? "Upgrade for more Agent time and applicant insight."
+    : "Upgrade for more applications and Agent time.";
   const isCancelledAtEnd = Boolean(subscription?.cancel_at_period_end);
 
   const startCheckout = async () => {
@@ -196,9 +206,7 @@ export function BillingSettings() {
                   ? `${billing.plan.name} · ${subscription.interval === "year" ? "Yearly" : "Monthly"} billing`
                   : isPro && billing.manual_pro
                   ? "Complimentary Qelsa Pro access."
-                  : isRecruiter
-                  ? "Free includes 5 Qelsa Agent messages per day. Upgrade for more Agent time and applicant insights."
-                  : "Free includes 1 active application and 5 Qelsa Agent messages per day. Upgrade for unlimited applications and 500 messages per day."}
+                  : `${freePlanText} ${upgradePlanText}`}
               </p>
             </div>
           </div>

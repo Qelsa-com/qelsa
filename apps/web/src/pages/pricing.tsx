@@ -12,7 +12,7 @@ import {
   type LivePlanPrices,
 } from "@/features/api/billingApi";
 import { toastUnknownError } from "@/lib/errors";
-import { EMPLOYER_PLAN_COPY, EMPLOYER_PRICING_HEADER } from "@/lib/employerPlanCopy";
+import { EMPLOYER_PRICING_HEADER, renderPlanFeatures } from "@/lib/employerPlanCopy";
 import type { BillingPlan, MyBilling } from "@/types/billing";
 import { ArrowRight, Check, Loader2, Sparkles } from "lucide-react";
 import Link from "next/link";
@@ -38,7 +38,9 @@ export default function PricingPage() {
   const router = useRouter();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const isRecruiter = isAuthenticated && user?.account_type === "recruiter";
-  const { data: plansData, isLoading: plansLoading } = useGetPlansQuery();
+  const { data: plansData, isLoading: plansLoading } = useGetPlansQuery({
+    audience: isRecruiter ? "employer" : "candidate",
+  });
   const { data: billingData } = useGetMyBillingQuery({ skip: !isAuthenticated });
   const [getLivePrices, { isLoading: pricesLoading }] = useGetLivePricesAction();
   const [createCheckout, { isLoading: isCheckingOut }] = useCreateCheckoutAction();
@@ -168,7 +170,7 @@ export default function PricingPage() {
               {plans.map((plan) => {
                 const isPro = plan.id === "pro";
                 const isCurrent = currentPlanId === plan.id;
-                const planCopy = isRecruiter ? EMPLOYER_PLAN_COPY[plan.id] : plan;
+                const planFeatures = renderPlanFeatures(plan.features, plan.limits);
                 const price = livePrices?.[plan.id]?.[interval] ?? plan.prices[interval];
                 const currentIntervalPrice =
                   livePrices?.[plan.id]?.[currentInterval ?? "month"] ?? plan.prices[currentInterval ?? "month"];
@@ -225,7 +227,7 @@ export default function PricingPage() {
                       </div>
 
                       <h2 className="mt-3 text-2xl font-bold">{plan.name}</h2>
-                      <p className="mt-2 text-sm leading-relaxed text-white/55">{planCopy.description}</p>
+                      <p className="mt-2 text-sm leading-relaxed text-white/55">{plan.description}</p>
 
                       <div className="mt-8 flex items-end gap-1.5">
                         <span className="text-4xl font-extrabold">{formatPrice(price?.amount ?? 0, price?.currency ?? "USD")}</span>
@@ -243,7 +245,7 @@ export default function PricingPage() {
                       ) : null}
 
                       <ul className="mt-8 space-y-3">
-                        {planCopy.features.map((feature) => (
+                        {planFeatures.map((feature) => (
                           <li key={feature} className="flex items-start gap-2.5 text-sm text-white/75">
                             <span className={`mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full ${isPro ? "bg-neon-cyan/15 text-neon-cyan" : "bg-white/[0.06] text-white/50"}`}>
                               <Check className="size-3" />

@@ -5,14 +5,20 @@ import { api } from "@/lib/convexApi";
 import { useAction } from "convex/react";
 import { useState } from "react";
 
+import type { PlanAudience } from "@/types/billing";
+
 export type BillingInterval = "month" | "year";
 export type BillingPlanId = "plus" | "pro";
 
 type LivePlanPrice = { month: { amount: number; currency: string; available: boolean }; year: { amount: number; currency: string; available: boolean } };
 export type LivePlanPrices = Record<BillingPlanId, LivePlanPrice>;
 
-export function useGetPlansQuery(options?: { skip?: boolean }) {
-  return useConvexQueryHook(api.billing.getPlans, {}, options);
+export function useGetPlansQuery(options?: { audience?: PlanAudience; skip?: boolean }) {
+  return useConvexQueryHook(
+    api.billing.getPlans,
+    { audience: options?.audience ?? "candidate" },
+    { skip: options?.skip },
+  );
 }
 
 export function useGetMyBillingQuery(options?: { skip?: boolean }) {

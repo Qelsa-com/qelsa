@@ -11,15 +11,13 @@ import {
   isSubscriptionEntitled as isEntitled,
 } from "./lib/billingEntitlements";
 import {
-  FREE_AGENT_DAILY_LIMIT,
-  agentDailyLimitForPlan,
   planForProductId,
   productForPlan,
-  publicBillingPlan,
   publicBillingPlans,
   type BillingInterval,
   type BillingPlanId,
 } from "./billingPlans";
+import { audienceForUser, getPlanConfig, publicPlansForAudience } from "./lib/planConfig";
 import { checkout, customerPortal } from "./dodo";
 
 type SubscriptionStatus = "pending" | "active" | "on_hold" | "paused" | "cancelled" | "failed" | "expired";
@@ -91,15 +89,26 @@ function asBillingSubscription(row: Doc<"billing_subscriptions">) {
 
 /** Public pricing data. Product IDs stay server-side. */
 export const getPlans = query({
-  args: {},
+  args: {
+    audience: v.optional(v.union(v.literal("candidate"), v.literal("employer"))),
+  },
   returns: v.any(),
-  handler: async () => ({
-    plans: publicBillingPlans(),
-    free: {
-      name: "Free",
-      agent_daily_limit: FREE_AGENT_DAILY_LIMIT,
-    },
-  }),
+  handler: async (ctx, args) => {
+    const audience = args.audience ?? "candidate";
+    const [plans, free] = await Promise.all([
+      publicPlansForAudience(ctx, audience),
+      getPlanConfig(ctx, audience, "free"),
+    ]);
+    return {
+      audience,
+      plans,
+      free: {
+        name: "Free",
+        agent_daily_limit: free.agent_daily_limit,
+        application_limit: free.application_limit,
+      },
+    };
+  },
 });
 
 /** Current billing state and the customer's available actions. */
@@ -111,17 +120,28 @@ export const getMyBilling = authedQuery({
     const customer = await billingCustomerForUser(ctx, ctx.user._id);
     const manualPro = await hasManualProGrant(ctx, ctx.user._id);
     const planId = await getUserPlan(ctx, ctx.user._id);
-    const activePlan = publicBillingPlan(planId ?? "pro");
+    const audience = audienceForUser(ctx.user);
+    const [plans, free, currentConfig] = await Promise.all([
+      publicPlansForAudience(ctx, audience),
+      getPlanConfig(ctx, audience, "free"),
+      getPlanConfig(ctx, audience, planId ?? "free"),
+    ]);
+    const activePlan = plans.find((plan) => plan.id === (planId ?? "pro")) ?? plans[plans.length - 1];
 
     return {
-      plans: publicBillingPlans(),
+      audience,
+      plans,
       plan: activePlan,
       plan_id: planId,
       subscription: subscription ? asBillingSubscription(subscription) : null,
       is_pro: Boolean(planId),
       manual_pro: manualPro,
       has_customer: Boolean(customer),
-      agent_daily_limit: agentDailyLimitForPlan(planId),
+      agent_daily_limit: currentConfig.agent_daily_limit,
+      free: {
+        agent_daily_limit: free.agent_daily_limit,
+        application_limit: free.application_limit,
+      },
     };
   },
 });

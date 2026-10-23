@@ -3,6 +3,20 @@
 import { api } from "@/lib/convexApi";
 import { useConvexMutationHook, useConvexQueryHook } from "@/lib/convexHooks";
 
+export type AdminPlanAudience = "candidate" | "employer";
+export type AdminPlanTier = "free" | "plus" | "pro";
+
+export type AdminPlanConfig = {
+  audience: AdminPlanAudience;
+  plan: AdminPlanTier;
+  agent_daily_limit: number;
+  application_limit: number | null;
+  description: string;
+  features: string[];
+  updated_at: number | null;
+  updated_by: string | null;
+};
+
 export type AdminUserSummary = {
   id: string;
   name: string | null;
@@ -280,6 +294,24 @@ export function useRebuildStatsMutation() {
 
 export function useListPublicBoardsQuery() {
   return useConvexQueryHook(api.atsIntegrations.listPublicBoards, {}, { skip: false });
+}
+
+export function useGetPlanConfigsQuery() {
+  return useConvexQueryHook(api.admin.getPlanConfigs, {}, { skip: false });
+}
+
+export function useUpdatePlanConfigMutation() {
+  return useConvexMutationHook(
+    api.admin.updatePlanConfig,
+    (input: {
+      audience: AdminPlanAudience;
+      plan: AdminPlanTier;
+      agentDailyLimit: number;
+      applicationLimit: number | null;
+      description: string;
+      features: string[];
+    }) => input,
+  );
 }
 
 export function useAddPublicBoardMutation() {

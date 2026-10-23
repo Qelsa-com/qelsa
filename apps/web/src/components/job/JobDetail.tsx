@@ -386,6 +386,10 @@ export function JobDetail() {
       return;
     }
     if (applicationLimitReached) {
+      if (applicationUsage?.plan_id === "pro") {
+        toast.error("You've reached your plan's active application limit.");
+        return;
+      }
       setUpgradeReason("applications");
       return;
     }

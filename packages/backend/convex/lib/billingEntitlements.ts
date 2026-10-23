@@ -1,12 +1,7 @@
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
-import {
-  FREE_AGENT_DAILY_LIMIT,
-  FREE_APPLICATION_LIMIT,
-  agentDailyLimitForPlan,
-  planForProductId,
-  type BillingPlanId,
-} from "../billingPlans";
+import { planForProductId, type BillingPlanId } from "../billingPlans";
+import { audienceForUser, getPlanConfig } from "./planConfig";
 
 type ReadCtx = QueryCtx | MutationCtx;
 
@@ -56,16 +51,18 @@ export async function getUserPlan(ctx: ReadCtx, userId: Id<"users">): Promise<Bi
   return active ? effectiveSubscriptionPlan(active) : null;
 }
 
-export async function getAgentDailyLimit(ctx: ReadCtx, userId: Id<"users">) {
-  return agentDailyLimitForPlan(await getUserPlan(ctx, userId));
+export async function getAgentDailyLimit(ctx: ReadCtx, user: Doc<"users">) {
+  const plan = await getUserPlan(ctx, user._id);
+  const config = await getPlanConfig(ctx, audienceForUser(user), plan ?? "free");
+  return config.agent_daily_limit;
 }
 
-/** Statuses that still use one of the free plan's application slots. */
+/** Statuses that still use an active application slot. */
 const ACTIVE_APPLICATION_STATUSES = ["applied", "viewed", "shortlisted", "sorted", "hold"] as const;
 
 /**
- * Count only as far as the caller needs. Free users stop at one application,
- * so this is five tiny indexed reads in the worst case — never a table scan.
+ * Count only as far as the caller needs. The configured cap bounds this to a
+ * handful of indexed reads, never a table scan.
  */
 async function countActiveApplications(ctx: ReadCtx, userId: Id<"users">, cap: number) {
   let used = 0;
@@ -94,26 +91,39 @@ export async function getApplicationUsage(
   userId: Id<"users">,
 ): Promise<ApplicationUsage> {
   const plan = await getUserPlan(ctx, userId);
-  if (plan) {
-    return { is_pro: plan === "pro", plan_id: plan, used: 0, limit: null, remaining: null, can_apply: true };
+  const config = await getPlanConfig(ctx, "candidate", plan ?? "free");
+  const limit = config.application_limit;
+  const isPro = plan === "pro";
+
+  if (limit === null) {
+    return { is_pro: isPro, plan_id: plan, used: 0, limit: null, remaining: null, can_apply: true };
   }
 
-  const used = await countActiveApplications(ctx, userId, FREE_APPLICATION_LIMIT + 1);
+  const used = await countActiveApplications(ctx, userId, limit + 1);
   return {
-    is_pro: false,
-    plan_id: null,
+    is_pro: isPro,
+    plan_id: plan,
     used,
-    limit: FREE_APPLICATION_LIMIT,
-    remaining: Math.max(0, FREE_APPLICATION_LIMIT - used),
-    can_apply: used < FREE_APPLICATION_LIMIT,
+    limit,
+    remaining: Math.max(0, limit - used),
+    can_apply: used < limit,
   };
 }
 
 export async function assertCanApply(ctx: ReadCtx, userId: Id<"users">) {
   const usage = await getApplicationUsage(ctx, userId);
   if (!usage.can_apply) {
-    throw new Error(
-      "Your free plan includes 1 application. Upgrade to Qelsa Plus or Pro to apply to more roles.",
-    );
+    const planLabel =
+      usage.plan_id === "plus"
+        ? "Qelsa Plus"
+        : usage.plan_id === "pro"
+        ? "Qelsa Pro"
+        : "Your free plan";
+    const applicationLabel = `${usage.limit} active application${usage.limit === 1 ? "" : "s"}`;
+    const nextStep =
+      usage.plan_id === "pro"
+        ? "Contact support if you need a higher limit."
+        : "Upgrade to apply to more roles.";
+    throw new Error(`${planLabel} includes ${applicationLabel}. ${nextStep}`);
   }
 }

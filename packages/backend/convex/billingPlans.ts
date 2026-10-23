@@ -22,11 +22,17 @@ export type BillingPrice = {
   available: boolean;
 };
 
+export type BillingPlanLimits = {
+  agent_daily_limit: number;
+  application_limit: number | null;
+};
+
 export type PublicBillingPlan = {
   id: BillingPlanId;
   name: string;
   description: string;
   features: string[];
+  limits: BillingPlanLimits;
   prices: Record<BillingInterval, BillingPrice>;
 };
 
@@ -56,11 +62,15 @@ export const BILLING_PLANS: Record<BillingPlanId, PublicBillingPlan> = {
     name: "Qelsa Plus",
     description: "More applications and Agent time at a lighter price.",
     features: [
-      "Unlimited job applications",
+      "{{application_benefit}}",
       "Readiness reports",
-      "100 Qelsa Agent messages per day",
+      "{{agent_benefit}}",
       "Skill-gap analysis",
     ],
+    limits: {
+      agent_daily_limit: PLUS_AGENT_DAILY_LIMIT,
+      application_limit: null,
+    },
     prices: {
       month: priceFor(
         "month",
@@ -79,13 +89,17 @@ export const BILLING_PLANS: Record<BillingPlanId, PublicBillingPlan> = {
     name: "Qelsa Pro",
     description: "Go deeper on readiness, interviews, and the roles worth your time.",
     features: [
-      "Unlimited job applications",
+      "{{application_benefit}}",
       "Advanced readiness reports",
       "Mock interview practice",
       "Advanced skill-gap analysis",
-      "500 Qelsa Agent messages per day",
+      "{{agent_benefit}}",
       "Priority job matching",
     ],
+    limits: {
+      agent_daily_limit: PRO_AGENT_DAILY_LIMIT,
+      application_limit: null,
+    },
     prices: {
       month: priceFor(
         "month",
@@ -103,12 +117,6 @@ export const BILLING_PLANS: Record<BillingPlanId, PublicBillingPlan> = {
 
 /** Stock display order for pricing surfaces. */
 export const BILLING_PLAN_ORDER: BillingPlanId[] = ["plus", "pro"];
-
-export function agentDailyLimitForPlan(plan: BillingPlanId | null | undefined) {
-  if (plan === "plus") return PLUS_AGENT_DAILY_LIMIT;
-  if (plan === "pro") return PRO_AGENT_DAILY_LIMIT;
-  return FREE_AGENT_DAILY_LIMIT;
-}
 
 export function productForPlan(plan: BillingPlanId, interval: BillingInterval): BillingPrice {
   return BILLING_PLANS[plan].prices[interval];
