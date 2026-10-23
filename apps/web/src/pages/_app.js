@@ -14,7 +14,7 @@ export default function App({ Component, pageProps }) {
   return (
     <ConvexClientProvider>
       <Head>
-        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />
       </Head>
       <AuthProvider>
         <AlertProvider>

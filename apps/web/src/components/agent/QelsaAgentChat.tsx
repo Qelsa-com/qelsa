@@ -19,7 +19,7 @@ import { useUIMessages } from "@convex-dev/agent/react";
 import { useMutation, useQuery } from "convex/react";
 import { ArrowUp, Bell, Check, Loader2, MessageSquarePlus, PanelLeft, PanelRight, Plus, RotateCcw, Search, Sparkles, Trash2, WifiOff, X } from "lucide-react";
 import { useRouter } from "next/router";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { toast } from "sonner";
 import { AgentArtifactPanel } from "./AgentArtifactPanel";
 import { documentArtifact, type AgentArtifact } from "./agentArtifacts";
@@ -48,6 +48,26 @@ function relativeStamp(timestamp: number) {
   const days = Math.floor(seconds / 86_400);
   if (days < 7) return `${days}d ago`;
   return new Date(timestamp).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+/** Track the visible viewport so iOS keyboard insets don't leave a tall blank area. */
+function useVisualViewportHeight() {
+  const [height, setHeight] = useState<number | null>(null);
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    if (!viewport) return;
+    const update = () => setHeight(Math.round(viewport.height));
+    update();
+    viewport.addEventListener("resize", update);
+    viewport.addEventListener("scroll", update);
+    window.addEventListener("orientationchange", update);
+    return () => {
+      viewport.removeEventListener("resize", update);
+      viewport.removeEventListener("scroll", update);
+      window.removeEventListener("orientationchange", update);
+    };
+  }, []);
+  return height;
 }
 
 function threadFromQuery(value: string | string[] | undefined): string | null {
@@ -313,6 +333,7 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
   const router = useRouter();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const isRecruiter = user?.account_type === "recruiter";
+  const visualViewportHeight = useVisualViewportHeight();
 
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [mobileRailOpen, setMobileRailOpen] = useState(false);
@@ -323,6 +344,25 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
   const [resolvingApprovalId, setResolvingApprovalId] = useState<string | null>(null);
   const [activeArtifact, setActiveArtifact] = useState<AgentArtifact | null>(null);
   const [upgradeReason, setUpgradeReason] = useState<UpgradeReason | null>(null);
+
+  // The Agent is an app-like screen: only the transcript scrolls. Locking the
+  // document also stops iOS Safari from panning the whole page behind the
+  // keyboard when the composer is focused.
+  useEffect(() => {
+    const body = document.body;
+    const html = document.documentElement;
+    const previousBodyOverflow = body.style.overflow;
+    const previousHtmlOverflow = html.style.overflow;
+    const previousBodyOverscroll = body.style.overscrollBehavior;
+    body.style.overflow = "hidden";
+    html.style.overflow = "hidden";
+    body.style.overscrollBehavior = "none";
+    return () => {
+      body.style.overflow = previousBodyOverflow;
+      html.style.overflow = previousHtmlOverflow;
+      body.style.overscrollBehavior = previousBodyOverscroll;
+    };
+  }, []);
 
   const conversationQuery = useQuery(api.qelsaAgent.listConversations, isAuthenticated ? {} : "skip");
   const conversations = useMemo(() => (conversationQuery ?? []) as Conversation[], [conversationQuery]);
@@ -649,6 +689,12 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
     snapToBottomNext.current = true;
     stickToBottom.current = true;
   }, [activeThreadId]);
+
+  // Keyboard opening changes the visual viewport without changing the message
+  // list. Stay pinned to the latest turn when the composer area resizes.
+  useEffect(() => {
+    if (visualViewportHeight !== null && stickToBottom.current) snapToBottom();
+  }, [visualViewportHeight, snapToBottom]);
 
   useEffect(() => {
     if (stickToBottom.current) followBottom();
@@ -1024,7 +1070,10 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
   }
 
   return (
-    <div className="flex h-[calc(100dvh-61px)] w-full overflow-hidden border-t border-white/[0.08] lg:h-[calc(100dvh-59px)]">
+    <div
+      style={visualViewportHeight ? ({ "--agent-vvh": `${visualViewportHeight}px` } as CSSProperties) : undefined}
+      className="flex h-[calc(var(--agent-vvh,100dvh)_-_61px)] w-full overflow-hidden border-t border-white/[0.08] lg:h-[calc(100dvh-59px)]"
+    >
       <aside className="hidden w-72 shrink-0 flex-col border-r border-white/[0.08] bg-[#080812]/80 lg:flex">{renderRail()}</aside>
 
       {mobileRailOpen && (
@@ -1213,7 +1262,7 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
           </div>
         </div>
 
-        <div className="shrink-0 border-t border-white/[0.08] bg-[#06060f]/85 px-3 py-3 backdrop-blur-xl sm:px-6">
+        <div className="shrink-0 border-t border-white/[0.08] bg-[#06060f]/85 px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-xl sm:px-6">
           <div className="mx-auto w-full max-w-3xl">
             {quotaExhausted && (
               <div className="mb-2 flex flex-col items-center justify-between gap-2 rounded-xl border border-amber-400/20 bg-amber-400/[0.07] px-3 py-2 text-center sm:flex-row sm:text-left">
@@ -1251,6 +1300,7 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
                 value={input}
                 disabled={!configured || threadResolving}
                 onChange={(event) => setInput(event.target.value)}
+                onFocus={snapToBottom}
                 onKeyDown={(event) => {
                   if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
                     event.preventDefault();
