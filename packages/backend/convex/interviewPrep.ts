@@ -45,6 +45,9 @@ export const listPublished = query({
 export const getBySlug = query({  args: { slug: v.string() },
   returns: v.any(),
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return null;
+
     const track = await ctx.db
       .query("interview_prep_tracks")
       .withIndex("by_slug", (q) => q.eq("slug", args.slug))

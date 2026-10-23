@@ -1,8 +1,10 @@
 "use client";
 
 import { useAuth } from "@/contexts/AuthContext";
-import { useCancelSubscriptionAction, useChangePlanAction, useCreateCheckoutAction, useGetLivePricesAction, useGetMyBillingQuery, useOpenCustomerPortalAction, type BillingInterval } from "@/features/api/billingApi";
+import { useAlert } from "@/components/ui/alert-modal";
+import { useCancelSubscriptionAction, useChangePlanAction, useCreateCheckoutAction, useGetLivePricesAction, useGetMyBillingQuery, useOpenCustomerPortalAction, type BillingInterval, type LivePlanPrices } from "@/features/api/billingApi";
 import { toastUnknownError } from "@/lib/errors";
+import { EMPLOYER_PLAN_COPY } from "@/lib/employerPlanCopy";
 import type { BillingSubscription, MyBilling } from "@/types/billing";
 import { CalendarDays, Check, CreditCard, Loader2, RefreshCw, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -51,14 +53,12 @@ function statusLabel(subscription: BillingSubscription) {
 
 export function BillingSettings() {
   const { user } = useAuth();
+  const alert = useAlert();
   const { data, isLoading } = useGetMyBillingQuery({ skip: !user });
   const billing = data as MyBilling | undefined;
   const [interval, setInterval] = useState<BillingInterval>("month");
   const [getLivePrices] = useGetLivePricesAction();
-  const [livePrices, setLivePrices] = useState<{
-    month: { amount: number; currency: string; available: boolean };
-    year: { amount: number; currency: string; available: boolean };
-  } | null>(null);
+  const [livePrices, setLivePrices] = useState<LivePlanPrices | null>(null);
   const [createCheckout, { isLoading: isCheckingOut }] = useCreateCheckoutAction();
   const [changePlan, { isLoading: isChanging }] = useChangePlanAction();
   const [setCancel, { isLoading: isCancelling }] = useCancelSubscriptionAction();
@@ -95,14 +95,23 @@ export function BillingSettings() {
   if (!billing) return null;
 
   const subscription = billing.subscription;
-  const price = livePrices?.[interval] ?? billing.plan.prices[interval];
-  const yearlyPrice = livePrices?.year ?? billing.plan.prices.year;
+  const planId = billing.plan_id ?? "pro";
+  const price = livePrices?.[planId]?.[interval] ?? billing.plan.prices[interval];
+  const yearlyPrice = livePrices?.[planId]?.year ?? billing.plan.prices.year;
   const isPro = billing.is_pro;
+  const isRecruiter = user?.account_type === "recruiter";
+  const planDescription = isRecruiter ? EMPLOYER_PLAN_COPY[planId].description : billing.plan.description;
+  const planFeatures = isRecruiter ? EMPLOYER_PLAN_COPY[planId].features : billing.plan.features;
   const isCancelledAtEnd = Boolean(subscription?.cancel_at_period_end);
 
   const startCheckout = async () => {
     try {
-      const result = await createCheckout({ interval, returnUrl: "/settings?billing=success" }).unwrap();
+      const result = await createCheckout({
+        plan: planId,
+        interval,
+        returnUrl: "/settings?billing=success",
+        cancelUrl: "/settings",
+      }).unwrap();
       window.location.href = result.checkout_url;
     } catch (error) {
       toastUnknownError(error, "We're working on it. ");
@@ -114,13 +123,19 @@ export function BillingSettings() {
       setInterval(next);
       return;
     }
-    if (!window.confirm(`Switch billing to ${next === "year" ? "yearly" : "monthly"}? Dodo may apply a prorated charge or credit.`)) {
-      return;
-    }
+    const currentLabel = subscription.interval === "year" ? "yearly" : "monthly";
+    const nextLabel = next === "year" ? "yearly" : "monthly";
+    const confirmed = await alert({
+      title: `Switch to ${nextLabel} billing?`,
+      description: "Dodo may apply a prorated charge or credit when the interval changes.",
+      confirmText: `Switch to ${nextLabel}`,
+      cancelText: `Keep ${currentLabel}`,
+    });
+    if (!confirmed) return;
     try {
-      await changePlan({ interval: next }).unwrap();
+      await changePlan({ plan: subscription.plan, interval: next }).unwrap();
       setInterval(next);
-      toast.success(`Billing switched to ${next === "year" ? "yearly" : "monthly"}.`);
+      toast.success(`Billing switched to ${nextLabel}.`);
     } catch (error) {
       toastUnknownError(error, "Could not change your billing interval. Please try again.");
     }
@@ -129,9 +144,16 @@ export function BillingSettings() {
   const toggleCancellation = async () => {
     if (!subscription) return;
     const cancelling = !subscription.cancel_at_period_end;
-    if (!window.confirm(cancelling ? "Cancel your subscription at the end of the current billing period? You can resume before it ends." : "Resume your subscription? You will be billed again on the next renewal date.")) {
-      return;
-    }
+    const confirmed = await alert({
+      title: cancelling ? "Cancel subscription?" : "Resume subscription?",
+      description: cancelling
+        ? "You will keep access until the end of the current billing period. You can resume before it ends."
+        : "You will be billed again on the next renewal date.",
+      confirmText: cancelling ? "Cancel at period end" : "Resume subscription",
+      cancelText: cancelling ? "Keep subscription" : "Not now",
+      tone: cancelling ? "danger" : "default",
+    });
+    if (!confirmed) return;
     try {
       await setCancel({ cancel: cancelling }).unwrap();
       toast.success(cancelling ? "Subscription scheduled to cancel at period end." : "Subscription resumed.");
@@ -163,7 +185,7 @@ export function BillingSettings() {
                 {isPro ? (
                   <span className="inline-flex items-center gap-1 rounded-full border border-emerald-400/25 bg-emerald-400/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-300">
                     <Sparkles className="size-3" />
-                    Pro
+                    {billing.plan_id === "plus" ? "Plus" : "Pro"}
                   </span>
                 ) : (
                   <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white/40">Free</span>
@@ -174,6 +196,8 @@ export function BillingSettings() {
                   ? `${billing.plan.name} · ${subscription.interval === "year" ? "Yearly" : "Monthly"} billing`
                   : isPro && billing.manual_pro
                   ? "Complimentary Qelsa Pro access."
+                  : isRecruiter
+                  ? "Free includes 5 Qelsa Agent messages per day. Upgrade for more Agent time and applicant insights."
                   : "Free includes 1 active application and 5 Qelsa Agent messages per day. Upgrade for unlimited applications and 500 messages per day."}
               </p>
             </div>
@@ -212,6 +236,19 @@ export function BillingSettings() {
         {isPro && subscription ? (
           <div className="space-y-5">
             <div>
+              <p className="text-sm font-semibold text-white">{billing.plan.name}</p>
+              <p className="mt-1 text-xs leading-relaxed text-white/45">{planDescription}</p>
+              <ul className="mt-3 grid gap-2 text-xs text-white/60 sm:grid-cols-2">
+                {planFeatures.map((feature) => (
+                  <li key={feature} className="flex items-start gap-2">
+                    <Check className="mt-0.5 size-3.5 shrink-0 text-neon-cyan" />
+                    {feature}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div>
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-white/40">Billing interval</p>
               <div className="mt-2 inline-flex rounded-full border border-white/10 bg-white/[0.03] p-1">
                 {(["month", "year"] as const).map((option) => {
@@ -248,7 +285,7 @@ export function BillingSettings() {
                 {isCancelling ? <Loader2 className="size-3.5 animate-spin" /> : <RefreshCw className="size-3.5" />}
                 {isCancelledAtEnd ? "Resume subscription" : "Cancel subscription"}
               </button>
-              {isCancelledAtEnd ? <span className="self-center text-xs text-white/35">You keep Pro access until the end of this period.</span> : null}
+              {isCancelledAtEnd ? <span className="self-center text-xs text-white/35">You keep {billing.plan.name} access until the end of this period.</span> : null}
             </div>
           </div>
         ) : isPro && billing.manual_pro ? (
@@ -263,7 +300,7 @@ export function BillingSettings() {
             <div className="flex flex-wrap items-end justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold text-white">{billing.plan.name}</p>
-                <p className="mt-1 max-w-xl text-xs leading-relaxed text-white/45">{billing.plan.description}</p>
+                <p className="mt-1 max-w-xl text-xs leading-relaxed text-white/45">{planDescription}</p>
               </div>
               <p className="text-2xl font-extrabold text-white">
                 {formatAmount(price.amount, price.currency)}
@@ -286,7 +323,7 @@ export function BillingSettings() {
             </div>
 
             <ul className="grid gap-2 text-xs text-white/60 sm:grid-cols-2">
-              {billing.plan.features.map((feature) => (
+              {planFeatures.map((feature) => (
                 <li key={feature} className="flex items-start gap-2">
                   <Check className="mt-0.5 size-3.5 shrink-0 text-neon-cyan" />
                   {feature}

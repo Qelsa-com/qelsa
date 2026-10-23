@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useAlert } from "@/components/ui/alert-modal";
 import {
   useAddPublicBoardMutation,
   useGetSyncControlQuery,
@@ -67,6 +68,7 @@ function boardFooter(board: AtsPublicBoard) {
 }
 
 export default function BoardsPage() {
+  const alert = useAlert();
   const { data, isLoading } = useListPublicBoardsQuery();
   const { data: syncControl } = useGetSyncControlQuery();
   const [setSyncEnabled, { isLoading: isTogglingSync }] = useSetSyncEnabledMutation();
@@ -157,13 +159,15 @@ export default function BoardsPage() {
   };
 
   const handleRemove = async (board: AtsPublicBoard) => {
-    if (
-      !window.confirm(
-        `Remove the ${publicBoardProviderById(board.provider).name} board “${board.subdomain ?? board.id}”? Its live listings will be closed.`,
-      )
-    ) {
-      return;
-    }
+    const providerName = publicBoardProviderById(board.provider).name;
+    const confirmed = await alert({
+      title: "Remove this board?",
+      description: `Remove the ${providerName} board “${board.subdomain ?? board.id}”? Its live listings will be closed.`,
+      confirmText: "Remove board",
+      cancelText: "Keep board",
+      tone: "danger",
+    });
+    if (!confirmed) return;
     setRemovingId(board.id);
     try {
       await removeBoard(board.id).unwrap();

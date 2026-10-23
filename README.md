@@ -105,13 +105,14 @@ verification or an admin approval step for new employer domains.
 
 ## Billing and subscriptions
 
-Qelsa Pro is billed through Dodo Payments using the official
+Qelsa Plus and Qelsa Pro are billed through Dodo Payments using the official
 `@dodopayments/convex` component. The app stores its own read model for
 subscription state and entitlements; Dodo webhooks are authoritative.
 
 The pricing page is `/pricing`, and subscription management is in `/settings`
-(Billing). Users can choose monthly or yearly billing, switch interval, cancel
-at period end, resume a subscription, and open the Dodo customer portal.
+(Billing). Users can choose a plan and monthly or yearly billing, switch plans
+or intervals, cancel at period end, resume a subscription, and open the Dodo
+customer portal.
 
 Set these on the Convex deployment:
 
@@ -121,6 +122,8 @@ npx convex env set DODO_PAYMENTS_ENVIRONMENT test_mode
 npx convex env set DODO_PAYMENTS_WEBHOOK_SECRET <webhook-secret>
 npx convex env set DODO_PRODUCT_PRO_MONTHLY <monthly-product-id>
 npx convex env set DODO_PRODUCT_PRO_YEARLY <yearly-product-id>
+npx convex env set DODO_PRODUCT_PLUS_MONTHLY <plus-monthly-product-id>
+npx convex env set DODO_PRODUCT_PLUS_YEARLY <plus-yearly-product-id>
 ```
 
 Optional display metadata; keep it aligned with the Dodo products:
@@ -128,6 +131,8 @@ Optional display metadata; keep it aligned with the Dodo products:
 ```bash
 npx convex env set DODO_PRO_MONTHLY_PRICE 499
 npx convex env set DODO_PRO_YEARLY_PRICE 4999
+npx convex env set DODO_PLUS_MONTHLY_PRICE 199
+npx convex env set DODO_PLUS_YEARLY_PRICE 1999
 npx convex env set DODO_PRICE_CURRENCY INR
 ```
 

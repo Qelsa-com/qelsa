@@ -28,8 +28,8 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { internalAction, internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { AI_AGENT_MODEL, createAgentChatModel, openRouter } from "./lib/ai";
-import { getAgentDailyLimit, isProSubscriber } from "./lib/billingEntitlements";
-import { FREE_AGENT_DAILY_LIMIT, PRO_AGENT_DAILY_LIMIT } from "./billingPlans";
+import { getAgentDailyLimit, getUserPlan } from "./lib/billingEntitlements";
+import { FREE_AGENT_DAILY_LIMIT, agentDailyLimitForPlan } from "./billingPlans";
 import { qelsaAgentTools } from "./qelsaAgentTools";
 import { qelsaRecruiterTools } from "./qelsaRecruiterTools";
 
@@ -474,23 +474,50 @@ export const agentUsage = query({
     limit: v.number(),
     remaining: v.number(),
     is_pro: v.boolean(),
+    plan_id: v.union(v.literal("free"), v.literal("plus"), v.literal("pro")),
+    can_upgrade: v.boolean(),
   }),
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity) return { used: 0, limit: DAILY_PROMPT_LIMIT, remaining: DAILY_PROMPT_LIMIT, is_pro: false };
+    if (!identity) {
+      return {
+        used: 0,
+        limit: DAILY_PROMPT_LIMIT,
+        remaining: DAILY_PROMPT_LIMIT,
+        is_pro: false,
+        plan_id: "free" as const,
+        can_upgrade: true,
+      };
+    }
     const user = await ctx.db
       .query("users")
       .withIndex("by_authId", (q) => q.eq("authId", identity.subject))
       .unique();
-    if (!user) return { used: 0, limit: DAILY_PROMPT_LIMIT, remaining: DAILY_PROMPT_LIMIT, is_pro: false };
-    const isPro = await isProSubscriber(ctx, user._id);
-    const limit = isPro ? PRO_AGENT_DAILY_LIMIT : DAILY_PROMPT_LIMIT;
+    if (!user) {
+      return {
+        used: 0,
+        limit: DAILY_PROMPT_LIMIT,
+        remaining: DAILY_PROMPT_LIMIT,
+        is_pro: false,
+        plan_id: "free" as const,
+        can_upgrade: true,
+      };
+    }
+    const plan = await getUserPlan(ctx, user._id);
+    const limit = agentDailyLimitForPlan(plan);
     const usage = await ctx.db
       .query("qelsa_agent_usage")
       .withIndex("by_user_and_day", (q) => q.eq("user_id", user._id).eq("day", dayKey()))
       .unique();
     const used = usage?.count ?? 0;
-    return { used, limit, remaining: Math.max(0, limit - used), is_pro: isPro };
+    return {
+      used,
+      limit,
+      remaining: Math.max(0, limit - used),
+      is_pro: plan === "pro",
+      plan_id: plan ?? ("free" as const),
+      can_upgrade: plan !== "pro",
+    };
   },
 });
 

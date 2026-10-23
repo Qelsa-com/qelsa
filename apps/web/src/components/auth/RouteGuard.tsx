@@ -28,7 +28,6 @@ const PUBLIC_ROUTES = [
 const ONBOARDING_EXEMPT = new Set(["/onboarding", "/auth", "/employer/auth", "/privacy", "/terms", "/cookies"]);
 const JOB_STATIC = new Set(["all", "posted", "smart-matches", "create-job", "match", "ready", "almost", "smart_matches"]);
 const PUBLIC_JOB = /^\/jobs\/([^/]+)$/;
-const PUBLIC_COURSE = /^\/courses(\/.*)?$/;
 const PUBLIC_PAGE = /^\/pages\/([^/]+)$/;
 const PUBLIC_PROFILE = /^\/profile\/([^/]+)$/;
 const RESERVED_PROFILE_HANDLES = ["edit", "certifications", "educations", "skills", "work-experience"];
@@ -59,7 +58,6 @@ function isCandidateOnlyPath(path: string) {
 
 const isPublicPath = (path: string) => {
   if (PUBLIC_ROUTES.includes(path)) return true;
-  if (PUBLIC_COURSE.test(path)) return true;
 
   const jobId = PUBLIC_JOB.exec(path)?.[1];
   if (jobId && !JOB_STATIC.has(jobId) && jobId !== "my-jobs") return true;
@@ -95,6 +93,10 @@ export default function RouteGuard({ children }: { children: ReactNode }) {
     const isPublic = isPublicPath(path) || router.pathname === "/404";
 
     if (!session && !isPublic) {
+      if (path.startsWith("/courses/")) {
+        router.replace(`/auth?returnUrl=${encodeURIComponent(router.asPath)}`);
+        return;
+      }
       router.replace("/");
       return;
     }

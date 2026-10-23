@@ -147,6 +147,27 @@ export default function AuthPage() {
     transition: { duration: 0.25 },
   };
 
+  const handleBack = useCallback(() => {
+    // Back should return to the previous page, not the post-login destination.
+    // Pushing `returnUrl` here would bounce a signed-out user back into the
+    // protected page, which immediately redirects to /auth again.
+    const sameOriginReferrer =
+      typeof window !== "undefined" && document.referrer.startsWith(window.location.origin);
+    if (sameOriginReferrer) {
+      router.back();
+      return;
+    }
+    if (returnUrl?.startsWith("/courses")) {
+      router.push("/courses");
+      return;
+    }
+    if (returnUrl?.startsWith("/jobs/")) {
+      router.push("/jobs/all");
+      return;
+    }
+    router.push(typeof window !== "undefined" && sessionStorage.getItem("qelsa.resumeDraft") ? "/start" : "/candidates");
+  }, [returnUrl, router]);
+
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-4 py-10" style={{ background: "var(--background)" }}>
       {/* Ambient glow */}
@@ -156,13 +177,7 @@ export default function AuthPage() {
 
       <button
         type="button"
-        onClick={() => {
-          if (returnUrl) {
-            router.push(returnUrl);
-            return;
-          }
-          router.push(typeof window !== "undefined" && sessionStorage.getItem("qelsa.resumeDraft") ? "/start" : "/candidates");
-        }}
+        onClick={handleBack}
         className={`absolute left-4 top-4 z-10 flex items-center gap-2 sm:left-8 sm:top-8 ${QUIET_LINK}`}
       >
         <ArrowLeft /> Back

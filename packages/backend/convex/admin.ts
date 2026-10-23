@@ -4,6 +4,7 @@ import { components, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { internalAction, internalMutation, type QueryCtx } from "./_generated/server";
 import { adminMutation, adminQuery } from "./lib/customFunctions";
+import { effectiveSubscriptionPlan, getUserPlan, isSubscriptionEntitled } from "./lib/billingEntitlements";
 import { deleteJobCascade } from "./lib/deleteUserData";
 import { bumpOpenJobCount, openCountDelta } from "./lib/jobCounts";
 import {
@@ -71,6 +72,7 @@ const userSummaryValidator = v.object({
   username: v.union(v.string(), v.null()),
   role: v.string(),
   account_type: v.union(v.string(), v.null()),
+  premium_plan: v.union(v.literal("plus"), v.literal("pro"), v.null()),
   is_active: v.boolean(),
   profile_image: v.union(v.string(), v.null()),
   headline: v.union(v.string(), v.null()),
@@ -131,6 +133,18 @@ const userDetailValidator = v.object({
   manual_pro: v.boolean(),
   manual_pro_since: v.union(v.number(), v.null()),
   manual_pro_note: v.union(v.string(), v.null()),
+  pro_access: v.boolean(),
+  pro_access_source: v.union(v.literal("subscription"), v.literal("manual"), v.literal("none")),
+  pro_subscription: v.union(
+    v.null(),
+    v.object({
+      status: v.string(),
+      plan: v.string(),
+      interval: v.string(),
+      current_period_end: v.union(v.number(), v.null()),
+      cancel_at_period_end: v.boolean(),
+    }),
+  ),
 });
 
 const cityRowValidator = v.object({
@@ -139,7 +153,11 @@ const cityRowValidator = v.object({
   country: v.union(v.string(), v.null()),
 });
 
-function toSummary(user: Doc<"users">, cityName?: string | null) {
+function toSummary(
+  user: Doc<"users">,
+  cityName?: string | null,
+  premiumPlan: "plus" | "pro" | null = null,
+) {
   return {
     id: user._id,
     name: user.name ?? null,
@@ -147,6 +165,7 @@ function toSummary(user: Doc<"users">, cityName?: string | null) {
     username: user.username ?? null,
     role: user.role,
     account_type: user.account_type ?? null,
+    premium_plan: premiumPlan,
     is_active: user.isActive,
     profile_image: user.profile_image ?? null,
     headline: user.headline ?? null,
@@ -157,6 +176,14 @@ function toSummary(user: Doc<"users">, cityName?: string | null) {
     created_at: user._creationTime,
     last_login_at: user.last_login_at ?? null,
   };
+}
+
+/**
+ * Resolve the paid plan for the visible page only. Bounded by the page size,
+ * so the admin table never scans every subscription to render one page.
+ */
+async function premiumPlansForPage(ctx: QueryCtx, users: Doc<"users">[]) {
+  return await Promise.all(users.map((user) => getUserPlan(ctx, user._id)));
 }
 
 /**
@@ -279,14 +306,19 @@ export const listUsers = adminQuery({
       const nextStart = start + page.length;
       const isDone = nextStart >= rows.length;
 
-      const cities = await Promise.all(
-        page.map((user) =>
-          user.city_id ? ctx.db.get(user.city_id) : Promise.resolve(null),
+      const [cities, premiumPlans] = await Promise.all([
+        Promise.all(
+          page.map((user) =>
+            user.city_id ? ctx.db.get(user.city_id) : Promise.resolve(null),
+          ),
         ),
-      );
+        premiumPlansForPage(ctx, page),
+      ]);
 
       return {
-        page: page.map((user, index) => toSummary(user, cities[index]?.name ?? null)),
+        page: page.map((user, index) =>
+          toSummary(user, cities[index]?.name ?? null, premiumPlans[index]),
+        ),
         isDone,
         continueCursor: isDone ? "" : String(nextStart),
         splitCursor: null,
@@ -296,15 +328,20 @@ export const listUsers = adminQuery({
 
     const result = await query.order("desc").paginate(args.paginationOpts);
 
-    // Hydrate the city name for the visible page only.
-    const cities = await Promise.all(
-      result.page.map((user: Doc<"users">) =>
-        user.city_id ? ctx.db.get(user.city_id) : Promise.resolve(null),
+    // Hydrate the city name and paid plan for the visible page only.
+    const [cities, premiumPlans] = await Promise.all([
+      Promise.all(
+        result.page.map((user: Doc<"users">) =>
+          user.city_id ? ctx.db.get(user.city_id) : Promise.resolve(null),
+        ),
       ),
-    );
+      premiumPlansForPage(ctx, result.page),
+    ]);
 
     return {
-      page: result.page.map((user: Doc<"users">, index: number) => toSummary(user, cities[index]?.name ?? null)),
+      page: result.page.map((user: Doc<"users">, index: number) =>
+        toSummary(user, cities[index]?.name ?? null, premiumPlans[index]),
+      ),
       isDone: result.isDone,
       continueCursor: result.continueCursor,
       splitCursor: result.splitCursor ?? null,
@@ -330,6 +367,18 @@ export const getUser = adminQuery({
         .order("desc")
         .take(10)
     ).find((grant) => !grant.revoked_at);
+    const subscriptions = await ctx.db
+      .query("billing_subscriptions")
+      .withIndex("by_user_and_updated_at", (q) => q.eq("user_id", user._id))
+      .order("desc")
+      .take(10);
+    const subscription = subscriptions.find((row) => isSubscriptionEntitled(row)) ?? null;
+    const proAccess = Boolean(subscription || manualGrant);
+    const proAccessSource = subscription
+      ? ("subscription" as const)
+      : manualGrant
+      ? ("manual" as const)
+      : ("none" as const);
 
     return {
       id: user._id,
@@ -380,6 +429,17 @@ export const getUser = adminQuery({
       manual_pro: Boolean(manualGrant),
       manual_pro_since: manualGrant?.granted_at ?? null,
       manual_pro_note: manualGrant?.note ?? null,
+      pro_access: proAccess,
+      pro_access_source: proAccessSource,
+      pro_subscription: subscription
+        ? {
+            status: subscription.status,
+            plan: effectiveSubscriptionPlan(subscription),
+            interval: subscription.interval,
+            current_period_end: subscription.current_period_end ?? null,
+            cancel_at_period_end: subscription.cancel_at_period_end,
+          }
+        : null,
     };
   },
 });

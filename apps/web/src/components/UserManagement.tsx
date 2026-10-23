@@ -12,6 +12,7 @@ import {
   useUpdateMemberRoleMutation,
 } from "@/features/api/pageMembersApi";
 import { toastUnknownError } from "@/lib/errors";
+import { useAlert } from "@/components/ui/alert-modal";
 import {
   Check,
   ChevronDown,
@@ -48,6 +49,7 @@ interface UserCandidate {
 
 export function UserManagement({ pageId, showHeader = true }: UserManagementProps) {
   const { user } = useAuth();
+  const alert = useAlert();
   const searchInputId = useId();
 
   // Queries
@@ -183,9 +185,14 @@ export function UserManagement({ pageId, showHeader = true }: UserManagementProp
   };
 
   const handleCancelInvite = async (inviteId: string, email: string) => {
-    if (!confirm(`Are you sure you want to cancel the invitation for ${email}?`)) {
-      return;
-    }
+    const confirmed = await alert({
+      title: "Cancel this invitation?",
+      description: `The invitation for ${email} will no longer be valid.`,
+      confirmText: "Cancel invitation",
+      cancelText: "Keep invitation",
+      tone: "danger",
+    });
+    if (!confirmed) return;
     try {
       await cancelInviteMutation({ pageId, inviteId });
       toast.success(`Invitation for ${email} cancelled`);
@@ -204,9 +211,14 @@ export function UserManagement({ pageId, showHeader = true }: UserManagementProp
   };
 
   const handleRemoveMember = async (memberId: string, name: string) => {
-    if (!confirm(`Are you sure you want to remove ${name} from the team?`)) {
-      return;
-    }
+    const confirmed = await alert({
+      title: `Remove ${name}?`,
+      description: "They will lose access to this page and its tools.",
+      confirmText: "Remove member",
+      cancelText: "Keep member",
+      tone: "danger",
+    });
+    if (!confirmed) return;
     try {
       await removeMemberMutation({ pageId, memberId });
       toast.success(`${name} removed from the team`);
@@ -216,13 +228,14 @@ export function UserManagement({ pageId, showHeader = true }: UserManagementProp
   };
 
   const handleTransferOwnership = async (newOwnerUserId: string, name: string) => {
-    if (
-      !confirm(
-        `Are you sure you want to transfer ownership of this page to ${name}? You will become an Admin.`,
-      )
-    ) {
-      return;
-    }
+    const confirmed = await alert({
+      title: "Transfer ownership?",
+      description: `${name} will become the owner of this page. You will become an admin.`,
+      confirmText: "Transfer ownership",
+      cancelText: "Keep ownership",
+      tone: "danger",
+    });
+    if (!confirmed) return;
     try {
       await transferOwnershipMutation({ pageId, newOwnerUserId });
       toast.success(`Ownership transferred to ${name}`);

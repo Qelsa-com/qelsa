@@ -6,9 +6,13 @@ import { useAction } from "convex/react";
 import { useState } from "react";
 
 export type BillingInterval = "month" | "year";
+export type BillingPlanId = "plus" | "pro";
 
-export function useGetPlansQuery() {
-  return useConvexQueryHook(api.billing.getPlans, {});
+type LivePlanPrice = { month: { amount: number; currency: string; available: boolean }; year: { amount: number; currency: string; available: boolean } };
+export type LivePlanPrices = Record<BillingPlanId, LivePlanPrice>;
+
+export function useGetPlansQuery(options?: { skip?: boolean }) {
+  return useConvexQueryHook(api.billing.getPlans, {}, options);
 }
 
 export function useGetMyBillingQuery(options?: { skip?: boolean }) {
@@ -21,10 +25,7 @@ export function useGetLivePricesAction() {
   const trigger = () => {
     setIsLoading(true);
     return withUnwrap(
-      Promise.resolve(getLivePrices({}) as Promise<{
-        month: { amount: number; currency: string; available: boolean };
-        year: { amount: number; currency: string; available: boolean };
-      }>).finally(() => setIsLoading(false)),
+      Promise.resolve(getLivePrices({}) as Promise<LivePlanPrices>).finally(() => setIsLoading(false)),
     );
   };
   return [trigger, { isLoading }] as const;
@@ -33,7 +34,7 @@ export function useGetLivePricesAction() {
 export function useCreateCheckoutAction() {
   const createCheckout = useAction(api.billing.createCheckout);
   const [isLoading, setIsLoading] = useState(false);
-  const trigger = (input: { interval: BillingInterval; returnUrl?: string }) => {
+  const trigger = (input: { plan: BillingPlanId; interval: BillingInterval; returnUrl?: string; cancelUrl?: string }) => {
     setIsLoading(true);
     return withUnwrap(
       Promise.resolve(createCheckout(input) as Promise<{ checkout_url: string }>).finally(() => setIsLoading(false)),
@@ -57,10 +58,10 @@ export function useOpenCustomerPortalAction() {
 export function useChangePlanAction() {
   const changePlan = useAction(api.billing.changePlan);
   const [isLoading, setIsLoading] = useState(false);
-  const trigger = (input: { interval: BillingInterval }) => {
+  const trigger = (input: { plan: BillingPlanId; interval: BillingInterval }) => {
     setIsLoading(true);
     return withUnwrap(
-      Promise.resolve(changePlan(input) as Promise<{ ok: boolean; interval: BillingInterval }>).finally(() =>
+      Promise.resolve(changePlan(input) as Promise<{ ok: boolean; plan: BillingPlanId; interval: BillingInterval }>).finally(() =>
         setIsLoading(false),
       ),
     );
