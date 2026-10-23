@@ -532,17 +532,9 @@ function ToolBody({
         </div>
       );
     }
-    const score = typeof output.overall === "number" ? Math.round(output.overall) : null;
-    const tone =
-      score == null ? "text-white/70" : score >= 75 ? "text-emerald-300" : score >= 50 ? "text-amber-300" : "text-rose-300";
     return (
       <div className="mt-2 space-y-2">
         <div className="flex flex-wrap items-center gap-2">
-          {score != null && (
-            <span className={cn("text-lg font-bold tabular-nums", tone)}>
-              {score}%<span className="ml-1 text-[10px] font-medium uppercase tracking-wide text-white/35">match</span>
-            </span>
-          )}
           {output.headline && <p className="text-xs text-white/60">{output.headline}</p>}
         </div>
         <ChipList label="Strong" items={asArray(output.strong)} tone="border-emerald-400/25 bg-emerald-400/10 text-emerald-300" />

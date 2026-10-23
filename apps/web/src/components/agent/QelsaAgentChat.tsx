@@ -110,14 +110,6 @@ function jobResultsIn(parts: any[]) {
   return groups;
 }
 
-function AssistantAvatar() {
-  return (
-    <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-neon-cyan via-neon-purple to-neon-pink shadow-lg shadow-purple-900/25">
-      <Sparkles className="size-4 text-black" />
-    </div>
-  );
-}
-
 function MessageBubble({
   message,
   resolvingApprovalId,
@@ -205,10 +197,8 @@ function MessageBubble({
   if (isError && !onRetry && visibleParts.length === 0) return null;
 
   return (
-    <div className="flex gap-3">
-      <AssistantAvatar />
-      <div className="min-w-0 flex-1 space-y-2.5">
-        {renderParts.map((part, index) => {
+    <div className="min-w-0 space-y-2.5">
+      {renderParts.map((part, index) => {
           if (isReasoningPart(part)) {
             return <AgentReasoningTrace key={`reasoning-${index}`} text={part.text} running={waiting && !stalled && part.state !== "done"} />;
           }
@@ -260,7 +250,6 @@ function MessageBubble({
             )}
           </div>
         )}
-      </div>
     </div>
   );
 }
@@ -1193,7 +1182,7 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
                 ))}
 
                 {showFollowUps && (
-                  <div aria-label="Suggested follow-up questions" className="sm:pl-11">
+                  <div aria-label="Suggested follow-up questions">
                     <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/30">
                       <Sparkles className="size-3 text-neon-purple/70" />
                       Suggested next
@@ -1217,11 +1206,8 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
             )}
 
             {awaitingReply && !streaming && generationState?.status !== "failed" && (
-              <div className="mt-5 flex gap-3">
-                <AssistantAvatar />
-                <div className="min-w-0 flex-1 pt-1">
-                  <AgentThinkingLine />
-                </div>
+              <div className="mt-5 min-w-0 pt-1">
+                <AgentThinkingLine />
               </div>
             )}
           </div>
