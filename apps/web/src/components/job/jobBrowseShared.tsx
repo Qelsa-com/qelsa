@@ -18,7 +18,7 @@ import { Autocomplete } from "@/components/ui/autocomplete";
 import { cn } from "@/components/ui/utils";
 import { formatCity } from "@/constants/city";
 import { useAuth } from "@/contexts/AuthContext";
-import { useLazySearchCitiesQuery } from "@/features/api/seedApi";
+import { useLazySearchJobLocationsQuery } from "@/features/api/seedApi";
 import { hasCareerGoal } from "@/lib/careerGoal";
 import { ALMOST_MAX, ALMOST_MIN, GOAL_MATCH, MATCH_TIER, matchRingColor, type MatchTierId } from "@/lib/matchTiers";
 import { City } from "@/types/city";
@@ -572,12 +572,12 @@ export function JobsBrowseHeader({ activeTab, query, setQuery, onSearch, filters
   const router = useRouter();
   const { user, isAuthenticated } = useAuth();
   const showGoalBanner = !suppressGoalBanner && isAuthenticated && Boolean(user) && !hasCareerGoal(user?.career_goal);
-  const [searchCities, { data: cityResults = [] }] = useLazySearchCitiesQuery();
+  const [searchJobLocations, { data: cityResults = [] }] = useLazySearchJobLocationsQuery();
   const isMobile = useIsMobile();
 
   // The listing filters on the bare city name (`cities=Pune`), which is what the
   // backend matches against — both the job's city relation and the scraped
-  // `other_info` blob. The input shows the fuller "Pune, Maharashtra" label.
+  // `other_info` blob. The input shows the fuller "Pune, Maharashtra, India" label.
   const handleCitySelect = (city: City | null) => {
     setCityFilter(city);
     onApplyFilters({ cities: city ? [city.name] : [] });
@@ -683,9 +683,14 @@ export function JobsBrowseHeader({ activeTab, query, setQuery, onSearch, filters
           className="w-[136px] sm:w-[221px]"
           value={cityFilter}
           onChange={handleCitySelect}
-          onSearch={searchCities}
+          onSearch={searchJobLocations}
           options={cityResults}
           placeholder="Enter location"
+          allowFreeText
+          makeFreeTextValue={(query) => {
+            const name = query.split(",")[0]?.trim() || query.trim();
+            return { id: `location:${name.toLowerCase()}`, name };
+          }}
           icon={<MapPin className="size-3.5 shrink-0 text-white/45 sm:size-4" />}
           iconClassName="left-2.5 sm:left-3.5"
           getInputLabel={formatCity}

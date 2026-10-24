@@ -59,6 +59,12 @@ export function useLazySearchCitiesQuery() {
   return [run, state] as const;
 }
 
+export function useLazySearchJobLocationsQuery() {
+  const [trigger, state] = useLazyConvexQueryHook(api.seed.jobLocations);
+  const run = (search?: string) => trigger({ search: search ?? "" });
+  return [run, state] as const;
+}
+
 export function useLazySearchCompaniesQuery() {
   const [trigger, state] = useLazyConvexQueryHook(api.seed.companies);
   const run = (search?: string) => trigger({ search: search ?? "" });
