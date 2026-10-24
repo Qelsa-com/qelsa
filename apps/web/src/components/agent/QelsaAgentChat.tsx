@@ -29,6 +29,7 @@ import { fallbackFollowUps, isReasoningPart, RECRUITER_SUGGESTIONS, SUGGESTIONS,
 import { AgentReasoningTrace, AgentThinkingLine } from "./AgentTrace";
 
 type Conversation = { threadId: string; title: string; updatedAt: number };
+type ApprovalDecision = { approvalId: string; approved: boolean };
 
 function firstNameOf(name?: string | null) {
   const trimmed = name?.trim();
@@ -144,20 +145,16 @@ function jobResultsIn(parts: any[]) {
 
 function MessageBubble({
   message,
-  resolvingApprovalId,
   generationActive,
   generationStatus,
-  onApprove,
-  onDeny,
+  onSubmitApprovals,
   onRetry,
   onOpenArtifact,
 }: {
   message: AgentUIMessage;
-  resolvingApprovalId: string | null;
   generationActive?: boolean | null;
   generationStatus?: "idle" | "running" | "succeeded" | "failed" | "stopped" | null;
-  onApprove: (approvalId: string) => void;
-  onDeny: (approvalId: string) => void;
+  onSubmitApprovals: (decisions: ApprovalDecision[]) => Promise<void>;
   onRetry?: () => void;
   onOpenArtifact?: (artifact: AgentArtifact) => void;
 }) {
@@ -165,6 +162,51 @@ function MessageBubble({
   const createdAt = typeof message._creationTime === "number" ? message._creationTime : Date.now();
   const waitingForReply = message.role === "assistant" && (message.status === "streaming" || message.status === "pending");
   const [, forceRender] = useState(0);
+  const pendingApprovalIds = useMemo(
+    () =>
+      parts
+        .filter((part): part is AgentToolPart => isToolPart(part) && part.state === "approval-requested")
+        .map((part) => part.approval?.id)
+        .filter((id): id is string => typeof id === "string" && id.length > 0),
+    [message.parts],
+  );
+  const pendingApprovalKey = pendingApprovalIds.join("|");
+  const [approvalDecisions, setApprovalDecisions] = useState<Record<string, boolean>>({});
+  const [submittingApprovals, setSubmittingApprovals] = useState(false);
+  const submittingApprovalsRef = useRef(false);
+
+  useEffect(() => {
+    const allowed = new Set(pendingApprovalIds);
+    setApprovalDecisions((previous) => {
+      const next: Record<string, boolean> = {};
+      let changed = false;
+      for (const [id, value] of Object.entries(previous)) {
+        if (allowed.has(id)) next[id] = value;
+        else changed = true;
+      }
+      return changed ? next : previous;
+    });
+    if (!pendingApprovalIds.length) {
+      submittingApprovalsRef.current = false;
+      setSubmittingApprovals(false);
+    }
+  }, [pendingApprovalKey]);
+
+  const decideApproval = (approvalId: string, approved: boolean) => {
+    if (submittingApprovalsRef.current) return;
+    const next = { ...approvalDecisions, [approvalId]: approved };
+    setApprovalDecisions(next);
+    if (!pendingApprovalIds.length || !pendingApprovalIds.every((id) => typeof next[id] === "boolean")) return;
+
+    submittingApprovalsRef.current = true;
+    setSubmittingApprovals(true);
+    void onSubmitApprovals(pendingApprovalIds.map((id) => ({ approvalId: id, approved: next[id] })))
+      .catch(() => setApprovalDecisions({}))
+      .finally(() => {
+        submittingApprovalsRef.current = false;
+        setSubmittingApprovals(false);
+      });
+  };
 
   // Wake up after two minutes so a silently failed run surfaces a retry affordance
   // instead of leaving the typing dots on screen forever. Active runs (including
@@ -254,14 +296,16 @@ function MessageBubble({
           );
         }
         const tool = part as AgentToolPart;
+        const approvalDecision = tool.approval?.id ? approvalDecisions[tool.approval.id] : undefined;
         return (
           <AgentToolCard
             key={tool.toolCallId ?? `${toolNameOf(tool)}-${index}`}
             part={tool}
-            resolving={Boolean(tool.approval?.id && tool.approval.id === resolvingApprovalId)}
+            resolving={submittingApprovals}
+            approvalDecision={approvalDecision}
             interrupted={failed || stalled}
-            onApprove={onApprove}
-            onDeny={onDeny}
+            onApprove={(approvalId) => decideApproval(approvalId, true)}
+            onDeny={(approvalId) => decideApproval(approvalId, false)}
             onOpenArtifact={onOpenArtifact}
           />
         );
@@ -355,7 +399,6 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [awaitingReply, setAwaitingReply] = useState(false);
-  const [resolvingApprovalId, setResolvingApprovalId] = useState<string | null>(null);
   const [activeArtifact, setActiveArtifact] = useState<AgentArtifact | null>(null);
   const [upgradeReason, setUpgradeReason] = useState<UpgradeReason | null>(null);
   const [memoryOpen, setMemoryOpen] = useState(false);
@@ -430,7 +473,7 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
   const createConversation = useMutation(api.qelsaAgent.createConversation);
   const deleteConversation = useMutation(api.qelsaAgent.deleteConversation);
   const sendPrompt = useMutation(api.qelsaAgent.sendPrompt);
-  const submitApproval = useMutation(api.qelsaAgent.submitApproval);
+  const submitApprovals = useMutation(api.qelsaAgent.submitApprovals);
   const retryGeneration = useMutation(api.qelsaAgent.retryGeneration);
   const stopGeneration = useMutation(api.qelsaAgent.stopGeneration);
 
@@ -592,6 +635,13 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
     return undefined;
   }, [messages]);
   const pendingApproval = useMemo(() => Boolean(lastAssistant?.parts?.some((part) => isToolPart(part) && part.state === "approval-requested")), [lastAssistant]);
+  const hasAnyPendingApproval = useMemo(
+    () =>
+      messages.some((message) =>
+        (message.parts ?? []).some((part) => isToolPart(part) && part.state === "approval-requested"),
+      ),
+    [messages],
+  );
   const lastToolNames = useMemo(() => (lastAssistant ? (lastAssistant.parts ?? []).filter(isToolPart).map((part) => toolNameOf(part)) : []), [lastAssistant]);
   const suggestions = useMemo(() => {
     const fallback = fallbackFollowUps(lastToolNames, isRecruiter);
@@ -778,6 +828,10 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
     async (override?: string) => {
       const text = (override ?? input).trim();
       if (!text || sending || threadResolving) return;
+      if (hasAnyPendingApproval) {
+        toast.error("Approve or deny the pending actions first.");
+        return;
+      }
       if (quotaExhausted) {
         if (usage?.is_pro) {
           toast.error("You've reached today's Qelsa Agent message limit. It resets at midnight UTC.");
@@ -804,7 +858,7 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
         setSending(false);
       }
     },
-    [ensureThread, input, sendPrompt, sending, quotaExhausted, threadResolving, usage?.is_pro],
+    [ensureThread, hasAnyPendingApproval, input, sendPrompt, sending, quotaExhausted, threadResolving, usage?.is_pro],
   );
 
   const handleRetry = useCallback(async () => {
@@ -866,13 +920,12 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
     [activeThreadId, conversations, deleteConversation, syncThreadUrl],
   );
 
-  const handleApproval = useCallback(
-    async (approvalId: string, approved: boolean) => {
-      if (!activeThreadId) return;
-      setResolvingApprovalId(approvalId);
-      if (approved) setAwaitingReply(true);
+  const handleApprovals = useCallback(
+    async (decisions: ApprovalDecision[]) => {
+      if (!activeThreadId || !decisions.length) return;
+      setAwaitingReply(true);
       try {
-        await submitApproval({ threadId: activeThreadId, approvalId, approved });
+        await submitApprovals({ threadId: activeThreadId, decisions });
       } catch (error) {
         if (isApplicationLimitError(error)) {
           setUpgradeReason("applications");
@@ -880,11 +933,10 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
           toastUnknownError(error, "Couldn't update that action.");
         }
         setAwaitingReply(false);
-      } finally {
-        setResolvingApprovalId(null);
+        throw error;
       }
     },
-    [activeThreadId, submitApproval],
+    [activeThreadId, submitApprovals],
   );
 
   const handleOpenArtifact = useCallback((artifact: AgentArtifact) => {
@@ -1277,11 +1329,9 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
                   <MessageBubble
                     key={message.key}
                     message={message}
-                    resolvingApprovalId={resolvingApprovalId}
                     generationActive={generationState?.active ?? null}
                     generationStatus={generationState?.status ?? null}
-                    onApprove={(approvalId) => void handleApproval(approvalId, true)}
-                    onDeny={(approvalId) => void handleApproval(approvalId, false)}
+                    onSubmitApprovals={handleApprovals}
                     onRetry={index === messages.length - 1 ? () => void handleRetry() : undefined}
                     onOpenArtifact={handleOpenArtifact}
                   />
@@ -1358,13 +1408,15 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
                 placeholder={
                   threadResolving
                     ? "Loading conversation…"
-                    : quotaExhausted
-                      ? usage?.can_upgrade
-                        ? "Daily limit reached — tap send to upgrade"
-                        : "Daily message limit reached"
-                      : configured
-                        ? "Ask anything…"
-                        : "AI is not configured on this deployment"
+                    : hasAnyPendingApproval
+                      ? "Approve or deny the pending actions first"
+                      : quotaExhausted
+                        ? usage?.can_upgrade
+                          ? "Daily limit reached — tap send to upgrade"
+                          : "Daily message limit reached"
+                        : configured
+                          ? "Ask anything…"
+                          : "AI is not configured on this deployment"
                 }
                 className="max-h-[152px] min-h-[36px] flex-1 resize-none bg-transparent py-1.5 text-[14px] leading-relaxed text-white/90 placeholder:text-white/30 focus:outline-none disabled:cursor-not-allowed"
               />

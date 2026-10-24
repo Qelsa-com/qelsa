@@ -243,6 +243,7 @@ function ApprovalBody({
   input,
   labels,
   resolving,
+  decision,
   onApprove,
   onDeny,
 }: {
@@ -250,6 +251,7 @@ function ApprovalBody({
   input: Record<string, any> | null;
   labels: Map<string, { title: string; company: string | null }>;
   resolving: boolean;
+  decision?: boolean;
   onApprove: () => void;
   onDeny: () => void;
 }) {
@@ -320,26 +322,33 @@ function ApprovalBody({
           <p className="text-[10px] text-white/30">Email and browser alerts are on by default.</p>
         </>
       )}
-      <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          disabled={resolving}
-          onClick={onApprove}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-[#623dd6] via-[#8433ae] to-[#be2680] px-3 py-1.5 text-[12px] font-semibold text-white shadow-lg shadow-purple-900/25 transition-opacity hover:opacity-95 disabled:opacity-60"
-        >
-          {resolving ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />}
-          Approve
-        </button>
-        <button
-          type="button"
-          disabled={resolving}
-          onClick={onDeny}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/[0.04] px-3 py-1.5 text-[12px] font-semibold text-white/70 transition-colors hover:border-white/30 hover:text-white disabled:opacity-60"
-        >
-          <Ban className="size-3.5" />
-          Deny
-        </button>
-      </div>
+      {decision === undefined ? (
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            disabled={resolving}
+            onClick={onApprove}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-[#623dd6] via-[#8433ae] to-[#be2680] px-3 py-1.5 text-[12px] font-semibold text-white shadow-lg shadow-purple-900/25 transition-opacity hover:opacity-95 disabled:opacity-60"
+          >
+            {resolving ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />}
+            Approve
+          </button>
+          <button
+            type="button"
+            disabled={resolving}
+            onClick={onDeny}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/[0.04] px-3 py-1.5 text-[12px] font-semibold text-white/70 transition-colors hover:border-white/30 hover:text-white disabled:opacity-60"
+          >
+            <Ban className="size-3.5" />
+            Deny
+          </button>
+        </div>
+      ) : (
+        <div className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-[12px] font-semibold text-white/60">
+          {resolving ? <Loader2 className="size-3.5 animate-spin" /> : decision ? <Check className="size-3.5 text-emerald-300" /> : <Ban className="size-3.5" />}
+          {decision ? "Approved" : "Denied"}
+        </div>
+      )}
     </div>
   );
 }
@@ -1027,6 +1036,7 @@ function ToolBody({
 export function AgentToolCard({
   part,
   resolving,
+  approvalDecision,
   interrupted = false,
   onApprove,
   onDeny,
@@ -1034,6 +1044,7 @@ export function AgentToolCard({
 }: {
   part: AgentToolPart;
   resolving: boolean;
+  approvalDecision?: boolean;
   interrupted?: boolean;
   onApprove: (approvalId: string) => void;
   onDeny: (approvalId: string) => void;
@@ -1068,15 +1079,56 @@ export function AgentToolCard({
   // instead, where they are the answer rather than process detail.
   if (awaitingApproval) {
     return (
-      <div className="rounded-xl border border-amber-400/25 bg-amber-400/[0.06] px-3 py-2.5">
+      <div
+        className={cn(
+          "rounded-xl border px-3 py-2.5",
+          approvalDecision === undefined
+            ? "border-amber-400/25 bg-amber-400/[0.06]"
+            : approvalDecision
+              ? "border-emerald-400/25 bg-emerald-400/[0.06]"
+              : "border-white/[0.1] bg-white/[0.03]",
+        )}
+      >
         <div className="flex items-center gap-2">
-          <div className="flex size-6 shrink-0 items-center justify-center rounded-md border border-amber-400/25 bg-amber-400/10 text-amber-300">
+          <div
+            className={cn(
+              "flex size-6 shrink-0 items-center justify-center rounded-md border",
+              approvalDecision === undefined
+                ? "border-amber-400/25 bg-amber-400/10 text-amber-300"
+                : approvalDecision
+                  ? "border-emerald-400/25 bg-emerald-400/10 text-emerald-300"
+                  : "border-white/10 bg-white/[0.05] text-white/45",
+            )}
+          >
             <Icon className="size-3.5" />
           </div>
-          <p className="min-w-0 flex-1 truncate text-[12px] font-semibold text-amber-200">Needs your approval</p>
-          <ShieldQuestion className="size-3.5 text-amber-300" />
+          <p
+            className={cn(
+              "min-w-0 flex-1 truncate text-[12px] font-semibold",
+              approvalDecision === undefined ? "text-amber-200" : approvalDecision ? "text-emerald-200" : "text-white/55",
+            )}
+          >
+            {approvalDecision === undefined ? "Needs your approval" : approvalDecision ? "Action approved" : "Action denied"}
+          </p>
+          {approvalDecision === undefined ? (
+            <ShieldQuestion className="size-3.5 text-amber-300" />
+          ) : approvalDecision ? (
+            <Check className="size-3.5 text-emerald-300" />
+          ) : (
+            <Ban className="size-3.5 text-white/35" />
+          )}
         </div>
-        {part.approval?.id && <ApprovalBody name={name} input={input} labels={labelMap} resolving={resolving} onApprove={() => onApprove(part.approval!.id)} onDeny={() => onDeny(part.approval!.id)} />}
+        {part.approval?.id && (
+          <ApprovalBody
+            name={name}
+            input={input}
+            labels={labelMap}
+            resolving={resolving}
+            decision={approvalDecision}
+            onApprove={() => onApprove(part.approval!.id)}
+            onDeny={() => onDeny(part.approval!.id)}
+          />
+        )}
       </div>
     );
   }

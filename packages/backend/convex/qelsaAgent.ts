@@ -5,8 +5,8 @@
  *   1. `sendPrompt` (mutation) saves the user message and schedules generation.
  *   2. `generateResponse` (internal action) streams the reply + tool calls with
  *      deltas saved to the thread, so every client stays in sync.
- *   3. Write tools pause on `needsApproval`; the user approves or denies in the
- *      UI and `submitApproval` resumes generation.
+ *   3. Write tools pause on `needsApproval`; the UI collects every decision
+ *      from one assistant turn and `submitApprovals` resumes generation.
  */
 
 import {
@@ -1220,6 +1220,62 @@ export const submitApproval = mutation({
     const prompt = args.approved
       ? "The user approved the pending action."
       : "The user denied the pending action.";
+    const generationId = await beginGeneration(ctx, row, { messageId, prompt });
+    await scheduleGeneration(ctx, {
+      threadId: args.threadId,
+      messageId,
+      authId,
+      prompt,
+      generationId,
+    });
+    return { resumed: true };
+  },
+});
+
+/**
+ * Resolve every approval from one assistant turn atomically.
+ *
+ * Google (and other strict providers) require one function response per
+ * function call in the same turn. Approving siblings through separate
+ * `approveToolCall` calls lets one generation start while the other card is
+ * still pending; the model then re-issues the action and the stale card later
+ * appends an orphan tool response, which invalidates the whole thread.
+ */
+export const submitApprovals = mutation({
+  args: {
+    threadId: v.string(),
+    decisions: v.array(
+      v.object({
+        approvalId: v.string(),
+        approved: v.boolean(),
+        reason: v.optional(v.string()),
+      }),
+    ),
+  },
+  returns: v.object({ resumed: v.boolean() }),
+  handler: async (ctx, args) => {
+    const { user, authId } = await requireUser(ctx);
+    const row = await ownedThread(ctx, user._id, args.threadId);
+    if (!args.decisions.length) throw new Error("Choose an action first.");
+    if (args.decisions.length > 20) throw new Error("Too many actions in one approval batch.");
+    if (new Set(args.decisions.map((decision) => decision.approvalId)).size !== args.decisions.length) {
+      throw new Error("Duplicate approval in batch.");
+    }
+    await assertCanStartGeneration(ctx, row);
+    await consumeQuota(ctx, user);
+
+    const agent = buildBookkeepingAgent(user.account_type);
+    const { messageId } = await agent.respondToToolCallApprovals(ctx, {
+      threadId: args.threadId,
+      decisions: args.decisions,
+    });
+
+    const prompt =
+      args.decisions.length === 1
+        ? args.decisions[0].approved
+          ? "The user approved the pending action."
+          : "The user denied the pending action."
+        : "The user resolved the pending actions.";
     const generationId = await beginGeneration(ctx, row, { messageId, prompt });
     await scheduleGeneration(ctx, {
       threadId: args.threadId,
