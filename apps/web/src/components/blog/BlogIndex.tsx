@@ -1,4 +1,5 @@
 import { ArrowRight, BookOpen, Clock3 } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import type { PublicBlogSummary } from "@/types/blog";
 
@@ -11,16 +12,16 @@ function formatDate(value: number | null) {
   });
 }
 
-function BlogCover({ post, eager = false }: { post: PublicBlogSummary; eager?: boolean }) {
+function BlogCover({ post, eager = false, sizes }: { post: PublicBlogSummary; eager?: boolean; sizes: string }) {
   if (post.cover_image_url) {
     return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
+      <Image
         src={post.cover_image_url}
         alt={post.cover_image_alt || post.title}
-        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.025]"
-        loading={eager ? "eager" : "lazy"}
-        fetchPriority={eager ? "high" : undefined}
+        fill
+        sizes={sizes}
+        priority={eager}
+        className="object-cover transition-transform duration-500 group-hover:scale-[1.025]"
       />
     );
   }
@@ -80,7 +81,7 @@ export function BlogIndex({ posts }: { posts: PublicBlogSummary[] }) {
             <article className="mt-9 overflow-hidden rounded-[28px] border border-white/[0.09] bg-[#0b0b16]">
               <div className="grid lg:grid-cols-[1.15fr_1fr]">
                 <Link href={`/blogs/${featured.slug}`} className="group relative block aspect-[16/10] overflow-hidden bg-white/[0.03] lg:aspect-auto lg:min-h-[360px]">
-                  <BlogCover post={featured} eager />
+                  <BlogCover post={featured} eager sizes="(max-width: 1024px) 100vw, 640px" />
                 </Link>
                 <div className="flex flex-col justify-center p-6 sm:p-8 lg:p-10">
                   <div className="flex items-center gap-2">
@@ -116,8 +117,8 @@ export function BlogIndex({ posts }: { posts: PublicBlogSummary[] }) {
                     key={post.id}
                     className="group flex flex-col overflow-hidden rounded-[24px] border border-white/[0.09] bg-[#0b0b16] transition-colors hover:border-white/20"
                   >
-                    <Link href={`/blogs/${post.slug}`} className="block aspect-[16/9] overflow-hidden bg-white/[0.03]">
-                      <BlogCover post={post} />
+                    <Link href={`/blogs/${post.slug}`} className="relative block aspect-[16/9] overflow-hidden bg-white/[0.03]">
+                      <BlogCover post={post} sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw" />
                     </Link>
                     <div className="flex flex-1 flex-col p-5">
                       <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-neon-purple">{post.category}</span>

@@ -1,4 +1,6 @@
 import { ArrowLeft, ArrowRight, BookOpen, Check, Clock3 } from "lucide-react";
+import { BlogCtas } from "./BlogCtas";
+import Image from "next/image";
 import Link from "next/link";
 import type { PublicBlog } from "@/types/blog";
 
@@ -24,12 +26,13 @@ export function BlogArticle({ post }: { post: PublicBlog }) {
           <div className="grid lg:grid-cols-[1.05fr_1fr]">
             <div className="relative aspect-[16/10] overflow-hidden bg-white/[0.03] lg:aspect-auto lg:min-h-[390px]">
               {post.cover_image_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
+                <Image
                   src={post.cover_image_url}
                   alt={post.cover_image_alt || post.title}
-                  className="h-full w-full object-cover"
-                  fetchPriority="high"
+                  fill
+                  sizes="(max-width: 1024px) 100vw, 620px"
+                  priority
+                  className="object-cover"
                 />
               ) : (
                 <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-neon-purple/25 via-[#101120] to-neon-cyan/10">
@@ -144,17 +147,13 @@ export function BlogArticle({ post }: { post: PublicBlog }) {
           ) : null}
 
           <aside className="mt-12 rounded-[24px] border border-white/[0.09] bg-gradient-to-br from-neon-purple/[0.12] via-white/[0.03] to-neon-cyan/[0.06] p-6 sm:p-8">
-            <h2 className="text-xl font-bold">Find a role that fits you.</h2>
+            <h2 className="text-xl font-bold">Take the next step.</h2>
             <p className="mt-2 max-w-lg text-sm leading-relaxed text-white/50">
-              Browse open jobs, check your fit, and get help preparing your application in Qelsa.
+              Browse roles that fit your experience, or get a practical plan from Qelsa Agent.
             </p>
-            <Link
-              href="/jobs"
-              className="mt-5 inline-flex h-11 items-center gap-2 rounded-full bg-white px-5 text-sm font-semibold text-[#06060f] transition-opacity hover:opacity-90"
-            >
-              Explore jobs
-              <ArrowRight className="size-4" />
-            </Link>
+            <div className="mt-5">
+              <BlogCtas postTitle={post.title} />
+            </div>
           </aside>
         </div>
       </div>

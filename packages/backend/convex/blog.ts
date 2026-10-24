@@ -232,7 +232,8 @@ Editorial rules:
 - Do not invent statistics, percentages, survey findings, research, quotations, dates, or numeric rules of thumb. Do not claim what "most hiring managers" or "most recruiters" do. If a quantitative example helps, make it clearly hypothetical and label it as an example.
 - Be careful with factual claims. If a claim needs a source, either phrase it as general guidance or omit it. Do not fabricate research or citations.
 - Include a practical Qelsa call to action without making the article feel like an advert.
-- The cover image must work without text: a sophisticated 16:9 editorial illustration, dark navy base, restrained cyan, violet, and magenta accents, strong focal point, no words, no letters, no logos, no watermark, no identifiable faces.
+- The cover image must directly illustrate this article. Describe one or two believable people, such as a student or working professional, doing the specific activity the article is about, in a relevant setting with useful props. Make the scene feel candid and editorial, not a generic abstract diagram or stock-photo pose. Use a 16:9 frame, natural light, and a restrained dark navy, cyan, violet, and magenta accent palette. No words, letters, logos, or watermarks.
+- The image_alt text must describe the scene and the people without naming a real individual.
 
 Existing posts. Do not duplicate these titles, slugs, primary keywords, or angles:
 ${JSON.stringify(existing.slice(0, MAX_EXISTING_POSTS)).slice(0, 24_000)}
@@ -263,8 +264,8 @@ Return ONLY valid JSON in this shape:
   "related_links": [
     {"label": "short link label", "href": "/jobs"}
   ],
-  "image_prompt": "text-to-image prompt for the cover, no text or logos",
-  "image_alt": "short descriptive alt text"
+  "image_prompt": "specific scene brief showing relevant professional or student people doing what the article is about, with setting and props, no text or logos",
+  "image_alt": "short descriptive alt text about the people and scene"
 }`;
 }
 
@@ -405,7 +406,7 @@ function scoreBlog(post: GeneratedBlog, coverReady: boolean) {
 }
 
 function coverImagePrompt(prompt: string) {
-  return `${prompt}. Premium editorial blog cover, 16:9 composition, dark navy background, restrained cyan, violet and magenta lighting, sophisticated tech magazine aesthetic, strong focal point, generous negative space, no text, no letters, no logos, no watermark, no identifiable people.`;
+  return `${prompt}. Premium editorial magazine photograph for a career publication, 16:9 composition, one or two believable professionals or students directly relevant to the article, candid natural moment in a real workspace or study setting, natural window light, shallow depth of field, restrained dark navy, cyan, violet and magenta accent styling, photorealistic, no text, no letters, no logos, no watermark, no collage, no abstract diagram.`;
 }
 
 function decodeBase64(value: string) {
@@ -500,7 +501,7 @@ Hard rules:
 - Never use em dashes or en dashes. Use commas, periods, parentheses, or a simple hyphen.
 - Preserve the direct answer in the intro and the practical usefulness of each section.
 - Keep the 3 to 4 related links limited to /jobs, /jobs/all, /courses, /agent, /blogs, /candidates, and /employers.
-- Keep the cover image prompt aligned with the article.
+- Keep the cover image prompt aligned with the article. It must show a relevant professional or student doing the activity discussed, never an abstract diagram.
 
 Draft JSON:
 ${JSON.stringify(post).slice(0, 48_000)}

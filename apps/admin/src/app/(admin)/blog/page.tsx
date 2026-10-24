@@ -441,19 +441,21 @@ export default function BlogPage() {
                         {busyId === post.id ? <Loader2 className="size-3.5 animate-spin" /> : <ArrowUpRight className="size-3.5" />}
                         {post.status === "published" ? "Unpublish" : "Publish"}
                       </Button>
-                      {post.cover_status === "failed" ? (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="h-11 rounded-lg border-amber-400/20 bg-amber-400/[0.05] px-3 text-[11px] text-amber-200 sm:h-9"
-                          disabled={coverBusyId === post.id}
-                          onClick={() => void handleRetryCover(post)}
-                        >
-                          {coverBusyId === post.id ? <Loader2 className="size-3.5 animate-spin" /> : <RotateCcw className="size-3.5" />}
-                          Retry cover
-                        </Button>
-                      ) : null}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className={`h-11 rounded-lg px-3 text-[11px] sm:h-9 ${
+                          post.cover_status === "failed"
+                            ? "border-amber-400/20 bg-amber-400/[0.05] text-amber-200"
+                            : "border-glass-border bg-white/[0.03] text-white/55"
+                        }`}
+                        disabled={coverBusyId === post.id}
+                        onClick={() => void handleRetryCover(post)}
+                      >
+                        {coverBusyId === post.id ? <Loader2 className="size-3.5 animate-spin" /> : <RotateCcw className="size-3.5" />}
+                        {post.cover_status === "failed" ? "Retry cover" : "New cover"}
+                      </Button>
                       <Button
                         type="button"
                         variant="ghost"
