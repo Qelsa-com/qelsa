@@ -20,16 +20,19 @@ import {
   AlertCircle,
   ArrowUpRight,
   Ban,
+  Brain,
   BriefcaseBusiness,
   Check,
   ChevronDown,
   Copy,
   ExternalLink,
   FileText,
+  Globe2,
   GraduationCap,
   Loader2,
   PanelRight,
   ShieldQuestion,
+  Trash2,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -567,7 +570,7 @@ function ToolBody({
       return (
         <p className="mt-2 text-xs text-white/45">
           {unmatched.length
-            ? `No curated course yet for ${unmatched.slice(0, 4).join(", ")}. Try a learning platform search for these skills.`
+            ? `No curated course yet for ${unmatched.slice(0, 4).join(", ")}. Ask me to search the web for current options.`
             : output.note}
         </p>
       );
@@ -580,6 +583,84 @@ function ToolBody({
             No curated course yet for {unmatched.slice(0, 4).join(", ")}.
           </p>
         )}
+      </div>
+    );
+  }
+
+  if (name === "web_search") {
+    const results = asArray(output.results);
+    if (!results.length) {
+      return <p className="mt-2 text-xs text-white/45">{output.note ?? "No external results found."}</p>;
+    }
+    return (
+      <div className="mt-2 space-y-2">
+        <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-sky-300/70">
+          <Globe2 className="size-3" />
+          External sources
+          <span className="font-normal normal-case tracking-normal text-white/30">via {output.provider ?? "web"}</span>
+        </div>
+        <div className="space-y-1.5">
+          {results.slice(0, 5).map((result: any) => (
+            <a
+              key={result.url}
+              href={result.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block rounded-lg border border-white/[0.07] bg-white/[0.03] px-3 py-2 transition-colors hover:border-sky-400/25 hover:bg-white/[0.05]"
+            >
+              <p className="line-clamp-1 text-[12px] font-semibold text-white/85">{result.title}</p>
+              <p className="mt-0.5 text-[10px] text-sky-300/60">{result.domain || result.url}</p>
+              {result.snippet ? (
+                <p className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-white/45">{result.snippet}</p>
+              ) : null}
+            </a>
+          ))}
+        </div>
+        <p className="text-[10px] leading-relaxed text-white/30">
+          External links. Qelsa doesn't control these pages — verify details before acting.
+        </p>
+      </div>
+    );
+  }
+
+  if (name === "remember_about_me" && output.memory) {
+    return (
+      <div className="mt-2 flex items-start gap-2 rounded-lg border border-emerald-400/15 bg-emerald-400/[0.04] px-3 py-2">
+        <Brain className="mt-0.5 size-3.5 shrink-0 text-emerald-300/80" />
+        <div className="min-w-0">
+          <p className="text-[11px] font-semibold text-emerald-200/80">Remembered for next time</p>
+          <p className="mt-0.5 text-[11px] leading-relaxed text-white/55">{output.memory.text}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (name === "list_my_memory") {
+    const memories = asArray(output.memories);
+    if (!memories.length) return <p className="mt-2 text-xs text-white/45">Nothing saved in Agent memory yet.</p>;
+    return (
+      <div className="mt-2 space-y-1.5">
+        {memories.slice(0, 8).map((memory: any) => (
+          <div key={memory.memory_id} className="flex items-start gap-2 rounded-lg border border-white/[0.07] bg-white/[0.03] px-3 py-2">
+            <Brain className="mt-0.5 size-3.5 shrink-0 text-neon-purple/70" />
+            <p className="min-w-0 flex-1 text-[11px] leading-relaxed text-white/60">{memory.text}</p>
+          </div>
+        ))}
+        {memories.length > 8 && (
+          <p className="text-[10px] text-white/30">and {memories.length - 8} more in Agent memory settings.</p>
+        )}
+      </div>
+    );
+  }
+
+  if (name === "forget_about_me") {
+    const removed = asArray(output.texts);
+    return (
+      <div className="mt-2 flex items-start gap-2 text-xs text-white/55">
+        <Trash2 className="mt-0.5 size-3.5 shrink-0 text-white/35" />
+        <span>
+          {removed.length ? `Forgot: ${removed.join(" · ")}` : output.note ?? "No matching memory found."}
+        </span>
       </div>
     );
   }

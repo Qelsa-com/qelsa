@@ -112,6 +112,7 @@ Auth is email + password and email OTP (Better Auth). **No email provider is wir
 
 Set these on the local Convex deployment with `npx convex env set <NAME> <value>` (from `packages/backend`, with `CONVEX_AGENT_MODE=anonymous`) only if you need the feature:
 - `OPENROUTER_API_KEY` — AI job matching / skill extraction / summaries (otherwise those actions throw or are skipped). Optional `AI_AGENT_MODEL` (default `openai/gpt-4o-mini`). Optional `AI_AGENT_REASONING_EFFORT` (`minimal`/`low`/`medium`/`high`/`xhigh`; defaults to `medium` for the agent and `low` for cover letters, `off` disables reasoning).
+- `EXA_API_KEY` or `TAVILY_API_KEY` — optional external web search for the candidate Agent when Qelsa has no in-house course or answer. If neither is set, the Agent falls back to OpenRouter's web plugin using `OPENROUTER_API_KEY`. Optional `AI_WEB_SEARCH_MODEL` controls the fallback model.
 - Cloudflare R2 credentials — resume/profile-image uploads (the `@convex-dev/r2` component).
 - `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` — Google social login (disabled unless the secret is set).
 - `EXTERNAL_API_URL` — hourly job-scraper cron (cleanly no-ops when unset).

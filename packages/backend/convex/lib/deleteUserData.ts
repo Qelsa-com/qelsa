@@ -223,6 +223,12 @@ export async function deleteAppUserData(ctx: MutationCtx, user: Doc<"users">) {
     .collect();
   for (const row of briefs) await ctx.db.delete(row._id);
 
+  const memories = await ctx.db
+    .query("agent_memories")
+    .withIndex("by_user_and_updated", (q) => q.eq("user_id", userId))
+    .collect();
+  for (const row of memories) await ctx.db.delete(row._id);
+
   const agentUsage = await ctx.db
     .query("qelsa_agent_usage")
     .withIndex("by_user_and_day", (q) => q.eq("user_id", userId))

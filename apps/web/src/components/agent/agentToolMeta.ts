@@ -11,6 +11,7 @@
 import {
   Bell,
   Bookmark,
+  Brain,
   BriefcaseBusiness,
   Calendar,
   CheckCircle2,
@@ -28,6 +29,7 @@ import {
   Settings,
   Sparkles,
   Target,
+  Trash2,
   UserRound,
   Wrench,
   type LucideIcon,
@@ -164,6 +166,30 @@ export const TOOL_META: Record<
     running: "Finding upskilling courses",
     failed: "Couldn't find courses",
     icon: FileText,
+  },
+  web_search: {
+    done: "Searched the web",
+    running: "Searching the web",
+    failed: "Couldn't search the web",
+    icon: Globe2,
+  },
+  remember_about_me: {
+    done: "Saved to memory",
+    running: "Saving to memory",
+    failed: "Couldn't save to memory",
+    icon: Brain,
+  },
+  list_my_memory: {
+    done: "Read Agent memory",
+    running: "Reading Agent memory",
+    failed: "Couldn't read Agent memory",
+    icon: Brain,
+  },
+  forget_about_me: {
+    done: "Removed from memory",
+    running: "Removing from memory",
+    failed: "Couldn't remove from memory",
+    icon: Trash2,
   },
   run_job_match: {
     done: "Checked your fit",
@@ -453,6 +479,12 @@ export function fallbackFollowUps(toolNames: string[], recruiter = false): strin
       return ["Make it more specific", "Shorten the message", "Find similar applicants"];
     }
     return ["List my jobs", "Find applicants for a role", "Which job needs attention?"];
+  }
+  if (names.has("web_search")) {
+    return ["Compare these options", "Find a course for this skill", "Check my fit for a role"];
+  }
+  if (names.has("remember_about_me") || names.has("list_my_memory")) {
+    return ["What do you remember about me?", "Forget that", "Find jobs for me"];
   }
   if (names.has("write_cover_letter")) {
     return ["Make the cover letter more technical", "Tailor my resume too", "Prepare my application"];
