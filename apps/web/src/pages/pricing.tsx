@@ -1,18 +1,9 @@
 "use client";
 
 import { useAuth } from "@/contexts/AuthContext";
-import {
-  useChangePlanAction,
-  useCreateCheckoutAction,
-  useGetLivePricesAction,
-  useGetMyBillingQuery,
-  useGetPlansQuery,
-  type BillingInterval,
-  type BillingPlanId,
-  type LivePlanPrices,
-} from "@/features/api/billingApi";
-import { toastUnknownError } from "@/lib/errors";
+import { useChangePlanAction, useCreateCheckoutAction, useGetLivePricesAction, useGetMyBillingQuery, useGetPlansQuery, type BillingInterval, type BillingPlanId, type LivePlanPrices } from "@/features/api/billingApi";
 import { EMPLOYER_PRICING_HEADER, renderPlanFeatures } from "@/lib/employerPlanCopy";
+import { toastUnknownError } from "@/lib/errors";
 import type { BillingPlan, MyBilling } from "@/types/billing";
 import { ArrowRight, Check, Loader2, Sparkles } from "lucide-react";
 import Link from "next/link";
@@ -33,8 +24,6 @@ function formatPrice(amount: number, currency: string) {
     return `${currency} ${amount}`;
   }
 }
-
-
 
 export default function PricingPage() {
   const router = useRouter();
@@ -94,10 +83,7 @@ export default function PricingPage() {
     if (billing?.plan_id) {
       if (billing.plan_id === planId && billing.subscription?.interval === interval) return;
       if (manualOnly) {
-        toastUnknownError(
-          new Error("Your Pro access is managed by the Qelsa team."),
-          "Your Pro access is managed by the Qelsa team.",
-        );
+        toastUnknownError(new Error("Your Pro access is managed by the Qelsa team."), "Your Pro access is managed by the Qelsa team.");
         return;
       }
       try {
@@ -145,33 +131,17 @@ export default function PricingPage() {
 
         <div className="relative mx-auto w-full max-w-6xl px-6 py-16 sm:py-24">
           <div className="mx-auto max-w-2xl text-center">
-            <p className="text-[11px] font-mono font-semibold uppercase tracking-[0.2em] text-neon-cyan">
-              {isRecruiter ? EMPLOYER_PRICING_HEADER.eyebrow : "Qelsa plans"}
-            </p>
-            <h1 className="mt-4 text-4xl font-extrabold tracking-[-0.03em] sm:text-5xl">
-              {isRecruiter ? EMPLOYER_PRICING_HEADER.title : "Choose your pace."}
-            </h1>
-            <p className="mt-4 text-sm leading-relaxed text-white/55 sm:text-base">
-              {isRecruiter
-                ? EMPLOYER_PRICING_HEADER.description
-                : "Start with Plus for the essentials, or go Pro for deeper prep and more Agent time."}
-            </p>
+            <p className="text-[11px] font-mono font-semibold uppercase tracking-[0.2em] text-neon-cyan">{isRecruiter ? EMPLOYER_PRICING_HEADER.eyebrow : "Qelsa plans"}</p>
+            <h1 className="mt-4 text-4xl font-extrabold tracking-[-0.03em] sm:text-5xl">{isRecruiter ? EMPLOYER_PRICING_HEADER.title : "Choose your pace."}</h1>
+            <p className="mt-4 text-sm leading-relaxed text-white/55 sm:text-base">{isRecruiter ? EMPLOYER_PRICING_HEADER.description : "Start with Plus for the essentials, or go Pro for deeper prep and more Agent time."}</p>
           </div>
 
           <div className="mt-10 flex justify-center">
             <div className="inline-flex rounded-full border border-white/10 bg-white/[0.03] p-1">
-              <button
-                type="button"
-                onClick={() => setInterval("month")}
-                className={`rounded-full px-5 py-2 text-xs font-semibold transition ${interval === "month" ? "bg-white text-[#06060f]" : "text-white/55 hover:text-white"}`}
-              >
+              <button type="button" onClick={() => setInterval("month")} className={`rounded-full px-5 py-2 text-xs font-semibold transition ${interval === "month" ? "bg-white text-[#06060f]" : "text-white/55 hover:text-white"}`}>
                 Monthly
               </button>
-              <button
-                type="button"
-                onClick={() => setInterval("year")}
-                className={`rounded-full px-5 py-2 text-xs font-semibold transition ${interval === "year" ? "bg-white text-[#06060f]" : "text-white/55 hover:text-white"}`}
-              >
+              <button type="button" onClick={() => setInterval("year")} className={`rounded-full px-5 py-2 text-xs font-semibold transition ${interval === "year" ? "bg-white text-[#06060f]" : "text-white/55 hover:text-white"}`}>
                 Yearly
               </button>
             </div>
@@ -190,52 +160,40 @@ export default function PricingPage() {
                 const planFeatures = renderPlanFeatures(plan.features, plan.limits);
                 const price = livePrices?.[plan.id]?.[interval] ?? plan.prices[interval];
                 const awaitingLivePrice = pricesLoading && !livePrices;
-                const currentIntervalPrice =
-                  livePrices?.[plan.id]?.[currentInterval ?? "month"] ?? plan.prices[currentInterval ?? "month"];
+                const currentIntervalPrice = livePrices?.[plan.id]?.[currentInterval ?? "month"] ?? plan.prices[currentInterval ?? "month"];
                 const planPrices = livePrices?.[plan.id];
-                const saving =
-                  planPrices?.month.amount && planPrices?.year.amount
-                    ? Math.max(
-                        0,
-                        Math.round(
-                          (1 - planPrices.year.amount / Math.max(1, planPrices.month.amount * 12)) * 100,
-                        ),
-                      )
-                    : 0;
+                const saving = planPrices?.month.amount && planPrices?.year.amount ? Math.max(0, Math.round((1 - planPrices.year.amount / Math.max(1, planPrices.month.amount * 12)) * 100)) : 0;
                 const samePlanSameInterval = isCurrent && currentInterval === interval;
                 const label = !isAuthenticated
                   ? `Get ${plan.name.replace("Qelsa ", "")}`
                   : samePlanSameInterval
-                  ? "Current plan"
-                  : isCurrent
-                  ? `Switch to ${interval === "year" ? "yearly" : "monthly"}`
-                  : currentPlanId
-                  ? `Switch to ${plan.name}`
-                  : plan.id === "plus"
-                  ? "Choose Plus"
-                  : "Upgrade to Pro";
+                    ? "Current plan"
+                    : isCurrent
+                      ? `Switch to ${interval === "year" ? "yearly" : "monthly"}`
+                      : currentPlanId
+                        ? `Switch to ${plan.name}`
+                        : plan.id === "plus"
+                          ? "Choose Plus"
+                          : "Upgrade to Pro";
 
                 return (
                   <section
                     key={plan.id}
                     className={`relative mx-auto w-full max-w-[420px] overflow-hidden rounded-[28px] p-7 sm:p-9 ${
-                      isPro
-                        ? "border border-neon-purple/30 bg-[#0c0917] shadow-[0_0_80px_-30px_rgba(124,47,243,0.55)]"
-                        : "border border-white/[0.08] bg-white/[0.025]"
+                      isPro ? "border border-neon-purple/30 bg-[#0c0917] shadow-[0_0_80px_-30px_rgba(124,47,243,0.55)]" : "border border-white/[0.08] bg-white/[0.025]"
                     } ${isCurrent ? "ring-1 ring-neon-cyan/50" : ""}`}
                   >
                     {isPro ? (
-                      <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(124,47,243,0.2),transparent_55%),radial-gradient(ellipse_at_bottom_left,rgba(34,211,238,0.08),transparent_50%)]" />
+                      <div
+                        aria-hidden
+                        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(124,47,243,0.2),transparent_55%),radial-gradient(ellipse_at_bottom_left,rgba(34,211,238,0.08),transparent_50%)]"
+                      />
                     ) : null}
                     <div className="relative">
                       <div className="flex items-center justify-between gap-3">
-                        <p className={`text-xs font-semibold uppercase tracking-[0.16em] ${isPro ? "text-neon-cyan" : "text-white/40"}`}>
-                          {plan.id}
-                        </p>
+                        <p className={`text-xs font-semibold uppercase tracking-[0.16em] ${isPro ? "text-neon-cyan" : "text-white/40"}`}>{plan.id}</p>
                         {isCurrent ? (
-                          <span className="rounded-full border border-neon-cyan/30 bg-neon-cyan/10 px-2.5 py-1 text-[10px] font-semibold text-neon-cyan">
-                            Current plan
-                          </span>
+                          <span className="rounded-full border border-neon-cyan/30 bg-neon-cyan/10 px-2.5 py-1 text-[10px] font-semibold text-neon-cyan">Current plan</span>
                         ) : isPro ? (
                           <span className="inline-flex items-center gap-1 rounded-full border border-neon-purple/30 bg-neon-purple/10 px-2.5 py-1 text-[10px] font-semibold text-neon-purple">
                             <Sparkles className="size-3" />
@@ -248,9 +206,7 @@ export default function PricingPage() {
                       <p className="mt-2 text-sm leading-relaxed text-white/55">{plan.description}</p>
 
                       <div className="mt-8 flex items-end gap-1.5">
-                        <span className="text-4xl font-extrabold">
-                          {awaitingLivePrice ? "—" : formatPrice(price?.amount ?? 0, price?.currency ?? "USD")}
-                        </span>
+                        <span className="text-4xl font-extrabold">{awaitingLivePrice ? "—" : formatPrice(price?.amount ?? 0, price?.currency ?? "USD")}</span>
                         <span className="pb-1 text-sm text-white/40">/{interval}</span>
                       </div>
                       <p className="mt-1 text-xs text-white/35">
@@ -280,19 +236,11 @@ export default function PricingPage() {
                         onClick={() => void handlePlan(plan.id)}
                         disabled={isBusy || samePlanSameInterval || !price?.available || manualOnly}
                         className={`mt-9 inline-flex w-full items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-45 ${
-                          isPro
-                            ? "bg-gradient-to-r from-[#623dd6] via-[#8433ae] to-[#be2680] text-white hover:opacity-95"
-                            : "border border-white/15 bg-white/[0.04] text-white hover:bg-white/[0.08]"
+                          isPro ? "bg-gradient-to-r from-[#623dd6] via-[#8433ae] to-[#be2680] text-white hover:opacity-95" : "border border-white/15 bg-white/[0.04] text-white hover:bg-white/[0.08]"
                         }`}
                       >
                         {pricesLoading || isCheckingOut || isChangingPlan ? <Loader2 className="size-4 animate-spin" /> : null}
-                        {pricesLoading
-                          ? "Loading plans…"
-                          : !price?.available
-                          ? "Coming soon"
-                          : samePlanSameInterval
-                          ? "Current plan"
-                          : label}
+                        {pricesLoading ? "Loading plans…" : !price?.available ? "Coming soon" : samePlanSameInterval ? "Current plan" : label}
                         {!isCheckingOut && !isChangingPlan && !pricesLoading && price?.available && !samePlanSameInterval ? <ArrowRight className="size-4" /> : null}
                       </button>
                       {manualOnly ? <p className="mt-3 text-center text-[11px] text-white/30">Managed by the Qelsa team.</p> : null}
@@ -308,7 +256,6 @@ export default function PricingPage() {
             <Link href={isAuthenticated ? (isRecruiter ? "/jobs/posted" : "/") : `/auth?returnUrl=${encodeURIComponent("/")}`} className="text-white/50 underline underline-offset-2 hover:text-white">
               Start free
             </Link>
-            . Prices are shown in the configured billing currency. Taxes and payment methods are handled by Dodo Payments.
           </p>
         </div>
       </main>
