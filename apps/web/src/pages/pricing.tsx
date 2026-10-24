@@ -34,6 +34,8 @@ function formatPrice(amount: number, currency: string) {
   }
 }
 
+
+
 export default function PricingPage() {
   const router = useRouter();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
@@ -187,6 +189,7 @@ export default function PricingPage() {
                 const isCurrent = currentPlanId === plan.id;
                 const planFeatures = renderPlanFeatures(plan.features, plan.limits);
                 const price = livePrices?.[plan.id]?.[interval] ?? plan.prices[interval];
+                const awaitingLivePrice = pricesLoading && !livePrices;
                 const currentIntervalPrice =
                   livePrices?.[plan.id]?.[currentInterval ?? "month"] ?? plan.prices[currentInterval ?? "month"];
                 const planPrices = livePrices?.[plan.id];
@@ -245,7 +248,9 @@ export default function PricingPage() {
                       <p className="mt-2 text-sm leading-relaxed text-white/55">{plan.description}</p>
 
                       <div className="mt-8 flex items-end gap-1.5">
-                        <span className="text-4xl font-extrabold">{formatPrice(price?.amount ?? 0, price?.currency ?? "USD")}</span>
+                        <span className="text-4xl font-extrabold">
+                          {awaitingLivePrice ? "—" : formatPrice(price?.amount ?? 0, price?.currency ?? "USD")}
+                        </span>
                         <span className="pb-1 text-sm text-white/40">/{interval}</span>
                       </div>
                       <p className="mt-1 text-xs text-white/35">

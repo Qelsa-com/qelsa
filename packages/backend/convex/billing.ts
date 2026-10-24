@@ -153,6 +153,49 @@ type LivePlanPrices = Record<
   Record<BillingInterval, { amount: number; currency: string; available: boolean }>
 >;
 
+type LocalizedPrice = {
+  country_code?: string;
+  currency: string;
+  amount: number;
+};
+
+type LivePrice = {
+  amount: number;
+  currency: string;
+  available: boolean;
+};
+
+function normalizeCountry(value: string | undefined) {
+  const country = value?.trim().toUpperCase();
+  return country && /^[A-Z]{2}$/.test(country) ? country : undefined;
+}
+
+function normalizeCurrency(value: string | undefined) {
+  const currency = value?.trim().toUpperCase();
+  return currency && /^[A-Z]{3}$/.test(currency) ? currency : undefined;
+}
+
+/**
+ * Dodo applies localized rules by country first, then by currency. The pricing
+ * page only needs the resolved amount/currency, not the full rule set.
+ */
+function resolveLocalizedPrice(
+  base: LivePrice,
+  localized: LocalizedPrice[],
+  country?: string,
+  currency?: string,
+) {
+  if (country) {
+    const byCountry = localized.find((rule) => rule.country_code === country);
+    if (byCountry) return { amount: byCountry.amount, currency: byCountry.currency };
+  }
+  if (currency) {
+    const byCurrency = localized.find((rule) => !rule.country_code && rule.currency === currency);
+    if (byCurrency) return { amount: byCurrency.amount, currency: byCurrency.currency };
+  }
+  return { amount: base.amount, currency: base.currency };
+}
+
 function fallbackPrices(): LivePlanPrices {
   const plans = publicBillingPlans();
   const result = {} as LivePlanPrices;
@@ -190,6 +233,15 @@ export const saveBillingPrices = internalMutation({
         productId: v.string(),
         amount: v.number(),
         currency: v.string(),
+        localizedPrices: v.optional(
+          v.array(
+            v.object({
+              country_code: v.optional(v.string()),
+              currency: v.string(),
+              amount: v.number(),
+            }),
+          ),
+        ),
       }),
     ),
   },
@@ -209,6 +261,8 @@ export const saveBillingPrices = internalMutation({
         product_id: price.productId,
         amount: price.amount,
         currency: price.currency,
+        localized_prices: price.localizedPrices ?? [],
+        localized_fetched_at: now,
         fetched_at: now,
       };
       if (existing) await ctx.db.patch(existing._id, patch);
@@ -218,18 +272,25 @@ export const saveBillingPrices = internalMutation({
   },
 });
 
-/** Fetch authoritative product prices for every paid plan from Dodo. */
+/** Fetch authoritative product and localized prices for every paid plan from Dodo. */
 export const getLivePrices = action({
-  args: {},
+  args: {
+    country: v.optional(v.string()),
+    currency: v.optional(v.string()),
+  },
   returns: v.any(),
-  handler: async (ctx) => {
+  handler: async (ctx, args) => {
     const fallback = fallbackPrices();
+    const country = normalizeCountry(args.country);
+    const requestedCurrency = normalizeCurrency(args.currency);
     const cached = (await ctx.runQuery(internal.billing.getCachedPrices, {})) as Array<{
       plan?: "plus" | "pro";
       interval: "month" | "year";
       product_id: string;
       amount: number;
       currency: string;
+      localized_prices?: LocalizedPrice[];
+      localized_fetched_at?: number;
       fetched_at: number;
     }>;
     const now = Date.now();
@@ -245,14 +306,19 @@ export const getLivePrices = action({
             row.plan === plan &&
             row.interval === interval &&
             row.product_id === price.productId &&
-            now - row.fetched_at < PRICE_CACHE_MS,
+            now - row.fetched_at < PRICE_CACHE_MS &&
+            Array.isArray(row.localized_prices) &&
+            typeof row.localized_fetched_at === "number" &&
+            now - row.localized_fetched_at < PRICE_CACHE_MS,
         );
         if (cacheRow) {
-          result[plan][interval] = {
-            amount: cacheRow.amount,
-            currency: cacheRow.currency,
-            available: true,
-          };
+          const resolved = resolveLocalizedPrice(
+            { amount: cacheRow.amount, currency: cacheRow.currency, available: true },
+            cacheRow.localized_prices ?? [],
+            country,
+            requestedCurrency,
+          );
+          result[plan][interval] = { ...resolved, available: true };
         } else {
           missing.push({ plan, interval, productId: price.productId });
         }
@@ -264,11 +330,18 @@ export const getLivePrices = action({
     const fetched = await Promise.all(
       missing.map(async (item) => {
         try {
-          const product = await dodoProduct(item.productId);
+          const [product, localized] = await Promise.all([
+            dodoProduct(item.productId),
+            dodoLocalizedPrices(item.productId).catch((error) => {
+              console.error(`[billing] could not load Dodo localized prices for ${item.plan}/${item.interval}`, error);
+              return [] as LocalizedPrice[];
+            }),
+          ]);
           return {
             ...item,
             amount: Number(product.price?.price ?? 0) / 100,
             currency: String(product.price?.currency ?? fallback[item.plan][item.interval].currency),
+            localizedPrices: localized,
           };
         } catch (error) {
           console.error(`[billing] could not load Dodo price for ${item.plan}/${item.interval}`, error);
@@ -283,21 +356,25 @@ export const getLivePrices = action({
       productId: string;
       amount: number;
       currency: string;
+      localizedPrices: LocalizedPrice[];
     }> = [];
 
     for (const item of fetched) {
       if (!item) continue;
-      result[item.plan][item.interval] = {
-        amount: item.amount,
-        currency: item.currency,
-        available: true,
-      };
+      const resolved = resolveLocalizedPrice(
+        { amount: item.amount, currency: item.currency, available: true },
+        item.localizedPrices,
+        country,
+        requestedCurrency,
+      );
+      result[item.plan][item.interval] = { ...resolved, available: true };
       save.push({
         plan: item.plan,
         interval: item.interval,
         productId: item.productId,
         amount: item.amount,
         currency: item.currency,
+        localizedPrices: item.localizedPrices,
       });
     }
 
@@ -360,7 +437,9 @@ export const createCheckout = action({
         },
         return_url: safeReturnUrl(args.returnUrl),
         cancel_url: safeCancelUrl(args.cancelUrl),
-        billing_currency: price.currency,
+        // Let Dodo resolve the localized price from the customer's billing
+        // country. Sending the product's base currency here can override the
+        // localized rule when adaptive currency is enabled.
         feature_flags: { allow_discount_code: true },
       },
     });
@@ -401,6 +480,63 @@ async function dodoProduct(productId: string) {
   return (await response.json()) as {
     price?: { price?: number; currency?: string };
   };
+}
+
+/**
+ * Dodo keeps localized pricing rules outside the product's base price.
+ * Amounts are in the smallest currency unit (₹399 is returned as 39900).
+ */
+async function dodoLocalizedPrices(productId: string): Promise<LocalizedPrice[]> {
+  const apiKey = process.env.DODO_PAYMENTS_API_KEY;
+  if (!apiKey || !productId) throw new Error("Dodo Payments is not configured on this deployment.");
+  const response = await fetch(
+    `${dodoApiBase()}/products/${encodeURIComponent(productId)}/localized-prices`,
+    { headers: { Authorization: `Bearer ${apiKey}` } },
+  );
+  if (!response.ok) throw new Error(`Dodo localized price lookup failed (${response.status})`);
+  const payload = (await response.json()) as
+    | { items?: unknown[]; localized_prices?: unknown[]; data?: unknown[] }
+    | unknown[];
+  const rows = Array.isArray(payload)
+    ? payload
+    : Array.isArray(payload.items)
+      ? payload.items
+      : Array.isArray(payload.localized_prices)
+        ? payload.localized_prices
+        : Array.isArray(payload.data)
+          ? payload.data
+          : [];
+
+  return rows
+    .map((raw) => {
+      if (!raw || typeof raw !== "object") return null;
+      const row = raw as Record<string, unknown>;
+      const currency = normalizeCurrency(
+        typeof row.currency === "string"
+          ? row.currency
+          : typeof row.currency_code === "string"
+            ? row.currency_code
+            : undefined,
+      );
+      const amount = Number(row.amount ?? row.price ?? 0) / 100;
+      const countryValue =
+        typeof row.country_code === "string"
+          ? row.country_code
+          : typeof row.country === "string"
+            ? row.country
+            : row.country && typeof row.country === "object" && "code" in row.country
+              ? String((row.country as { code?: unknown }).code ?? "")
+              : undefined;
+      const country = normalizeCountry(countryValue);
+      if (!currency || !Number.isFinite(amount) || amount <= 0) return null;
+      return {
+        ...(country ? { country_code: country } : {}),
+        currency,
+        amount,
+      } satisfies LocalizedPrice;
+    })
+    .filter((row): row is LocalizedPrice => Boolean(row))
+    .slice(0, 200);
 }
 
 async function dodoRequest(path: string, method: "PATCH" | "POST", body: Record<string, unknown>) {

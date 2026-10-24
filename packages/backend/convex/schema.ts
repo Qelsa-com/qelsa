@@ -1006,6 +1006,19 @@ export default defineSchema({
     product_id: v.string(),
     amount: v.number(),
     currency: v.string(),
+    // Dodo resolves localized pricing separately from the product's base
+    // price. Cache the active rules so a pricing page render does not fan out
+    // to Dodo on every visit.
+    localized_prices: v.optional(
+      v.array(
+        v.object({
+          country_code: v.optional(v.string()),
+          currency: v.string(),
+          amount: v.number(),
+        }),
+      ),
+    ),
+    localized_fetched_at: v.optional(v.number()),
     fetched_at: v.number(),
   })
     .index("by_interval", ["interval"])

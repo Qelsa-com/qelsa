@@ -2,6 +2,7 @@
 
 import { withUnwrap, useConvexQueryHook } from "@/lib/convexHooks";
 import { api } from "@/lib/convexApi";
+import { detectPricingCountry } from "@/lib/pricingLocale";
 import { useAction } from "convex/react";
 import { useState } from "react";
 
@@ -28,10 +29,12 @@ export function useGetMyBillingQuery(options?: { skip?: boolean }) {
 export function useGetLivePricesAction() {
   const getLivePrices = useAction(api.billing.getLivePrices);
   const [isLoading, setIsLoading] = useState(false);
-  const trigger = () => {
+  const trigger = (input?: { country?: string; currency?: string }) => {
     setIsLoading(true);
+    const country = input?.country ?? detectPricingCountry();
+    const args = country ? { ...input, country } : input;
     return withUnwrap(
-      Promise.resolve(getLivePrices({}) as Promise<LivePlanPrices>).finally(() => setIsLoading(false)),
+      Promise.resolve(getLivePrices(args ?? {}) as Promise<LivePlanPrices>).finally(() => setIsLoading(false)),
     );
   };
   return [trigger, { isLoading }] as const;
