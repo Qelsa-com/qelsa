@@ -407,8 +407,6 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
   const generationState = useQuery(api.qelsaAgent.getGenerationStatus, isAuthenticated && activeThreadId && activeThreadIsKnown ? { threadId: activeThreadId } : "skip");
   const briefsQuery = useQuery(api.agentProactive.listBriefs, isAuthenticated ? { limit: 5 } : "skip");
   const refreshMyBriefs = useMutation(api.agentProactive.refreshMyBriefs);
-  const memoryQuery = useQuery(api.agentMemory.listMemories, isAuthenticated && !isRecruiter ? {} : "skip");
-  const memoryCount = (memoryQuery?.count ?? 0) as number;
   const markBriefRead = useMutation(api.agentProactive.markBriefRead);
   const vapidPublicKey = useQuery(api.agentNotifications.getVapidPublicKey, isAuthenticated ? {} : "skip");
   const savePushSubscription = useMutation(api.agentNotifications.savePushSubscription);
@@ -1148,10 +1146,9 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
               aria-label="What Qelsa remembers"
               title="What Qelsa remembers"
               onClick={() => setMemoryOpen(true)}
-              className="relative flex size-9 items-center justify-center rounded-full border border-white/[0.1] bg-white/[0.04] text-white/70 transition-colors hover:border-neon-purple/40 hover:text-white"
+              className="flex size-9 items-center justify-center rounded-full border border-white/[0.1] bg-white/[0.04] text-white/70 transition-colors hover:border-neon-purple/40 hover:text-white"
             >
               <Brain className="size-4" />
-              {memoryCount > 0 && <span className="absolute -right-1 -top-1 flex min-w-4 items-center justify-center rounded-full bg-neon-purple px-1 text-[9px] font-bold leading-4 text-white">{memoryCount > 9 ? "9+" : memoryCount}</span>}
             </button>
           )}
           <button
