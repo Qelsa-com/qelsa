@@ -33,7 +33,6 @@ const GUEST_NAV_LINKS = [
   { id: "employers", label: "For Employers", href: "/employers" },
   { id: "jobs", label: "Jobs", href: "/jobs/all" },
   { id: "courses", label: "Courses", href: "/courses" },
-  { id: "pricing", label: "Pricing", href: "/pricing" },
 ];
 
 export function DesktopTopBar({
