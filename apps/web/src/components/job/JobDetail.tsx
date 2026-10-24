@@ -27,7 +27,7 @@ import { toast } from "sonner";
 import { jobDescriptionToHtml } from "@/lib/jobDescription";
 import { Job } from "@/types/job";
 import DOMPurify from "dompurify";
-import { ArrowLeft, ArrowUpRight, Bookmark, BookmarkCheck, BookOpen, Briefcase, Building2, CheckCircle2, FileText, Linkedin, Link as LinkIcon, MessageCircle, Pencil, Share2, Sparkles, Twitter, Users } from "lucide-react";
+import { ArrowLeft, ArrowRight, ArrowUpRight, Bookmark, BookmarkCheck, BookOpen, Briefcase, Building2, CheckCircle2, FileText, Linkedin, Link as LinkIcon, MessageCircle, Pencil, Share2, Sparkles, Twitter, Users } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { goBackJobs } from "@/lib/jobNavigation";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -342,13 +342,7 @@ export function JobDetail() {
         // { label: "Views", value: formatCount(job.view_count ?? 0) },
         // { label: "Applications", value: `${job.application_count ?? job.applications?.length ?? 0}` },
       ]
-    : [
-        ...(competency && competency.readiness != null
-          ? [{ label: "Readiness score", value: `${competency.readiness}%` }]
-          : []),
-        // { label: "Views", value: formatCount(job.view_count ?? 0) },
-        // { label: "Applications", value: `${job.application_count ?? job.applications?.length ?? 0}` },
-      ];
+    : [];
 
   const isExternalApply = Boolean(job.application_url);
 
@@ -590,8 +584,33 @@ export function JobDetail() {
 
           <h1 className="text-2xl font-bold leading-8 text-white lg:text-[32px] lg:leading-10">{title}</h1>
 
-          {/* metric cards */}
-          {metrics.length > 0 && (
+          {!isOwner && competency && competency.readiness != null ? (
+            <div className="flex flex-col gap-4 rounded-2xl border border-neon-cyan/20 bg-gradient-to-r from-neon-cyan/[0.07] via-white/[0.03] to-transparent p-4 sm:p-5 lg:flex-row lg:items-center lg:justify-between">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-baseline gap-2">
+                  <span className="text-2xl font-bold text-white lg:text-3xl">{Math.round(competency.readiness)}%</span>
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-neon-cyan">Readiness</span>
+                </div>
+                <p className="mt-1 text-xs text-white/45">
+                  You match {competency.matchedCount} of {competency.totalCount} skills listed.
+                </p>
+                <div className="mt-3 h-1.5 w-full max-w-sm overflow-hidden rounded-full bg-white/10">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-neon-cyan to-neon-purple"
+                    style={{ width: `${Math.min(100, Math.max(0, competency.readiness))}%` }}
+                  />
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => scrollToSection("how-you-fit")}
+                className="inline-flex h-11 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neon-cyan/25 bg-neon-cyan/[0.08] px-4 text-sm font-semibold text-neon-cyan transition-colors hover:bg-neon-cyan/[0.14] lg:w-auto"
+              >
+                See how you fit
+                <ArrowRight className="size-4" />
+              </button>
+            </div>
+          ) : metrics.length > 0 ? (
             <div className={`grid gap-3 lg:gap-4 ${metrics.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
               {metrics.map((m) => (
                 <div key={m.label} className="flex min-w-0 flex-col gap-1 rounded-xl border border-glass-border bg-white/[0.03] p-3 lg:gap-1.5 lg:rounded-2xl lg:p-4">
@@ -600,7 +619,7 @@ export function JobDetail() {
                 </div>
               ))}
             </div>
-          )}
+          ) : null}
 
           {heroBadgesFor(job).length > 0 && (
             <div className="flex flex-wrap gap-2">
