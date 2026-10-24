@@ -234,7 +234,7 @@ export function GoalSettingPage() {
   }, [industryResults]);
 
   return (
-    <div className={`mx-auto w-full max-w-6xl px-4 py-8 text-white sm:px-6 sm:py-12 lg:px-8 ${isGenerated ? "pb-32 lg:pb-12" : ""}`}>
+    <div className={`mx-auto w-full max-w-6xl px-4 py-8 text-white sm:px-6 sm:py-12 lg:px-8 ${isGenerated ? "pb-32" : ""}`}>
       <div className="max-w-2xl">
         <h1 className="text-3xl font-extrabold tracking-tight sm:text-4xl">Where do you want your career to go?</h1>
         <p className="mt-2 text-sm text-white/50 sm:text-base">Tell Qelsa where you want to go. We&apos;ll turn your vision into a personalized career goal.</p>
@@ -361,19 +361,6 @@ export function GoalSettingPage() {
                 </div>
               </div>
 
-              <div className="mt-2 hidden items-center justify-between gap-4 lg:flex">
-                <button type="button" onClick={handleCancel} disabled={saving} className="rounded-full border border-white/20 bg-transparent px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-white/5">
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSave}
-                  disabled={saving || form.target_roles.length === 0}
-                  className="rounded-full bg-gradient-to-r from-[#7c3aed] to-[#db2777] px-8 py-2.5 text-sm font-semibold text-white shadow-lg transition-all hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {saving ? "Saving…" : savedGoal ? "Update" : "Save goal"}
-                </button>
-              </div>
             </div>
           ) : (
             <div className="hidden rounded-3xl border border-dashed border-white/10 bg-white/[0.015] p-6 lg:block">
@@ -392,16 +379,16 @@ export function GoalSettingPage() {
       </div>
 
       {isGenerated && (
-        <div role="group" className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#050814]/95 backdrop-blur-xl lg:hidden" aria-label="Goal actions">
-          <div className="mx-auto flex max-w-6xl gap-3 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-            <button type="button" onClick={handleCancel} disabled={saving} className="h-11 flex-1 rounded-full border border-white/20 bg-transparent text-sm font-medium text-white transition-colors hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50">
+        <div role="group" className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#050814]/95 backdrop-blur-xl" aria-label="Goal actions">
+          <div className="mx-auto flex max-w-6xl gap-3 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:justify-end lg:px-8">
+            <button type="button" onClick={handleCancel} disabled={saving} className="h-11 flex-1 rounded-full border border-white/20 bg-transparent px-6 text-sm font-medium text-white transition-colors hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50 lg:flex-none">
               Cancel
             </button>
             <button
               type="button"
               onClick={handleSave}
               disabled={saving || form.target_roles.length === 0}
-              className="h-11 flex-[1.4] rounded-full bg-gradient-to-r from-[#7c3aed] to-[#db2777] px-6 text-sm font-semibold text-white shadow-lg transition-all hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50"
+              className="h-11 flex-[1.4] rounded-full bg-gradient-to-r from-[#7c3aed] to-[#db2777] px-6 text-sm font-semibold text-white shadow-lg transition-all hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50 lg:flex-none lg:px-8"
             >
               {saving ? "Saving…" : savedGoal ? "Update" : "Save goal"}
             </button>

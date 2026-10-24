@@ -339,15 +339,15 @@ export function JobDetail() {
             ? "Remote"
             : "On-site",
         },
-        { label: "Views", value: formatCount(job.view_count ?? 0) },
-        { label: "Applications", value: `${job.application_count ?? job.applications?.length ?? 0}` },
+        // { label: "Views", value: formatCount(job.view_count ?? 0) },
+        // { label: "Applications", value: `${job.application_count ?? job.applications?.length ?? 0}` },
       ]
     : [
         ...(competency && competency.readiness != null
           ? [{ label: "Readiness score", value: `${competency.readiness}%` }]
           : []),
-        { label: "Views", value: formatCount(job.view_count ?? 0) },
-        { label: "Applications", value: `${job.application_count ?? job.applications?.length ?? 0}` },
+        // { label: "Views", value: formatCount(job.view_count ?? 0) },
+        // { label: "Applications", value: `${job.application_count ?? job.applications?.length ?? 0}` },
       ];
 
   const isExternalApply = Boolean(job.application_url);
@@ -591,14 +591,16 @@ export function JobDetail() {
           <h1 className="text-2xl font-bold leading-8 text-white lg:text-[32px] lg:leading-10">{title}</h1>
 
           {/* metric cards */}
-          <div className={`grid gap-3 lg:gap-4 ${metrics.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
-            {metrics.map((m) => (
-              <div key={m.label} className="flex min-w-0 flex-col gap-1 rounded-xl border border-glass-border bg-white/[0.03] p-3 lg:gap-1.5 lg:rounded-2xl lg:p-4">
-                <span className="text-xs leading-tight text-white/45 lg:leading-4">{m.label}</span>
-                <span className="text-lg font-bold text-white lg:text-2xl">{m.value}</span>
-              </div>
-            ))}
-          </div>
+          {metrics.length > 0 && (
+            <div className={`grid gap-3 lg:gap-4 ${metrics.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
+              {metrics.map((m) => (
+                <div key={m.label} className="flex min-w-0 flex-col gap-1 rounded-xl border border-glass-border bg-white/[0.03] p-3 lg:gap-1.5 lg:rounded-2xl lg:p-4">
+                  <span className="text-xs leading-tight text-white/45 lg:leading-4">{m.label}</span>
+                  <span className="text-lg font-bold text-white lg:text-2xl">{m.value}</span>
+                </div>
+              ))}
+            </div>
+          )}
 
           {heroBadgesFor(job).length > 0 && (
             <div className="flex flex-wrap gap-2">
