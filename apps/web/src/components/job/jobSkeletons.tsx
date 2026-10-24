@@ -99,62 +99,107 @@ export function SimilarJobCardSkeleton() {
   );
 }
 
-/** Full job-detail layout: hero, left sections, similar-jobs sidebar. */
+/** Full job-detail layout: mobile header, hero, readiness strip, tabs, content, sidebar. */
 export function JobDetailSkeleton() {
   return (
-    <div className="text-white" role="status" aria-label="Loading job">
+    <div className="overflow-x-clip text-white" role="status" aria-label="Loading job">
       <span className="sr-only">Loading job</span>
-      <div className="relative mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 pb-8 pt-4 sm:px-6 lg:gap-6 lg:px-8 lg:pb-12 lg:pt-8">
-        <Bone className="hidden h-4 w-28 lg:block" />
 
-        <div className="rounded-xl border border-glass-border bg-white/[0.03] p-4 lg:rounded-[20px] lg:p-8">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-center gap-3">
-              <Bone className="size-12 rounded-2xl lg:size-16" />
-              <div className="flex flex-col gap-2">
-                <Bone className="h-4 w-28" />
-                <Bone className="h-3 w-40" />
-              </div>
-            </div>
-            <div className="hidden gap-3 lg:flex">
-              <Bone className="h-11 w-24 rounded-full" />
-              <Bone className="h-11 w-28 rounded-full" />
-            </div>
-          </div>
-          <Bone className="mt-6 h-8 w-2/3 max-w-md" />
-          <div className="mt-6 flex gap-3">
-            {range(3).map((i) => (
-              <div key={i} className="flex min-w-0 flex-1 flex-col gap-2 rounded-xl border border-glass-border bg-white/[0.03] p-3 lg:rounded-2xl lg:p-4">
-                <Bone className="h-3 w-16" />
-                <Bone className="h-6 w-12" />
-              </div>
+      {/* Mobile header bar — same frame as the loaded page. */}
+      <div className="flex h-16 items-center justify-between border-b border-white/[0.12] bg-white/[0.06] px-4 lg:hidden">
+        <div className="flex items-center gap-3">
+          <Bone className="size-10 shrink-0 rounded-full" />
+          <Bone className="h-5 w-24" />
+        </div>
+        <Bone className="size-10 shrink-0 rounded-full" />
+      </div>
+
+      <div className="relative mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 pb-28 pt-4 sm:px-6 lg:gap-6 lg:px-8 lg:pb-12 lg:pt-8">
+        {/* Breadcrumb + share actions. */}
+        <div className="hidden w-full items-center justify-between lg:flex">
+          <Bone className="h-4 w-28" />
+          <div className="glass-strong flex w-fit items-center gap-2 rounded-full p-2">
+            {range(5).map((i) => (
+              <Bone key={i} className="size-10 rounded-[20px]" />
             ))}
           </div>
-          <div className="mt-4 flex flex-wrap gap-2">
+        </div>
+
+        {/* Hero */}
+        <div className="rounded-xl border border-glass-border bg-white/[0.03] p-4 lg:rounded-[20px] lg:p-8">
+          <div className="flex flex-col gap-3 lg:gap-6">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between lg:gap-0">
+              <div className="flex min-w-0 items-center gap-3">
+                <Bone className="size-12 shrink-0 rounded-full lg:size-16" />
+                <div className="flex flex-col gap-1.5">
+                  <Bone className="h-4 w-32" />
+                  <Bone className="h-3 w-40" />
+                </div>
+              </div>
+              <div className="hidden items-center gap-3 lg:flex">
+                <Bone className="h-11 w-24 rounded-full" />
+                <Bone className="h-11 w-11 shrink-0 rounded-full xl:w-44" />
+                <Bone className="h-11 w-28 rounded-full" />
+              </div>
+            </div>
+
+            <Bone className="h-8 w-4/5 max-w-2xl lg:h-10" />
+
+            <div className="flex flex-wrap gap-2">
+              {range(5).map((i) => (
+                <Bone key={i} className={cn("h-7 rounded-full", ["w-20", "w-16", "w-24", "w-16", "w-20"][i])} />
+              ))}
+            </div>
+
+            {/* Readiness strip — matches the loaded hero. */}
+            <div className="flex flex-col gap-4 rounded-2xl border border-neon-cyan/20 bg-gradient-to-r from-neon-cyan/[0.07] via-white/[0.03] to-transparent p-4 sm:p-5 lg:flex-row lg:items-center lg:justify-between">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-baseline gap-2">
+                  <Bone className="h-8 w-14" />
+                  <Bone className="h-3 w-20" />
+                </div>
+                <Bone className="mt-2 h-3 w-48 max-w-full" />
+                <Bone className="mt-3 h-1.5 w-full max-w-sm rounded-full" />
+              </div>
+              <Bone className="h-11 w-full shrink-0 rounded-full lg:w-32" />
+            </div>
+          </div>
+        </div>
+
+        {/* Sticky section tabs. */}
+        <div className="-mx-4 border-b border-white/[0.08] px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+          <div className="flex gap-1 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {range(5).map((i) => (
-              <Bone key={i} className="h-7 w-20 rounded-full" />
+              <div key={i} className="flex shrink-0 items-center border-b-2 border-transparent px-3 py-3">
+                <Bone className={cn("h-5 rounded-md", ["w-16", "w-24", "w-12", "w-28", "w-24"][i])} />
+              </div>
             ))}
           </div>
         </div>
 
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-6">
           <div className="flex min-w-0 flex-1 flex-col gap-4 lg:gap-6">
-            <div className="flex flex-col gap-3 rounded-[20px] border border-neon-cyan/20 bg-white/[0.03] p-4 lg:flex-row lg:items-center lg:p-5">
-              <Bone className="size-10 rounded-[20px]" />
-              <div className="flex flex-1 flex-col gap-2">
-                <Bone className="h-4 w-56" />
-                <Bone className="h-3 w-full max-w-md" />
+            {/* Job description */}
+            <div className="flex flex-col gap-4 rounded-xl border border-glass-border bg-white/[0.03] p-4 lg:rounded-[20px] lg:p-6">
+              <div className="flex items-center gap-3">
+                <Bone className="size-5 rounded-md" />
+                <Bone className="h-5 w-40" />
               </div>
-              <Bone className="h-10 w-40 rounded-full" />
+              <div className="flex flex-col gap-2.5">
+                <Bone className="h-3.5 w-full" />
+                <Bone className="h-3.5 w-[94%]" />
+                <Bone className="h-3.5 w-[88%]" />
+                <Bone className="h-3.5 w-3/4" />
+              </div>
             </div>
-            <div className="flex flex-col gap-3 rounded-[20px] border border-glass-border bg-white/[0.03] p-4 lg:p-6">
-              <Bone className="h-5 w-40" />
-              <Bone className="h-3 w-full" />
-              <Bone className="h-3 w-full" />
-              <Bone className="h-3 w-4/5" />
-            </div>
-            <div className="flex flex-col gap-3 rounded-[20px] border border-glass-border bg-white/[0.03] p-4 lg:p-6">
-              <Bone className="h-5 w-52" />
+
+            {/* Skills */}
+            <div className="flex flex-col gap-4 rounded-xl border border-glass-border bg-white/[0.03] p-4 lg:rounded-[20px] lg:p-6">
+              <div className="flex items-center gap-3">
+                <Bone className="size-5 rounded-md" />
+                <Bone className="h-5 w-52" />
+              </div>
+              <Bone className="h-3 w-64 max-w-full" />
               <div className="flex flex-wrap gap-2">
                 {range(6).map((i) => (
                   <Bone key={i} className="h-7 w-16 rounded-full" />
@@ -162,14 +207,25 @@ export function JobDetailSkeleton() {
               </div>
             </div>
           </div>
+
+          {/* Similar jobs */}
           <div className="w-full lg:w-80 lg:shrink-0">
-            <div className="flex flex-col gap-3 rounded-[20px] border border-glass-border bg-white/[0.03] p-4 lg:p-6">
+            <div className="flex flex-col gap-3 rounded-xl border border-glass-border bg-white/[0.03] p-4 lg:rounded-[20px] lg:p-6">
               <Bone className="h-5 w-28" />
               {range(4).map((i) => (
                 <SimilarJobCardSkeleton key={i} />
               ))}
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Mobile fixed action bar. */}
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-glass-border bg-[#06060f]/90 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-lg lg:hidden">
+        <div className="mx-auto flex max-w-lg items-center gap-3">
+          <Bone className="h-[46px] w-24 shrink-0 rounded-full" />
+          <Bone className="size-[46px] shrink-0 rounded-full" />
+          <Bone className="h-[46px] flex-1 rounded-full" />
         </div>
       </div>
     </div>
