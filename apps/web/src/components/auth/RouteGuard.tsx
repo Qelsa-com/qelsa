@@ -23,12 +23,15 @@ const PUBLIC_ROUTES = [
   "/privacy",
   "/terms",
   "/cookies",
+  "/sitemap.xml",
+  "/robots.txt",
 ];
 const ONBOARDING_EXEMPT = new Set(["/onboarding", "/auth", "/employer/auth", "/privacy", "/terms", "/cookies"]);
 const JOB_STATIC = new Set(["all", "posted", "smart-matches", "create-job", "match", "ready", "almost", "smart_matches"]);
 const PUBLIC_JOB = /^\/jobs\/([^/]+)$/;
 const PUBLIC_PAGE = /^\/pages\/([^/]+)$/;
 const PUBLIC_PROFILE = /^\/profile\/([^/]+)$/;
+const PUBLIC_BLOG = /^\/blogs\/([^/]+)$/;
 const RESERVED_PROFILE_HANDLES = ["edit", "certifications", "educations", "skills", "work-experience"];
 
 const EMPLOYER_ONLY_PREFIXES = [
@@ -60,6 +63,9 @@ const isPublicPath = (path: string) => {
 
   const jobId = PUBLIC_JOB.exec(path)?.[1];
   if (jobId && !JOB_STATIC.has(jobId) && jobId !== "my-jobs") return true;
+
+  const blogSlug = PUBLIC_BLOG.exec(path)?.[1];
+  if (blogSlug) return true;
 
   const handle = PUBLIC_PROFILE.exec(path)?.[1];
   if (Boolean(handle) && !RESERVED_PROFILE_HANDLES.includes(handle)) return true;

@@ -26,6 +26,7 @@ import type * as auth from "../auth.js";
 import type * as billing from "../billing.js";
 import type * as billingCustomers from "../billingCustomers.js";
 import type * as billingPlans from "../billingPlans.js";
+import type * as blog from "../blog.js";
 import type * as careerGoals from "../careerGoals.js";
 import type * as careerGoalsGenerate from "../careerGoalsGenerate.js";
 import type * as certifications from "../certifications.js";
@@ -119,6 +120,7 @@ declare const fullApi: ApiFromModules<{
   billing: typeof billing;
   billingCustomers: typeof billingCustomers;
   billingPlans: typeof billingPlans;
+  blog: typeof blog;
   careerGoals: typeof careerGoals;
   careerGoalsGenerate: typeof careerGoalsGenerate;
   certifications: typeof certifications;

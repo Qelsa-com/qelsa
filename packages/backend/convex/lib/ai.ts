@@ -32,6 +32,19 @@ function modelSupportsReasoning(model: string) {
   return /(?:gemini|claude|gpt-5|(?:^|\/)o[1-9]|grok-4|deepseek-r)/i.test(model);
 }
 
+/** Optional model override for task-specific writers (for example the blog agent). */
+export function createChatModel(model: string, defaultEffort?: ReasoningEffort) {
+  const settings: OpenRouterChatSettings = {
+    provider: { sort: "throughput", allow_fallbacks: true },
+  };
+  const effort =
+    AI_AGENT_REASONING_EFFORT ?? (modelSupportsReasoning(model) ? defaultEffort : undefined);
+  if (effort) {
+    settings.reasoning = { effort };
+  }
+  return requireOpenRouter().chat(model, settings);
+}
+
 /**
  * The OpenRouter provider emits a direct console.warn for unsigned Gemini /
  * Anthropic reasoning details. It intentionally skips that warning whenever
@@ -71,15 +84,7 @@ if (warningGlobal.AI_SDK_LOG_WARNINGS === undefined) {
  * need a long planning pass. The environment override wins for both.
  */
 export function createAgentChatModel(defaultEffort?: ReasoningEffort) {
-  const settings: OpenRouterChatSettings = {
-    provider: { sort: "throughput", allow_fallbacks: true },
-  };
-  const effort =
-    AI_AGENT_REASONING_EFFORT ?? (modelSupportsReasoning(AI_AGENT_MODEL) ? defaultEffort : undefined);
-  if (effort) {
-    settings.reasoning = { effort };
-  }
-  return requireOpenRouter().chat(AI_AGENT_MODEL, settings);
+  return createChatModel(AI_AGENT_MODEL, defaultEffort);
 }
 
 export function requireOpenRouter() {

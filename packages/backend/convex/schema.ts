@@ -650,6 +650,76 @@ export default defineSchema({
     .index("by_kind", ["kind"])
     .index("by_kind_provider_subdomain", ["kind", "provider", "subdomain"]),
 
+  // Editorial posts written by the admin blog agent. Content is stored as
+  // structured blocks so public pages can render semantic HTML without trusting
+  // model-authored markup.
+  blog_posts: defineTable({
+    slug: v.string(),
+    title: v.string(),
+    excerpt: v.string(),
+    meta_title: v.string(),
+    meta_description: v.string(),
+    primary_keyword: v.string(),
+    search_intent: v.string(),
+    category: v.string(),
+    tags: v.array(v.string()),
+    intro: v.string(),
+    key_takeaways: v.array(v.string()),
+    sections: v.array(
+      v.object({
+        heading: v.string(),
+        paragraphs: v.array(v.string()),
+        bullets: v.array(v.string()),
+      }),
+    ),
+    faq: v.array(
+      v.object({
+        question: v.string(),
+        answer: v.string(),
+      }),
+    ),
+    related_links: v.array(
+      v.object({
+        label: v.string(),
+        href: v.string(),
+      }),
+    ),
+    cover_image_id: v.optional(v.id("_storage")),
+    cover_image_alt: v.string(),
+    cover_status: v.union(v.literal("ready"), v.literal("failed")),
+    cover_error: v.optional(v.string()),
+    image_prompt: v.string(),
+    status: v.union(v.literal("draft"), v.literal("published")),
+    seo_score: v.number(),
+    word_count: v.number(),
+    reading_minutes: v.number(),
+    content_hash: v.string(),
+    model: v.string(),
+    image_model: v.string(),
+    prompt_version: v.string(),
+    created_by: v.id("users"),
+    created_at: v.number(),
+    updated_at: v.number(),
+    published_at: v.optional(v.number()),
+  })
+    .index("by_slug", ["slug"])
+    .index("by_status_published_at", ["status", "published_at"])
+    .index("by_created_at", ["created_at"]),
+
+  // Observable state for the admin-only blog generator. The actual workflow is
+  // an action, so this sidecar lets the panel survive a reload mid-generation.
+  blog_generation_runs: defineTable({
+    status: v.union(v.literal("running"), v.literal("completed"), v.literal("failed")),
+    title_hint: v.optional(v.string()),
+    model: v.string(),
+    image_model: v.string(),
+    actor_user_id: v.id("users"),
+    started_at: v.number(),
+    completed_at: v.optional(v.number()),
+    blog_id: v.optional(v.id("blog_posts")),
+    error: v.optional(v.string()),
+  }).index("by_started_at", ["started_at"]),
+
   // Singleton (at most one row). Admin toggle for ATS / public-board ingest.
   admin_settings: defineTable({
     ats_sync_enabled: v.boolean(),
