@@ -76,15 +76,15 @@ export function AgentMemoryDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex max-h-[85vh] w-[calc(100%-2rem)] max-w-lg flex-col gap-0 overflow-hidden border-white/10 bg-[#0b0b16] p-0 text-white shadow-2xl">
-        <DialogHeader className="border-b border-white/[0.08] px-5 py-4 text-left">
+        <DialogHeader className="border-b border-white/[0.08] px-5 py-3.5 text-left">
           <DialogTitle className="flex items-center gap-2 text-[15px] text-white">
             <span className="flex size-7 items-center justify-center rounded-lg border border-neon-purple/25 bg-neon-purple/10 text-neon-purple">
               <Brain className="size-4" />
             </span>
             What Qelsa remembers
           </DialogTitle>
-          <DialogDescription className="text-[11px] leading-relaxed text-white/45">
-            Short facts the Agent can use across conversations. Add, edit, or remove them anytime.
+          <DialogDescription className="sr-only">
+            Facts Qelsa remembers about you.
           </DialogDescription>
         </DialogHeader>
 
@@ -125,22 +125,20 @@ export function AgentMemoryDialog({
               {busy ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
             </button>
           </div>
-          <p className="mt-2 text-[10px] text-white/30">
-            {count}/{max} saved. The Agent only keeps durable preferences you state — never passwords or sensitive IDs.
-          </p>
+          <div className="mt-2 flex items-center justify-between gap-3 text-[10px] text-white/30">
+            <span>Avoid passwords and sensitive IDs.</span>
+            <span className="shrink-0 tabular-nums">{data ? `${count}/${max}` : ""}</span>
+          </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-3">
+        <div className="max-h-[45vh] min-h-0 overflow-y-auto px-5 py-3">
           {!data ? (
             <div className="flex justify-center py-8">
               <Loader2 className="size-5 animate-spin text-white/30" />
             </div>
           ) : memories.length === 0 ? (
             <div className="py-8 text-center">
-              <p className="text-[13px] font-medium text-white/60">Nothing saved yet.</p>
-              <p className="mt-1 text-[11px] text-white/35">
-                Tell the Agent something durable, like “remember I only want remote roles.”
-              </p>
+              <p className="text-[12px] text-white/45">Nothing saved yet.</p>
             </div>
           ) : (
             <ul className="space-y-2">
@@ -174,10 +172,6 @@ export function AgentMemoryDialog({
               ))}
             </ul>
           )}
-        </div>
-
-        <div className="border-t border-white/[0.08] px-5 py-3 text-[10px] leading-relaxed text-white/30">
-          The Agent also reads your profile, applications, and saved searches. Memory is separate so you can control what it carries between chats.
         </div>
       </DialogContent>
     </Dialog>
