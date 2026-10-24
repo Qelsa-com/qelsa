@@ -10,6 +10,7 @@
 
 import { AiMarkdown } from "@/components/ai/AiMarkdown";
 import { SubscriptionUpgradeModal, type UpgradeReason } from "@/components/billing/SubscriptionUpgradeModal";
+import { useAlert } from "@/components/ui/alert-modal";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/components/ui/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -370,14 +371,14 @@ function ConversationList({
             </button>
             <button
               type="button"
-              aria-label="Delete conversation"
+              aria-label={`Delete conversation: ${conversation.title}`}
               onClick={(event) => {
                 event.stopPropagation();
                 onDelete(conversation.threadId);
               }}
-              className="mr-1 flex size-7 shrink-0 items-center justify-center rounded-md text-white/25 opacity-0 transition-all hover:bg-rose-400/10 hover:text-rose-300 focus-visible:opacity-100 group-hover:opacity-100 lg:size-6"
+              className="mr-1 flex size-11 shrink-0 items-center justify-center rounded-md text-white/35 transition-all hover:bg-rose-400/10 hover:text-rose-300 active:bg-rose-400/10 active:text-rose-300 lg:size-6 lg:opacity-0 lg:group-hover:opacity-100 lg:focus-visible:opacity-100"
             >
-              <Trash2 className="size-3.5" />
+              <Trash2 className="size-4 lg:size-3.5" />
             </button>
           </div>
         );
@@ -389,6 +390,7 @@ function ConversationList({
 export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
   const router = useRouter();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+  const alert = useAlert();
   const isRecruiter = user?.account_type === "recruiter";
   const visualViewport = useVisualViewport();
   const visualViewportHeight = visualViewport?.height ?? null;
@@ -901,6 +903,14 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
 
   const handleDelete = useCallback(
     async (threadId: string) => {
+      const confirmed = await alert({
+        title: "Delete this conversation?",
+        description: "This chat and its messages will be permanently deleted.",
+        confirmText: "Delete chat",
+        cancelText: "Keep chat",
+        tone: "danger",
+      });
+      if (!confirmed) return;
       try {
         await deleteConversation({ threadId });
         createdThreads.current.delete(threadId);
@@ -917,7 +927,7 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
         toastUnknownError(error, "Couldn't delete that conversation.");
       }
     },
-    [activeThreadId, conversations, deleteConversation, syncThreadUrl],
+    [activeThreadId, alert, conversations, deleteConversation, syncThreadUrl],
   );
 
   const handleApprovals = useCallback(
