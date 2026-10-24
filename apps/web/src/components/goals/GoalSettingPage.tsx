@@ -10,7 +10,7 @@ import { toastUnknownError } from "@/lib/errors";
 import type { CareerGoal, CareerGoalExperienceLevel, CareerGoalTimeline } from "@/types/careerGoal";
 import { Loader2, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { GoalTagField } from "./GoalTagField";
 
@@ -82,6 +82,20 @@ export function GoalSettingPage() {
   const [hydrated, setHydrated] = useState(false);
   const [isGenerated, setIsGenerated] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const resultsRef = useRef<HTMLDivElement>(null);
+  const shouldScrollToResults = useRef(false);
+
+  // On mobile the generated fields start below the fold. Once generation
+  // finishes, bring the start of the suggestions into view.
+  useEffect(() => {
+    if (!isGenerated || !shouldScrollToResults.current) return;
+    shouldScrollToResults.current = false;
+    if (typeof window === "undefined" || window.matchMedia("(min-width: 1024px)").matches) return;
+    const timer = window.setTimeout(() => {
+      resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 80);
+    return () => window.clearTimeout(timer);
+  }, [isGenerated]);
 
   // Hydrate from saved goal or draft
   useEffect(() => {
@@ -138,6 +152,7 @@ export function GoalSettingPage() {
         timeline: result.timeline ?? rules.timeline ?? cur.timeline,
         experience_level: result.experience_level ?? rules.experience_level ?? cur.experience_level,
       }));
+      shouldScrollToResults.current = true;
       setIsGenerated(true);
     } catch (err) {
       // Fall back to rule extraction if action fails
@@ -149,6 +164,7 @@ export function GoalSettingPage() {
         timeline: rules.timeline ?? cur.timeline,
         experience_level: rules.experience_level ?? cur.experience_level,
       }));
+      shouldScrollToResults.current = true;
       setIsGenerated(true);
     } finally {
       setIsGenerating(false);
@@ -218,158 +234,180 @@ export function GoalSettingPage() {
   }, [industryResults]);
 
   return (
-    <div className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8 text-white">
-      {/* Page Header */}
-      <div>
+    <div className={`mx-auto w-full max-w-6xl px-4 py-8 text-white sm:px-6 sm:py-12 lg:px-8 ${isGenerated ? "pb-32 lg:pb-12" : ""}`}>
+      <div className="max-w-2xl">
         <h1 className="text-3xl font-extrabold tracking-tight sm:text-4xl">Where do you want your career to go?</h1>
         <p className="mt-2 text-sm text-white/50 sm:text-base">Tell Qelsa where you want to go. We&apos;ll turn your vision into a personalized career goal.</p>
       </div>
 
-      {/* Main Container */}
-      <div className="mt-8 flex flex-col gap-6">
-        {/* Describe in your own words */}
-        <div className="flex flex-col gap-2.5">
-          <label className="flex items-center gap-1.5 text-sm font-semibold text-neon-cyan">
-            <span className="text-neon-cyan">✦</span>
-            Describe your goal in your own words
-          </label>
-          <textarea
-            value={form.description}
-            onChange={(e) => patch({ description: e.target.value })}
-            placeholder="e.g. I want to grow my career, develop my skills, and find opportunities that are right for me...."
-            rows={5}
-            className="w-full resize-none rounded-2xl border border-white/10 bg-[#090B16] p-4 text-sm sm:text-base text-white placeholder:text-white/30 focus:border-white/20 focus:outline-none transition-colors"
-          />
-        </div>
+      <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-start">
+        <div className="flex min-w-0 flex-col gap-6">
+          <div className="flex flex-col gap-2.5">
+            <label className="flex items-center gap-1.5 text-sm font-semibold text-neon-cyan">
+              <span className="text-neon-cyan">✦</span>
+              Describe your goal in your own words
+            </label>
+            <textarea
+              value={form.description}
+              onChange={(e) => patch({ description: e.target.value })}
+              placeholder="e.g. I want to grow my career, develop my skills, and find opportunities that are right for me...."
+              rows={6}
+              className="w-full resize-none rounded-2xl border border-white/10 bg-[#090B16] p-4 text-sm text-white placeholder:text-white/30 transition-colors focus:border-white/20 focus:outline-none sm:text-base"
+            />
+          </div>
 
-        {/* Action Button: Create vs Reset */}
-        <div>
-          {!isGenerated ? (
-            <button
-              type="button"
-              onClick={handleGenerate}
-              disabled={isGenerating || !form.description.trim()}
-              className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#7c3aed] to-[#db2777] px-6 py-3 text-sm font-semibold text-white shadow-lg transition-all hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {isGenerating ? (
-                <>
-                  <Loader2 className="size-4 animate-spin" />
-                  Generating career goal…
-                </>
-              ) : (
-                <>
-                  <Sparkles className="size-4" />
-                  Create my career goal
-                </>
-              )}
-            </button>
-          ) : (
-            <button type="button" onClick={handleReset} className="rounded-full border border-white/20 bg-transparent px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-white/5">
-              Reset goal
-            </button>
-          )}
-
-          <p className="mt-3 text-xs text-white/40">
-            Don&apos;t worry about getting it perfect. Just describe what you want in your own words. Qelsa will figure out the rest, From your description, Qelsa will identify your target role, skills, industry, career level and timeline.
-          </p>
-        </div>
-
-        {/* Generated Structured Fields */}
-        {isGenerated && (
-          <div className="mt-4 flex flex-col gap-6">
-            {/* Divider */}
-            <div className="relative my-4 flex items-center justify-center">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-white/10" />
-              </div>
-              <span className="relative bg-[#050814] px-4 text-xs font-medium text-white/40">Qelsa suggested</span>
-            </div>
-
-            {/* Field 1: Target Roles */}
-            <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium text-white/90">
-                What roles you should aim for? <span className="text-white/40">*</span>
-              </label>
-              <GoalTagField values={form.target_roles} onChange={(target_roles) => patch({ target_roles })} placeholder="Add a role..." suggestions={titleNames} onSearch={(q) => searchJobTitles(q)} max={6} />
-            </div>
-
-            {/* Field 2: Target Skills */}
-            <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium text-white/90">What skills you should build?</label>
-              <GoalTagField values={form.skills} onChange={(skills) => patch({ skills })} placeholder="Add a skill..." suggestions={skillNames} onSearch={(q) => searchSkills(q)} max={12} />
-            </div>
-
-            {/* Field 3: Target Industries */}
-            <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium text-white/90">Industries you&apos;re interested in (optional)</label>
-              <GoalTagField values={form.industries} onChange={(industries) => patch({ industries })} placeholder="Add an industry..." suggestions={industryNames} onSearch={(q) => searchIndustries(q)} max={6} />
-            </div>
-
-            {/* Field 4: Timeline */}
-            <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium text-white/90">What is your timeline?</label>
-              <div className="flex flex-wrap gap-2.5">
-                {GOAL_TIMELINE_OPTIONS.map((option) => {
-                  const selected = form.timeline === option.value;
-                  return (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => patch({ timeline: selected ? undefined : option.value })}
-                      className={`rounded-full px-5 py-2 text-sm font-medium transition-all ${
-                        selected ? "border border-neon-cyan bg-neon-cyan/10 text-neon-cyan" : "border border-white/10 bg-white/[0.04] text-white/70 hover:bg-white/[0.08] hover:text-white"
-                      }`}
-                    >
-                      {option.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Field 5: Target Seniority */}
-            <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium text-white/90">Target seniority</label>
-              <div className="flex flex-wrap gap-2.5">
-                {GOAL_EXPERIENCE_OPTIONS.map((option) => {
-                  const selected = form.experience_level === option.value;
-                  return (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() =>
-                        patch({
-                          experience_level: selected ? undefined : option.value,
-                        })
-                      }
-                      className={`rounded-full px-5 py-2 text-sm font-medium transition-all ${
-                        selected ? "border border-neon-cyan bg-neon-cyan/10 text-neon-cyan" : "border border-white/10 bg-white/[0.04] text-white/70 hover:bg-white/[0.08] hover:text-white"
-                      }`}
-                    >
-                      {option.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Bottom Actions */}
-            <div className="mt-8 flex items-center justify-between gap-4">
-              <button type="button" onClick={handleCancel} disabled={saving} className="rounded-full border border-white/20 bg-transparent px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-white/5">
-                Cancel
-              </button>
+          <div>
+            {!isGenerated ? (
               <button
                 type="button"
-                onClick={handleSave}
-                disabled={saving || form.target_roles.length === 0}
-                className="rounded-full bg-gradient-to-r from-[#7c3aed] to-[#db2777] px-8 py-2.5 text-sm font-semibold text-white shadow-lg transition-all hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50"
+                onClick={handleGenerate}
+                disabled={isGenerating || !form.description.trim()}
+                className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#7c3aed] to-[#db2777] px-6 py-3 text-sm font-semibold text-white shadow-lg transition-all hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {saving ? "Updating…" : savedGoal ? "Update" : "Save goal"}
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" />
+                    Generating career goal…
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="size-4" />
+                    Create my career goal
+                  </>
+                )}
               </button>
-            </div>
+            ) : (
+              <button type="button" onClick={handleReset} className="rounded-full border border-white/20 bg-transparent px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-white/5">
+                Reset goal
+              </button>
+            )}
+
+            <p className="mt-3 text-xs leading-relaxed text-white/40">
+              Qelsa will identify your target role, skills, industry, level, and timeline.
+            </p>
           </div>
-        )}
+        </div>
+
+        <div className="min-w-0">
+          {isGenerated ? (
+            <div ref={resultsRef} className="flex scroll-mt-24 flex-col gap-6">
+              <div className="relative flex items-center justify-center">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-white/10" />
+                </div>
+                <span className="relative bg-[#050814] px-4 text-xs font-medium text-white/40">Qelsa suggested</span>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label className="text-sm font-medium text-white/90">
+                  What roles you should aim for? <span className="text-white/40">*</span>
+                </label>
+                <GoalTagField values={form.target_roles} onChange={(target_roles) => patch({ target_roles })} placeholder="Add a role..." suggestions={titleNames} onSearch={(q) => searchJobTitles(q)} max={6} />
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label className="text-sm font-medium text-white/90">What skills you should build?</label>
+                <GoalTagField values={form.skills} onChange={(skills) => patch({ skills })} placeholder="Add a skill..." suggestions={skillNames} onSearch={(q) => searchSkills(q)} max={12} />
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label className="text-sm font-medium text-white/90">Industries you&apos;re interested in (optional)</label>
+                <GoalTagField values={form.industries} onChange={(industries) => patch({ industries })} placeholder="Add an industry..." suggestions={industryNames} onSearch={(q) => searchIndustries(q)} max={6} />
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label className="text-sm font-medium text-white/90">What is your timeline?</label>
+                <div className="flex flex-wrap gap-2.5">
+                  {GOAL_TIMELINE_OPTIONS.map((option) => {
+                    const selected = form.timeline === option.value;
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => patch({ timeline: selected ? undefined : option.value })}
+                        className={`rounded-full px-5 py-2 text-sm font-medium transition-all ${
+                          selected ? "border border-neon-cyan bg-neon-cyan/10 text-neon-cyan" : "border border-white/10 bg-white/[0.04] text-white/70 hover:bg-white/[0.08] hover:text-white"
+                        }`}
+                      >
+                        {option.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label className="text-sm font-medium text-white/90">Target seniority</label>
+                <div className="flex flex-wrap gap-2.5">
+                  {GOAL_EXPERIENCE_OPTIONS.map((option) => {
+                    const selected = form.experience_level === option.value;
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() =>
+                          patch({
+                            experience_level: selected ? undefined : option.value,
+                          })
+                        }
+                        className={`rounded-full px-5 py-2 text-sm font-medium transition-all ${
+                          selected ? "border border-neon-cyan bg-neon-cyan/10 text-neon-cyan" : "border border-white/10 bg-white/[0.04] text-white/70 hover:bg-white/[0.08] hover:text-white"
+                        }`}
+                      >
+                        {option.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="mt-2 hidden items-center justify-between gap-4 lg:flex">
+                <button type="button" onClick={handleCancel} disabled={saving} className="rounded-full border border-white/20 bg-transparent px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-white/5">
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={saving || form.target_roles.length === 0}
+                  className="rounded-full bg-gradient-to-r from-[#7c3aed] to-[#db2777] px-8 py-2.5 text-sm font-semibold text-white shadow-lg transition-all hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {saving ? "Saving…" : savedGoal ? "Update" : "Save goal"}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="hidden rounded-3xl border border-dashed border-white/10 bg-white/[0.015] p-6 lg:block">
+              <div className="relative flex items-center justify-center">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-white/10" />
+                </div>
+                <span className="relative bg-[#050814] px-4 text-xs font-medium text-white/40">Qelsa suggested</span>
+              </div>
+              <p className="mt-4 text-sm text-white/35">
+                Your suggested roles, skills, industries, timeline, and seniority will appear here.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
+
+      {isGenerated && (
+        <div role="group" className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#050814]/95 backdrop-blur-xl lg:hidden" aria-label="Goal actions">
+          <div className="mx-auto flex max-w-6xl gap-3 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+            <button type="button" onClick={handleCancel} disabled={saving} className="h-11 flex-1 rounded-full border border-white/20 bg-transparent text-sm font-medium text-white transition-colors hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50">
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving || form.target_roles.length === 0}
+              className="h-11 flex-[1.4] rounded-full bg-gradient-to-r from-[#7c3aed] to-[#db2777] px-6 text-sm font-semibold text-white shadow-lg transition-all hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {saving ? "Saving…" : savedGoal ? "Update" : "Save goal"}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
