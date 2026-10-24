@@ -111,7 +111,7 @@ export function DesktopTopBar({
               type="button"
               aria-label={isPro ? "Open profile — Qelsa Pro member" : "Open profile"}
               onClick={onProfileClick}
-              className="relative flex size-8 shrink-0 items-center justify-center overflow-visible rounded-full border border-white/[0.12] bg-white/[0.04]"
+              className="relative flex size-9 shrink-0 items-center justify-center overflow-visible rounded-full border border-white/[0.12] bg-white/[0.04]"
             >
               <UserAvatar
                 src={user?.profile_image}
