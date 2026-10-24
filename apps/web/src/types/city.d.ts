@@ -8,4 +8,6 @@ export type City = {
   name: string;
   state_id?: number | string;
   state?: State;
+  country?: string;
+  country_code?: string;
 };

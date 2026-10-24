@@ -7,6 +7,31 @@ import { ADMIN_STAT_KEYS, bumpAdminStat } from "./lib/adminStats";
 import { insertSkill } from "./lib/skillCatalog";
 import * as catalog from "./seedCatalogData";
 import cityData from "./seed/cities.json";
+// GeoNames cities15000 (CC BY 4.0), filtered to cities with 100k+ population
+// plus national capitals. The generated `search` field includes common ASCII
+// aliases so queries like "Bangalore" find Bengaluru.
+import jobLocationData from "./seed/jobLocations.json";
+
+type JobLocationRecord = {
+  id: string;
+  name: string;
+  admin1: string;
+  country: string;
+  cc: string;
+  population: number;
+  search: string;
+};
+
+const JOB_LOCATIONS = jobLocationData as JobLocationRecord[];
+
+function normalizeLocationQuery(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
 
 function cityList(): Array<{ name: string; state: string }> {
   const value = cityData as unknown;
@@ -565,6 +590,52 @@ export const cities = query({
     }
 
     return out;
+  },
+});
+
+export const jobLocations = query({
+  args: { search: v.string() },
+  returns: v.any(),
+  handler: async (_ctx, args) => {
+    const query = normalizeLocationQuery((args.search ?? "").slice(0, 80));
+    if (!query) {
+      return JOB_LOCATIONS.slice(0, 20).map((row) => ({
+        id: row.id,
+        name: row.name,
+        state: row.admin1 ? { id: `${row.cc}.${row.admin1}`, name: row.admin1 } : undefined,
+        country: row.country,
+        country_code: row.cc,
+      }));
+    }
+
+    const terms = query.split(" ").filter(Boolean);
+    const matches = JOB_LOCATIONS.filter((row) =>
+      terms.every((term) => row.search.includes(term)),
+    )
+      .map((row) => {
+        const name = normalizeLocationQuery(row.name);
+        const rank =
+          name === query ? 0 : name.startsWith(query) ? 1 : row.search.startsWith(query) ? 2 : 3;
+        return { row, rank };
+      })
+      .sort((a, b) => a.rank - b.rank || b.row.population - a.row.population);
+
+    const seen = new Set<string>();
+    const results = [];
+    for (const { row } of matches) {
+      const key = `${row.name.toLowerCase()}|${row.admin1.toLowerCase()}|${row.cc}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      results.push({
+        id: row.id,
+        name: row.name,
+        state: row.admin1 ? { id: `${row.cc}.${row.admin1}`, name: row.admin1 } : undefined,
+        country: row.country,
+        country_code: row.cc,
+      });
+      if (results.length >= 20) break;
+    }
+    return results;
   },
 });
 

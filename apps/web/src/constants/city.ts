@@ -2,5 +2,6 @@
 
 import { City } from "@/types/city";
 
-// "Bangalore, Karnataka" — falls back to just the city name when the state is not loaded.
-export const formatCity = (city: City): string => (city.state?.name ? `${city.name}, ${city.state.name}` : city.name);
+// "Bangalore, Karnataka, India" — falls back to the parts that are loaded.
+export const formatCity = (city: City): string =>
+  [city.name, city.state?.name, city.country].filter(Boolean).join(", ");
