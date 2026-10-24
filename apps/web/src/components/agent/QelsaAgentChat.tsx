@@ -9,9 +9,9 @@
  */
 
 import { AiMarkdown } from "@/components/ai/AiMarkdown";
+import { SubscriptionUpgradeModal, type UpgradeReason } from "@/components/billing/SubscriptionUpgradeModal";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/components/ui/utils";
-import { SubscriptionUpgradeModal, type UpgradeReason } from "@/components/billing/SubscriptionUpgradeModal";
 import { useAuth } from "@/contexts/AuthContext";
 import { api } from "@/lib/convexApi";
 import { isAgentQuotaError, isApplicationLimitError, toastUnknownError } from "@/lib/errors";
@@ -22,8 +22,8 @@ import { useRouter } from "next/router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { AgentArtifactPanel } from "./AgentArtifactPanel";
-import { AgentMemoryDialog } from "./AgentMemoryDialog";
 import { documentArtifact, type AgentArtifact } from "./agentArtifacts";
+import { AgentMemoryDialog } from "./AgentMemoryDialog";
 import { AgentJobResults, AgentToolCard } from "./AgentToolCard";
 import { fallbackFollowUps, isReasoningPart, RECRUITER_SUGGESTIONS, SUGGESTIONS, toolNameOf, type AgentJobSummary, type AgentToolPart, type AgentUIMessage } from "./agentToolMeta";
 import { AgentReasoningTrace, AgentThinkingLine } from "./AgentTrace";
@@ -232,63 +232,57 @@ function MessageBubble({
   return (
     <div className="min-w-0 space-y-2.5">
       {renderParts.map((part, index) => {
-          if (isReasoningPart(part)) {
-            return <AgentReasoningTrace key={`reasoning-${index}`} text={part.text} running={waiting && !stalled && part.state !== "done"} />;
-          }
-          if (isTextPart(part)) {
-            const canOpenAsArtifact = Boolean(onOpenArtifact) && !waiting && part.text.trim().length >= 600;
-            return (
-              <div key={`text-${index}`}>
-                <AiMarkdown markdown={part.text} newTabLinks className="max-w-none text-[14px] leading-relaxed text-white/85" />
-                {canOpenAsArtifact && onOpenArtifact && (
-                  <button
-                    type="button"
-                    onClick={() => onOpenArtifact(documentArtifact(`${message.key}-${index}`, part.text))}
-                    className="mt-1.5 inline-flex items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.03] px-2.5 py-1 text-[10px] font-semibold text-white/40 transition-colors hover:border-neon-purple/40 hover:text-white/70"
-                  >
-                    <PanelRight className="size-3" />
-                    Open in artifact panel
-                  </button>
-                )}
-              </div>
-            );
-          }
-          const tool = part as AgentToolPart;
+        if (isReasoningPart(part)) {
+          return <AgentReasoningTrace key={`reasoning-${index}`} text={part.text} running={waiting && !stalled && part.state !== "done"} />;
+        }
+        if (isTextPart(part)) {
+          const canOpenAsArtifact = Boolean(onOpenArtifact) && !waiting && part.text.trim().length >= 600;
           return (
-            <AgentToolCard
-              key={tool.toolCallId ?? `${toolNameOf(tool)}-${index}`}
-              part={tool}
-              resolving={Boolean(tool.approval?.id && tool.approval.id === resolvingApprovalId)}
-              interrupted={failed || stalled}
-              onApprove={onApprove}
-              onDeny={onDeny}
-              onOpenArtifact={onOpenArtifact}
-            />
+            <div key={`text-${index}`}>
+              <AiMarkdown markdown={part.text} newTabLinks className="max-w-none text-[14px] leading-relaxed text-white/85" />
+              {canOpenAsArtifact && onOpenArtifact && (
+                <button
+                  type="button"
+                  onClick={() => onOpenArtifact(documentArtifact(`${message.key}-${index}`, part.text))}
+                  className="mt-1.5 inline-flex items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.03] px-2.5 py-1 text-[10px] font-semibold text-white/40 transition-colors hover:border-neon-purple/40 hover:text-white/70"
+                >
+                  <PanelRight className="size-3" />
+                  Open in artifact panel
+                </button>
+              )}
+            </div>
           );
-        })}
-        {showJobResults ? jobResults.map((group) => <AgentJobResults key={group.key} label={group.label} jobs={group.jobs} />) : null}
-        {showThinking && <AgentThinkingLine />}
-        {showRetry && (
-          <div className="flex flex-wrap items-center gap-2 text-[12px] text-white/40">
-            <span>
-              {stopped
-                ? "You stopped this response."
-                : visibleParts.length
-                  ? "The agent stopped before finishing."
-                  : "No response came back — the AI provider may have timed out."}
-            </span>
-            {onRetry && (
-              <button
-                type="button"
-                onClick={onRetry}
-                className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 font-medium text-white/65 transition-colors hover:border-neon-purple/40 hover:text-white"
-              >
-                <RotateCcw className="size-3" />
-                Retry
-              </button>
-            )}
-          </div>
-        )}
+        }
+        const tool = part as AgentToolPart;
+        return (
+          <AgentToolCard
+            key={tool.toolCallId ?? `${toolNameOf(tool)}-${index}`}
+            part={tool}
+            resolving={Boolean(tool.approval?.id && tool.approval.id === resolvingApprovalId)}
+            interrupted={failed || stalled}
+            onApprove={onApprove}
+            onDeny={onDeny}
+            onOpenArtifact={onOpenArtifact}
+          />
+        );
+      })}
+      {showJobResults ? jobResults.map((group) => <AgentJobResults key={group.key} label={group.label} jobs={group.jobs} />) : null}
+      {showThinking && <AgentThinkingLine />}
+      {showRetry && (
+        <div className="flex flex-wrap items-center gap-2 text-[12px] text-white/40">
+          <span>{stopped ? "You stopped this response." : visibleParts.length ? "The agent stopped before finishing." : "No response came back — the AI provider may have timed out."}</span>
+          {onRetry && (
+            <button
+              type="button"
+              onClick={onRetry}
+              className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 font-medium text-white/65 transition-colors hover:border-neon-purple/40 hover:text-white"
+            >
+              <RotateCcw className="size-3" />
+              Retry
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -611,9 +605,7 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
   }, [followUps, lastMessage, lastToolNames, isRecruiter]);
   const showFollowUps =
     Boolean(activeThreadId) && !sending && !awaitingReply && !streaming && !pendingApproval && lastMessage?.role === "assistant" && lastMessage.status !== "streaming" && lastMessage.status !== "pending" && suggestions.length > 0;
-  const showStop =
-    Boolean(activeThreadId) &&
-    (awaitingReply || streaming || generationState?.active === true || generationState?.status === "running");
+  const showStop = Boolean(activeThreadId) && (awaitingReply || streaming || generationState?.active === true || generationState?.status === "running");
   const stoppingRun = stopping || (generationState?.status === "stopped" && generationState?.active === true);
 
   // Clear the "agent is thinking" indicator once anything starts streaming back.
@@ -1159,11 +1151,7 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
               className="relative flex size-9 items-center justify-center rounded-full border border-white/[0.1] bg-white/[0.04] text-white/70 transition-colors hover:border-neon-purple/40 hover:text-white"
             >
               <Brain className="size-4" />
-              {memoryCount > 0 && (
-                <span className="absolute -right-1 -top-1 flex min-w-4 items-center justify-center rounded-full bg-neon-purple px-1 text-[9px] font-bold leading-4 text-white">
-                  {memoryCount > 9 ? "9+" : memoryCount}
-                </span>
-              )}
+              {memoryCount > 0 && <span className="absolute -right-1 -top-1 flex min-w-4 items-center justify-center rounded-full bg-neon-purple px-1 text-[9px] font-bold leading-4 text-white">{memoryCount > 9 ? "9+" : memoryCount}</span>}
             </button>
           )}
           <button
@@ -1192,7 +1180,7 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
               </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[12px] font-semibold text-white/85">{latestBrief.title}</p>
-                <p className="mt-0.5 line-clamp-2 text-[11px] leading-relaxed text-white/45">{latestBrief.summary}</p>
+                <p className="mt-0.5 line-clamp-2 text-[10px] sm:text-[11px] leading-relaxed text-white/40">{latestBrief.summary}</p>
                 {latestBrief.jobs.length > 0 && (
                   <div className="mt-1.5 flex flex-wrap gap-1.5">
                     {latestBrief.jobs.slice(0, 3).map((job) => (
@@ -1232,13 +1220,7 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
         )}
 
         <div ref={scrollRef} onScroll={handleScroll} className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-          <div
-            ref={contentRef}
-            className={cn(
-              "mx-auto flex w-full max-w-3xl flex-col px-4 py-6 sm:px-6",
-              messages.length === 0 && "min-h-full justify-center",
-            )}
-          >
+          <div ref={contentRef} className={cn("mx-auto flex w-full max-w-3xl flex-col px-4 py-6 sm:px-6", messages.length === 0 && "min-h-full justify-center")}>
             {messageStatus === "CanLoadMore" && (
               <div className="mb-4 flex justify-center">
                 <button type="button" onClick={() => loadMore?.(20)} className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] font-medium text-white/55 hover:text-white">
@@ -1348,15 +1330,11 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
                   {usage?.plan_id === "pro"
                     ? `You've used all ${usage.limit} messages for today. It resets at midnight UTC.`
                     : usage?.plan_id === "plus"
-                    ? `You've used all ${usage.limit} Plus messages today. Upgrade to Pro for 500/day.`
-                    : `You've used all ${usage?.limit ?? 5} free messages for today. Upgrade to keep chatting.`}
+                      ? `You've used all ${usage.limit} Plus messages today. Upgrade to Pro for 500/day.`
+                      : `You've used all ${usage?.limit ?? 5} free messages for today. Upgrade to keep chatting.`}
                 </p>
                 {usage?.can_upgrade ? (
-                  <button
-                    type="button"
-                    onClick={() => setUpgradeReason("agent")}
-                    className="shrink-0 rounded-full bg-amber-300 px-3 py-1 text-[11px] font-bold text-[#1a1205] transition-opacity hover:opacity-90"
-                  >
+                  <button type="button" onClick={() => setUpgradeReason("agent")} className="shrink-0 rounded-full bg-amber-300 px-3 py-1 text-[11px] font-bold text-[#1a1205] transition-opacity hover:opacity-90">
                     Upgrade
                   </button>
                 ) : null}
@@ -1365,11 +1343,7 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
             <div
               className={cn(
                 "flex items-end gap-2 rounded-2xl border bg-white/[0.04] p-2 pl-3 transition-colors",
-                configured && !threadResolving
-                  ? quotaExhausted
-                    ? "border-amber-400/25"
-                    : "border-white/[0.1] focus-within:border-neon-purple/50"
-                  : "border-white/[0.06] opacity-60",
+                configured && !threadResolving ? (quotaExhausted ? "border-amber-400/25" : "border-white/[0.1] focus-within:border-neon-purple/50") : "border-white/[0.06] opacity-60",
               )}
             >
               <textarea
@@ -1384,7 +1358,17 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
                     void handleSend();
                   }
                 }}
-                placeholder={threadResolving ? "Loading conversation…" : quotaExhausted ? (usage?.can_upgrade ? "Daily limit reached — tap send to upgrade" : "Daily message limit reached") : configured ? "Ask anything…" : "AI is not configured on this deployment"}
+                placeholder={
+                  threadResolving
+                    ? "Loading conversation…"
+                    : quotaExhausted
+                      ? usage?.can_upgrade
+                        ? "Daily limit reached — tap send to upgrade"
+                        : "Daily message limit reached"
+                      : configured
+                        ? "Ask anything…"
+                        : "AI is not configured on this deployment"
+                }
                 className="max-h-[152px] min-h-[36px] flex-1 resize-none bg-transparent py-1.5 text-[14px] leading-relaxed text-white/90 placeholder:text-white/30 focus:outline-none disabled:cursor-not-allowed"
               />
               {showStop ? (
@@ -1418,13 +1402,7 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
 
       {!isRecruiter && <AgentMemoryDialog open={memoryOpen} onOpenChange={setMemoryOpen} />}
 
-      {upgradeReason ? (
-        <SubscriptionUpgradeModal
-          open
-          reason={upgradeReason}
-          onClose={() => setUpgradeReason(null)}
-        />
-      ) : null}
+      {upgradeReason ? <SubscriptionUpgradeModal open reason={upgradeReason} onClose={() => setUpgradeReason(null)} /> : null}
     </div>
   );
 }
