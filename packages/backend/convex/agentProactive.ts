@@ -211,3 +211,139 @@ export const markBriefRead = authedMutation({
     return null;
   },
 });
+
+/* ------------------------------------------------------------------ */
+/* Candidate career briefs                                             */
+/* ------------------------------------------------------------------ */
+
+function briefDayKey(now = Date.now()) {
+  return new Date(now).toISOString().slice(0, 10);
+}
+
+function briefWeekKey(now = Date.now()) {
+  const monday = new Date(now);
+  monday.setUTCHours(0, 0, 0, 0);
+  const day = monday.getUTCDay();
+  monday.setUTCDate(monday.getUTCDate() - ((day + 6) % 7));
+  return monday.toISOString().slice(0, 10);
+}
+
+async function hasBriefKey(ctx: { db: any }, userId: Id<"users">, dedupeKey: string) {
+  const row = await ctx.db
+    .query("agent_briefs")
+    .withIndex("by_user_and_dedupe", (q: any) => q.eq("user_id", userId).eq("dedupe_key", dedupeKey))
+    .unique();
+  return Boolean(row);
+}
+
+/**
+ * Creates at most one application follow-up brief per day and one career
+ * check-in per week. Called when the Agent opens, so it scales with active
+ * users instead of scanning every candidate on a cron. Both writes are
+ * idempotent through `dedupe_key`.
+ */
+export const refreshMyBriefs = authedMutation({
+  args: {},
+  returns: v.object({ created: v.number() }),
+  handler: async (ctx) => {
+    if (ctx.user.account_type === "recruiter") return { created: 0 };
+    const now = Date.now();
+    let created = 0;
+
+    const applicationsKey = `applications:${briefDayKey(now)}`;
+    if (!(await hasBriefKey(ctx, ctx.user._id, applicationsKey))) {
+      const cutoff = now - 7 * 86_400_000;
+      const rows = await ctx.db
+        .query("job_applications")
+        .withIndex("by_user", (q) => q.eq("user_id", ctx.user._id))
+        .order("desc")
+        .take(100);
+      const stale: Array<{ job: Doc<"jobs">; days: number; status: string }> = [];
+      for (const row of rows) {
+        if (stale.length >= 4) break;
+        if (row.status !== "applied" && row.status !== "viewed") continue;
+        if (row.applied_at > cutoff) continue;
+        const job = await ctx.db.get(row.job_id);
+        if (!job) continue;
+        stale.push({
+          job,
+          days: Math.floor((now - row.applied_at) / 86_400_000),
+          status: row.status,
+        });
+      }
+      if (stale.length) {
+        const labels = stale
+          .slice(0, 2)
+          .map((item) => item.job.company_name || item.job.title || "a role")
+          .join(" and ");
+        const summary =
+          stale.length === 1
+            ? `Your application to ${labels} has been quiet for ${stale[0].days} days. A short follow-up is the next useful step.`
+            : `${stale.length} applications have been quiet for 7+ days, including ${labels}. Follow up while the role is still active.`;
+        await ctx.db.insert("agent_briefs", {
+          user_id: ctx.user._id,
+          kind: "applications",
+          title: stale.length === 1 ? "One application needs a nudge" : `${stale.length} applications need a nudge`,
+          summary,
+          job_ids: stale.map((item) => item.job._id),
+          dedupe_key: applicationsKey,
+          read: false,
+          created_at: now,
+        });
+        created += 1;
+      }
+    }
+
+    const careerKey = `career:${briefWeekKey(now)}`;
+    if (!(await hasBriefKey(ctx, ctx.user._id, careerKey))) {
+      const [resume, skill, goal, savedJobs, applications] = await Promise.all([
+        ctx.db.query("resumes").withIndex("by_user", (q) => q.eq("user_id", ctx.user._id)).take(1),
+        ctx.db.query("user_skills").withIndex("by_user", (q) => q.eq("user_id", ctx.user._id)).take(1),
+        ctx.db.query("career_goals").withIndex("by_user", (q) => q.eq("user_id", ctx.user._id)).unique(),
+        ctx.db.query("saved_jobs").withIndex("by_user", (q) => q.eq("user_id", ctx.user._id)).take(5),
+        ctx.db.query("job_applications").withIndex("by_user", (q) => q.eq("user_id", ctx.user._id)).take(5),
+      ]);
+
+      let title: string | null = null;
+      let summary: string | null = null;
+      let jobIds: Id<"jobs">[] = [];
+
+      if (!resume.length) {
+        title = "Add a resume to unlock better help";
+        summary = "Qelsa can tailor your resume, prepare applications, and autofill external forms once you upload one.";
+      } else if (!skill.length) {
+        title = "Add your top skills";
+        summary = "Skills power job matching, readiness, and better course recommendations. Add the ones you actually use.";
+      } else if (!goal) {
+        title = "Set a target role";
+        summary = "A target role lets Qelsa focus job search, readiness, and interview prep instead of guessing.";
+      } else if (!ctx.user.headline && !ctx.user.professional_summary) {
+        title = "Sharpen your profile headline";
+        summary = "A short headline and summary help recruiters and the Agent understand what you want next.";
+      } else if (savedJobs.length && !applications.length) {
+        const first = await ctx.db.get(savedJobs[0].job_id);
+        title = "Put your saved jobs to work";
+        summary = first
+          ? `You have ${savedJobs.length} saved role${savedJobs.length === 1 ? "" : "s"} but no applications yet. Start with ${first.title ?? "your first saved role"}.`
+          : `You have ${savedJobs.length} saved role${savedJobs.length === 1 ? "" : "s"} but no applications yet. Pick one and prepare it.`;
+        jobIds = savedJobs.slice(0, 3).map((row) => row.job_id);
+      }
+
+      if (title && summary) {
+        await ctx.db.insert("agent_briefs", {
+          user_id: ctx.user._id,
+          kind: "career",
+          title,
+          summary,
+          job_ids: jobIds,
+          dedupe_key: careerKey,
+          read: false,
+          created_at: now,
+        });
+        created += 1;
+      }
+    }
+
+    return { created };
+  },
+});

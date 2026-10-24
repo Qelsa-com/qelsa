@@ -692,14 +692,46 @@ export default defineSchema({
     active_generation_started_at: v.optional(v.number()),
     last_generation_id: v.optional(v.string()),
     last_generation_status: v.optional(
-      v.union(v.literal("running"), v.literal("succeeded"), v.literal("failed")),
+      v.union(
+        v.literal("running"),
+        v.literal("succeeded"),
+        v.literal("failed"),
+        v.literal("stopped"),
+      ),
     ),
     last_generation_error: v.optional(v.string()),
     last_prompt_message_id: v.optional(v.string()),
     last_prompt_text: v.optional(v.string()),
+    // The prompt whose tools must no longer run because the user stopped it.
+    // Kept after a new prompt starts so a slow tool from the stopped turn
+    // cannot write results into the thread later.
+    stopped_prompt_message_id: v.optional(v.string()),
   })
     .index("by_user", ["user_id", "last_message_at"])
     .index("by_thread", ["thread_id"]),
+
+  // Durable, user-editable facts the candidate Agent can use across chats.
+  // Kept separate from the profile so the Agent can remember conversational
+  // preferences and coaching context without mutating structured profile data.
+  agent_memories: defineTable({
+    user_id: v.id("users"),
+    text: v.string(),
+    normalized: v.string(),
+    category: v.union(
+      v.literal("preference"),
+      v.literal("constraint"),
+      v.literal("goal"),
+      v.literal("experience"),
+      v.literal("coaching"),
+      v.literal("other"),
+    ),
+    source: v.union(v.literal("user"), v.literal("agent")),
+    created_at: v.number(),
+    updated_at: v.number(),
+    expires_at: v.optional(v.number()),
+  })
+    .index("by_user_and_updated", ["user_id", "updated_at"])
+    .index("by_user_and_normalized", ["user_id", "normalized"]),
 
   // Per-day prompt counter so one user cannot run unbounded agent cost.
   qelsa_agent_usage: defineTable({
@@ -750,6 +782,9 @@ export default defineSchema({
     summary: v.string(),
     job_ids: v.array(v.id("jobs")),
     saved_search_id: v.optional(v.id("agent_saved_searches")),
+    // Stable key for briefs generated on a schedule or on Agent open, so a
+    // double mount or retry cannot create duplicate application/career cards.
+    dedupe_key: v.optional(v.string()),
     read: v.boolean(),
     created_at: v.number(),
     read_at: v.optional(v.number()),
@@ -757,7 +792,8 @@ export default defineSchema({
     push_sent_at: v.optional(v.number()),
   })
     .index("by_user_and_created", ["user_id", "created_at"])
-    .index("by_user_and_read", ["user_id", "read"]),
+    .index("by_user_and_read", ["user_id", "read"])
+    .index("by_user_and_dedupe", ["user_id", "dedupe_key"]),
 
   // Candidate-only notes kept out of the recruiter-facing notes table.
   agent_application_notes: defineTable({

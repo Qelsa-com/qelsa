@@ -17,11 +17,12 @@ import { api } from "@/lib/convexApi";
 import { isAgentQuotaError, isApplicationLimitError, toastUnknownError } from "@/lib/errors";
 import { useUIMessages } from "@convex-dev/agent/react";
 import { useMutation, useQuery } from "convex/react";
-import { ArrowUp, Bell, Check, Loader2, MessageSquarePlus, PanelLeft, PanelRight, Plus, RotateCcw, Search, Sparkles, Trash2, WifiOff, X } from "lucide-react";
+import { ArrowUp, Bell, Brain, Check, Loader2, MessageSquarePlus, PanelLeft, PanelRight, Plus, RotateCcw, Search, Sparkles, Square, Trash2, WifiOff, X } from "lucide-react";
 import { useRouter } from "next/router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { AgentArtifactPanel } from "./AgentArtifactPanel";
+import { AgentMemoryDialog } from "./AgentMemoryDialog";
 import { documentArtifact, type AgentArtifact } from "./agentArtifacts";
 import { AgentJobResults, AgentToolCard } from "./AgentToolCard";
 import { fallbackFollowUps, isReasoningPart, RECRUITER_SUGGESTIONS, SUGGESTIONS, toolNameOf, type AgentJobSummary, type AgentToolPart, type AgentUIMessage } from "./agentToolMeta";
@@ -154,7 +155,7 @@ function MessageBubble({
   message: AgentUIMessage;
   resolvingApprovalId: string | null;
   generationActive?: boolean | null;
-  generationStatus?: "idle" | "running" | "succeeded" | "failed" | null;
+  generationStatus?: "idle" | "running" | "succeeded" | "failed" | "stopped" | null;
   onApprove: (approvalId: string) => void;
   onDeny: (approvalId: string) => void;
   onRetry?: () => void;
@@ -195,6 +196,7 @@ function MessageBubble({
   if (message.role !== "assistant") return null;
 
   const failed = message.status === "failed";
+  const stopped = generationStatus === "stopped";
   const waiting = message.status === "streaming" || message.status === "pending";
   const visibleParts = parts.filter((part) => {
     if (isTextPart(part)) return part.text.trim().length > 0;
@@ -206,8 +208,8 @@ function MessageBubble({
   // the stream is stale and no generation is active anymore. A slow reasoning
   // pass stays in the "thinking" state instead of looking broken.
   const stalled = waiting && (generationStatus === "failed" || (generationActive === false && !backendActive && Date.now() - createdAt > 120_000));
-  const isError = failed || stalled;
-  const showRetry = isError && Boolean(onRetry);
+  const isError = !stopped && (failed || stalled);
+  const showRetry = (isError || stopped) && Boolean(onRetry);
   const renderParts = parts.filter((part) => {
     if (isTextPart(part)) return part.text.trim().length > 0;
     if (isReasoningPart(part)) return part.text.trim().length > 0;
@@ -218,10 +220,10 @@ function MessageBubble({
   // Tool results are ready before the final reply starts streaming. Hold the
   // cards until the reply settles so they don't appear first and then get
   // pushed down by text streaming in above them.
-  const showJobResults = jobResults.length > 0 && (!waiting || stalled);
+  const showJobResults = jobResults.length > 0 && (!waiting || stalled || stopped);
   // Before the first token (or if a provider never emits reasoning), show one
   // flat thinking row. Once reasoning exists, its own trace row owns the state.
-  const showThinking = waiting && !stalled && visibleParts.length === 0 && !hasReasoningText;
+  const showThinking = waiting && !stalled && !stopped && visibleParts.length === 0 && !hasReasoningText;
 
   // A failed placeholder that has been superseded by a newer turn should not
   // leave an empty bubble (or a dead error banner) in the transcript.
@@ -268,7 +270,13 @@ function MessageBubble({
         {showThinking && <AgentThinkingLine />}
         {showRetry && (
           <div className="flex flex-wrap items-center gap-2 text-[12px] text-white/40">
-            <span>{visibleParts.length ? "The agent stopped before finishing." : "No response came back — the AI provider may have timed out."}</span>
+            <span>
+              {stopped
+                ? "You stopped this response."
+                : visibleParts.length
+                  ? "The agent stopped before finishing."
+                  : "No response came back — the AI provider may have timed out."}
+            </span>
             {onRetry && (
               <button
                 type="button"
@@ -356,6 +364,8 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
   const [resolvingApprovalId, setResolvingApprovalId] = useState<string | null>(null);
   const [activeArtifact, setActiveArtifact] = useState<AgentArtifact | null>(null);
   const [upgradeReason, setUpgradeReason] = useState<UpgradeReason | null>(null);
+  const [memoryOpen, setMemoryOpen] = useState(false);
+  const [stopping, setStopping] = useState(false);
 
   // The Agent is an app-like screen: only the transcript scrolls. Locking the
   // document also stops iOS Safari from panning the whole page behind the
@@ -401,7 +411,10 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
 
   const followUps = useQuery(api.qelsaAgent.getFollowUps, isAuthenticated && activeThreadId && activeThreadIsKnown ? { threadId: activeThreadId } : "skip");
   const generationState = useQuery(api.qelsaAgent.getGenerationStatus, isAuthenticated && activeThreadId && activeThreadIsKnown ? { threadId: activeThreadId } : "skip");
-  const briefsQuery = useQuery(api.agentProactive.listBriefs, isAuthenticated ? { limit: 3 } : "skip");
+  const briefsQuery = useQuery(api.agentProactive.listBriefs, isAuthenticated ? { limit: 5 } : "skip");
+  const refreshMyBriefs = useMutation(api.agentProactive.refreshMyBriefs);
+  const memoryQuery = useQuery(api.agentMemory.listMemories, isAuthenticated && !isRecruiter ? {} : "skip");
+  const memoryCount = (memoryQuery?.count ?? 0) as number;
   const markBriefRead = useMutation(api.agentProactive.markBriefRead);
   const vapidPublicKey = useQuery(api.agentNotifications.getVapidPublicKey, isAuthenticated ? {} : "skip");
   const savePushSubscription = useMutation(api.agentNotifications.savePushSubscription);
@@ -413,18 +426,21 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
   const latestBrief = useMemo(() => {
     const rows = (briefsQuery?.briefs ?? []) as Array<{
       brief_id: string;
+      kind: "saved_search" | "applications" | "career";
       title: string;
       summary: string;
       read: boolean;
       jobs: AgentJobSummary[];
     }>;
-    return rows.find((brief) => !brief.read && brief.brief_id !== dismissedBriefId) ?? null;
+    const unread = rows.filter((brief) => !brief.read && brief.brief_id !== dismissedBriefId);
+    return unread.find((brief) => brief.kind === "applications") ?? unread[0] ?? null;
   }, [briefsQuery, dismissedBriefId]);
   const createConversation = useMutation(api.qelsaAgent.createConversation);
   const deleteConversation = useMutation(api.qelsaAgent.deleteConversation);
   const sendPrompt = useMutation(api.qelsaAgent.sendPrompt);
   const submitApproval = useMutation(api.qelsaAgent.submitApproval);
   const retryGeneration = useMutation(api.qelsaAgent.retryGeneration);
+  const stopGeneration = useMutation(api.qelsaAgent.stopGeneration);
 
   const visibleConversations = useMemo(() => {
     const query = railSearch.trim().toLowerCase();
@@ -432,6 +448,14 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
   }, [conversations, railSearch]);
   const configured = agentStatus?.configured ?? true;
   const quotaExhausted = (usage?.remaining ?? 1) <= 0;
+
+  // Application follow-ups and the weekly career check-in are cheap,
+  // deterministic briefs. Generate them when a candidate opens the Agent; the
+  // backend dedupes by day/week so repeated mounts stay idempotent.
+  useEffect(() => {
+    if (!isAuthenticated || isRecruiter) return;
+    void refreshMyBriefs({}).catch(() => undefined);
+  }, [isAuthenticated, isRecruiter, refreshMyBriefs]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -587,6 +611,10 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
   }, [followUps, lastMessage, lastToolNames, isRecruiter]);
   const showFollowUps =
     Boolean(activeThreadId) && !sending && !awaitingReply && !streaming && !pendingApproval && lastMessage?.role === "assistant" && lastMessage.status !== "streaming" && lastMessage.status !== "pending" && suggestions.length > 0;
+  const showStop =
+    Boolean(activeThreadId) &&
+    (awaitingReply || streaming || generationState?.active === true || generationState?.status === "running");
+  const stoppingRun = stopping || (generationState?.status === "stopped" && generationState?.active === true);
 
   // Clear the "agent is thinking" indicator once anything starts streaming back.
   useEffect(() => {
@@ -803,6 +831,19 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
     }
   }, [activeThreadId, retryGeneration, sending]);
 
+  const handleStop = useCallback(async () => {
+    if (!activeThreadId || stopping) return;
+    setStopping(true);
+    try {
+      await stopGeneration({ threadId: activeThreadId });
+      setAwaitingReply(false);
+    } catch (error) {
+      toastUnknownError(error, "Couldn't stop the response.");
+    } finally {
+      setStopping(false);
+    }
+  }, [activeThreadId, stopGeneration, stopping]);
+
   const handleNewChat = useCallback(() => {
     if (sending) return;
     setActiveThreadId(null);
@@ -862,7 +903,13 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
 
   const handleBriefReview = useCallback(() => {
     if (!latestBrief) return;
-    setInput(`What's new from my saved searches? Review "${latestBrief.title}" and tell me which roles I should act on first.`);
+    const prompt =
+      latestBrief.kind === "applications"
+        ? `Review my latest application follow-up brief. Which applications should I follow up on first, and draft the best follow-up for me.`
+        : latestBrief.kind === "career"
+          ? `Review my latest career check-in, "${latestBrief.title}". Tell me the single most useful next step and do it with me.`
+          : `What's new from my saved searches? Review "${latestBrief.title}" and tell me which roles I should act on first.`;
+    setInput(prompt);
     setActiveThreadId(null);
     setAwaitingReply(false);
     syncThreadUrl(null);
@@ -1103,6 +1150,22 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
               {configured ? (isRecruiter ? "Can review jobs, search applicants, and draft outreach" : "Can search jobs, check fit, tailor your resume, and prepare applications") : "AI is not configured"}
             </p>
           </div>
+          {!isRecruiter && (
+            <button
+              type="button"
+              aria-label="What Qelsa remembers"
+              title="What Qelsa remembers"
+              onClick={() => setMemoryOpen(true)}
+              className="relative flex size-9 items-center justify-center rounded-full border border-white/[0.1] bg-white/[0.04] text-white/70 transition-colors hover:border-neon-purple/40 hover:text-white"
+            >
+              <Brain className="size-4" />
+              {memoryCount > 0 && (
+                <span className="absolute -right-1 -top-1 flex min-w-4 items-center justify-center rounded-full bg-neon-purple px-1 text-[9px] font-bold leading-4 text-white">
+                  {memoryCount > 9 ? "9+" : memoryCount}
+                </span>
+              )}
+            </button>
+          )}
           <button
             type="button"
             aria-label="New chat"
@@ -1324,15 +1387,27 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
                 placeholder={threadResolving ? "Loading conversation…" : quotaExhausted ? (usage?.can_upgrade ? "Daily limit reached — tap send to upgrade" : "Daily message limit reached") : configured ? "Ask anything…" : "AI is not configured on this deployment"}
                 className="max-h-[152px] min-h-[36px] flex-1 resize-none bg-transparent py-1.5 text-[14px] leading-relaxed text-white/90 placeholder:text-white/30 focus:outline-none disabled:cursor-not-allowed"
               />
-              <button
-                type="button"
-                aria-label="Send message"
-                disabled={!configured || sending || threadResolving || !input.trim()}
-                onClick={() => void handleSend()}
-                className="mb-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#623dd6] via-[#8433ae] to-[#be2680] text-white shadow-lg shadow-purple-900/25 transition-all hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                {sending ? <Loader2 className="size-4 animate-spin" /> : <ArrowUp className="size-4" />}
-              </button>
+              {showStop ? (
+                <button
+                  type="button"
+                  aria-label="Stop generating"
+                  disabled={stoppingRun}
+                  onClick={() => void handleStop()}
+                  className="mb-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/[0.08] text-white/80 transition-colors hover:border-rose-400/30 hover:bg-rose-400/10 hover:text-rose-200 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {stoppingRun ? <Loader2 className="size-4 animate-spin" /> : <Square className="size-3.5 fill-current" />}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  aria-label="Send message"
+                  disabled={!configured || sending || threadResolving || !input.trim()}
+                  onClick={() => void handleSend()}
+                  className="mb-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#623dd6] via-[#8433ae] to-[#be2680] text-white shadow-lg shadow-purple-900/25 transition-all hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {sending ? <Loader2 className="size-4 animate-spin" /> : <ArrowUp className="size-4" />}
+                </button>
+              )}
             </div>
             <p className="mt-2 hidden text-center text-[10px] text-white/30 sm:block">Enter to send · Shift + Enter for a new line · Approve anything that changes your data</p>
           </div>
@@ -1340,6 +1415,8 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
       </main>
 
       {activeArtifact && <AgentArtifactPanel key={activeArtifact.id} artifact={activeArtifact} onClose={() => setActiveArtifact(null)} />}
+
+      {!isRecruiter && <AgentMemoryDialog open={memoryOpen} onOpenChange={setMemoryOpen} />}
 
       {upgradeReason ? (
         <SubscriptionUpgradeModal
