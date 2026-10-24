@@ -3,7 +3,7 @@
 import { api } from "@/lib/convexApi";
 import { toastUnknownError } from "@/lib/errors";
 import { useMutation, useQuery } from "convex/react";
-import { Brain, Loader2, Plus, Trash2 } from "lucide-react";
+import { Brain, ChevronDown, Loader2, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import {
@@ -75,8 +75,8 @@ export function AgentMemoryDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[85dvh] w-[calc(100%-2rem)] max-w-lg flex-col gap-0 overflow-hidden border-white/10 bg-[#0b0b16] p-0 text-white shadow-2xl">
-        <DialogHeader className="border-b border-white/[0.08] px-5 py-3.5 text-left">
+      <DialogContent className="flex max-h-[85dvh] w-[calc(100%-2rem)] max-w-lg flex-col gap-0 overflow-hidden border-white/10 bg-[#0b0b16] p-0 text-white shadow-2xl [&>button]:top-2 [&>button]:right-2 [&>button]:size-11">
+        <DialogHeader className="border-b border-white/[0.08] px-4 py-3.5 text-left sm:px-5">
           <DialogTitle className="flex items-center gap-2 text-[15px] text-white">
             <span className="flex size-7 items-center justify-center rounded-lg border border-neon-purple/25 bg-neon-purple/10 text-neon-purple">
               <Brain className="size-4" />
@@ -88,9 +88,16 @@ export function AgentMemoryDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="border-b border-white/[0.08] px-5 py-3">
-          <div className="flex flex-col gap-2 sm:flex-row">
+        <div className="border-b border-white/[0.08] px-4 py-3 sm:px-5">
+          <div className="flex items-center justify-between gap-3">
+            <label htmlFor="agent-memory-input" className="text-[11px] font-medium text-white/60">
+              Add a memory
+            </label>
+            <span className="shrink-0 text-[10px] tabular-nums text-white/30">{data ? `${count}/${max}` : ""}</span>
+          </div>
+          <div className="mt-2 flex flex-col gap-2 sm:flex-row">
             <input
+              id="agent-memory-input"
               value={text}
               onChange={(event) => setText(event.target.value)}
               onKeyDown={(event) => {
@@ -101,39 +108,41 @@ export function AgentMemoryDialog({
               }}
               maxLength={240}
               placeholder="e.g. Remote roles, 25–35 LPA"
-              className="h-9 min-w-0 w-full flex-1 rounded-lg border border-white/[0.1] bg-white/[0.04] px-3 text-[12px] text-white/85 placeholder:text-white/30 focus:border-neon-purple/50 focus:outline-none"
+              className="h-11 min-w-0 w-full rounded-xl border border-white/[0.1] bg-[#12121f] px-3.5 text-[13px] text-white/85 placeholder:text-white/30 focus:border-neon-purple/50 focus:outline-none focus:ring-1 focus:ring-neon-purple/20 sm:flex-1"
             />
             <div className="flex shrink-0 gap-2">
-              <select
-                value={category}
-                onChange={(event) => setCategory(event.target.value)}
-                className="h-9 min-w-0 flex-1 rounded-lg border border-white/[0.1] bg-[#12121f] px-2 text-[11px] text-white/70 focus:border-neon-purple/50 focus:outline-none sm:w-[112px] sm:flex-none"
-                aria-label="Memory category"
-              >
-                {Object.entries(CATEGORY_LABELS).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
+              <div className="relative min-w-0 flex-1 sm:w-[136px] sm:flex-none">
+                <select
+                  value={category}
+                  onChange={(event) => setCategory(event.target.value)}
+                  className="h-11 w-full appearance-none rounded-xl border border-white/[0.1] bg-[#12121f] pl-3.5 pr-9 text-[12px] text-white/75 focus:border-neon-purple/50 focus:outline-none focus:ring-1 focus:ring-neon-purple/20"
+                  aria-label="Memory category"
+                >
+                  {Object.entries(CATEGORY_LABELS).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-white/35" />
+              </div>
               <button
                 type="button"
                 onClick={() => void handleAdd()}
                 disabled={!text.trim() || busy || count >= max}
-                className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-[#623dd6] via-[#8433ae] to-[#be2680] text-white transition-opacity hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-40"
+                className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#623dd6] via-[#8433ae] to-[#be2680] text-white transition-opacity hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-40"
                 aria-label="Add memory"
               >
-                {busy ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+                {busy ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-5" />}
               </button>
             </div>
           </div>
-          <div className="mt-2 flex items-center justify-between gap-3 text-[10px] text-white/30">
-            <span>Avoid passwords and sensitive IDs.</span>
-            <span className="shrink-0 tabular-nums">{data ? `${count}/${max}` : ""}</span>
-          </div>
+          <p className="mt-2 text-[11px] leading-relaxed text-white/35">
+            Short, lasting facts only. Avoid passwords and sensitive IDs.
+          </p>
         </div>
 
-        <div className="max-h-[45dvh] min-h-0 overflow-y-auto px-5 py-3">
+        <div className="max-h-[45dvh] min-h-0 overflow-y-auto px-4 py-3 sm:px-5">
           {!data ? (
             <div className="flex justify-center py-8">
               <Loader2 className="size-5 animate-spin text-white/30" />
@@ -166,7 +175,7 @@ export function AgentMemoryDialog({
                     type="button"
                     onClick={() => void handleDelete(memory.memory_id)}
                     aria-label="Remove memory"
-                    className="flex size-7 shrink-0 items-center justify-center rounded-md text-white/25 transition-colors hover:bg-rose-400/10 hover:text-rose-300"
+                    className="flex size-11 shrink-0 items-center justify-center rounded-lg text-white/25 transition-colors hover:bg-rose-400/10 hover:text-rose-300 sm:size-9"
                   >
                     <Trash2 className="size-3.5" />
                   </button>
