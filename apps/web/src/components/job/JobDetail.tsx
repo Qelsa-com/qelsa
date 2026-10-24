@@ -23,22 +23,21 @@ import { useCreateJobApplicationMutation, useGetApplicationUsageQuery } from "@/
 import { RESERVED_JOB_SLUGS, useGetJobByIdQuery, useGetMatchByJobQuery, useGetSimilarJobsQuery, useIsJobSavedQuery, useRecordJobViewMutation, useToggleSaveJobMutation } from "@/features/api/jobsApi";
 import { useGetMyResumesQuery } from "@/features/api/resumeApi";
 import { isApplicationLimitError, toastUnknownError } from "@/lib/errors";
-import { toast } from "sonner";
 import { jobDescriptionToHtml } from "@/lib/jobDescription";
+import { goBackJobs } from "@/lib/jobNavigation";
 import { Job } from "@/types/job";
 import DOMPurify from "dompurify";
 import { ArrowLeft, ArrowRight, ArrowUpRight, Bookmark, BookmarkCheck, BookOpen, Briefcase, Building2, CheckCircle2, FileText, Linkedin, Link as LinkIcon, MessageCircle, Pencil, Share2, Sparkles, Twitter, Users } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
-import { goBackJobs } from "@/lib/jobNavigation";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
+import { SubscriptionUpgradeModal, type UpgradeReason } from "../billing/SubscriptionUpgradeModal";
 import { QuickApplyModal } from "../QuickApplyModal";
-import { ExternalApplyConfirmModal } from "./ExternalApplyConfirmModal";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
 import { CompetencyTable } from "./CompetencyMatch";
-import { JobAiSummary } from "./JobAiSummary";
+import { ExternalApplyConfirmModal } from "./ExternalApplyConfirmModal";
 import { JobDetailSkeleton, SimilarJobCardSkeleton } from "./jobSkeletons";
-import { SubscriptionUpgradeModal, type UpgradeReason } from "../billing/SubscriptionUpgradeModal";
 
 /* -------------------------------- helpers --------------------------------- */
 
@@ -134,7 +133,7 @@ export function JobDetail() {
     job?.is_owner ||
     (user?.id && job?.owner_id && String(job.owner_id) === String(user.id)) ||
     (user?.active_page_id && job?.page_id && String(job.page_id) === String(user.active_page_id)) ||
-    (user?.account_type === "recruiter" && job?.owner_id && String(job.owner_id) === String(user.id))
+    (user?.account_type === "recruiter" && job?.owner_id && String(job.owner_id) === String(user.id)),
   );
 
   const { data: similarJobs, isLoading: isSimilarLoading } = useGetSimilarJobsQuery(isReserved ? undefined : id!, { skip: !id || isReserved || isOwner });
@@ -192,13 +191,7 @@ export function JobDetail() {
   const { data: applicationUsage } = useGetApplicationUsageQuery({
     skip: !isAuthenticated || isOwner || isRecruiter,
   });
-  const applicationLimitReached = Boolean(
-    isAuthenticated &&
-      !isOwner &&
-      !isRecruiter &&
-      applicationUsage &&
-      !applicationUsage.can_apply,
-  );
+  const applicationLimitReached = Boolean(isAuthenticated && !isOwner && !isRecruiter && applicationUsage && !applicationUsage.can_apply);
   const sectionScrollLock = useRef(false);
   const [activeSection, setActiveSection] = useState("job-overview");
   const [tabStickyTop, setTabStickyTop] = useState(() => (isRecruiter ? 0 : 64));
@@ -293,11 +286,7 @@ export function JobDetail() {
   const competency = job.competency;
 
   const dailySkills = (job.job_skills ?? []).map((s) => s.skill?.name ?? s.title).filter(Boolean);
-  const skillsSubtitle = isOwner
-    ? "The skills this role uses day to day."
-    : competency
-    ? `You match ${competency.matchedCount} of ${competency.totalCount} skills listed here.`
-    : "The skills this role uses day to day.";
+  const skillsSubtitle = isOwner ? "The skills this role uses day to day." : competency ? `You match ${competency.matchedCount} of ${competency.totalCount} skills listed here.` : "The skills this role uses day to day.";
 
   const userYears = (experiences ?? []).reduce((sum, exp) => sum + experienceMonths(exp), 0) / 12;
   const experienceMatch = job.experience != null ? (userYears >= job.experience ? Math.min(100, 75 + Math.round((userYears - job.experience) * 4)) : Math.round((userYears / Math.max(job.experience, 0.5)) * 100)) : userYears > 0 ? 72 : null;
@@ -318,26 +307,14 @@ export function JobDetail() {
           label: "Job Status",
           value: (
             <span className="inline-flex items-center gap-1.5 capitalize">
-              <span
-                className={`size-2 rounded-full ${
-                  job.status === "paused"
-                    ? "bg-amber-400"
-                    : job.status === "closed"
-                    ? "bg-red-400"
-                    : "bg-neon-green"
-                }`}
-              />
+              <span className={`size-2 rounded-full ${job.status === "paused" ? "bg-amber-400" : job.status === "closed" ? "bg-red-400" : "bg-neon-green"}`} />
               {job.status === "paused" ? "Paused" : job.status === "closed" ? "Closed" : "Active"}
             </span>
           ),
         },
         {
           label: "Workplace",
-          value: job.workplace_type
-            ? job.workplace_type.charAt(0).toUpperCase() + job.workplace_type.slice(1)
-            : job.has_remote
-            ? "Remote"
-            : "On-site",
+          value: job.workplace_type ? job.workplace_type.charAt(0).toUpperCase() + job.workplace_type.slice(1) : job.has_remote ? "Remote" : "On-site",
         },
         // { label: "Views", value: formatCount(job.view_count ?? 0) },
         // { label: "Applications", value: `${job.application_count ?? job.applications?.length ?? 0}` },
@@ -382,7 +359,8 @@ export function JobDetail() {
     router.push(agentUrl);
   };
 
-  const handleConfirmExternalApply = async () => {    if (!isAuthenticated) {
+  const handleConfirmExternalApply = async () => {
+    if (!isAuthenticated) {
       setShowExternalConfirmModal(false);
       router.push(`/auth?actionType=profile&returnUrl=${encodeURIComponent(`/jobs/${id}`)}`);
       return;
@@ -447,11 +425,7 @@ export function JobDetail() {
       {/* Mobile header bar (Figma 721:264). Desktop keeps the breadcrumb below. */}
       <div className="flex h-16 items-center justify-between border-b border-white/[0.12] bg-white/[0.06] px-4 lg:hidden">
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => (isOwner ? router.push("/jobs/posted") : goBackJobs(router))}
-            aria-label="Back"
-            className="flex size-10 shrink-0 items-center justify-center rounded-full border border-white/[0.12] bg-white/[0.03]"
-          >
+          <button onClick={() => (isOwner ? router.push("/jobs/posted") : goBackJobs(router))} aria-label="Back" className="flex size-10 shrink-0 items-center justify-center rounded-full border border-white/[0.12] bg-white/[0.03]">
             <ArrowLeft className="size-5" />
           </button>
           <span className="text-lg font-bold text-white">{isOwner ? "Manage Job" : "Job Detail"}</span>
@@ -549,7 +523,12 @@ export function JobDetail() {
                 <>
                   {/* Saving a job needs an account — hidden while signed out or already applied. */}
                   {isAuthenticated && !applied && (
-                    <Button type="button" variant="outline" onClick={handleSave} className="h-auto flex-1 rounded-full border-[1.5px] border-white/20 bg-transparent px-4 py-3 text-sm text-white hover:bg-white/5 lg:flex-none lg:px-6 lg:py-3.5">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleSave}
+                      className="h-auto flex-1 rounded-full border-[1.5px] border-white/20 bg-transparent px-4 py-3 text-sm text-white hover:bg-white/5 lg:flex-none lg:px-6 lg:py-3.5"
+                    >
                       {saved ? "Saved" : "Save job"}
                     </Button>
                   )}
@@ -595,10 +574,7 @@ export function JobDetail() {
                   You match {competency.matchedCount} of {competency.totalCount} skills listed.
                 </p>
                 <div className="mt-3 h-1.5 w-full max-w-sm overflow-hidden rounded-full bg-white/10">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-neon-cyan to-neon-purple"
-                    style={{ width: `${Math.min(100, Math.max(0, competency.readiness))}%` }}
-                  />
+                  <div className="h-full rounded-full bg-gradient-to-r from-neon-cyan to-neon-purple" style={{ width: `${Math.min(100, Math.max(0, competency.readiness))}%` }} />
                 </div>
               </div>
               <button
@@ -638,37 +614,37 @@ export function JobDetail() {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-6">
           {/* Left */}
           <div className="flex min-w-0 flex-1 flex-col gap-4 lg:gap-6">
-            <div id="job-overview" className="flex scroll-mt-36 flex-col gap-4 lg:gap-6">
+            {/* <div id="job-overview" className="flex scroll-mt-36 flex-col gap-4 lg:gap-6">
             {!isOwner && user?.account_type !== "recruiter" && (
               <JobAiSummary jobId={String(job.id)} summary={job.ai_summary} />
             )}
-            </div>
+            </div> */}
 
             {/* Job Description */}
             {description && (
               <div id="job-description" className="scroll-mt-36">
-              <SectionCard icon={<FileText className="size-5 text-neon-cyan" />} title="Job Description">
-                <div
-                  className="break-words text-sm leading-[22px] text-white/70 max-lg:overflow-x-auto [&_p]:mb-3 [&_p:last-child]:mb-0 [&_ul]:mb-3 [&_ul]:list-disc [&_ul]:space-y-1.5 [&_ul]:pl-5 [&_ol]:mb-3 [&_ol]:list-decimal [&_ol]:space-y-1.5 [&_ol]:pl-5 [&_li]:leading-[22px] [&_strong]:font-semibold [&_strong]:text-white [&_h1]:mb-3 [&_h1]:text-base [&_h1]:font-semibold [&_h1]:text-white [&_h2]:mb-3 [&_h2]:text-base [&_h2]:font-semibold [&_h2]:text-white [&_h3]:mb-2 [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:text-white [&_a]:text-neon-cyan [&_a]:underline"
-                  dangerouslySetInnerHTML={{ __html: description }}
-                />
-              </SectionCard>
+                <SectionCard icon={<FileText className="size-5 text-neon-cyan" />} title="Job Description">
+                  <div
+                    className="break-words text-sm leading-[22px] text-white/70 max-lg:overflow-x-auto [&_p]:mb-3 [&_p:last-child]:mb-0 [&_ul]:mb-3 [&_ul]:list-disc [&_ul]:space-y-1.5 [&_ul]:pl-5 [&_ol]:mb-3 [&_ol]:list-decimal [&_ol]:space-y-1.5 [&_ol]:pl-5 [&_li]:leading-[22px] [&_strong]:font-semibold [&_strong]:text-white [&_h1]:mb-3 [&_h1]:text-base [&_h1]:font-semibold [&_h1]:text-white [&_h2]:mb-3 [&_h2]:text-base [&_h2]:font-semibold [&_h2]:text-white [&_h3]:mb-2 [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:text-white [&_a]:text-neon-cyan [&_a]:underline"
+                    dangerouslySetInnerHTML={{ __html: description }}
+                  />
+                </SectionCard>
               </div>
             )}
 
             {/* Required Skills */}
             {dailySkills.length > 0 && (
               <div id="job-skills" className="scroll-mt-36">
-              <SectionCard icon={<Briefcase className="size-5 text-neon-cyan" />} title="What this role uses daily">
-                <p className="text-sm leading-[22px] text-white/70">{skillsSubtitle}</p>
-                <div className="flex flex-wrap gap-2">
-                  {dailySkills.map((s, i) => (
-                    <span key={`${s}-${i}`} className="rounded-full border border-neon-cyan/40 bg-transparent px-2.5 py-1.5 text-xs text-neon-cyan">
-                      {s}
-                    </span>
-                  ))}
-                </div>
-              </SectionCard>
+                <SectionCard icon={<Briefcase className="size-5 text-neon-cyan" />} title="What this role uses daily">
+                  <p className="text-sm leading-[22px] text-white/70">{skillsSubtitle}</p>
+                  <div className="flex flex-wrap gap-2">
+                    {dailySkills.map((s, i) => (
+                      <span key={`${s}-${i}`} className="rounded-full border border-neon-cyan/40 bg-transparent px-2.5 py-1.5 text-xs text-neon-cyan">
+                        {s}
+                      </span>
+                    ))}
+                  </div>
+                </SectionCard>
               </div>
             )}
 
@@ -681,8 +657,8 @@ export function JobDetail() {
 
             {/* About the Company */}
             <div id="job-company" className="scroll-mt-36">
-            <SectionCard icon={<BookOpen className="size-5 text-neon-purple" />} title="About the Company">
-              {/*
+              <SectionCard icon={<BookOpen className="size-5 text-neon-purple" />} title="About the Company">
+                {/*
                 Two shapes, one DOM. On a phone this is a 2-column grid: the logo
                 takes the first cell and the name/Verified block sits beside it,
                 while the description and the button span the full width below —
@@ -695,36 +671,36 @@ export function JobDetail() {
                 boxes disappear at the size where the other one is doing the work,
                 so the desktop rendering is byte-for-byte what it was.
               */}
-              <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-3 lg:flex lg:gap-4">
-                <div className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-full border border-glass-border bg-white/[0.04] lg:size-16">
-                  <CompanyLogo job={job} name={companyName} fallback={<Building2 className="size-6 text-white/80 lg:size-8" />} />
-                </div>
-                <div className="contents lg:flex lg:min-w-0 lg:flex-1 lg:flex-col lg:gap-2">
-                  <div className="flex min-w-0 flex-col gap-1 lg:contents">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-lg font-bold text-white">{companyName}</p>
-                      {job.page?.name && (
-                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-neon-green">
-                          <CheckCircle2 className="size-3.5" />
-                          Verified
-                        </span>
-                      )}
-                    </div>
-                    {companyMeta && <p className="text-xs text-white/45">{companyMeta}</p>}
+                <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-3 lg:flex lg:gap-4">
+                  <div className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-full border border-glass-border bg-white/[0.04] lg:size-16">
+                    <CompanyLogo job={job} name={companyName} fallback={<Building2 className="size-6 text-white/80 lg:size-8" />} />
                   </div>
-                  <p className="col-span-2 text-sm leading-[22px] text-white/70">{job.page?.description || "Company description not available."}</p>
-                  {job.page?.id && (
-                    <Button
-                      variant="outline"
-                      onClick={() => router.push(`/pages/${job.page!.id}`)}
-                      className="col-span-2 mt-1 h-auto w-full rounded-full border-[1.5px] border-white/20 bg-transparent px-4 py-3 text-sm text-white hover:bg-white/5 sm:w-fit lg:px-6 lg:py-3.5"
-                    >
-                      Visit Company Page
-                    </Button>
-                  )}
+                  <div className="contents lg:flex lg:min-w-0 lg:flex-1 lg:flex-col lg:gap-2">
+                    <div className="flex min-w-0 flex-col gap-1 lg:contents">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-lg font-bold text-white">{companyName}</p>
+                        {job.page?.name && (
+                          <span className="inline-flex items-center gap-1 text-xs font-semibold text-neon-green">
+                            <CheckCircle2 className="size-3.5" />
+                            Verified
+                          </span>
+                        )}
+                      </div>
+                      {companyMeta && <p className="text-xs text-white/45">{companyMeta}</p>}
+                    </div>
+                    <p className="col-span-2 text-sm leading-[22px] text-white/70">{job.page?.description || "Company description not available."}</p>
+                    {job.page?.id && (
+                      <Button
+                        variant="outline"
+                        onClick={() => router.push(`/pages/${job.page!.id}`)}
+                        className="col-span-2 mt-1 h-auto w-full rounded-full border-[1.5px] border-white/20 bg-transparent px-4 py-3 text-sm text-white hover:bg-white/5 sm:w-fit lg:px-6 lg:py-3.5"
+                      >
+                        Visit Company Page
+                      </Button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </SectionCard>
+              </SectionCard>
             </div>
 
             {/* TODO: restore AI-Generated Interview Questions once the feature is wired.
@@ -739,9 +715,6 @@ export function JobDetail() {
               <span className={`${CHIP} w-fit px-4 py-2.5 text-sm font-semibold text-neon-purple`}>View All Questions (5)</span>
             </SectionCard>
             */}
-
-
-
           </div>
 
           {/* Right */}
@@ -761,15 +734,7 @@ export function JobDetail() {
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-white/45">Job Status</span>
                       <span className="inline-flex items-center gap-1.5 text-xs font-semibold capitalize text-white">
-                        <span
-                          className={`size-2 rounded-full ${
-                            job.status === "paused"
-                              ? "bg-amber-400"
-                              : job.status === "closed"
-                              ? "bg-red-400"
-                              : "bg-neon-green"
-                          }`}
-                        />
+                        <span className={`size-2 rounded-full ${job.status === "paused" ? "bg-amber-400" : job.status === "closed" ? "bg-red-400" : "bg-neon-green"}`} />
                         {job.status === "paused" ? "Paused" : job.status === "closed" ? "Closed" : "Active"}
                       </span>
                     </div>
@@ -848,11 +813,7 @@ export function JobDetail() {
                   <Pencil className="mr-2 size-4" />
                   Edit job
                 </Button>
-                <Button
-                  type="button"
-                  onClick={() => router.push(`/jobs/${job.id}/applications`)}
-                  className={`h-auto flex-1 rounded-full px-5 py-3.5 text-sm font-semibold text-white ${GRADIENT} hover:opacity-90`}
-                >
+                <Button type="button" onClick={() => router.push(`/jobs/${job.id}/applications`)} className={`h-auto flex-1 rounded-full px-5 py-3.5 text-sm font-semibold text-white ${GRADIENT} hover:opacity-90`}>
                   <Users className="mr-2 size-4" />
                   Applications ({job.application_count ?? job.applications?.length ?? 0})
                 </Button>
@@ -860,12 +821,7 @@ export function JobDetail() {
             ) : (
               <>
                 {isAuthenticated && !applied && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleSave}
-                    className="h-auto flex-1 rounded-full border-[1.5px] border-white/20 bg-transparent px-5 py-3.5 text-sm font-semibold text-white hover:bg-white/5"
-                  >
+                  <Button type="button" variant="outline" onClick={handleSave} className="h-auto flex-1 rounded-full border-[1.5px] border-white/20 bg-transparent px-5 py-3.5 text-sm font-semibold text-white hover:bg-white/5">
                     {saved ? "Saved" : "Save job"}
                   </Button>
                 )}
@@ -881,9 +837,7 @@ export function JobDetail() {
                   </Button>
                 )}
                 {applied ? (
-                  <span className="flex-1 rounded-full border border-neon-green/30 bg-neon-green/10 px-5 py-3.5 text-center text-sm font-semibold text-neon-green">
-                    Applied
-                  </span>
+                  <span className="flex-1 rounded-full border border-neon-green/30 bg-neon-green/10 px-5 py-3.5 text-center text-sm font-semibold text-neon-green">Applied</span>
                 ) : (
                   <Button
                     onClick={handleApply}
@@ -919,20 +873,9 @@ export function JobDetail() {
         defaultResumeId={user?.default_resume_id}
       />
 
-      <ExternalApplyConfirmModal
-        isOpen={showExternalConfirmModal}
-        onClose={() => setShowExternalConfirmModal(false)}
-        onConfirm={() => void handleConfirmExternalApply()}
-        isLoading={isApplyingExternal}
-      />
+      <ExternalApplyConfirmModal isOpen={showExternalConfirmModal} onClose={() => setShowExternalConfirmModal(false)} onConfirm={() => void handleConfirmExternalApply()} isLoading={isApplyingExternal} />
 
-      {upgradeReason ? (
-        <SubscriptionUpgradeModal
-          open
-          reason={upgradeReason}
-          onClose={() => setUpgradeReason(null)}
-        />
-      ) : null}
+      {upgradeReason ? <SubscriptionUpgradeModal open reason={upgradeReason} onClose={() => setUpgradeReason(null)} /> : null}
     </div>
   );
 }
@@ -962,23 +905,9 @@ function sectionScrollOffset() {
   return headerHeight + navHeight + 8;
 }
 
-function JobSectionTabs({
-  sections,
-  activeId,
-  onSelect,
-  stickyTop,
-}: {
-  sections: { id: string; label: string }[];
-  activeId: string;
-  onSelect: (id: string) => void;
-  stickyTop: number;
-}) {
+function JobSectionTabs({ sections, activeId, onSelect, stickyTop }: { sections: { id: string; label: string }[]; activeId: string; onSelect: (id: string) => void; stickyTop: number }) {
   return (
-    <nav
-      aria-label="Job sections"
-      className="sticky z-30 -mx-4 border-b border-white/[0.08] bg-[#06060f] px-4 backdrop-blur-md sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
-      style={{ top: stickyTop }}
-    >
+    <nav aria-label="Job sections" className="sticky z-30 -mx-4 border-b border-white/[0.08] bg-[#06060f] px-4 backdrop-blur-md sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8" style={{ top: stickyTop }}>
       <div className="flex gap-1 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {sections.map((section) => {
           const active = section.id === activeId;
@@ -988,9 +917,7 @@ function JobSectionTabs({
               type="button"
               onClick={() => onSelect(section.id)}
               aria-current={active ? "true" : undefined}
-              className={`shrink-0 border-b-2 px-3 py-3 text-sm font-semibold transition-colors ${
-                active ? "border-neon-cyan text-neon-cyan" : "border-transparent text-white/55 hover:text-white"
-              }`}
+              className={`shrink-0 border-b-2 px-3 py-3 text-sm font-semibold transition-colors ${active ? "border-neon-cyan text-neon-cyan" : "border-transparent text-white/55 hover:text-white"}`}
             >
               {section.label}
             </button>
