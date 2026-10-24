@@ -1351,9 +1351,13 @@ export const prepareExternalApplicationTool = createTool({
       resumeUrl: resume?.url ?? undefined,
       resumeTitle: resume?.title ?? undefined,
     });
-    const origin = (process.env.SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
+    const siteOrigin = (process.env.SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
+    // The bookmarklet script is served by the web app, but the short-lived data
+    // route lives on the Convex HTTP site. Proxying this through the web origin
+    // silently breaks autofill on every external page.
+    const apiOrigin = (process.env.CONVEX_SITE_URL ?? process.env.NEXT_PUBLIC_CONVEX_SITE_URL ?? siteOrigin).replace(/\/$/, "");
     const token = String(packet.token);
-    const bookmarklet = `javascript:(()=>{window.__qelsaAutofillToken=${JSON.stringify(token)};window.__qelsaAutofillApi=${JSON.stringify(origin)};var s=document.createElement("script");s.src=${JSON.stringify(`${origin}/autofill.js`)};document.documentElement.appendChild(s)})()`;
+    const bookmarklet = `javascript:(()=>{window.__qelsaAutofillToken=${JSON.stringify(token)};window.__qelsaAutofillApi=${JSON.stringify(apiOrigin)};var s=document.createElement("script");s.src=${JSON.stringify(`${siteOrigin}/autofill.js`)};document.documentElement.appendChild(s)})()`;
     return {
       application_url: job.application_url,
       job_title: job.title,
@@ -1364,12 +1368,13 @@ export const prepareExternalApplicationTool = createTool({
         token,
         expires_at: packet.expires_at,
         bookmarklet,
-        api_url: `${origin}/api/agent/autofill?token=${encodeURIComponent(token)}`,
-        script_url: `${origin}/autofill.js`,
+        copy_text: packet.copy_text,
+        api_url: `${apiOrigin}/api/agent/autofill?token=${encodeURIComponent(token)}`,
+        script_url: `${siteOrigin}/autofill.js`,
       },
       checklist: [
-        "Open the application URL.",
-        "Use the Qelsa autofill bookmarklet on the application page, then review every field.",
+        "Open the application URL and click Apply if the form is not already visible.",
+        "Autofill the visible fields, or copy your details on mobile. Review everything and run it again on each step.",
         "Upload or paste the resume that matches this role.",
         coverLetter ? "Paste the drafted cover letter if the form asks for one." : "Attach a resume and any requested details.",
         "Submit the form on the external site.",

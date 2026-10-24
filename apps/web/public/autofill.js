@@ -1,5 +1,5 @@
 /* Qelsa external-application autofill.
- * Loaded by the one-time bookmarklet created in Qelsa. It fills recognizable
+ * Loaded by the bookmarklet created in Qelsa. It fills recognizable
  * text fields and selections, never submits a form, and never uploads files.
  */
 (() => {
@@ -16,7 +16,7 @@
 
   fetch(`${api}/api/agent/autofill?token=${encodeURIComponent(token)}`, { cache: "no-store" })
     .then((response) => {
-      if (!response.ok) throw new Error("This autofill link is expired or already used.");
+      if (!response.ok) throw new Error("This autofill link has expired.");
       return response.json();
     })
     .then(async (packet) => {
@@ -28,9 +28,15 @@
         : packet.resume_url
           ? " Your browser blocked the resume attachment — upload it from the link in Qelsa."
           : " Upload your resume before submitting.";
-      banner.innerHTML = `<strong>Qelsa autofill complete.</strong> ${report.filled} field${report.filled === 1 ? "" : "s"} filled.${resumeMessage} Review everything and submit when ready.`;
-      banner.style.borderColor = "rgba(34,197,94,.45)";
       window.__qelsaAutofillReport = report;
+      if (report.filled === 0) {
+        banner.innerHTML =
+          "<strong>No visible application fields found.</strong> Click Apply to reveal the form, or move to the next form step, then run this bookmark again. This link stays valid for 20 minutes.";
+        banner.style.borderColor = "rgba(245,158,11,.55)";
+      } else {
+        banner.innerHTML = `<strong>Qelsa autofill complete.</strong> ${report.filled} field${report.filled === 1 ? "" : "s"} filled.${resumeMessage} Review everything and submit when ready.`;
+        banner.style.borderColor = "rgba(34,197,94,.45)";
+      }
       setTimeout(() => banner.remove(), 14000);
     })
     .catch((error) => {

@@ -803,9 +803,9 @@ export default defineSchema({
     created_at: v.number(),
   }).index("by_application", ["application_id"]),
 
-  // Short-lived, one-time packets for the external-application bookmarklet.
-  // The document id is the unguessable token; packet data is never public
-  // except through the one-time HTTP consumer.
+  // Short-lived packets for the external-application bookmarklet. The document
+  // id is the unguessable token; packet data is only exposed through the
+  // short-lived HTTP consumer, which can be retried while the packet is valid.
   agent_autofill_tokens: defineTable({
     user_id: v.id("users"),
     job_id: v.id("jobs"),

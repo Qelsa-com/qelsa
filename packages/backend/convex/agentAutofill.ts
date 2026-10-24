@@ -1,9 +1,11 @@
 /**
  * External application autofill packets.
  *
- * The Qelsa page creates a short-lived, one-time packet. A bookmarklet on the
- * external application page consumes it and fills the fields it recognizes.
- * The packet is exposed only through the one-time HTTP route in http.ts.
+ * The Qelsa page creates a short-lived packet. A bookmarklet on the external
+ * application page reads it and fills the fields it recognizes. It can be run
+ * again while the packet is valid, so users can reveal a hidden form or move
+ * through a multi-step application. The packet is exposed only through the
+ * short-lived HTTP route in http.ts.
  */
 
 import { v } from "convex/values";
@@ -114,22 +116,38 @@ export const createPacketInternal = internalMutation({
       created_at: Date.now(),
       expires_at: Date.now() + PACKET_TTL_MS,
     });
+    const copyText = [
+      packet.name ? `Full name: ${packet.name}` : "",
+      packet.first_name ? `First name: ${packet.first_name}` : "",
+      packet.last_name ? `Last name: ${packet.last_name}` : "",
+      packet.email ? `Email: ${packet.email}` : "",
+      packet.phone ? `Phone: ${packet.phone}` : "",
+      packet.location ? `Location: ${packet.location}` : "",
+      packet.headline ? `Headline: ${packet.headline}` : "",
+      packet.linkedin_url ? `LinkedIn: ${packet.linkedin_url}` : "",
+      packet.github_url ? `GitHub: ${packet.github_url}` : "",
+      packet.website ? `Website: ${packet.website}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
+
     return {
       token,
       expires_at: Date.now() + PACKET_TTL_MS,
       job_title: job.title ?? "this role",
       company: job.company_name ?? null,
+      copy_text: copyText,
     };
   },
 });
 
-/** Called by the HTTP route. Consumes the token atomically. */
+/** Called by the HTTP route. Reusable until the packet expires so hidden or multi-step forms can be retried. */
 export const consumePacket = internalMutation({
   args: { tokenId: v.id("agent_autofill_tokens") },
   returns: v.any(),
   handler: async (ctx, args) => {
     const row = await ctx.db.get(args.tokenId);
-    if (!row || row.used_at || row.expires_at < Date.now()) return null;
+    if (!row || row.expires_at < Date.now()) return null;
     await ctx.db.patch(row._id, { used_at: Date.now() });
     return { packet: row.packet, expires_at: row.expires_at };
   },
@@ -157,7 +175,7 @@ export const packetStatus = internalQuery({
     const row = await ctx.db.get(args.tokenId);
     if (!row) return null;
     return {
-      valid: !row.used_at && row.expires_at >= Date.now(),
+      valid: row.expires_at >= Date.now(),
       expires_at: row.expires_at,
       job_id: row.job_id as Id<"jobs">,
     };

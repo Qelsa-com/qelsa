@@ -7,6 +7,7 @@
  */
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { useIsMobile } from "@/components/ui/use-mobile";
 import { cn } from "@/components/ui/utils";
 import { useCreateJobApplicationMutation } from "@/features/api/jobApplicationsApi";
 import { api } from "@/lib/convexApi";
@@ -415,6 +416,7 @@ function ToolBody({
   labels: Map<string, { title: string; company: string | null }>;
   onOpenArtifact?: (artifact: AgentArtifact) => void;
 }) {
+  const isMobile = useIsMobile();
   if (!output) return null;
 
   const jobId = typeof input?.job_id === "string" ? input.job_id : undefined;
@@ -609,39 +611,56 @@ function ToolBody({
               Open application page <ExternalLink className="size-3.5" />
             </a>
           )}
-          {typeof output.autofill?.bookmarklet === "string" && (
+          {!isMobile && typeof output.autofill?.bookmarklet === "string" && (
             <button
               type="button"
               onClick={async () => {
                 const tab = typeof output.application_url === "string" ? window.open(output.application_url, "_blank", "noopener,noreferrer") : null;
                 try {
                   await navigator.clipboard.writeText(output.autofill.bookmarklet);
-                  toast.success("Autofill bookmarklet copied. Save it to your bookmarks bar once, then click it on the application tab.");
+                  toast.success("Autofill bookmark copied. Open the form, then click the bookmark.");
                 } catch {
-                  toast.error("Couldn't copy the autofill bookmarklet. Select it from the application kit.");
+                  toast.error("Couldn't copy the autofill bookmark. Select it from the application kit.");
                 }
                 void tab;
               }}
               className="inline-flex items-center gap-1.5 rounded-lg border border-sky-400/25 bg-sky-400/[0.08] px-3 py-1.5 text-[12px] font-semibold text-sky-200 transition-colors hover:bg-sky-400/[0.14]"
             >
               <Copy className="size-3.5" />
-              Autofill external form
+              Copy autofill bookmark
             </button>
           )}
-          {typeof output.autofill?.bookmarklet === "string" && (
+          {!isMobile && typeof output.autofill?.bookmarklet === "string" && (
             <a
               href={output.autofill.bookmarklet}
               draggable
               onClick={(event) => {
                 event.preventDefault();
                 void navigator.clipboard.writeText(output.autofill.bookmarklet);
-                toast.success("Autofill bookmarklet copied.");
+                toast.success("Autofill bookmark copied.");
               }}
               className="inline-flex cursor-grab items-center gap-1.5 rounded-lg border border-white/15 bg-white/[0.04] px-3 py-1.5 text-[11px] font-semibold text-white/60 transition-colors hover:border-white/30 hover:text-white active:cursor-grabbing"
               title="Drag this link to your bookmarks bar"
             >
               Drag to bookmarks
             </a>
+          )}
+          {isMobile && typeof output.autofill?.copy_text === "string" && (
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(output.autofill.copy_text);
+                  toast.success("Profile details copied.");
+                } catch {
+                  toast.error("Couldn't copy your profile details.");
+                }
+              }}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-sky-400/25 bg-sky-400/[0.08] px-3 py-1.5 text-[12px] font-semibold text-sky-200 transition-colors hover:bg-sky-400/[0.14]"
+            >
+              <Copy className="size-3.5" />
+              Copy profile details
+            </button>
           )}
           {typeof output.resume_link?.url === "string" && (
             <a
@@ -658,7 +677,11 @@ function ToolBody({
         </div>
         {typeof output.autofill?.bookmarklet === "string" && (
           <p className="text-[10px] leading-relaxed text-white/35">
-            For this application, drag “Drag to bookmarks” into your bookmarks bar. On the application tab, click that bookmark. Qelsa fills recognized fields and attaches your resume; it never submits. The link expires in 20 minutes.
+            {isMobile
+              ? typeof output.autofill?.copy_text === "string"
+                ? "Autofill needs a desktop browser. Copy your profile details and paste them into the form."
+                : "Autofill needs a desktop browser with a bookmarks bar."
+              : "Drag “Drag to bookmarks” into your bookmarks bar. Open the application form first, then click the bookmark. It fills visible fields and never submits. Run it again on the next step; the link stays valid for 20 minutes."}
           </p>
         )}
         {checklist.length > 0 && (

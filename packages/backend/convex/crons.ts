@@ -12,7 +12,7 @@ crons.cron("sync ATS integrations", "23 8 * * 1", internal.atsSync.syncAllDue, {
 // brief when the ID diff is non-empty, so quiet days cost no model calls.
 crons.cron("agent saved searches", "0 7 * * *", internal.agentProactive.runSavedSearches, {});
 
-// Autofill tokens are one-time and expire in 20 minutes; remove old rows daily.
+// Autofill tokens expire in 20 minutes; remove old rows daily.
 crons.cron("cleanup autofill tokens", "17 3 * * *", internal.agentAutofill.cleanupExpired, {});
 
 // AI curriculum agent. It no-ops unless CURRICULUM_AGENT_ENABLED is true, so
