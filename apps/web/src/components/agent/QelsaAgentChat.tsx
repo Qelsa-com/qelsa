@@ -1169,7 +1169,13 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
         )}
 
         <div ref={scrollRef} onScroll={handleScroll} className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-          <div ref={contentRef} className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
+          <div
+            ref={contentRef}
+            className={cn(
+              "mx-auto flex w-full max-w-3xl flex-col px-4 py-6 sm:px-6",
+              messages.length === 0 && "min-h-full justify-center",
+            )}
+          >
             {messageStatus === "CanLoadMore" && (
               <div className="mb-4 flex justify-center">
                 <button type="button" onClick={() => loadMore?.(20)} className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] font-medium text-white/55 hover:text-white">
