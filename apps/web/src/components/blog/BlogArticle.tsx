@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, BookOpen, Check, Clock3 } from "lucide-react";
+import { ArrowLeft, BookOpen, Check, Clock3 } from "lucide-react";
 import { BlogCtas } from "./BlogCtas";
 import Image from "next/image";
 import Link from "next/link";
@@ -129,21 +129,6 @@ export function BlogArticle({ post }: { post: PublicBlog }) {
                 ))}
               </div>
             </section>
-          ) : null}
-
-          {post.related_links.length ? (
-            <div className="mt-8 flex flex-wrap gap-2">
-              {post.related_links.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className="inline-flex h-10 items-center gap-1.5 rounded-full border border-white/12 bg-white/[0.03] px-4 text-xs font-semibold text-white/65 transition-colors hover:border-neon-cyan/30 hover:text-white"
-                >
-                  {link.label}
-                  <ArrowRight className="size-3.5" />
-                </Link>
-              ))}
-            </div>
           ) : null}
 
           <aside className="mt-12 rounded-[24px] border border-white/[0.09] bg-gradient-to-br from-neon-purple/[0.12] via-white/[0.03] to-neon-cyan/[0.06] p-6 sm:p-8">
