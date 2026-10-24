@@ -7,6 +7,7 @@ import {
   Handshake,
   LayoutDashboard,
   LogOut,
+  MoreHorizontal,
   ScrollText,
   ShieldCheck,
   SlidersHorizontal,
@@ -15,18 +16,20 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/users", label: "Users", icon: Users },
   { href: "/jobs", label: "Jobs", icon: Briefcase },
-  { href: "/boards", label: "Job boards", icon: Waypoints },
+  { href: "/boards", label: "Job boards", mobileLabel: "Boards", icon: Waypoints },
   { href: "/plans", label: "Plans", icon: SlidersHorizontal },
   { href: "/interview-prep", label: "Interview prep", icon: GraduationCap },
   { href: "/affiliates", label: "Affiliate courses", icon: Handshake },
   { href: "/audit", label: "Audit log", icon: ScrollText },
 ];
+
+const MOBILE_PRIMARY_ITEMS = NAV_ITEMS.slice(0, 4);
 
 function isActive(pathname: string, href: string) {
   if (href === "/dashboard") return pathname === "/dashboard";
@@ -36,6 +39,30 @@ function isActive(pathname: string, href: string) {
 export function AdminShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { user, logout } = useAdminAuth();
+  const [moreOpen, setMoreOpen] = useState(false);
+  const morePanelRef = useRef<HTMLDivElement>(null);
+  const overflowActive = NAV_ITEMS.slice(MOBILE_PRIMARY_ITEMS.length).some((item) =>
+    isActive(pathname, item.href),
+  );
+
+  useEffect(() => {
+    setMoreOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!moreOpen) return;
+    morePanelRef.current?.focus();
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMoreOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [moreOpen]);
 
   return (
     <div className="flex min-h-screen bg-[#06060f] text-white">
@@ -113,11 +140,49 @@ export function AdminShell({ children }: { children: ReactNode }) {
 
         <main className="min-w-0 flex-1 overflow-x-auto pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">{children}</main>
 
+        {moreOpen && (
+          <div className="fixed inset-0 z-50 lg:hidden">
+            <div
+              className="absolute inset-0 bg-black/55 backdrop-blur-[2px]"
+              onClick={() => setMoreOpen(false)}
+              aria-hidden
+            />
+            <div
+              ref={morePanelRef}
+              id="admin-more-menu"
+              role="menu"
+              aria-label="All admin pages"
+              tabIndex={-1}
+              className="absolute inset-x-3 bottom-[calc(4.25rem+env(safe-area-inset-bottom))] max-h-[min(60dvh,28rem)] overflow-y-auto rounded-2xl border border-glass-border bg-[#08080f] p-2 shadow-2xl shadow-black/50 outline-none"
+            >
+              {NAV_ITEMS.map((item) => {
+                const active = isActive(pathname, item.href);
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    role="menuitem"
+                    onClick={() => setMoreOpen(false)}
+                    aria-current={active ? "page" : undefined}
+                    className={`flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium transition-colors ${
+                      active ? "bg-white/10 text-neon-cyan" : "text-white/70 hover:bg-white/5 hover:text-white"
+                    }`}
+                  >
+                    <Icon className="h-4 w-4 shrink-0" />
+                    <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         <nav
           aria-label="Admin navigation"
-          className="fixed inset-x-0 bottom-0 z-40 flex border-t border-glass-border bg-[#08080f]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md lg:hidden"
+          className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-glass-border bg-[#08080f]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md lg:hidden"
         >
-          {NAV_ITEMS.map((item) => {
+          {MOBILE_PRIMARY_ITEMS.map((item) => {
             const active = isActive(pathname, item.href);
             const Icon = item.icon;
             return (
@@ -125,15 +190,33 @@ export function AdminShell({ children }: { children: ReactNode }) {
                 key={item.href}
                 href={item.href}
                 aria-current={active ? "page" : undefined}
-                className={`flex flex-1 flex-col items-center gap-1 py-2.5 text-[11px] font-medium transition-colors ${
+                className={`relative flex min-w-0 flex-col items-center gap-1 py-2.5 text-[10px] font-medium transition-colors ${
                   active ? "text-neon-cyan" : "text-muted-foreground"
                 }`}
               >
-                <Icon className="h-4 w-4" />
-                {item.label}
+                {active && <span className="absolute top-0 h-0.5 w-6 rounded-full bg-neon-cyan" />}
+                <Icon className="h-[18px] w-[18px]" />
+                <span className="w-full truncate px-1 text-center leading-tight">
+                  {item.mobileLabel ?? item.label}
+                </span>
               </Link>
             );
           })}
+          <button
+            type="button"
+            onClick={() => setMoreOpen((open) => !open)}
+            aria-expanded={moreOpen}
+            aria-haspopup="menu"
+            aria-controls="admin-more-menu"
+            aria-label="More admin pages"
+            className={`relative flex min-w-0 flex-col items-center gap-1 py-2.5 text-[10px] font-medium transition-colors ${
+              moreOpen || overflowActive ? "text-neon-cyan" : "text-muted-foreground"
+            }`}
+          >
+            {(moreOpen || overflowActive) && <span className="absolute top-0 h-0.5 w-6 rounded-full bg-neon-cyan" />}
+            <MoreHorizontal className="h-[18px] w-[18px]" />
+            <span className="leading-tight">More</span>
+          </button>
         </nav>
       </div>
     </div>
