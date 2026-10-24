@@ -3,7 +3,7 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { api } from "@/lib/convexApi";
 import { cn } from "@/components/ui/utils";
-import { ArrowRight, ArrowUpRight, BookOpen, GraduationCap, Search, Sparkles, Timer } from "lucide-react";
+import { ArrowUpRight, BookOpen, MessagesSquare, Search, Timer } from "lucide-react";
 import Link from "next/link";
 import { useMutation, useQuery } from "convex/react";
 import { useMemo, useState, type ReactNode } from "react";
@@ -36,7 +36,7 @@ type ExternalCourse = {
   affiliate: boolean;
 };
 
-type Tab = "interview" | "skills";
+type Tab = "practice" | "learn";
 
 function Chip({ children }: { children: ReactNode }) {
   return (
@@ -46,10 +46,12 @@ function Chip({ children }: { children: ReactNode }) {
   );
 }
 
+function levelLabel(level?: string) {
+  return !level || level.trim().toLowerCase() === "all" ? "All levels" : level;
+}
+
 function SkeletonCard() {
-  return (
-    <div className="h-64 animate-pulse rounded-[22px] border border-white/[0.07] bg-white/[0.025]" />
-  );
+  return <div className="h-64 animate-pulse rounded-[24px] border border-white/[0.07] bg-white/[0.025]" />;
 }
 
 export function CoursesCatalog() {
@@ -57,7 +59,7 @@ export function CoursesCatalog() {
   const tracksQuery = useQuery(api.interviewPrep.listPublished, {});
   const externalQuery = useQuery(api.interviewPrep.listExternal, {});
   const trackClick = useMutation(api.agentCourseTracking.trackClick);
-  const [tab, setTab] = useState<Tab>("interview");
+  const [tab, setTab] = useState<Tab>("practice");
   const [query, setQuery] = useState("");
 
   const tracks = (tracksQuery ?? []) as InterviewTrack[];
@@ -96,137 +98,115 @@ export function CoursesCatalog() {
         <div className="absolute -left-48 top-[420px] size-[420px] rounded-full bg-neon-cyan/[0.06] blur-[130px]" />
       </div>
 
-      <div className="mx-auto w-full max-w-6xl px-5 py-12 sm:px-8 lg:py-16">
-        <div className="max-w-2xl">
-          <p className="inline-flex items-center gap-2 text-[11px] font-mono font-semibold uppercase tracking-[0.18em] text-neon-cyan">
-            <GraduationCap className="size-4" />
-            Qelsa learning
+      <div className="mx-auto w-full max-w-7xl px-5 py-10 sm:px-8 lg:py-14">
+        <header>
+          <h1 className="text-4xl font-extrabold tracking-[-0.035em] sm:text-5xl lg:text-6xl">Learn &amp; Practice</h1>
+          <p className="mt-2 text-sm leading-relaxed text-white/55 sm:text-base">
+            Build skills and practice for your next career move.
           </p>
-          <h1 className="mt-4 text-4xl font-extrabold tracking-[-0.035em] sm:text-5xl">Walk in ready.</h1>
-          <p className="mt-4 text-sm leading-relaxed text-white/55 sm:text-base">
-            Role-based interview practice, built and quality-checked by Qelsa.
-          </p>
+        </header>
+
+        <div className="relative mt-7">
+          <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-white/35" />
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder={tab === "practice" ? "Search roles or skills..." : "Search courses or skills..."}
+            aria-label="Search learning content"
+            className="h-12 w-full rounded-2xl border border-white/[0.1] bg-[#0b0b16] pl-11 pr-4 text-sm text-white placeholder:text-white/35 transition-colors focus:border-white/20 focus:outline-none"
+          />
         </div>
 
-        <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="inline-flex w-fit rounded-full border border-white/10 bg-white/[0.03] p-1">
-            <button
-              type="button"
-              onClick={() => setTab("interview")}
-              className={cn(
-                "inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold transition",
-                tab === "interview" ? "bg-white text-[#06060f]" : "text-white/55 hover:text-white",
-              )}
-            >
-              <Sparkles className="size-3.5" />
-              Interview prep
-              {tracks.length ? <span className="text-[10px] opacity-60">{tracks.length}</span> : null}
-            </button>
-            <button
-              type="button"
-              onClick={() => setTab("skills")}
-              className={cn(
-                "inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold transition",
-                tab === "skills" ? "bg-white text-[#06060f]" : "text-white/55 hover:text-white",
-              )}
-            >
-              <BookOpen className="size-3.5" />
-              Skill courses
-              {external.length ? <span className="text-[10px] opacity-60">{external.length}</span> : null}
-            </button>
-          </div>
-
-          <div className="flex w-full items-center gap-2 rounded-xl border border-white/[0.1] bg-white/[0.035] px-3 sm:max-w-xs">
-            <Search className="size-4 shrink-0 text-white/35" />
-            <input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder={tab === "interview" ? "Search roles or skills" : "Search courses or skills"}
-              aria-label="Search courses"
-              className="h-10 min-w-0 flex-1 bg-transparent text-sm text-white placeholder:text-white/35 focus:outline-none"
-            />
-          </div>
+        <div role="tablist" aria-label="Learn and practice" className="mt-7 flex gap-7 border-b border-white/[0.08]">
+          {(["practice", "learn"] as const).map((value) => {
+            const active = tab === value;
+            return (
+              <button
+                key={value}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => setTab(value)}
+                className={cn(
+                  "relative -mb-px pb-3 text-sm font-semibold capitalize transition-colors",
+                  active ? "text-white" : "text-white/40 hover:text-white/70",
+                )}
+              >
+                {value}
+                {active ? <span className="absolute inset-x-0 bottom-0 h-0.5 rounded-full bg-white" /> : null}
+              </button>
+            );
+          })}
         </div>
 
-        {tab === "interview" ? (
-          <section className="mt-8">
-            <div className="flex flex-wrap items-end justify-between gap-3">
-              <div>
-                <h2 className="text-xl font-bold">Interview prep tracks</h2>
-                <p className="mt-1 text-xs text-white/40">Frequently asked questions with answer frameworks.</p>
-              </div>
-            </div>
+        <p className="mt-5 text-xs font-semibold text-white/60">
+          {tab === "practice"
+            ? `${filteredTracks.length} practice track${filteredTracks.length === 1 ? "" : "s"}`
+            : `${filteredExternal.length} course${filteredExternal.length === 1 ? "" : "s"}`}
+        </p>
 
+        {tab === "practice" ? (
+          <section className="mt-4" aria-label="Practice tracks">
             {tracksQuery === undefined ? (
-              <div className="mt-5 grid gap-4 md:grid-cols-2">
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 <SkeletonCard />
                 <SkeletonCard />
               </div>
             ) : filteredTracks.length ? (
-              <div className="mt-5 grid gap-4 md:grid-cols-2">
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {filteredTracks.map((track) => (
                   <Link
                     key={track.id}
                     href={`/courses/interview/${encodeURIComponent(track.slug)}`}
-                    className="group relative overflow-hidden rounded-[22px] border border-white/[0.09] bg-[#0b0b16] p-5 transition-all hover:-translate-y-0.5 hover:border-neon-cyan/35 hover:shadow-[0_18px_50px_-24px_rgba(34,211,238,0.35)] sm:p-6"
+                    className="group flex flex-col rounded-[24px] border border-white/[0.09] bg-[#0b0b16] p-5 transition-all hover:-translate-y-0.5 hover:border-neon-cyan/35 hover:shadow-[0_18px_50px_-24px_rgba(34,211,238,0.35)]"
                   >
                     <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-[10px] font-mono font-semibold uppercase tracking-[0.16em] text-neon-cyan">{track.role_family}</p>
-                        <h3 className="mt-2 text-lg font-bold leading-snug text-white">{track.title}</h3>
-                      </div>
-                      <span className="flex size-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-white/55 transition-colors group-hover:border-neon-cyan/30 group-hover:text-neon-cyan">
-                        <ArrowRight className="size-4" />
+                      <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-neon-cyan/25 bg-neon-cyan/[0.08] text-neon-cyan">
+                        <MessagesSquare className="size-5" />
+                      </span>
+                      <span className="rounded-lg border border-white/[0.1] bg-white/[0.04] px-2.5 py-1 text-[11px] font-medium text-white/55">
+                        {levelLabel(track.level)}
                       </span>
                     </div>
-                    <p className="mt-3 line-clamp-2 text-sm leading-relaxed text-white/50">{track.summary}</p>
-                    <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11px] text-white/35">
-                      <span>{track.level}</span>
-                      <span className="size-1 rounded-full bg-white/20" />
-                      <span>{track.question_count} questions</span>
-                      <span className="size-1 rounded-full bg-white/20" />
-                      <span className="inline-flex items-center gap-1">
-                        <Timer className="size-3" />
-                        {track.estimated_minutes} min
-                      </span>
-                    </div>
+                    <h2 className="mt-5 text-lg font-bold leading-snug text-white">{track.title}</h2>
+                    <p className="mt-1 text-sm text-white/50">Interview track</p>
+                    <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-white/45">{track.summary}</p>
                     <div className="mt-4 flex flex-wrap gap-1.5">
                       {track.skills.slice(0, 3).map((skill) => (
                         <Chip key={skill}>{skill}</Chip>
                       ))}
                     </div>
+                    <div className="mt-auto flex items-center justify-between gap-3 border-t border-white/[0.07] pt-4 text-sm">
+                      <span className="font-semibold text-white">{track.question_count} questions</span>
+                      <span className="inline-flex items-center gap-1.5 text-white/40">
+                        <Timer className="size-3.5" />
+                        {track.estimated_minutes} min
+                      </span>
+                    </div>
                   </Link>
                 ))}
               </div>
             ) : (
-              <div className="mt-5 rounded-[22px] border border-dashed border-white/15 bg-white/[0.02] px-6 py-14 text-center">
-                <GraduationCap className="mx-auto size-8 text-white/25" />
+              <div className="mt-1 rounded-[24px] border border-dashed border-white/15 bg-white/[0.02] px-6 py-14 text-center">
+                <MessagesSquare className="mx-auto size-8 text-white/25" />
                 <p className="mt-3 text-sm font-semibold">
-                  {tracks.length ? "No tracks match that search." : "New tracks are being built."}
+                  {tracks.length ? "No practice tracks match that search." : "New practice tracks are being built."}
                 </p>
-                <p className="mt-1 text-xs text-white/40">
-                  {tracks.length ? "Try a role family or skill." : "Check back soon."}
-                </p>
+                <p className="mt-1 text-xs text-white/40">{tracks.length ? "Try a role or skill." : "Check back soon."}</p>
               </div>
             )}
           </section>
         ) : (
-          <section className="mt-8">
-            <div className="flex flex-wrap items-end justify-between gap-3">
-              <div>
-                <h2 className="text-xl font-bold">Skill courses</h2>
-                <p className="mt-1 text-xs text-white/40">Curated courses for deeper skill gaps.</p>
-              </div>
-            </div>
-
+          <section className="mt-4" aria-label="Skill courses">
             {externalQuery === undefined ? (
-              <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <SkeletonCard />
                 <SkeletonCard />
                 <SkeletonCard />
                 <SkeletonCard />
               </div>
             ) : filteredExternal.length ? (
-              <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 {filteredExternal.map((course) => (
                   <a
                     key={course.course_id}
@@ -234,25 +214,28 @@ export function CoursesCatalog() {
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={() => trackExternal(course)}
-                    className="group flex flex-col rounded-[22px] border border-white/[0.08] bg-white/[0.025] p-5 transition-all hover:-translate-y-0.5 hover:border-white/20 hover:bg-white/[0.04]"
+                    className="group flex flex-col rounded-[24px] border border-white/[0.09] bg-[#0b0b16] p-5 transition-all hover:-translate-y-0.5 hover:border-white/25 hover:bg-[#0d0d1a]"
                   >
                     <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/35">{course.provider}</p>
-                        <h3 className="mt-2 text-[15px] font-bold leading-snug text-white">{course.title}</h3>
-                      </div>
-                      <ArrowUpRight className="size-4 shrink-0 text-white/30 transition-colors group-hover:text-neon-cyan" />
+                      <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-neon-cyan/25 bg-neon-cyan/[0.08] text-neon-cyan">
+                        <BookOpen className="size-5" />
+                      </span>
+                      <ArrowUpRight className="size-4 text-white/35 transition-colors group-hover:text-neon-cyan" />
                     </div>
-                    <p className="mt-3 line-clamp-2 text-xs leading-relaxed text-white/45">{course.description}</p>
+                    <h2 className="mt-5 text-[17px] font-bold leading-snug text-white">{course.title}</h2>
+                    <p className="mt-1 text-sm text-white/50">{course.provider}</p>
+                    <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-white/45">{course.description}</p>
                     <div className="mt-4 flex flex-wrap gap-1.5">
                       {course.skills.slice(0, 3).map((skill) => (
                         <Chip key={skill}>{skill}</Chip>
                       ))}
                     </div>
-                    <div className="mt-auto flex items-center justify-between pt-5 text-[11px] text-white/35">
-                      <span>{course.level} · {course.duration}</span>
+                    <div className="mt-auto flex items-center justify-between gap-3 pt-5 text-[11px]">
                       <span className={course.free ? "font-semibold text-emerald-300" : "font-semibold text-white/55"}>
                         {course.free ? "Free" : "Paid"}
+                      </span>
+                      <span className="text-right text-white/35">
+                        {course.level} · {course.duration}
                       </span>
                     </div>
                     {course.affiliate ? <p className="mt-2 text-[10px] text-white/25">Partner link</p> : null}
@@ -260,7 +243,7 @@ export function CoursesCatalog() {
                 ))}
               </div>
             ) : (
-              <div className="mt-5 rounded-[22px] border border-dashed border-white/15 bg-white/[0.02] px-6 py-14 text-center text-sm text-white/40">
+              <div className="mt-1 rounded-[24px] border border-dashed border-white/15 bg-white/[0.02] px-6 py-14 text-center text-sm text-white/40">
                 No courses match that search.
               </div>
             )}

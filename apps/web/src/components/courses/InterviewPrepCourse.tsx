@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { cn } from "@/components/ui/utils";
 import { api } from "@/lib/convexApi";
-import { ArrowLeft, ArrowRight, Check, ChevronDown, ChevronLeft, Layers, ListChecks, RotateCcw, Shuffle, Sparkles } from "lucide-react";
+import { ArrowLeft, ArrowRight, BarChart3, Check, ChevronDown, ChevronLeft, Layers, ListChecks, MessagesSquare, RotateCcw, Shuffle, Sparkles, Timer } from "lucide-react";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -44,6 +44,10 @@ function Badge({ children }: { children: ReactNode }) {
       {children}
     </span>
   );
+}
+
+function levelLabel(level?: string) {
+  return !level || level.trim().toLowerCase() === "all" ? "All levels" : level;
 }
 
 function LearnMode({ questions }: { questions: Question[] }) {
@@ -242,7 +246,7 @@ function FlashcardMode({ questions }: { questions: Question[] }) {
 export function InterviewPrepCourse({ slug }: { slug?: string }) {
   const router = useRouter();
   const track = useQuery(api.interviewPrep.getBySlug, slug ? { slug } : "skip") as Track | undefined;
-  const [mode, setMode] = useState<"learn" | "flashcards">("learn");
+  const [mode, setMode] = useState<"questions" | "flashcards">("questions");
 
   if (!slug) return null;
 
@@ -292,73 +296,114 @@ export function InterviewPrepCourse({ slug }: { slug?: string }) {
       <div className="mx-auto max-w-xl px-5 py-24 text-center">
         <p className="text-sm font-semibold text-white">This interview prep track is not available.</p>
         <Button type="button" onClick={() => router.push("/courses")} className="mt-5 rounded-full" variant="outline">
-          Back to courses
+          Back to Practice
         </Button>
       </div>
     );
   }
 
   const prompt = `Help me prepare for a ${track.role_family} interview using the Qelsa track "${track.title}". Ask me questions one at a time and give feedback after each answer.`;
+  const tags = Array.from(
+    new Map(
+      [...track.interview_types, ...track.skills].map((tag) => [tag.trim().toLowerCase(), tag.trim()]),
+    ).values(),
+  ).filter(Boolean);
 
   return (
     <main className="min-h-screen text-white">
       <Head>
-        <title>{track.title} · Qelsa Interview Prep</title>
+        <title>{track.title} · Qelsa Learn &amp; Practice</title>
       </Head>
-      <div className="mx-auto w-full max-w-5xl px-5 py-10 sm:px-8 lg:py-14">
-        <Link href="/courses" className="inline-flex items-center gap-1.5 text-xs font-semibold text-white/40 transition-colors hover:text-white">
+      <div className="mx-auto w-full max-w-7xl px-5 py-8 sm:px-8 lg:py-12">
+        <Link href="/courses" className="inline-flex items-center gap-1.5 text-xs font-semibold text-white/45 transition-colors hover:text-white">
           <ArrowLeft className="size-3.5" />
-          All courses
+          Back to Practice
         </Link>
 
-        <div className="mt-6 grid gap-8 lg:grid-cols-[1fr_280px] lg:items-start">
-          <div>
-            <p className="text-[11px] font-mono font-semibold uppercase tracking-[0.16em] text-neon-cyan">{track.role_family}</p>
-            <h1 className="mt-3 text-3xl font-extrabold tracking-[-0.03em] sm:text-4xl">{track.title}</h1>
-            <p className="mt-3 line-clamp-2 max-w-2xl text-sm leading-relaxed text-white/55">{track.summary}</p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <Badge>AI-built</Badge>
-              <Badge>{track.level}</Badge>
-              <Badge>{track.question_count} questions</Badge>
-              <Badge>{track.estimated_minutes} min</Badge>
-              {track.interview_types.map((type) => (
-                <Badge key={type}>{type}</Badge>
-              ))}
+        <div className="mt-5 rounded-[24px] border border-white/[0.09] bg-[#0b0b16] p-5 sm:p-7">
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+            <div>
+              <div className="flex items-start gap-3">
+                <span className="flex size-12 shrink-0 items-center justify-center rounded-xl border border-neon-cyan/25 bg-neon-cyan/[0.08] text-neon-cyan">
+                  <MessagesSquare className="size-6" />
+                </span>
+                <div className="pt-0.5">
+                  <p className="text-sm font-semibold text-white">Interview track</p>
+                  <p className="mt-0.5 text-[11px] text-white/35">Built and quality-checked by Qelsa</p>
+                </div>
+              </div>
+
+              <h1 className="mt-5 text-3xl font-extrabold tracking-[-0.03em] sm:text-4xl lg:text-5xl">{track.title}</h1>
+              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-white/50">{track.summary}</p>
+
+              <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-white/45">
+                <span className="inline-flex items-center gap-1.5">
+                  <ListChecks className="size-3.5" />
+                  {track.question_count} questions
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <Timer className="size-3.5" />
+                  {track.estimated_minutes} min
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <BarChart3 className="size-3.5" />
+                  {levelLabel(track.level)}
+                </span>
+              </div>
+
+              <div className="mt-5 flex flex-wrap gap-1.5">
+                {tags.slice(0, 7).map((tag) => (
+                  <Badge key={tag}>{tag}</Badge>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-white/[0.1] bg-white/[0.025] p-5">
+              <p className="text-base font-semibold text-white">Mock interview</p>
+              <p className="mt-2 text-xs leading-relaxed text-white/45">
+                The agent asks one question at a time and gives feedback on each answer.
+              </p>
+              <Link
+                href={`/agent?prompt=${encodeURIComponent(prompt)}`}
+                className="mt-4 inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-full bg-gradient-to-r from-[#7c3aed] to-[#db2777] px-4 text-sm font-semibold text-white shadow-lg transition-all hover:opacity-95"
+              >
+                <Sparkles className="size-4" />
+                Start mock interview
+              </Link>
             </div>
           </div>
-
-          <div className="rounded-[18px] border border-white/[0.08] bg-white/[0.025] p-4">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/35">Practice</p>
-            <p className="mt-2 text-xs leading-relaxed text-white/50">Mock interview, one question at a time.</p>
-            <Link href={`/agent?prompt=${encodeURIComponent(prompt)}`} className="mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-full border border-neon-cyan/30 bg-neon-cyan/10 px-3 py-2.5 text-xs font-semibold text-neon-cyan transition-colors hover:bg-neon-cyan/15">
-              <Sparkles className="size-3.5" />
-              Practice with Agent
-            </Link>
-          </div>
         </div>
 
-        <div className="mt-8 flex flex-col gap-3 border-b border-white/[0.08] pb-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="inline-flex w-fit rounded-full border border-white/10 bg-white/[0.03] p-1">
-            <button
-              type="button"
-              onClick={() => setMode("learn")}
-              className={cn("inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold transition", mode === "learn" ? "bg-white text-[#06060f]" : "text-white/50 hover:text-white")}
-            >
-              <ListChecks className="size-3.5" />
-              Learn
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode("flashcards")}
-              className={cn("inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold transition", mode === "flashcards" ? "bg-white text-[#06060f]" : "text-white/50 hover:text-white")}
-            >
-              <Layers className="size-3.5" />
-              Flashcards
-            </button>
-          </div>
+        <div role="tablist" aria-label="Track content" className="mt-7 flex gap-7 border-b border-white/[0.08]">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === "questions"}
+            onClick={() => setMode("questions")}
+            className={cn(
+              "relative -mb-px pb-3 text-sm font-semibold transition-colors",
+              mode === "questions" ? "text-white" : "text-white/40 hover:text-white/70",
+            )}
+          >
+            Questions
+            {mode === "questions" ? <span className="absolute inset-x-0 bottom-0 h-0.5 rounded-full bg-white" /> : null}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === "flashcards"}
+            onClick={() => setMode("flashcards")}
+            className={cn(
+              "relative -mb-px pb-3 text-sm font-semibold transition-colors",
+              mode === "flashcards" ? "text-white" : "text-white/40 hover:text-white/70",
+            )}
+          >
+            Flashcards
+            {mode === "flashcards" ? <span className="absolute inset-x-0 bottom-0 h-0.5 rounded-full bg-white" /> : null}
+          </button>
         </div>
 
-        <div className="mt-6">{mode === "learn" ? <LearnMode questions={track.questions} /> : <FlashcardMode questions={track.questions} />}</div>
+        <div className="mt-5">{mode === "questions" ? <LearnMode questions={track.questions} /> : <FlashcardMode questions={track.questions} />}</div>
       </div>
     </main>
   );

@@ -25,7 +25,7 @@ const GUEST_ITEMS = [
   { id: "candidates", label: "For Candidates", href: "/candidates" },
   { id: "employers", label: "For Employers", href: "/employers" },
   { id: "jobs", label: "Jobs", href: "/jobs/all" },
-  { id: "courses", label: "Courses", href: "/courses" },
+  { id: "courses", label: "Learn & Practice", href: "/courses" },
   { id: "blog", label: "Blog", href: "/blogs" },
 ];
 
@@ -36,7 +36,7 @@ const AUTHED_ITEMS = [
   { id: "agent", label: "Agent", href: "/agent", icon: BotMessageSquare, hideOnDesktop: true },
   { id: "connections", label: "Network", href: "/network", icon: Users, hideOnDesktop: true },
   { id: "goals", label: "Goals", href: "/goals", icon: Target },
-  { id: "courses", label: "Courses", href: "/courses", icon: BookOpen, hideOnDesktop: true },
+  { id: "courses", label: "Learn & Practice", href: "/courses", icon: BookOpen, hideOnDesktop: true },
   { id: "blog", label: "Blog", href: "/blogs", icon: PenLine, hideOnDesktop: true },
 ];
 
