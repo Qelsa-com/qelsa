@@ -7,6 +7,7 @@ import { ArrowUpRight, BookOpen, MessagesSquare, Search, Timer } from "lucide-re
 import Link from "next/link";
 import { useMutation, useQuery } from "convex/react";
 import { useMemo, useState, type ReactNode } from "react";
+import { ExternalCoursesSkeleton, PracticeTracksSkeleton } from "./courseSkeletons";
 
 type InterviewTrack = {
   id: string;
@@ -48,10 +49,6 @@ function Chip({ children }: { children: ReactNode }) {
 
 function levelLabel(level?: string) {
   return !level || level.trim().toLowerCase() === "all" ? "All levels" : level;
-}
-
-function SkeletonCard() {
-  return <div className="h-64 animate-pulse rounded-[24px] border border-white/[0.07] bg-white/[0.025]" />;
 }
 
 export function CoursesCatalog() {
@@ -139,19 +136,24 @@ export function CoursesCatalog() {
           })}
         </div>
 
-        <p className="mt-5 text-xs font-semibold text-white/60">
-          {tab === "practice"
-            ? `${filteredTracks.length} practice track${filteredTracks.length === 1 ? "" : "s"}`
-            : `${filteredExternal.length} course${filteredExternal.length === 1 ? "" : "s"}`}
-        </p>
+        <div className="mt-5 min-h-[12px] text-xs font-semibold text-white/60">
+          {tab === "practice" ? (
+            tracksQuery === undefined ? (
+              <span className="block h-3 w-28 animate-pulse rounded bg-white/[0.08]" aria-hidden />
+            ) : (
+              `${filteredTracks.length} practice track${filteredTracks.length === 1 ? "" : "s"}`
+            )
+          ) : externalQuery === undefined ? (
+            <span className="block h-3 w-20 animate-pulse rounded bg-white/[0.08]" aria-hidden />
+          ) : (
+            `${filteredExternal.length} course${filteredExternal.length === 1 ? "" : "s"}`
+          )}
+        </div>
 
         {tab === "practice" ? (
           <section className="mt-4" aria-label="Practice tracks">
             {tracksQuery === undefined ? (
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                <SkeletonCard />
-                <SkeletonCard />
-              </div>
+              <PracticeTracksSkeleton />
             ) : filteredTracks.length ? (
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {filteredTracks.map((track) => (
@@ -199,12 +201,7 @@ export function CoursesCatalog() {
         ) : (
           <section className="mt-4" aria-label="Skill courses">
             {externalQuery === undefined ? (
-              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                <SkeletonCard />
-                <SkeletonCard />
-                <SkeletonCard />
-                <SkeletonCard />
-              </div>
+              <ExternalCoursesSkeleton />
             ) : filteredExternal.length ? (
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 {filteredExternal.map((course) => (
