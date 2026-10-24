@@ -72,6 +72,11 @@ export default function PricingPage() {
     if (billing?.subscription?.interval) setInterval(billing.subscription.interval);
   }, [billing?.subscription?.interval]);
 
+  useEffect(() => {
+    if (authLoading || isAuthenticated) return;
+    router.replace(`/auth?returnUrl=${encodeURIComponent("/pricing")}`);
+  }, [authLoading, isAuthenticated, router]);
+
   const handlePlan = async (planId: BillingPlanId) => {
     if (!isAuthenticated) {
       router.push(`/auth?returnUrl=${encodeURIComponent("/pricing")}`);
@@ -117,6 +122,16 @@ export default function PricingPage() {
   };
 
   const isBusy = isCheckingOut || isChangingPlan || authLoading || billingLoading || pricesLoading;
+
+  if (authLoading || !isAuthenticated) {
+    return (
+      <Layout activeSection="pricing">
+        <div className="flex min-h-screen items-center justify-center bg-[#06060f]">
+          <Loader2 className="size-5 animate-spin text-white/35" />
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout activeSection="pricing">

@@ -13,7 +13,6 @@ const PUBLIC_ROUTES = [
   "/register",
   "/auth",
   "/employer/auth",
-  "/pricing",
   "/jobs/all",
   "/jobs",
   "/blogs",
@@ -93,7 +92,7 @@ export default function RouteGuard({ children }: { children: ReactNode }) {
     const isPublic = isPublicPath(path) || router.pathname === "/404";
 
     if (!session && !isPublic) {
-      if (path.startsWith("/courses/")) {
+      if (path.startsWith("/courses/") || path === "/pricing") {
         router.replace(`/auth?returnUrl=${encodeURIComponent(router.asPath)}`);
         return;
       }

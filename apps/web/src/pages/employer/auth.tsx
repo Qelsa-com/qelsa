@@ -203,9 +203,9 @@ export default function EmployerAuthPage() {
     }
   };
 
-  const isBusy = isGoogleLoading || isSendingOtp || isVerifying || isCheckingEmail || isFinishing;
-  const isResolving = oauthPending || Boolean(session);
-  const isFinishingCopy = isFinishing || oauthPending;
+  const googleBusy = isGoogleLoading || oauthPending;
+  const otpBusy = isVerifying || isFinishing;
+  const isBusy = googleBusy || isSendingOtp || isCheckingEmail || otpBusy;
   const cardMotion = {
     initial: { opacity: 0, y: 12 },
     animate: { opacity: 1, y: 0 },
@@ -232,19 +232,7 @@ export default function EmployerAuthPage() {
 
       <div className="w-full max-w-[460px]">
         <AnimatePresence mode="wait">
-          {isFinishing || isResolving ? (
-            <motion.div key="resolving" {...cardMotion} role="status" aria-live="polite" className="rounded-3xl border border-white/10 bg-white/[0.03] p-8 text-center">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-neon-cyan/25 bg-neon-cyan/10">
-                <Loader2 className="h-5 w-5 animate-spin text-neon-cyan" />
-              </div>
-              <h2 className="mt-5 text-2xl font-bold text-white">
-                {isFinishingCopy ? "Finishing sign-in…" : "Checking your account…"}
-              </h2>
-              <p className="mt-2 text-sm text-muted-foreground">
-                {isFinishingCopy ? "Confirming your employer access." : "Loading your profile."}
-              </p>
-            </motion.div>
-          ) : step === "method" ? (
+          {step === "method" ? (
             <motion.div key="method" {...cardMotion} className="rounded-3xl border border-white/10 bg-white/[0.03] p-8">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-neon-cyan">For employers</p>
               <h1 className="mt-3 text-3xl font-bold text-white">Hire with your company email.</h1>
@@ -254,9 +242,9 @@ export default function EmployerAuthPage() {
 
               {error ? <ErrorBanner message={error} /> : null}
 
-              <button type="button" onClick={handleGoogle} disabled={isBusy} aria-busy={isGoogleLoading} className={`mt-7 ${PRIMARY_BTN}`}>
-                {isGoogleLoading ? <Loader2 className="h-[18px] w-[18px] animate-spin" /> : <GoogleMark />}
-                {isGoogleLoading ? "Connecting to Google…" : "Continue with Google"}
+              <button type="button" onClick={handleGoogle} disabled={isBusy} aria-busy={googleBusy} className={`mt-7 ${PRIMARY_BTN}`}>
+                {googleBusy ? <Loader2 className="h-[18px] w-[18px] animate-spin" /> : <GoogleMark />}
+                {googleBusy ? "Connecting to Google…" : "Continue with Google"}
               </button>
 
               <button type="button" onClick={() => setStep("email")} disabled={isBusy} className={`mt-3 ${SECONDARY_BTN}`}>
@@ -378,10 +366,12 @@ export default function EmployerAuthPage() {
                   type="button"
                   onClick={() => handleVerify()}
                   disabled={code.length !== 6 || isBusy}
+                  aria-busy={otpBusy}
                   className={`mt-6 ${PRIMARY_BTN}`}
                 >
-                  {isVerifying ? "Verifying…" : "Verify and continue"}
-                  {!isVerifying ? <ArrowRight /> : null}
+                  {otpBusy ? <Loader2 className="h-[18px] w-[18px] animate-spin" /> : null}
+                  {isVerifying ? "Verifying…" : isFinishing ? "Signing in…" : "Verify and continue"}
+                  {!otpBusy ? <ArrowRight /> : null}
                 </button>
 
                 <p className="mt-5 text-sm text-muted-foreground">

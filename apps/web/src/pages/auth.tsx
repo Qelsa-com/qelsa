@@ -110,7 +110,9 @@ export default function AuthPage() {
       });
   }, [finishAuth, isSwitching, profile, saveAccountType, session]);
 
-  const showSigningIn = !isSwitching && (oauthPending || Boolean(session));
+  const googleBusy = isGoogleLoading || oauthPending;
+  const finalizingSession = !isSwitching && Boolean(session) && (!profile || !profile.account_type);
+  const otpBusy = isVerifying || (step === "otp" && finalizingSession);
 
   const handleSendCode = async () => {
     const trimmed = email.trim();
@@ -214,17 +216,7 @@ export default function AuthPage() {
 
       <div className="w-full max-w-[460px]">
         <AnimatePresence mode="wait">
-          {showSigningIn ? (
-            <motion.div key="resolving" {...cardMotion} role="status" aria-live="polite" className="rounded-3xl border border-white/10 bg-white/[0.03] p-8 text-center">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-neon-cyan/25 bg-neon-cyan/10">
-                <Loader2 className="h-5 w-5 animate-spin text-neon-cyan" />
-              </div>
-              <h2 className="mt-5 text-2xl font-bold text-white">Finishing sign-in…</h2>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                Verifying your account. This only takes a moment.
-              </p>
-            </motion.div>
-          ) : step === "method" ? (
+          {step === "method" ? (
             <motion.div key="method" {...cardMotion} className="rounded-3xl border border-white/10 bg-white/[0.03] p-8">
               <h2 className="text-3xl font-bold text-white">Good to have you here.</h2>
               <p className="mt-2 text-[15px] leading-relaxed text-gray-500">Sign in or create your account — takes 30 seconds.</p>
@@ -232,18 +224,18 @@ export default function AuthPage() {
               <button
                 type="button"
                 onClick={() => handleGoogle()}
-                disabled={isGoogleLoading}
-                aria-busy={isGoogleLoading}
+                disabled={googleBusy}
+                aria-busy={googleBusy}
                 className={`mt-7 ${PRIMARY_BTN}`}
               >
-                {isGoogleLoading ? <Loader2 className="h-[18px] w-[18px] animate-spin" /> : <GoogleMark />}
-                {isGoogleLoading ? "Signing in…" : "Continue with Google"}
+                {googleBusy ? <Loader2 className="h-[18px] w-[18px] animate-spin" /> : <GoogleMark />}
+                {googleBusy ? "Signing in…" : "Continue with Google"}
               </button>
 
               <button
                 type="button"
                 onClick={() => setStep("email")}
-                disabled={isGoogleLoading}
+                disabled={googleBusy}
                 className={`mt-3 ${SECONDARY_BTN}`}
               >
                 <MailIcon />
@@ -359,12 +351,13 @@ export default function AuthPage() {
                 <button
                   type="button"
                   onClick={() => handleVerify()}
-                  disabled={code.length !== 6 || isVerifying}
+                  disabled={code.length !== 6 || otpBusy}
+                  aria-busy={otpBusy}
                   className={`mt-6 ${PRIMARY_BTN}`}
                 >
-                  {isVerifying ? <Loader2 className="h-[18px] w-[18px] animate-spin" /> : null}
-                  {isVerifying ? "Verifying…" : "Verify email"}
-                  {!isVerifying && <ArrowRight />}
+                  {otpBusy ? <Loader2 className="h-[18px] w-[18px] animate-spin" /> : null}
+                  {isVerifying ? "Verifying…" : finalizingSession ? "Signing in…" : "Verify email"}
+                  {!otpBusy && <ArrowRight />}
                 </button>
 
                 <p className="mt-5 text-sm text-muted-foreground">
