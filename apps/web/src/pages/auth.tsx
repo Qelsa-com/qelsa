@@ -36,6 +36,7 @@ export default function AuthPage() {
   const [code, setCode] = useState("");
   const [resendIn, setResendIn] = useState(0);
   const [oauthPending, setOauthPending] = useState(false);
+  const [completing, setCompleting] = useState(false);
   const finishingRef = useRef(false);
 
   const [googleLogin, { isLoading: isGoogleLoading }] = useGoogleLoginMutation();
@@ -43,7 +44,7 @@ export default function AuthPage() {
   const [resendOtp, { isLoading: isResending }] = useResendOtpMutation();
   const [verifyOtp, { isLoading: isVerifying }] = useVerifyOtpMutation();
   const [saveAccountType] = useSetAccountTypeMutation();
-  const { data: session, isPending: isSessionPending } = authClient.useSession();
+  const { data: session, isRefetching, refetch: refetchSession } = authClient.useSession();
   const { data: profile } = useGetProfileQuery(undefined, { skip: !session });
 
   const searchParams = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
@@ -72,11 +73,42 @@ export default function AuthPage() {
     }
   }, []);
 
+  // Latest value, so the poll below never cancels an in-flight session fetch.
+  const refetchingRef = useRef(isRefetching);
+  refetchingRef.current = isRefetching;
+
+  /**
+   * A Google redirect lands here before the session exists. Hold the finishing
+   * state and nudge the fetch — the session atom does not retry a null result on
+   * its own, which is why the sign-in form used to come back (with live buttons)
+   * for a few seconds before the redirect.
+   */
   useEffect(() => {
-    if (!oauthPending || isSessionPending || session) return;
-    sessionStorage.removeItem(OAUTH_PENDING_KEY);
-    setOauthPending(false);
-  }, [oauthPending, isSessionPending, session]);
+    if (!oauthPending || session) return;
+    let cancelled = false;
+    let attempts = 0;
+    let timer: ReturnType<typeof setTimeout>;
+    const tick = () => {
+      if (cancelled) return;
+      attempts += 1;
+      // `refetchingRef` also covers the initial mount fetch, so this never
+      // cancels a request that is already in flight.
+      if (!refetchingRef.current) void refetchSession();
+      // Give up rather than trapping the user on a spinner, e.g. if they
+      // cancelled at the provider.
+      if (attempts >= 6) {
+        sessionStorage.removeItem(OAUTH_PENDING_KEY);
+        setOauthPending(false);
+        return;
+      }
+      timer = setTimeout(tick, 1500);
+    };
+    timer = setTimeout(tick, 800);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [oauthPending, refetchSession, session]);
 
   /**
    * Candidates now land on My Space immediately after sign-in. There is no
@@ -106,13 +138,21 @@ export default function AuthPage() {
       .then(() => finishAuth())
       .catch((err) => {
         finishingRef.current = false;
+        setCompleting(false);
         toastUnknownError(err, "Could not finish setting up your account. Please try again.");
       });
   }, [finishAuth, isSwitching, profile, saveAccountType, session]);
 
   const googleBusy = isGoogleLoading || oauthPending;
   const finalizingSession = !isSwitching && Boolean(session) && (!profile || !profile.account_type);
-  const otpBusy = isVerifying || (step === "otp" && finalizingSession);
+  const otpBusy = isVerifying || completing || (step === "otp" && finalizingSession);
+
+  // Safety net: never leave the card stuck busy if the session never lands.
+  useEffect(() => {
+    if (!completing || session) return;
+    const id = setTimeout(() => setCompleting(false), 12000);
+    return () => clearTimeout(id);
+  }, [completing, session]);
 
   const handleSendCode = async () => {
     const trimmed = email.trim();
@@ -145,10 +185,15 @@ export default function AuthPage() {
   };
 
   const handleVerify = async (submitted = code) => {
-    if (submitted.length !== 6) return;
+    if (submitted.length !== 6 || completing) return;
     try {
       await verifyOtp({ email, code: submitted }).unwrap();
-      // The session/profile effect finishes the handoff to My Space.
+      // The mutation resolving only means the cookie is set. The session token,
+      // Convex auth, and the profile query all land after this, so hold the busy
+      // state until the redirect — otherwise the code screen looks idle and
+      // stays clickable for those seconds.
+      setCompleting(true);
+      void refetchSession();
     } catch (err) {
       setCode("");
       toastUnknownError(err, "That code didn't work. Please try again.");
@@ -308,7 +353,8 @@ export default function AuthPage() {
                   setStep("email");
                   setCode("");
                 }}
-                className={`flex items-center gap-2 ${QUIET_LINK}`}
+                disabled={otpBusy}
+                className={`flex items-center gap-2 ${QUIET_LINK} disabled:cursor-not-allowed disabled:opacity-40`}
               >
                 <ArrowLeft /> Change email
               </button>
@@ -328,6 +374,7 @@ export default function AuthPage() {
                     maxLength={6}
                     value={code}
                     autoFocus
+                    disabled={otpBusy}
                     onChange={(value) => {
                       setCode(value);
                       // Submit as soon as the last digit lands.
@@ -356,7 +403,7 @@ export default function AuthPage() {
                   className={`mt-6 ${PRIMARY_BTN}`}
                 >
                   {otpBusy ? <Loader2 className="h-[18px] w-[18px] animate-spin" /> : null}
-                  {isVerifying ? "Verifying…" : finalizingSession ? "Signing in…" : "Verify email"}
+                  {isVerifying ? "Verifying…" : otpBusy ? "Signing in…" : "Verify email"}
                   {!otpBusy && <ArrowRight />}
                 </button>
 
@@ -365,7 +412,7 @@ export default function AuthPage() {
                   {resendIn > 0 ? (
                     <span>Resend in {resendIn}s</span>
                   ) : (
-                    <button type="button" onClick={handleResend} disabled={isResending} className="cursor-pointer font-medium text-neon-purple transition-opacity hover:opacity-80 disabled:cursor-not-allowed">
+                    <button type="button" onClick={handleResend} disabled={isResending || otpBusy} className="cursor-pointer font-medium text-neon-purple transition-opacity hover:opacity-80 disabled:cursor-not-allowed">
                       {isResending ? "Sending…" : "Resend now"}
                     </button>
                   )}
