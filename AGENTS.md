@@ -50,11 +50,19 @@ Employer integrations and public boards pull through `atsSync.syncIntegration`; 
 
 Google OAuth reveals the address only after the callback, so the employer screen checks it before granting recruiter access; the role stays server-gated. OTP/password employer sign-in is rejected at the auth endpoint. Work-email plus OTP proves control of an inbox, not that the domain belongs to a real employer — domain/DNS verification or admin approval is the stronger follow-up.
 
+## UI work
+
+Check every UI change at mobile width, not just desktop, and fix the layout if it does not look good.
+
+- Test around 390px (iPhone width) and again at ~320px, the narrowest supported screen.
+- Watch for horizontal overflow or sideways scroll, text wrapping that breaks the layout, truncated labels and values, grids that should stack, modals taller than the viewport, and tap targets under 44px.
+- A layout that only works at desktop width is not done.
+
 ## User-facing copy
 
 Keep UI copy tight. Customer-facing pages should say more with fewer words.
 
-Cut taglines, helper text and secondary labels. If a screen needs them to make sense, fix the layout.
+Taglines, helper text and secondary labels keep very minimum and only add if required. If a screen needs them to make sense everywhere, fix the layout.
 
 - Prefer one short sentence or a 1–2 line summary per card, section, or modal.
 - Do not stack multiple explanatory paragraphs on a page; move detail into the flow, a tooltip, or admin documentation.
