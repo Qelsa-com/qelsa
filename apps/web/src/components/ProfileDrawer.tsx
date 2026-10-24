@@ -1,6 +1,7 @@
 "use client";
 
 import { QelsaLogo } from "@/components/QelsaLogo";
+import { UserAvatar } from "@/components/UserAvatar";
 import { useAuth } from "@/contexts/AuthContext";
 import { BookOpen, BotMessageSquare, Briefcase, Crown, Home, LogOut, PenLine, Settings, Target, Users, X } from "lucide-react";
 import Link from "next/link";
@@ -25,7 +26,6 @@ const GUEST_ITEMS = [
   { id: "employers", label: "For Employers", href: "/employers" },
   { id: "jobs", label: "Jobs", href: "/jobs/all" },
   { id: "courses", label: "Courses", href: "/courses" },
-  { id: "pricing", label: "Pricing", href: "/pricing" },
   { id: "blog", label: "Blog", href: "/blogs" },
 ];
 
@@ -39,17 +39,6 @@ const AUTHED_ITEMS = [
   { id: "courses", label: "Courses", href: "/courses", icon: BookOpen, hideOnDesktop: true },
   { id: "blog", label: "Blog", href: "/blogs", icon: PenLine, hideOnDesktop: true },
 ];
-
-function initials(name?: string) {
-  if (!name) return "?";
-  return name
-    .split(" ")
-    .map((part) => part[0])
-    .filter(Boolean)
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
-}
 
 function isItemActive(itemId: string, href: string, activeSection?: string, pathname?: string | null) {
   if (activeSection && itemId === activeSection) return true;
@@ -221,14 +210,13 @@ function AuthedMenu({
   return (
     <div className="mt-8 flex flex-col">
       <button type="button" onClick={() => onGo("/profile")} className="flex w-full items-center gap-3 rounded-full bg-white/[0.05] px-3 py-2.5 text-left transition-colors hover:bg-white/[0.08]">
-        <div className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white/10">
-          {avatarUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={avatarUrl} alt="" className="size-full object-cover" />
-          ) : (
-            <span className="text-sm font-semibold text-white">{initials(name)}</span>
-          )}
-        </div>
+        <UserAvatar
+          src={avatarUrl}
+          name={name}
+          alt={displayName}
+          className="size-11 shrink-0 border border-white/10"
+          fallbackClassName="text-sm"
+        />
         <div className="min-w-0 flex-1">
           <p className="truncate text-[17px] font-semibold text-white">{displayName}</p>
           {username || isPro ? (

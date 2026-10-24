@@ -9,8 +9,9 @@
  */
 
 import { QelsaLogo } from "@/components/QelsaLogo";
+import { UserAvatar } from "@/components/UserAvatar";
 import { useAuth } from "@/contexts/AuthContext";
-import { Crown, User } from "lucide-react";
+import { Crown } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 /**
@@ -112,14 +113,13 @@ export function DesktopTopBar({
               onClick={onProfileClick}
               className="relative flex size-8 shrink-0 items-center justify-center overflow-visible rounded-full border border-white/[0.12] bg-white/[0.04]"
             >
-              <span className="flex size-full items-center justify-center overflow-hidden rounded-full">
-                {user?.profile_image ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={user.profile_image} alt={user.name || "Profile"} className="size-full object-cover" />
-                ) : (
-                  <User className="size-4 text-white/70" />
-                )}
-              </span>
+              <UserAvatar
+                src={user?.profile_image}
+                name={user?.name}
+                alt={user?.name || "Profile"}
+                className="size-full"
+                fallbackClassName="text-[11px]"
+              />
               {isPro ? (
                 <span
                   title="Qelsa Pro member"

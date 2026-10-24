@@ -17,6 +17,7 @@ import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { goBackJobs } from "@/lib/jobNavigation";
 import { useCallback, useMemo, useState } from "react";
+import { UserAvatar } from "./UserAvatar";
 import { CandidateNLPSearch } from "./CandidateNLPSearch";
 import { ApplicantDetailSkeleton, ApplicationsHubSkeleton, CandidateRowSkeleton } from "./job/jobSkeletons";
 import { Button } from "./ui/button";
@@ -621,17 +622,12 @@ export function ApplicationsManagementPage() {
                         onClick={(e) => e.stopPropagation()}
                       />
 
-                      {application.profile_image ? (
-                        <img
-                          src={application.profile_image}
-                          alt={application.applicant_name}
-                          className="size-10 shrink-0 rounded-full object-cover border border-white/10"
-                        />
-                      ) : (
-                        <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-neon-purple to-pink-500 text-xs font-bold text-white shadow-sm">
-                          {initials(application.applicant_name)}
-                        </div>
-                      )}
+                      <UserAvatar
+                        src={application.profile_image}
+                        name={application.applicant_name}
+                        className="size-10 shrink-0 border border-white/10"
+                        fallbackClassName="bg-gradient-to-br from-neon-purple to-pink-500 text-xs font-bold text-white shadow-sm"
+                      />
 
                       <div className="flex min-w-0 flex-1 flex-col gap-1">
                         <div className="flex items-center justify-between gap-2">
@@ -732,13 +728,13 @@ export function ApplicationsManagementPage() {
               <>
                 {/* Profile top */}
                 <div className="flex flex-col items-center text-center lg:flex-row lg:items-center lg:text-left gap-4">
-                  <div className="flex size-20 lg:size-16 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-neon-purple to-pink-500 lg:bg-neon-purple text-xl lg:text-lg font-bold text-white lg:text-[#06060f] overflow-hidden">
-                    {selectedApplication.user?.profile_image ? (
-                      <img src={selectedApplication.user.profile_image} alt={selectedApplication.user.name || "Candidate"} className="size-full object-cover" />
-                    ) : (
-                      initials(selectedApplication.user?.name)
-                    )}
-                  </div>
+                  <UserAvatar
+                    src={selectedApplication.user?.profile_image}
+                    name={selectedApplication.user?.name}
+                    alt={selectedApplication.user?.name || "Candidate"}
+                    className="size-20 shrink-0 lg:size-16"
+                    fallbackClassName="bg-gradient-to-br from-neon-purple to-pink-500 lg:bg-neon-purple text-xl lg:text-lg font-bold text-white lg:text-[#06060f]"
+                  />
                   <div className="flex min-w-0 flex-1 flex-col items-center lg:items-start gap-1">
                     <p className="text-xl lg:text-lg font-bold text-white">{selectedApplication.user?.name}</p>
                     {selectedApplication.user?.headline && <p className="text-sm text-white/70">{selectedApplication.user.headline}</p>}
