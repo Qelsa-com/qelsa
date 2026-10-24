@@ -75,7 +75,7 @@ export function AgentMemoryDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[85vh] w-[calc(100%-2rem)] max-w-lg flex-col gap-0 overflow-hidden border-white/10 bg-[#0b0b16] p-0 text-white shadow-2xl">
+      <DialogContent className="flex max-h-[85dvh] w-[calc(100%-2rem)] max-w-lg flex-col gap-0 overflow-hidden border-white/10 bg-[#0b0b16] p-0 text-white shadow-2xl">
         <DialogHeader className="border-b border-white/[0.08] px-5 py-3.5 text-left">
           <DialogTitle className="flex items-center gap-2 text-[15px] text-white">
             <span className="flex size-7 items-center justify-center rounded-lg border border-neon-purple/25 bg-neon-purple/10 text-neon-purple">
@@ -89,7 +89,7 @@ export function AgentMemoryDialog({
         </DialogHeader>
 
         <div className="border-b border-white/[0.08] px-5 py-3">
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row">
             <input
               value={text}
               onChange={(event) => setText(event.target.value)}
@@ -100,30 +100,32 @@ export function AgentMemoryDialog({
                 }
               }}
               maxLength={240}
-              placeholder="e.g. I want remote fintech roles, 25–35 LPA"
-              className="h-9 min-w-0 flex-1 rounded-lg border border-white/[0.1] bg-white/[0.04] px-3 text-[12px] text-white/85 placeholder:text-white/30 focus:border-neon-purple/50 focus:outline-none"
+              placeholder="e.g. Remote roles, 25–35 LPA"
+              className="h-9 min-w-0 w-full flex-1 rounded-lg border border-white/[0.1] bg-white/[0.04] px-3 text-[12px] text-white/85 placeholder:text-white/30 focus:border-neon-purple/50 focus:outline-none"
             />
-            <select
-              value={category}
-              onChange={(event) => setCategory(event.target.value)}
-              className="h-9 w-[112px] shrink-0 rounded-lg border border-white/[0.1] bg-[#12121f] px-2 text-[11px] text-white/70 focus:border-neon-purple/50 focus:outline-none"
-              aria-label="Memory category"
-            >
-              {Object.entries(CATEGORY_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              onClick={() => void handleAdd()}
-              disabled={!text.trim() || busy || count >= max}
-              className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-[#623dd6] via-[#8433ae] to-[#be2680] text-white transition-opacity hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-40"
-              aria-label="Add memory"
-            >
-              {busy ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
-            </button>
+            <div className="flex shrink-0 gap-2">
+              <select
+                value={category}
+                onChange={(event) => setCategory(event.target.value)}
+                className="h-9 min-w-0 flex-1 rounded-lg border border-white/[0.1] bg-[#12121f] px-2 text-[11px] text-white/70 focus:border-neon-purple/50 focus:outline-none sm:w-[112px] sm:flex-none"
+                aria-label="Memory category"
+              >
+                {Object.entries(CATEGORY_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={() => void handleAdd()}
+                disabled={!text.trim() || busy || count >= max}
+                className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-[#623dd6] via-[#8433ae] to-[#be2680] text-white transition-opacity hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-40"
+                aria-label="Add memory"
+              >
+                {busy ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+              </button>
+            </div>
           </div>
           <div className="mt-2 flex items-center justify-between gap-3 text-[10px] text-white/30">
             <span>Avoid passwords and sensitive IDs.</span>
@@ -131,13 +133,13 @@ export function AgentMemoryDialog({
           </div>
         </div>
 
-        <div className="max-h-[45vh] min-h-0 overflow-y-auto px-5 py-3">
+        <div className="max-h-[45dvh] min-h-0 overflow-y-auto px-5 py-3">
           {!data ? (
             <div className="flex justify-center py-8">
               <Loader2 className="size-5 animate-spin text-white/30" />
             </div>
           ) : memories.length === 0 ? (
-            <div className="py-8 text-center">
+            <div className="py-6 text-center sm:py-8">
               <p className="text-[12px] text-white/45">Nothing saved yet.</p>
             </div>
           ) : (
