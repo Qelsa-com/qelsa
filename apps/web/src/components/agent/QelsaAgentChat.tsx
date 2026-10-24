@@ -19,7 +19,7 @@ import { useUIMessages } from "@convex-dev/agent/react";
 import { useMutation, useQuery } from "convex/react";
 import { ArrowUp, Bell, Check, Loader2, MessageSquarePlus, PanelLeft, PanelRight, Plus, RotateCcw, Search, Sparkles, Trash2, WifiOff, X } from "lucide-react";
 import { useRouter } from "next/router";
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { AgentArtifactPanel } from "./AgentArtifactPanel";
 import { documentArtifact, type AgentArtifact } from "./agentArtifacts";
@@ -1169,7 +1169,13 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
         )}
 
         <div ref={scrollRef} onScroll={handleScroll} className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-          <div ref={contentRef} className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
+          <div
+            ref={contentRef}
+            className={cn(
+              "mx-auto flex w-full max-w-3xl flex-col px-4 py-6 sm:px-6",
+              messages.length === 0 && "min-h-full justify-center",
+            )}
+          >
             {messageStatus === "CanLoadMore" && (
               <div className="mb-4 flex justify-center">
                 <button type="button" onClick={() => loadMore?.(20)} className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] font-medium text-white/55 hover:text-white">
@@ -1309,7 +1315,6 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
                 value={input}
                 disabled={!configured || threadResolving}
                 onChange={(event) => setInput(event.target.value)}
-                onFocus={snapToBottom}
                 onKeyDown={(event) => {
                   if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
                     event.preventDefault();
