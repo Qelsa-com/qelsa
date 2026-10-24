@@ -541,7 +541,7 @@ export function JobDetail() {
                       title="Ask Qelsa Agent about this job"
                       className="h-11 w-11 shrink-0 rounded-full border-[1.5px] border-white/20 bg-transparent p-0 text-sm text-white hover:bg-white/5 xl:h-auto xl:w-auto xl:px-4 xl:py-3.5"
                     >
-                      <Sparkles className="size-4 text-neon-cyan xl:mr-2" />
+                      <Sparkles className="size-4 text-neon-cyan" />
                       <span className="hidden xl:inline">Ask Qelsa Agent</span>
                     </Button>
                   )}
@@ -562,6 +562,16 @@ export function JobDetail() {
           </div>
 
           <h1 className="text-2xl font-bold leading-8 text-white lg:text-[32px] lg:leading-10">{title}</h1>
+
+          {heroBadgesFor(job).length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {heroBadgesFor(job).map((b) => (
+                <span key={b} className={`${CHIP} px-2.5 py-1.5 text-xs font-semibold text-white/70`}>
+                  {b}
+                </span>
+              ))}
+            </div>
+          )}
 
           {!isOwner && competency && competency.readiness != null ? (
             <div className="flex flex-col gap-4 rounded-2xl border border-neon-cyan/20 bg-gradient-to-r from-neon-cyan/[0.07] via-white/[0.03] to-transparent p-4 sm:p-5 lg:flex-row lg:items-center lg:justify-between">
@@ -596,16 +606,6 @@ export function JobDetail() {
               ))}
             </div>
           ) : null}
-
-          {heroBadgesFor(job).length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {heroBadgesFor(job).map((b) => (
-                <span key={b} className={`${CHIP} px-2.5 py-1.5 text-xs font-semibold text-white/70`}>
-                  {b}
-                </span>
-              ))}
-            </div>
-          )}
         </Card>
 
         <JobSectionTabs sections={pageSections} activeId={activeSection} onSelect={scrollToSection} stickyTop={tabStickyTop} />
