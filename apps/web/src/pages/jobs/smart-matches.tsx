@@ -17,8 +17,8 @@ export type { SearchFilters };
 const SmartMatches = () => {
   const router = useRouter();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
-  const { searchInput, setSearchInput, filters, applyFilters, discoverArgs, cityFilter, setCityFilter, commitSearch } = useJobBrowseFilters();
-  const { data, isLoading } = useMatchTiersQuery(discoverArgs, { skip: !isAuthenticated });
+  const { searchInput, setSearchInput, filters, applyFilters, discoverArgs, cityFilter, setCityFilter, commitSearch, hydrated } = useJobBrowseFilters();
+  const { data, isLoading } = useMatchTiersQuery(discoverArgs, { skip: !isAuthenticated || !hydrated });
   const { data: myResumes } = useGetMyResumesQuery(undefined, { skip: !isAuthenticated });
   const hasResume = Boolean(myResumes && myResumes.length > 0);
   const hasProfile = Boolean(user?.has_profile || user?.headline?.trim() || user?.professional_summary?.trim() || user?.about?.trim());

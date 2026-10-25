@@ -15,9 +15,9 @@ import Layout from "../../layout";
 const All = () => {
   const router = useRouter();
   const { user, isAuthenticated } = useAuth();
-  const { searchInput, setSearchInput, filters, applyFilters, discoverArgs, cityFilter, setCityFilter, commitSearch } = useJobBrowseFilters();
-  const { results, status, isLoading, loadMore } = usePaginatedJobsQuery(discoverArgs, JOBS_PAGE_SIZE);
-  const { data: filteredTotal } = useCountJobsQuery(discoverArgs);
+  const { searchInput, setSearchInput, filters, applyFilters, discoverArgs, cityFilter, setCityFilter, commitSearch, hydrated } = useJobBrowseFilters();
+  const { results, status, isLoading, loadMore } = usePaginatedJobsQuery(discoverArgs, JOBS_PAGE_SIZE, { skip: !hydrated });
+  const { data: filteredTotal } = useCountJobsQuery(discoverArgs, { skip: !hydrated });
   const { data: myResumes } = useGetMyResumesQuery(undefined, { skip: !isAuthenticated });
   const hasResume = Boolean(myResumes && myResumes.length > 0);
   const hasProfile = Boolean(user?.has_profile || user?.headline?.trim() || user?.professional_summary?.trim() || user?.about?.trim());

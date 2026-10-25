@@ -59,9 +59,15 @@ export function useLazyGetDiscoverJobsQuery() {
  * the Convex client, so navigating back/forward or re-filtering reuses loaded
  * pages instead of refetching everything. Use `loadMore(pageSize)` to grow.
  */
-export function usePaginatedJobsQuery(filters?: JobFilters | Record<string, string> | void, pageSize = 20) {
+export function usePaginatedJobsQuery(
+  filters?: JobFilters | Record<string, string> | void,
+  pageSize = 20,
+  options?: { skip?: boolean },
+) {
   const args = jobListArgs(filters);
-  return usePaginatedQuery(api.jobs.listPaginated, args as never, { initialNumItems: pageSize });
+  return usePaginatedQuery(api.jobs.listPaginated, (options?.skip ? "skip" : args) as never, {
+    initialNumItems: pageSize,
+  });
 }
 
 export function useCountJobsQuery(filters?: JobFilters | Record<string, string> | void, options?: { skip?: boolean }) {

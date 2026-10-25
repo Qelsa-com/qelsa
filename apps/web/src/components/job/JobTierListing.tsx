@@ -11,9 +11,9 @@ import Layout from "@/layout";
 export function JobTierListing({ tier }: { tier: MatchTierId }) {
   const router = useRouter();
   const meta = MATCH_TIER[tier];
-  const { searchInput, setSearchInput, filters, applyFilters, discoverArgs, cityFilter, setCityFilter, commitSearch } = useJobBrowseFilters(tier);
-  const { results, status, isLoading, loadMore } = usePaginatedJobsQuery(discoverArgs, JOBS_PAGE_SIZE);
-  const { data: filteredTotal } = useCountJobsQuery(discoverArgs);
+  const { searchInput, setSearchInput, filters, applyFilters, discoverArgs, cityFilter, setCityFilter, commitSearch, hydrated } = useJobBrowseFilters(tier);
+  const { results, status, isLoading, loadMore } = usePaginatedJobsQuery(discoverArgs, JOBS_PAGE_SIZE, { skip: !hydrated });
+  const { data: filteredTotal } = useCountJobsQuery(discoverArgs, { skip: !hydrated });
   const jobs = (results as Job[]) ?? [];
   const loaded = jobs.length;
   const total = typeof filteredTotal === "number" ? filteredTotal : undefined;

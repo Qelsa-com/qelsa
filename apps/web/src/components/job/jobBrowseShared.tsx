@@ -25,6 +25,7 @@ import { City } from "@/types/city";
 import { Job } from "@/types/job";
 import { BarChart3, Building2, Check, ChevronDown, MapPin, Search, Sparkle, Target, X } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useRouter as usePagesRouter } from "next/router";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
@@ -277,7 +278,68 @@ export function toDiscoverArgs(filters: SearchFilters, search: string) {
   };
 }
 
+const FILTER_QUERY_KEYS = ["q", "sort", "posted", "workplace", "type", "city"];
+
+type FilterQuery = Record<string, string | string[] | undefined>;
+
+function firstQueryValue(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function listQueryValues(value: string | string[] | undefined) {
+  const values = Array.isArray(value) ? value : value ? [value] : [];
+  return values.flatMap((entry) => entry.split(",")).map((entry) => entry.trim()).filter(Boolean);
+}
+
+function filtersFromUrl(raw: FilterQuery, tier?: MatchTierId) {
+  if (!FILTER_QUERY_KEYS.some((key) => raw[key] != null)) return null;
+
+  const workplace = new Set(WORKPLACE_TYPE_OPTIONS.map((option) => option.value));
+  const jobTypes = new Set(WORK_TYPE_OPTIONS.map((option) => option.value));
+  const sort = firstQueryValue(raw.sort);
+  const posted = firstQueryValue(raw.posted);
+  const city = firstQueryValue(raw.city)?.trim() || "";
+  const filters: SearchFilters = {
+    ...EMPTY_SEARCH_FILTERS,
+    min_readiness: tier ? MATCH_TIER[tier].minReadiness : undefined,
+    max_readiness: tier ? MATCH_TIER[tier].maxReadiness : undefined,
+    sort_by: SORT_OPTIONS.some((option) => option.value === sort) ? (sort as SearchFilters["sort_by"]) : "relevance",
+    date_posted: DATE_POSTED_OPTIONS.some((option) => option.value === posted) ? (posted as SearchFilters["date_posted"]) : "",
+    workplace_types: listQueryValues(raw.workplace).filter((value) => workplace.has(value)),
+    job_types: listQueryValues(raw.type).filter((value) => jobTypes.has(value)),
+    cities: city ? [city] : [],
+  };
+
+  return {
+    search: firstQueryValue(raw.q)?.trim() ?? "",
+    filters,
+    cityFilter: city ? { id: `location:${city.toLowerCase()}`, name: city } : null,
+  };
+}
+
+function filtersToQueryString(search: string, filters: SearchFilters, cityFilter: City | null, raw: FilterQuery) {
+  const params = new URLSearchParams();
+
+  // Preserve campaign/analytics parameters and any future non-filter params.
+  for (const [key, value] of Object.entries(raw)) {
+    if (FILTER_QUERY_KEYS.includes(key)) continue;
+    const values = Array.isArray(value) ? value : value == null ? [] : [value];
+    for (const entry of values) params.append(key, entry);
+  }
+
+  if (search.trim()) params.set("q", search.trim());
+  if (filters.sort_by !== "relevance") params.set("sort", filters.sort_by);
+  if (filters.date_posted) params.set("posted", filters.date_posted);
+  if (filters.workplace_types.length) params.set("workplace", filters.workplace_types.join(","));
+  if (filters.job_types.length) params.set("type", filters.job_types.join(","));
+  if (cityFilter) params.set("city", cityFilter.name);
+
+  return params.toString();
+}
+
 export function useJobBrowseFilters(tier?: MatchTierId) {
+  const router = usePagesRouter();
+  const [hydrated, setHydrated] = useState(false);
   const [query, setQuery] = useState("");
   const [searchInput, setSearchInput] = useState("");
   const [cityFilter, setCityFilter] = useState<City | null>(null);
@@ -286,6 +348,28 @@ export function useJobBrowseFilters(tier?: MatchTierId) {
     min_readiness: tier ? MATCH_TIER[tier].minReadiness : undefined,
     max_readiness: tier ? MATCH_TIER[tier].maxReadiness : undefined,
   }));
+
+  // URL is the source of truth so a filtered list survives refresh, sharing,
+  // and browser back/forward from a job-detail page.
+  useEffect(() => {
+    if (!router.isReady || hydrated) return;
+    const parsed = filtersFromUrl(router.query as FilterQuery, tier);
+    if (parsed) {
+      setSearchInput(parsed.search);
+      setQuery(parsed.search);
+      setFilters(parsed.filters);
+      setCityFilter(parsed.cityFilter);
+    }
+    setHydrated(true);
+  }, [router.isReady, router.query, hydrated, tier]);
+
+  useEffect(() => {
+    if (!router.isReady || !hydrated) return;
+    const search = filtersToQueryString(query, filters, cityFilter, router.query as FilterQuery);
+    const target = `${router.pathname}${search ? `?${search}` : ""}`;
+    if (router.asPath === target) return;
+    void router.replace(target, undefined, { shallow: true, scroll: false });
+  }, [router, router.isReady, hydrated, query, filters, cityFilter]);
 
   useEffect(() => {
     const t = setTimeout(() => setQuery(searchInput), 300);
@@ -301,7 +385,7 @@ export function useJobBrowseFilters(tier?: MatchTierId) {
     setFilters((prev) => ({ ...prev, ...partial }));
   };
 
-  return { searchInput, setSearchInput, query, filters, applyFilters, discoverArgs, cityFilter, setCityFilter, commitSearch };
+  return { searchInput, setSearchInput, query, filters, applyFilters, discoverArgs, cityFilter, setCityFilter, commitSearch, hydrated };
 }
 
 /* ------------------------------ job card ---------------------------------- */
@@ -683,6 +767,10 @@ export function JobsBrowseHeader({ activeTab, query, setQuery, onSearch, filters
     onApplyFilters({ cities: city ? [city.name] : [] });
   };
 
+  // Keep the active filters when moving between the two job-list tabs. The
+  // detail/back path is already covered by the URL sync in useJobBrowseFilters.
+  const withCurrentFilters = (href: string) => `${href}${typeof window !== "undefined" ? window.location.search : ""}`;
+
   // Search as you type — Enter still fires it immediately. Kept in a ref because
   // both pages pass a fresh inline `onSearch` on every render, which would
   // otherwise restart the timer continuously.
@@ -727,7 +815,7 @@ export function JobsBrowseHeader({ activeTab, query, setQuery, onSearch, filters
 
   const clearAll = () => {
     setCityFilter(null);
-    onApplyFilters({ workplace_types: [], job_types: [], cities: [], date_posted: "" });
+    onApplyFilters({ workplace_types: [], job_types: [], cities: [], date_posted: "", sort_by: "relevance" });
   };
 
   return (
@@ -767,8 +855,8 @@ export function JobsBrowseHeader({ activeTab, query, setQuery, onSearch, filters
       {/* Smart Matches and My Jobs are account-only — guests stay on the public All Jobs list. */}
       {isAuthenticated && (
         <div className="flex items-center gap-2 sm:gap-0">
-          <TabButton active={activeTab === "all"} label="All Jobs" onClick={() => router.push("/jobs/all")} />
-          <TabButton active={activeTab === "smart-matches"} label="Smart Matches" onClick={() => router.push("/jobs/smart-matches")} />
+          <TabButton active={activeTab === "all"} label="All Jobs" onClick={() => router.push(withCurrentFilters("/jobs/all"))} />
+          <TabButton active={activeTab === "smart-matches"} label="Smart Matches" onClick={() => router.push(withCurrentFilters("/jobs/smart-matches"))} />
           <TabButton active={activeTab === "my-jobs"} label="My Jobs" onClick={() => router.push("/jobs/my-jobs/saved")} />
         </div>
       )}
