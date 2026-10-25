@@ -9,7 +9,7 @@ import { adminMutation, adminQuery, authedMutation, authedQuery } from "./lib/cu
 import { withId } from "./lib/helpers";
 
 const provider = v.union(v.literal("zoho_recruit"), v.literal("greenhouse"), v.literal("lever"), v.literal("keka"), v.literal("ashby"), v.literal("bamboohr"), v.literal("workday"), v.literal("smartrecruiters"), v.literal("workable"), v.literal("oracle_cloud"), v.literal("eightfold"), v.literal("rippling"), v.literal("breezy"), v.literal("recruitee"), v.literal("personio"), v.literal("teamtailor"), v.literal("darwinbox"), v.literal("icims"));
-const publicBoardProvider = v.union(v.literal("greenhouse"), v.literal("lever"), v.literal("ashby"), v.literal("smartrecruiters"), v.literal("workday"), v.literal("workable"), v.literal("oracle_cloud"), v.literal("eightfold"), v.literal("rippling"), v.literal("breezy"), v.literal("recruitee"), v.literal("personio"), v.literal("teamtailor"));
+const publicBoardProvider = v.union(v.literal("greenhouse"), v.literal("lever"), v.literal("ashby"), v.literal("smartrecruiters"), v.literal("workday"), v.literal("workable"), v.literal("oracle_cloud"), v.literal("eightfold"), v.literal("rippling"), v.literal("breezy"), v.literal("recruitee"), v.literal("personio"), v.literal("teamtailor"), v.literal("darwinbox"), v.literal("keka"), v.literal("zoho_recruit"));
 
 type Ctx = { db: any; user: { _id: string } };
 
@@ -280,7 +280,7 @@ function asPublicBoard(row: {
   return {
     id: row._id,
     _id: row._id,
-    provider: row.provider as "greenhouse" | "lever" | "ashby" | "smartrecruiters" | "workday" | "workable" | "oracle_cloud" | "eightfold" | "rippling" | "breezy" | "recruitee" | "personio" | "teamtailor",
+    provider: row.provider as "greenhouse" | "lever" | "ashby" | "smartrecruiters" | "workday" | "workable" | "oracle_cloud" | "eightfold" | "rippling" | "breezy" | "recruitee" | "personio" | "teamtailor" | "darwinbox" | "keka" | "zoho_recruit",
     status: row.status,
     auth_type: "board" as const,
     kind: "public_board" as const,

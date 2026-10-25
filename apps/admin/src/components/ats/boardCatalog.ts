@@ -380,6 +380,30 @@ export const PUBLIC_BOARD_COMPANIES: Record<PublicBoardProviderId, PublicBoardCo
   teamtailor: [
     { slug: "career.teamtailor.com", label: "Teamtailor", region: "global", roles: 14 },
   ],
+  darwinbox: [
+    { slug: "dbx.darwinbox.in|main", label: "Darwinbox", region: "india", roles: 28 },
+    { slug: "sonataone.darwinbox.in|main", label: "Sonata Software", region: "india", roles: 91 },
+    { slug: "yotta.darwinbox.in|main", label: "Yotta", region: "india", roles: 11 },
+    { slug: "mordorintelligence.darwinbox.in|main", label: "Mordor Intelligence", region: "india", roles: 9 },
+    { slug: "tbo.darwinbox.in|main", label: "TBO", region: "india", roles: 28 },
+    { slug: "transcarent.darwinbox.com|main", label: "Transcarent", region: "global", roles: 33 },
+  ],
+  keka: [
+    { slug: "jupiter", label: "Jupiter Money", region: "india", roles: 6 },
+    { slug: "nference", label: "Nference", region: "india", roles: 4 },
+    { slug: "skanai", label: "Skan.ai", region: "global", roles: 67 },
+    { slug: "procedure", label: "Procedure Technologies", region: "india", roles: 3 },
+    { slug: "outcomes", label: "Outcomes", region: "india", roles: 6 },
+    { slug: "icreativeaktiv", label: "iCreative Technologies", region: "india", roles: 8 },
+    { slug: "hr", label: "Keka", region: "india", roles: 37 },
+  ],
+  zoho_recruit: [
+    { slug: "redfordrecruiters", label: "Reap HR Consultancy", region: "global", roles: 30 },
+    { slug: "careerconnect", label: "Career Connect", region: "global", roles: 15 },
+    { slug: "wwfindia", label: "WWF India", region: "india", roles: 10 },
+    { slug: "thehireboost", label: "The Hire Boost", region: "global", roles: 30 },
+    { slug: "vfairs", label: "vFairs", region: "global", roles: 10 },
+  ],
 };
 
 export const publicBoardCompaniesFor = (

@@ -11,7 +11,10 @@ export type PublicBoardProviderId =
   | "breezy"
   | "recruitee"
   | "personio"
-  | "teamtailor";
+  | "teamtailor"
+  | "darwinbox"
+  | "keka"
+  | "zoho_recruit";
 
 export type AtsStatus = "connected" | "error" | "pending" | "disconnected";
 
@@ -175,6 +178,36 @@ export const PUBLIC_BOARD_PROVIDERS: PublicBoardProviderMeta[] = [
     boardLabel: "Careers host",
     boardPlaceholder: "career.teamtailor.com",
     credentialsHelp: "The hostname of the public Teamtailor careers site. We read its /jobs.rss feed.",
+  },
+  {
+    id: "darwinbox",
+    name: "Darwinbox",
+    initials: "D",
+    tileClass: "bg-blue-500/20 text-blue-300",
+    description: "Darwinbox career portals, strong in Indian and APAC enterprises.",
+    boardLabel: "Careers URL or host | company ID",
+    boardPlaceholder: "https://dbx.darwinbox.in/ms/candidatev2/main/careers/allJobs",
+    credentialsHelp: "Paste the public Darwinbox careers URL, or use host|companyId. The default company ID is main.",
+  },
+  {
+    id: "keka",
+    name: "Keka",
+    initials: "K",
+    tileClass: "bg-orange-500/20 text-orange-300",
+    description: "Keka Hire career portals for Indian startups and mid-market teams.",
+    boardLabel: "Company subdomain",
+    boardPlaceholder: "jupiter",
+    credentialsHelp: "The company part of your-company.keka.com. No API key needed.",
+  },
+  {
+    id: "zoho_recruit",
+    name: "Zoho Recruit",
+    initials: "ZR",
+    tileClass: "bg-red-500/20 text-red-300",
+    description: "Public Zoho Recruit career sites.",
+    boardLabel: "Company subdomain",
+    boardPlaceholder: "redfordrecruiters",
+    credentialsHelp: "The company part of your-company.zohorecruit.com, using its /jobs/careers page.",
   },
 ];
 

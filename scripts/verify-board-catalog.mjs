@@ -37,6 +37,9 @@ const PROVIDERS = [
   "recruitee",
   "personio",
   "teamtailor",
+  "darwinbox",
+  "keka",
+  "zoho_recruit",
 ];
 const PROVIDER_RE = PROVIDERS.join("|");
 const headers = { "user-agent": "qelsa-board-catalog-check/1.0" };
@@ -52,6 +55,38 @@ async function json(url, init) {
 function split(value, count) {
   const parts = value.split("|").map((part) => part.trim());
   return parts.length >= count ? parts : null;
+}
+
+function decodeEntities(value) {
+  let text = value;
+  for (let i = 0; i < 3; i++) {
+    const next = text
+      .replace(/&nbsp;|&#160;/gi, " ")
+      .replace(/&quot;|&#34;/g, '"')
+      .replace(/&apos;|&#39;/g, "'")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
+      .replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCharCode(parseInt(code, 16)))
+      .replace(/&amp;/g, "&");
+    if (next === text) break;
+    text = next;
+  }
+  return text;
+}
+
+function hiddenInputJson(html, id) {
+  for (const tag of html.match(/<input\b[^>]*>/gi) ?? []) {
+    if (!new RegExp(`\\bid\\s*=\\s*["']${id}["']`, "i").test(tag)) continue;
+    const value = tag.match(/\bvalue\s*=\s*"([\s\S]*?)"(?=\s|\/?>)/i)?.[1];
+    if (!value) return undefined;
+    try {
+      return JSON.parse(decodeEntities(value));
+    } catch {
+      return undefined;
+    }
+  }
+  return undefined;
 }
 
 /** @returns {Promise<number|null>} open roles, or null when the board is gone */
@@ -117,6 +152,47 @@ async function probe(provider, slug) {
       const [host, domain] = parts;
       const body = await json(`https://${host}/api/apply/v2/jobs?domain=${encodeURIComponent(domain)}&start=0&num=1`);
       return typeof body?.count === "number" ? body.count : null;
+    }
+
+
+    if (provider === "darwinbox") {
+      const parts = split(slug, 2);
+      if (!parts) return null;
+      const [host, companyId] = parts;
+      const origin = `https://${host}`;
+      const body = await json(`${origin}/ms/candidateapi/job/alljobs?companyId=${encodeURIComponent(companyId)}`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin,
+          referer: `${origin}/ms/candidatev2/${encodeURIComponent(companyId)}/careers/allJobs`,
+        },
+        body: JSON.stringify({ companyId, page: 1, sort_option: "new", limit: 1 }),
+      });
+      return typeof body?.job_counts === "number" ? body.job_counts : Array.isArray(body?.data) ? body.data.length : null;
+    }
+
+    if (provider === "keka") {
+      const origin = `https://${encodeURIComponent(slug)}.keka.com`;
+      const pageRes = await fetch(`${origin}/careers`, { headers });
+      if (!pageRes.ok) return null;
+      const page = await pageRes.text();
+      const portalDocument = page.match(/\/ats\/documents\/[^'"\s]+\.html/)?.[0];
+      if (!portalDocument) return null;
+      const portal = await (await fetch(`${origin}${portalDocument}`, { headers })).text();
+      const identifier = portal.match(/identifier\s*:\s*['"]([^'"]+)['"]/i)?.[1];
+      if (!identifier) return null;
+      const portalName = portal.match(/portalName\s*:\s*['"]([^'"]+)['"]/i)?.[1] || "default";
+      const body = await json(`${origin}/careers/api/embedjobs/${encodeURIComponent(portalName)}/active/${encodeURIComponent(identifier)}`);
+      return Array.isArray(body) ? body.length : null;
+    }
+
+    if (provider === "zoho_recruit") {
+      const origin = `https://${encodeURIComponent(slug)}.zohorecruit.com`;
+      const res = await fetch(`${origin}/jobs/careers`, { headers });
+      if (!res.ok) return null;
+      const jobs = hiddenInputJson(await res.text(), "jobs");
+      return Array.isArray(jobs) ? jobs.length : null;
     }
 
     if (provider === "rippling") {

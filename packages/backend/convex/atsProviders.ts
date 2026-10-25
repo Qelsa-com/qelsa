@@ -221,6 +221,35 @@ export function normalizePublicBoardSlug(input: string, provider?: string): stri
     return url.hostname;
   }
 
+  if (provider === "darwinbox") {
+    if (trimmed.includes("|")) {
+      const [hostPart, companyId] = trimmed.split("|").map((part) => part.trim());
+      if (!hostPart || !companyId) throw new Error("Use Darwinbox input as host|companyId, or paste the careers URL.");
+      const host = hostPart.replace(/^https?:\/\//i, "").replace(/\/.*$/, "");
+      return `${host.includes(".") ? host : `${host}.darwinbox.in`}|${companyId}`;
+    }
+    const url = asUrl();
+    if (url && /(^|\.)darwinbox\.(in|com|io)$/i.test(url.hostname)) {
+      const companyId = url.pathname.match(/\/candidatev2\/([^/]+)\/careers/i)?.[1] || "main";
+      return `${url.hostname}|${companyId}`;
+    }
+    const host = trimmed.replace(/^https?:\/\//i, "").replace(/\/.*$/, "").split("/")[0];
+    if (!host) throw new Error("Paste the Darwinbox careers URL or host|companyId.");
+    return `${host.includes(".") ? host : `${host}.darwinbox.in`}|main`;
+  }
+
+  if (provider === "keka") {
+    const url = asUrl();
+    if (url && /(^|\.)keka\.com$/i.test(url.hostname)) return url.hostname.split(".")[0]!.toLowerCase();
+    return trimmed.replace(/^https?:\/\//i, "").replace(/\/.*$/, "").split(".")[0]!.toLowerCase();
+  }
+
+  if (provider === "zoho_recruit") {
+    const url = asUrl();
+    if (url && /(^|\.)zohorecruit\.com$/i.test(url.hostname)) return url.hostname.split(".")[0]!.toLowerCase();
+    return trimmed.replace(/^https?:\/\//i, "").replace(/\/.*$/, "").split(".")[0]!.toLowerCase();
+  }
+
   try {
     const asUrlValue = trimmed.includes("://") ? new URL(trimmed) : trimmed.includes("/") ? new URL(`https://${trimmed}`) : null;
     const pathSlug = asUrlValue?.pathname.split("/").filter(Boolean)[0];
@@ -1082,6 +1111,193 @@ export async function fetchTeamtailor(identifier: string): Promise<NormalizedJob
 }
 
 
+
+/* ------------------------------------------------------------------ */
+/* Darwinbox / Keka / Zoho Recruit public career sites                 */
+/* ------------------------------------------------------------------ */
+
+function parseDarwinboxIdentifier(identifier: string) {
+  const [rawHost, rawCompanyId] = identifier.split("|").map((part) => part.trim());
+  if (!rawHost) throw new Error("Darwinbox company host is required");
+  const host = rawHost.replace(/^https?:\/\//i, "").replace(/\/.*$/, "");
+  const withDomain = host.includes(".") ? host : `${host}.darwinbox.in`;
+  return { host: withDomain, companyId: rawCompanyId || "main" };
+}
+
+/** Darwinbox's public candidate-experience board. */
+export async function fetchDarwinboxPublic(identifier: string): Promise<NormalizedJob[]> {
+  const { host, companyId } = parseDarwinboxIdentifier(identifier);
+  const origin = `https://${host}`;
+  const referer = `${origin}/ms/candidatev2/${encodeURIComponent(companyId)}/careers/allJobs`;
+  const requestHeaders = { Origin: origin, Referer: referer };
+  let company: Record<string, unknown> = {};
+  try {
+    const config = (await getJson(
+      `${origin}/ms/candidateapi/getCompanyConfig?is_preview=false&companyId=${encodeURIComponent(companyId)}`,
+      { headers: requestHeaders },
+    )) as { message?: { company?: Record<string, unknown> } };
+    company = config.message?.company ?? {};
+  } catch {
+    // The jobs endpoint is still usable if branding is unavailable.
+  }
+
+  const rows: Array<Record<string, unknown>> = [];
+  const pageSize = 100;
+  for (let page = 1; page <= 20; page++) {
+    const data = (await getJson(`${origin}/ms/candidateapi/job/alljobs?companyId=${encodeURIComponent(companyId)}`, {
+      method: "POST",
+      headers: { ...requestHeaders, "Content-Type": "application/json" },
+      body: JSON.stringify({ companyId, page, sort_option: "new", limit: pageSize }),
+    })) as { data?: Array<Record<string, unknown>>; job_counts?: number };
+    const batch = data.data ?? [];
+    rows.push(...batch);
+    const total = Number(data.job_counts ?? 0);
+    if (batch.length < pageSize || (total > 0 && rows.length >= total) || rows.length >= MAX_JOBS) break;
+  }
+
+  const companyName = typeof company.company_name === "string" ? company.company_name : titleCaseCompany(host.split(".")[0] ?? "Company");
+  const companyLogo = typeof company.logo === "string" ? company.logo : undefined;
+  const companyWebsite = typeof company.group_company_site === "string" ? company.group_company_site : undefined;
+  const domain = companyDomain(companyWebsite, host.split(".")[0]);
+  return rows.slice(0, MAX_JOBS).map((job) => {
+    const locationValue =
+      (Array.isArray(job.officelocation_show_arr_list) ? job.officelocation_show_arr_list[0] : undefined) ??
+      job.locations ??
+      job.officelocation_show_arr;
+    const location = typeof locationValue === "string" ? locationValue.replace(/\s+/g, " ").replace(/\s*,\s*/g, ", ").trim() : undefined;
+    const remote = job.is_remote === 1 || job.is_remote === true || /remote/i.test(location ?? "");
+    const postedOn = typeof job.posted_on === "number" ? job.posted_on : undefined;
+    const salaryMin = Number(job.salary_min);
+    const salaryMax = Number(job.salary_max);
+    const postedAt = postedOn ? (postedOn > 1_000_000_000_000 ? postedOn : postedOn * 1000) : undefined;
+    return {
+      external_id: `darwinbox_${host}_${companyId}_${job.id}`,
+      title: typeof job.title === "string" ? job.title : typeof job.designation_name === "string" ? job.designation_name : undefined,
+      description: normalizeAtsHtml(typeof job.jd === "string" ? job.jd : undefined),
+      application_url: `${origin}/ms/candidatev2/${encodeURIComponent(companyId)}/careers/jobDetails/${job.id}`,
+      company_name: companyName,
+      company_logo: companyLogo,
+      company_website_url: companyWebsite,
+      location,
+      departments: typeof job.department_name === "string" && job.department_name ? [job.department_name] : undefined,
+      has_remote: remote,
+      workplace_type: remote ? "remote" : workplaceFromLabel(location),
+      work_type: workTypeFromLabel(typeof job.emp_type_name === "string" ? job.emp_type_name : undefined),
+      published_date: postedAt ?? (typeof job.created_on === "string" ? new Date(job.created_on).getTime() : undefined),
+      salary_min: Number.isFinite(salaryMin) && salaryMin > 0 ? salaryMin : undefined,
+      salary_max: Number.isFinite(salaryMax) && salaryMax > 0 ? salaryMax : undefined,
+      salary_currency: typeof job.salary_currency === "string" && job.salary_currency ? job.salary_currency : undefined,
+    } satisfies NormalizedJob;
+  });
+}
+
+/** Keka's public career portal: the page exposes the tenant identifier used by its jobs API. */
+export async function fetchKekaPublic(identifier: string): Promise<NormalizedJob[]> {
+  const slug = slugFromInput(identifier, /\.keka\.com$/i).trim();
+  if (!slug) throw new Error("Keka company subdomain is required");
+  const origin = `https://${slug}.keka.com`;
+  const page = await getText(`${origin}/careers`, "text/html");
+  const portalDocument = page.match(/\/ats\/documents\/[^'"\s]+\.html/)?.[0];
+  const portal = portalDocument ? await getText(`${origin}${portalDocument}`, "text/html") : page;
+  const portalIdentifier = portal.match(/identifier\s*:\s*['"]([^'"]+)['"]/i)?.[1];
+  if (!portalIdentifier) throw new Error("Keka careers page did not expose a career portal identifier");
+  const portalName = portal.match(/portalName\s*:\s*['"]([^'"]+)['"]/i)?.[1] || "default";
+
+  let info: Record<string, unknown> = {};
+  try {
+    info = (await getJson(`${origin}/careers/api/organization/${encodeURIComponent(portalName)}/careerportalinfo`)) as Record<string, unknown>;
+  } catch {
+    // Job data is enough if the theme endpoint is temporarily unavailable.
+  }
+  const rows = (await getJson(`${origin}/careers/api/embedjobs/${encodeURIComponent(portalName)}/active/${encodeURIComponent(portalIdentifier)}`)) as Array<Record<string, unknown>>;
+  if (!Array.isArray(rows)) throw new Error("Keka returned an unexpected jobs response");
+  const logoPath = typeof info.logoPath === "string" ? info.logoPath : undefined;
+  const companyLogo = logoPath
+    ? /^https?:\/\//i.test(logoPath)
+      ? logoPath
+      : `${origin}/ats/documents/${portalIdentifier}/${logoPath.replace(/^\/+/, "")}`
+    : undefined;
+  const companyName = typeof info.name === "string" && info.name ? info.name : titleCaseCompany(slug);
+  const companyWebsite = typeof info.website === "string" ? info.website : undefined;
+  return rows.slice(0, MAX_JOBS).map((job) => {
+    const locations = (job.jobLocations as Array<{ name?: string; city?: string; state?: string; countryName?: string }> | undefined) ?? [];
+    const location = joinLocation([locations[0]?.name, locations[0]?.city, locations[0]?.state, locations[0]?.countryName]);
+    const published = typeof job.publishedOn === "string" ? new Date(job.publishedOn).getTime() : undefined;
+    const jobType = job.jobType === 2 ? "Full-time" : job.jobType === 1 ? "Part-time" : undefined;
+    return {
+      external_id: `keka_${slug}_${job.id}`,
+      title: typeof job.title === "string" ? job.title : undefined,
+      description: normalizeAtsHtml(typeof job.description === "string" ? job.description : undefined),
+      application_url: `${origin}/careers/jobdetails/${job.id}`,
+      company_name: companyName,
+      company_logo: companyLogo,
+      company_website_url: companyWebsite,
+      location,
+      departments: typeof job.departmentName === "string" && job.departmentName ? [job.departmentName] : undefined,
+      has_remote: /remote/i.test(location ?? ""),
+      workplace_type: workplaceFromLabel(location),
+      work_type: jobType,
+      published_date: published,
+    } satisfies NormalizedJob;
+  });
+}
+
+function hiddenInputJson(html: string, id: string) {
+  for (const tag of html.match(/<input\b[^>]*>/gi) ?? []) {
+    const inputId = tag.match(/\bid\s*=\s*["']([^"']+)["']/i)?.[1];
+    if (inputId !== id) continue;
+    const value = tag.match(/\bvalue\s*=\s*"([\s\S]*?)"(?=\s|\/?>)/i)?.[1];
+    if (!value) return undefined;
+    try {
+      return JSON.parse(decodeHtmlEntities(value)) as unknown;
+    } catch {
+      return undefined;
+    }
+  }
+  return undefined;
+}
+
+/** Zoho Recruit's hosted careers page embeds the complete job list in #jobs. */
+export async function fetchZohoRecruitPublic(identifier: string): Promise<NormalizedJob[]> {
+  const slug = slugFromInput(identifier, /\.zohorecruit\.com$/i).trim();
+  if (!slug) throw new Error("Zoho Recruit company subdomain is required");
+  const origin = `https://${slug}.zohorecruit.com`;
+  const html = await getText(`${origin}/jobs/careers`, "text/html");
+  const jobs = hiddenInputJson(html, "jobs");
+  const meta = hiddenInputJson(html, "meta") as { org_info?: { company_name?: string; website?: string } } | undefined;
+  if (!Array.isArray(jobs)) throw new Error("Zoho Recruit careers page did not expose a public job list");
+  const companyName = meta?.org_info?.company_name || titleCaseCompany(slug);
+  const companyWebsite = meta?.org_info?.website;
+  const domain = companyDomain(companyWebsite, slug);
+  return (jobs as Array<Record<string, unknown>>)
+    .filter((job) => job.Publish !== false)
+    .slice(0, MAX_JOBS)
+    .map((job) => {
+      const location = joinLocation([
+        typeof job.City === "string" ? job.City : undefined,
+        typeof job.State === "string" ? job.State : undefined,
+        typeof job.Country === "string" ? job.Country : undefined,
+      ]);
+      const remote = job.Remote_Job === true || /remote/i.test(location ?? "");
+      const opened = typeof job.Date_Opened === "string" ? new Date(job.Date_Opened).getTime() : undefined;
+      return {
+        external_id: `zoho_public_${slug}_${job.id}`,
+        title: typeof job.Posting_Title === "string" ? job.Posting_Title : typeof job.Job_Opening_Name === "string" ? job.Job_Opening_Name : undefined,
+        description: normalizeAtsHtml(typeof job.Job_Description === "string" ? job.Job_Description : undefined),
+        application_url: `${origin}/jobs/careers/${job.id}`,
+        company_name: companyName,
+        company_logo: logoForDomain(domain),
+        company_website_url: companyWebsite,
+        location,
+        departments: typeof job.Industry === "string" && job.Industry ? [job.Industry] : undefined,
+        has_remote: remote,
+        workplace_type: remote ? "remote" : workplaceFromLabel(location),
+        work_type: workTypeFromLabel(typeof job.Job_Type === "string" ? job.Job_Type : undefined),
+        published_date: opened,
+      } satisfies NormalizedJob;
+    });
+}
+
 export type ProviderFetchArgs = {
   provider: string;
   subdomain?: string;
@@ -1105,10 +1321,15 @@ export async function fetchJobsForProvider(args: ProviderFetchArgs): Promise<Nor
     case "bamboohr":
       if (!args.subdomain) throw new Error("BambooHR company subdomain is required");
       return await fetchBambooHR(args.subdomain, args.apiKey);
+    case "darwinbox":
+      if (!args.subdomain) throw new Error("Darwinbox company host is required");
+      return await fetchDarwinboxPublic(args.subdomain);
     case "keka":
       if (!args.subdomain) throw new Error("Keka company subdomain is required");
+      if (!args.clientId && !args.apiKey) return await fetchKekaPublic(args.subdomain);
       return await fetchKeka(args.subdomain, args.clientId, args.apiKey);
     case "zoho_recruit":
+      if (args.subdomain && !args.clientId && !args.refreshToken) return await fetchZohoRecruitPublic(args.subdomain);
       return await fetchZohoRecruit(args.clientId, args.apiKey, args.refreshToken, args.region);
     case "smartrecruiters":
       if (!args.subdomain) throw new Error("SmartRecruiters company identifier is required");
@@ -1140,7 +1361,6 @@ export async function fetchJobsForProvider(args: ProviderFetchArgs): Promise<Nor
     case "teamtailor":
       if (!args.subdomain) throw new Error("Teamtailor careers host is required");
       return await fetchTeamtailor(args.subdomain);
-    case "darwinbox":
     case "icims":
       throw new Error(`${args.provider} requires vendor-approved API access. Submit a request from Integrations.`);
     default:
