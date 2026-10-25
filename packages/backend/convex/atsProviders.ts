@@ -285,7 +285,7 @@ async function getJsonRetry(url: string, init?: RequestInit, attempts = 3) {
     } catch (error) {
       lastError = error;
       const status = Number(String(error).match(/failed: (\d+)/)?.[1] ?? 0);
-      if (status && status !== 429 && status < 500) throw error;
+      if (status && status !== 403 && status !== 429 && status < 500) throw error;
       await new Promise((resolve) => setTimeout(resolve, 700 * (attempt + 1)));
     }
   }
@@ -675,7 +675,7 @@ export async function fetchSmartRecruiters(identifier: string): Promise<Normaliz
   }
 
   const details = new Map<string, Record<string, unknown>>();
-  await mapLimit(postings.slice(0, SMART_DETAIL_LIMIT), 6, async (row) => {
+  await mapLimit(postings.slice(0, SMART_DETAIL_LIMIT), 4, async (row) => {
     const id = String(row.id ?? "");
     if (!id) return null;
     try {
@@ -901,7 +901,7 @@ export async function fetchEightfold(identifier: string): Promise<NormalizedJob[
   }
 
   const details = new Map<string, Record<string, unknown>>();
-  await mapLimit(positions.slice(0, EIGHTFOLD_DETAIL_LIMIT), 6, async (row) => {
+  await mapLimit(positions.slice(0, EIGHTFOLD_DETAIL_LIMIT), 4, async (row) => {
     const id = String(row.id ?? "");
     if (!id) return null;
     try {
@@ -957,7 +957,7 @@ export async function fetchRippling(identifier: string): Promise<NormalizedJob[]
   }
 
   const details = new Map<string, Record<string, unknown>>();
-  await mapLimit(items.slice(0, RIPPLING_DETAIL_LIMIT), 6, async (item) => {
+  await mapLimit(items.slice(0, RIPPLING_DETAIL_LIMIT), 4, async (item) => {
     const id = String(item.id ?? item.uuid ?? "");
     if (!id) return null;
     try {
