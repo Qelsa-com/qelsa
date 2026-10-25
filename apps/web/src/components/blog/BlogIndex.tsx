@@ -80,7 +80,7 @@ export function BlogIndex({ posts }: { posts: PublicBlogSummary[] }) {
           <>
             <article className="mt-9 overflow-hidden rounded-[28px] border border-white/[0.09] bg-[#0b0b16]">
               <div className="grid lg:grid-cols-[1.15fr_1fr]">
-                <Link href={`/blogs/${featured.slug}`} className="group relative block aspect-[16/10] overflow-hidden bg-white/[0.03] lg:aspect-auto lg:min-h-[360px]">
+                <Link href={`/blog/${featured.slug}`} className="group relative block aspect-[16/10] overflow-hidden bg-white/[0.03] lg:aspect-auto lg:min-h-[360px]">
                   <BlogCover post={featured} eager sizes="(max-width: 1024px) 100vw, 640px" />
                 </Link>
                 <div className="flex flex-col justify-center p-6 sm:p-8 lg:p-10">
@@ -91,7 +91,7 @@ export function BlogIndex({ posts }: { posts: PublicBlogSummary[] }) {
                     <span className="text-[10px] text-white/30">{featured.category}</span>
                   </div>
                   <h2 className="mt-4 text-2xl font-bold leading-tight tracking-[-0.02em] sm:text-3xl">
-                    <Link href={`/blogs/${featured.slug}`} className="hover:text-neon-cyan">
+                    <Link href={`/blog/${featured.slug}`} className="hover:text-neon-cyan">
                       {featured.title}
                     </Link>
                   </h2>
@@ -100,7 +100,7 @@ export function BlogIndex({ posts }: { posts: PublicBlogSummary[] }) {
                     <PostMeta post={featured} />
                   </div>
                   <Link
-                    href={`/blogs/${featured.slug}`}
+                    href={`/blog/${featured.slug}`}
                     className="mt-6 inline-flex w-fit items-center gap-2 text-sm font-semibold text-neon-cyan hover:text-white"
                   >
                     Read the guide
@@ -117,13 +117,13 @@ export function BlogIndex({ posts }: { posts: PublicBlogSummary[] }) {
                     key={post.id}
                     className="group flex flex-col overflow-hidden rounded-[24px] border border-white/[0.09] bg-[#0b0b16] transition-colors hover:border-white/20"
                   >
-                    <Link href={`/blogs/${post.slug}`} className="relative block aspect-[16/9] overflow-hidden bg-white/[0.03]">
+                    <Link href={`/blog/${post.slug}`} className="relative block aspect-[16/9] overflow-hidden bg-white/[0.03]">
                       <BlogCover post={post} sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw" />
                     </Link>
                     <div className="flex flex-1 flex-col p-5">
                       <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-neon-purple">{post.category}</span>
                       <h2 className="mt-2 text-lg font-bold leading-snug">
-                        <Link href={`/blogs/${post.slug}`} className="hover:text-neon-cyan">
+                        <Link href={`/blog/${post.slug}`} className="hover:text-neon-cyan">
                           {post.title}
                         </Link>
                       </h2>

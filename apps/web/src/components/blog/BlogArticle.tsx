@@ -17,7 +17,7 @@ export function BlogArticle({ post }: { post: PublicBlog }) {
   return (
     <main className="min-h-screen text-white">
       <div className="mx-auto w-full max-w-6xl px-5 py-8 sm:px-8 lg:py-12">
-        <Link href="/blogs" className="inline-flex items-center gap-1.5 text-xs font-semibold text-white/45 transition-colors hover:text-white">
+        <Link href="/blog" className="inline-flex items-center gap-1.5 text-xs font-semibold text-white/45 transition-colors hover:text-white">
           <ArrowLeft className="size-3.5" />
           All guides
         </Link>

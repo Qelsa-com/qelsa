@@ -2,7 +2,7 @@ import { api } from "@/lib/convexApi";
 import { ConvexHttpClient } from "convex/browser";
 import type { GetServerSideProps } from "next";
 
-const STATIC_PATHS = ["/", "/jobs", "/jobs/all", "/courses", "/blogs", "/candidates", "/employers", "/privacy", "/terms"];
+const STATIC_PATHS = ["/", "/jobs", "/jobs/all", "/courses", "/blog", "/candidates", "/employers", "/privacy", "/terms"];
 
 function escapeXml(value: string) {
   return value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;" })[char] ?? char);
@@ -24,7 +24,7 @@ export const getServerSideProps: GetServerSideProps = async ({ req, res }) => {
   }
   const entries = [
     ...STATIC_PATHS.map((path) => ({ loc: `${siteUrl}${path}`, lastmod: undefined })),
-    ...blogs.map((post) => ({ loc: `${siteUrl}/blogs/${post.slug}`, lastmod: new Date(post.updated_at).toISOString() })),
+    ...blogs.map((post) => ({ loc: `${siteUrl}/blog/${post.slug}`, lastmod: new Date(post.updated_at).toISOString() })),
   ];
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">

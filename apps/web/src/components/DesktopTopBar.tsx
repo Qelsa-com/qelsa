@@ -24,7 +24,7 @@ const AUTHED_NAV_LINKS = [
   { id: "jobs", label: "Jobs", href: "/jobs/all" },
   { id: "agent", label: "Agent", href: "/agent" },
   { id: "courses", label: "Learn & Practice", href: "/courses" },
-  { id: "blog", label: "Blog", href: "/blogs" },
+  { id: "blog", label: "Blog", href: "/blog" },
 ];
 
 const GUEST_NAV_LINKS = [
@@ -32,7 +32,7 @@ const GUEST_NAV_LINKS = [
   { id: "employers", label: "For Employers", href: "/employers" },
   { id: "jobs", label: "Jobs", href: "/jobs/all" },
   { id: "courses", label: "Learn & Practice", href: "/courses" },
-  { id: "blog", label: "Blog", href: "/blogs" },
+  { id: "blog", label: "Blog", href: "/blog" },
 ];
 
 export function DesktopTopBar({

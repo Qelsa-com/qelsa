@@ -32,7 +32,7 @@ export const getServerSideProps: GetServerSideProps<{ posts: PublicBlogSummary[]
 };
 
 export default function BlogsPage({ posts, siteUrl }: { posts: PublicBlogSummary[]; siteUrl: string }) {
-  const canonical = `${siteUrl}/blogs`;
+  const canonical = `${siteUrl}/blog`;
   const latestCover = posts.find((post) => post.cover_image_url)?.cover_image_url;
   const image = latestCover || `${siteUrl}/qelsa-og.png`;
   const schema = {
@@ -50,7 +50,7 @@ export default function BlogsPage({ posts, siteUrl }: { posts: PublicBlogSummary
     blogPost: posts.slice(0, 12).map((post) => ({
       "@type": "BlogPosting",
       headline: post.title,
-      url: `${siteUrl}/blogs/${post.slug}`,
+      url: `${siteUrl}/blog/${post.slug}`,
       datePublished: post.published_at ? new Date(post.published_at).toISOString() : undefined,
       image: post.cover_image_url || undefined,
     })),

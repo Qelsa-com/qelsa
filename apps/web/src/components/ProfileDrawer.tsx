@@ -26,7 +26,7 @@ const GUEST_ITEMS = [
   { id: "employers", label: "For Employers", href: "/employers" },
   { id: "jobs", label: "Jobs", href: "/jobs/all" },
   { id: "courses", label: "Learn & Practice", href: "/courses" },
-  { id: "blog", label: "Blog", href: "/blogs" },
+  { id: "blog", label: "Blog", href: "/blog" },
 ];
 
 /** Items also in DesktopTopBar are hidden from `lg` so the drawer is account-only. */
@@ -36,7 +36,7 @@ const AUTHED_ITEMS = [
   { id: "agent", label: "Agent", href: "/agent", icon: BotMessageSquare, hideOnDesktop: true },
   { id: "goals", label: "Goals", href: "/goals", icon: Target },
   { id: "courses", label: "Learn & Practice", href: "/courses", icon: BookOpen, hideOnDesktop: true },
-  { id: "blog", label: "Blog", href: "/blogs", icon: PenLine, hideOnDesktop: true },
+  { id: "blog", label: "Blog", href: "/blog", icon: PenLine, hideOnDesktop: true },
 ];
 
 function isItemActive(itemId: string, href: string, activeSection?: string, pathname?: string | null) {
@@ -45,7 +45,7 @@ function isItemActive(itemId: string, href: string, activeSection?: string, path
   if (href === "/") return pathname === "/";
   if (href === "/jobs/all" || href === "/jobs/smart-matches") return (pathname === "/jobs" || pathname.startsWith("/jobs/")) && !pathname.startsWith("/jobs/match");
   if (href === "/pages") return pathname === "/pages" || pathname.startsWith("/pages/");
-  if (href === "/blogs") return pathname === "/blogs" || pathname.startsWith("/blogs/");
+  if (href === "/blog") return pathname === "/blog" || pathname.startsWith("/blog/");
   if (href === "/goals") return pathname === "/goals" || pathname.startsWith("/goals/");
   if (href === "/courses") return pathname === "/courses" || pathname.startsWith("/courses/");
   if (href === "/courses") return pathname === "/courses" || pathname.startsWith("/courses/");

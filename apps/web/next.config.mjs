@@ -64,16 +64,6 @@ const nextConfig = {
         permanent: true,
       },
       {
-        source: "/blog",
-        destination: "/blogs",
-        permanent: true,
-      },
-      {
-        source: "/blog/:slug",
-        destination: "/blogs/:slug",
-        permanent: true,
-      },
-      {
         source: "/profile/work-experience",
         destination: "/profile?edit=experience",
         permanent: false,

@@ -32,7 +32,7 @@ export const getServerSideProps: GetServerSideProps<{ post: PublicBlog; siteUrl:
 };
 
 export default function BlogDetailPage({ post, siteUrl }: { post: PublicBlog; siteUrl: string }) {
-  const canonical = `${siteUrl}/blogs/${post.slug}`;
+  const canonical = `${siteUrl}/blog/${post.slug}`;
   const image = post.cover_image_url || `${siteUrl}/qelsa-og.png`;
   const published = new Date(post.published_at ?? post.created_at).toISOString();
   const modified = new Date(post.updated_at).toISOString();
@@ -69,7 +69,7 @@ export default function BlogDetailPage({ post, siteUrl }: { post: PublicBlog; si
         "@type": "BreadcrumbList",
         itemListElement: [
           { "@type": "ListItem", position: 1, name: "Qelsa", item: siteUrl },
-          { "@type": "ListItem", position: 2, name: "Blog", item: `${siteUrl}/blogs` },
+          { "@type": "ListItem", position: 2, name: "Blog", item: `${siteUrl}/blog` },
           { "@type": "ListItem", position: 3, name: post.title, item: canonical },
         ],
       },
