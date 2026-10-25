@@ -433,13 +433,18 @@ export default function BlogPage() {
                       </Button>
                       <Button
                         type="button"
+                        variant={post.status === "published" ? "outline" : "default"}
                         size="sm"
-                        className="h-11 rounded-lg px-3 text-[11px] font-semibold sm:h-9"
+                        className={`h-11 rounded-lg px-3 text-[11px] font-semibold sm:h-9 ${
+                          post.status === "published"
+                            ? "border-glass-border bg-white/[0.03] text-white/65"
+                            : "gradient-primary text-white shadow-lg shadow-purple-900/25"
+                        }`}
                         disabled={busyId === post.id}
                         onClick={() => void handleStatus(post, post.status === "published" ? "draft" : "published")}
                       >
                         {busyId === post.id ? <Loader2 className="size-3.5 animate-spin" /> : <ArrowUpRight className="size-3.5" />}
-                        {post.status === "published" ? "Unpublish" : "Publish"}
+                        {post.status === "published" ? "Unpublish" : "Publish post"}
                       </Button>
                       <Button
                         type="button"
