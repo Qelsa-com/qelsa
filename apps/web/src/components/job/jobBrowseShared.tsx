@@ -680,7 +680,7 @@ export function JobsBrowseHeader({ activeTab, query, setQuery, onSearch, filters
         <MultiSelectPill label="Workplace type" options={WORKPLACE_TYPE_OPTIONS} values={filters.workplace_types} onChange={(v) => onApplyFilters({ workplace_types: v })} />
         <MultiSelectPill label="Work type" options={WORK_TYPE_OPTIONS} values={filters.job_types} onChange={(v) => onApplyFilters({ job_types: v })} />
         <Autocomplete
-          className="w-[136px] sm:w-[221px]"
+          className="min-w-[136px] flex-1 sm:w-[221px] sm:flex-none"
           value={cityFilter}
           onChange={handleCitySelect}
           onSearch={searchJobLocations}
@@ -700,7 +700,7 @@ export function JobsBrowseHeader({ activeTab, query, setQuery, onSearch, filters
               {formatCity(city)}
             </>
           )}
-          inputClassName="h-[34px] rounded-full border-glass-border pl-7 pr-2.5 text-xs font-medium text-white placeholder:text-white/45 sm:h-[42px] sm:pl-9 sm:pr-4 sm:text-[13px]"
+          inputClassName="h-[34px] rounded-full border-glass-border pl-7 pr-2.5 text-xs font-medium text-white placeholder:text-[13px] placeholder:text-white/45 sm:h-[42px] sm:pl-9 sm:pr-4 sm:text-[13px]"
         />
       </div>
 
