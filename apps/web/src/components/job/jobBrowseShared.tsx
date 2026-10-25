@@ -673,14 +673,16 @@ export function JobsBrowseHeader({ activeTab, query, setQuery, onSearch, filters
         </div>
       )}
 
-      {/* Filter pills */}
-      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-        {activeTab === "all" && <PillDropdown label="Sort" value={filters.sort_by} options={SORT_OPTIONS} onSelect={(v) => onApplyFilters({ sort_by: v as SearchFilters["sort_by"] })} />}
-        <PillDropdown label="Date posted" value={filters.date_posted} options={DATE_POSTED_OPTIONS} onSelect={(v) => onApplyFilters({ date_posted: v as SearchFilters["date_posted"] })} />
-        <MultiSelectPill label="Workplace type" options={WORKPLACE_TYPE_OPTIONS} values={filters.workplace_types} onChange={(v) => onApplyFilters({ workplace_types: v })} />
-        <MultiSelectPill label="Work type" options={WORK_TYPE_OPTIONS} values={filters.job_types} onChange={(v) => onApplyFilters({ job_types: v })} />
+      {/* Filter pills — mobile scrolls horizontally; desktop wraps in one row. */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
+        <div className="scrollbar-hide flex items-center gap-2 overflow-x-auto [&>*]:shrink-0 sm:contents">
+          {activeTab === "all" && <PillDropdown label="Sort" value={filters.sort_by} options={SORT_OPTIONS} onSelect={(v) => onApplyFilters({ sort_by: v as SearchFilters["sort_by"] })} />}
+          <PillDropdown label="Date posted" value={filters.date_posted} options={DATE_POSTED_OPTIONS} onSelect={(v) => onApplyFilters({ date_posted: v as SearchFilters["date_posted"] })} />
+          <MultiSelectPill label="Workplace type" options={WORKPLACE_TYPE_OPTIONS} values={filters.workplace_types} onChange={(v) => onApplyFilters({ workplace_types: v })} />
+          <MultiSelectPill label="Work type" options={WORK_TYPE_OPTIONS} values={filters.job_types} onChange={(v) => onApplyFilters({ job_types: v })} />
+        </div>
         <Autocomplete
-          className="min-w-[136px] flex-1 sm:w-[221px] sm:flex-none"
+          className="w-full sm:w-[221px] sm:flex-none"
           value={cityFilter}
           onChange={handleCitySelect}
           onSearch={searchJobLocations}
