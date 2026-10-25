@@ -29,6 +29,7 @@ The admin "Public job boards" page (`apps/admin/src/app/(admin)/boards/page.tsx`
 - After editing it, run `pnpm check:board-catalog` to probe every slug; `--fix` strips dead entries.
 - The picker only offers boards for the currently selected ATS, drops any board already ingested for that ATS, and still accepts a manually typed slug.
 - `packages/backend/convex/atsProviders.ts` owns the vendor fetchers. `fetchLever` tries the US host then `api.eu.lever.co`, because Lever serves EU boards from a host that 404s on `.com`.
+- Prefer branding declared by the ATS over a slug-derived domain. `fetchAshby` reads `publicWebsite` and `logoSquareImageUrl` from the board page's `window.__appData`, so `sarvam` resolves to `sarvam.ai` rather than the wrong `sarvam.com`.
 - Public-board support for Darwinbox, Keka, and Zoho Recruit is still pending because their public careers endpoints need verification.
 
 ## ATS sync cadence

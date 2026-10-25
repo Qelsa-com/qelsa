@@ -346,13 +346,73 @@ export async function fetchLever(subdomain: string): Promise<NormalizedJob[]> {
   });
 }
 
+type AshbyOrganization = {
+  name?: string | null;
+  publicWebsite?: string | null;
+  theme?: {
+    logoSquareImageUrl?: string | null;
+    logoWordmarkImageUrl?: string | null;
+  } | null;
+};
+
+/**
+ * Ashby's posting API omits the company website, so a slug like "sarvam"
+ * otherwise becomes sarvam.com. The public board page carries the org's
+ * declared website and square logo in window.__appData, which is the only
+ * reliable way to choose between sarvam.com and sarvam.ai.
+ */
+async function fetchAshbyOrganization(slug: string): Promise<AshbyOrganization | null> {
+  try {
+    const html = await getText(`https://jobs.ashbyhq.com/${encodeURIComponent(slug)}`, "text/html");
+    const marker = "window.__appData = ";
+    const markerIndex = html.indexOf(marker);
+    if (markerIndex === -1) return null;
+    const start = markerIndex + marker.length;
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+    for (let i = start; i < html.length; i++) {
+      const char = html[i];
+      if (inString) {
+        if (escaped) escaped = false;
+        else if (char === "\\") escaped = true;
+        else if (char === '"') inString = false;
+        continue;
+      }
+      if (char === '"') {
+        inString = true;
+      } else if (char === "{") {
+        depth += 1;
+      } else if (char === "}") {
+        depth -= 1;
+        if (depth === 0) {
+          const parsed = JSON.parse(html.slice(start, i + 1)) as { organization?: AshbyOrganization };
+          return parsed.organization ?? null;
+        }
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchAshby(subdomain: string): Promise<NormalizedJob[]> {
   const slug = slugFromInput(subdomain, /\.ashbyhq\.com$/i);
   if (!slug) throw new Error("Ashby board slug is required");
-  const data = (await getJson(`https://api.ashbyhq.com/posting-api/job-board/${encodeURIComponent(slug)}?includeCompensation=true`)) as {
-    jobs?: Array<Record<string, unknown>>;
-  };
-  const domain = companyDomain(undefined, slug);
+  const [data, organization] = await Promise.all([
+    getJson(`https://api.ashbyhq.com/posting-api/job-board/${encodeURIComponent(slug)}?includeCompensation=true`) as Promise<{
+      jobs?: Array<Record<string, unknown>>;
+    }>,
+    fetchAshbyOrganization(slug),
+  ]);
+  const website =
+    typeof organization?.publicWebsite === "string" && organization.publicWebsite.trim()
+      ? organization.publicWebsite.trim()
+      : undefined;
+  const domain = companyDomain(website, slug);
+  const companyName = organization?.name?.trim() || titleCaseCompany(slug);
+  const companyLogo = organization?.theme?.logoSquareImageUrl || logoForDomain(domain);
   return (data.jobs ?? [])
     .filter((j) => j.isListed !== false)
     .slice(0, MAX_JOBS)
@@ -367,9 +427,9 @@ export async function fetchAshby(subdomain: string): Promise<NormalizedJob[]> {
         title: typeof j.title === "string" ? j.title.trim() : undefined,
         description: normalizeAtsHtml(typeof j.descriptionHtml === "string" ? j.descriptionHtml : typeof j.descriptionPlain === "string" ? j.descriptionPlain : undefined),
         application_url: typeof j.jobUrl === "string" ? j.jobUrl : typeof j.applyUrl === "string" ? j.applyUrl : undefined,
-        company_name: titleCaseCompany(slug),
-        company_logo: logoForDomain(domain),
-        company_website_url: domain ? `https://${domain}` : undefined,
+        company_name: companyName,
+        company_logo: companyLogo,
+        company_website_url: website ?? (domain ? `https://${domain}` : undefined),
         location,
         departments: [typeof j.department === "string" ? j.department : undefined, typeof j.team === "string" ? j.team : undefined].filter((name): name is string => Boolean(name)),
         has_remote: j.isRemote === true || workplace === "remote" || /remote/i.test(location ?? ""),
