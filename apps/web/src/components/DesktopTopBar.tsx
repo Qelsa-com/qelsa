@@ -23,7 +23,6 @@ const AUTHED_NAV_LINKS = [
   { id: "space", label: "My Space", href: "/" },
   { id: "jobs", label: "Jobs", href: "/jobs/all" },
   { id: "agent", label: "Agent", href: "/agent" },
-  { id: "connections", label: "Network", href: "/network" },
   { id: "courses", label: "Learn & Practice", href: "/courses" },
   { id: "blog", label: "Blog", href: "/blogs" },
 ];
@@ -53,11 +52,7 @@ export function DesktopTopBar({
   const links = isAuthenticated ? AUTHED_NAV_LINKS : GUEST_NAV_LINKS;
 
   return (
-    <header
-      className={`sticky top-0 z-50 hidden border-b backdrop-blur-xl transition-colors duration-300 lg:block ${
-        scrolled ? "border-white/[0.08] bg-[#06060f]/80" : "border-transparent bg-transparent"
-      }`}
-    >
+    <header className={`sticky top-0 z-50 hidden border-b backdrop-blur-xl transition-colors duration-300 lg:block ${scrolled ? "border-white/[0.08] bg-[#06060f]/80" : "border-transparent bg-transparent"}`}>
       <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-6 py-4">
         <button type="button" onClick={() => router.push("/")} className="flex items-center">
           <QelsaLogo priority className="h-[26px] w-auto" />
@@ -112,13 +107,7 @@ export function DesktopTopBar({
               onClick={onProfileClick}
               className="relative flex size-9 shrink-0 items-center justify-center overflow-visible rounded-full border border-white/[0.12] bg-white/[0.04]"
             >
-              <UserAvatar
-                src={user?.profile_image}
-                name={user?.name}
-                alt={user?.name || "Profile"}
-                className="size-full"
-                fallbackClassName="text-[11px]"
-              />
+              <UserAvatar src={user?.profile_image} name={user?.name} alt={user?.name || "Profile"} className="size-full" fallbackClassName="text-[11px]" />
               {isPro ? (
                 <span
                   title="Qelsa Pro member"

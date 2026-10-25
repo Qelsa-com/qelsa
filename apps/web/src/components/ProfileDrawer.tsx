@@ -3,7 +3,7 @@
 import { QelsaLogo } from "@/components/QelsaLogo";
 import { UserAvatar } from "@/components/UserAvatar";
 import { useAuth } from "@/contexts/AuthContext";
-import { BookOpen, BotMessageSquare, Briefcase, Crown, Home, LogOut, PenLine, Settings, Target, Users, X } from "lucide-react";
+import { BookOpen, BotMessageSquare, Briefcase, Crown, Home, LogOut, PenLine, Settings, Target, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -34,7 +34,6 @@ const AUTHED_ITEMS = [
   { id: "space", label: "My Space", href: "/", icon: Home, hideOnDesktop: true },
   { id: "jobs", label: "Jobs", href: "/jobs/all", icon: Briefcase, hideOnDesktop: true },
   { id: "agent", label: "Agent", href: "/agent", icon: BotMessageSquare, hideOnDesktop: true },
-  { id: "connections", label: "Network", href: "/network", icon: Users, hideOnDesktop: true },
   { id: "goals", label: "Goals", href: "/goals", icon: Target },
   { id: "courses", label: "Learn & Practice", href: "/courses", icon: BookOpen, hideOnDesktop: true },
   { id: "blog", label: "Blog", href: "/blogs", icon: PenLine, hideOnDesktop: true },
@@ -47,7 +46,6 @@ function isItemActive(itemId: string, href: string, activeSection?: string, path
   if (href === "/jobs/all" || href === "/jobs/smart-matches") return (pathname === "/jobs" || pathname.startsWith("/jobs/")) && !pathname.startsWith("/jobs/match");
   if (href === "/pages") return pathname === "/pages" || pathname.startsWith("/pages/");
   if (href === "/blogs") return pathname === "/blogs" || pathname.startsWith("/blogs/");
-  if (href === "/network") return pathname === "/network" || pathname.startsWith("/network/");
   if (href === "/goals") return pathname === "/goals" || pathname.startsWith("/goals/");
   if (href === "/courses") return pathname === "/courses" || pathname.startsWith("/courses/");
   if (href === "/courses") return pathname === "/courses" || pathname.startsWith("/courses/");
@@ -210,23 +208,14 @@ function AuthedMenu({
   return (
     <div className="mt-8 flex flex-col">
       <button type="button" onClick={() => onGo("/profile")} className="flex w-full items-center gap-3 rounded-full bg-white/[0.05] px-3 py-2.5 text-left transition-colors hover:bg-white/[0.08]">
-        <UserAvatar
-          src={avatarUrl}
-          name={name}
-          alt={displayName}
-          className="size-11 shrink-0 border border-white/10"
-          fallbackClassName="text-sm"
-        />
+        <UserAvatar src={avatarUrl} name={name} alt={displayName} className="size-11 shrink-0 border border-white/10" fallbackClassName="text-sm" />
         <div className="min-w-0 flex-1">
           <p className="truncate text-[17px] font-semibold text-white">{displayName}</p>
           {username || isPro ? (
             <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1">
               {username ? <p className="truncate text-sm text-white/45">@{username}</p> : null}
               {isPro ? (
-                <span
-                  title="Qelsa Pro member"
-                  className="inline-flex shrink-0 items-center gap-1 rounded-full border border-amber-300/30 bg-amber-300/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-amber-200"
-                >
+                <span title="Qelsa Pro member" className="inline-flex shrink-0 items-center gap-1 rounded-full border border-amber-300/30 bg-amber-300/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-amber-200">
                   <Crown className="size-3" strokeWidth={2.5} aria-hidden />
                   Pro
                 </span>

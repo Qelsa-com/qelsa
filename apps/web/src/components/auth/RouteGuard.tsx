@@ -1,31 +1,12 @@
 "use client";
 
-import { authClient } from "@/lib/auth-client";
 import { useAuth } from "@/contexts/AuthContext";
+import { authClient } from "@/lib/auth-client";
 import { needsOnboarding } from "@/lib/onboarding";
 import { useRouter } from "next/router";
 import { useEffect, useState, type ReactNode } from "react";
 
-const PUBLIC_ROUTES = [
-  "/",
-  "/start",
-  "/login",
-  "/register",
-  "/auth",
-  "/employer/auth",
-  "/jobs/all",
-  "/jobs",
-  "/blogs",
-  "/courses",
-  "/network",
-  "/employers",
-  "/candidates",
-  "/privacy",
-  "/terms",
-  "/cookies",
-  "/sitemap.xml",
-  "/robots.txt",
-];
+const PUBLIC_ROUTES = ["/", "/start", "/login", "/register", "/auth", "/employer/auth", "/jobs/all", "/jobs", "/blogs", "/courses", "/employers", "/candidates", "/privacy", "/terms", "/cookies", "/sitemap.xml", "/robots.txt"];
 const ONBOARDING_EXEMPT = new Set(["/onboarding", "/auth", "/employer/auth", "/privacy", "/terms", "/cookies"]);
 const JOB_STATIC = new Set(["all", "posted", "smart-matches", "create-job", "match", "ready", "almost", "smart_matches"]);
 const PUBLIC_JOB = /^\/jobs\/([^/]+)$/;
@@ -34,17 +15,7 @@ const PUBLIC_PROFILE = /^\/profile\/([^/]+)$/;
 const PUBLIC_BLOG = /^\/blogs\/([^/]+)$/;
 const RESERVED_PROFILE_HANDLES = ["edit", "certifications", "educations", "skills", "work-experience"];
 
-const EMPLOYER_ONLY_PREFIXES = [
-  "/employer/agent",
-  "/jobs/posted",
-  "/jobs/create-job",
-  "/jobs/edit/",
-  "/jobs/applications",
-  "/team",
-  "/settings/integrations",
-  "/pages/create",
-  "/pages/create-page",
-];
+const EMPLOYER_ONLY_PREFIXES = ["/employer/agent", "/jobs/posted", "/jobs/create-job", "/jobs/edit/", "/jobs/applications", "/team", "/settings/integrations", "/pages/create", "/pages/create-page"];
 
 const CANDIDATE_ONLY_PREFIXES = ["/agent", "/jobs/my-jobs", "/jobs/match", "/goals"];
 
