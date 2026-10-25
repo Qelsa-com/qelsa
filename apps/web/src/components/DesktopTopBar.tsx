@@ -16,8 +16,8 @@ import { useRouter } from "next/navigation";
 
 /**
  * `id` matches the `activeSection` each page passes to Layout. Signed-out users
- * only see Jobs and Blog. Signed-in users keep the full product nav; Jobs lands
- * on Smart Matches. Network is still marked as coming soon.
+ * see the public marketing, Jobs, Learn & Practice, and Blog links. Signed-in
+ * users keep the full product nav; Jobs lands on Smart Matches.
  */
 const AUTHED_NAV_LINKS = [
   { id: "space", label: "My Space", href: "/" },
@@ -32,6 +32,7 @@ const GUEST_NAV_LINKS = [
   { id: "employers", label: "For Employers", href: "/employers" },
   { id: "jobs", label: "Jobs", href: "/jobs/all" },
   { id: "courses", label: "Learn & Practice", href: "/courses" },
+  { id: "blog", label: "Blog", href: "/blogs" },
 ];
 
 export function DesktopTopBar({
