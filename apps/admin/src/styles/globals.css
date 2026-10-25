@@ -10,8 +10,11 @@
   --card-foreground: #ffffff;
   --popover: rgba(10, 10, 15, 0.95);
   --popover-foreground: #ffffff;
-  --primary: linear-gradient(135deg, #0ea5e9 0%, #7c3aed 50%, #ec4899 100%);
-  --primary-foreground: #000000;
+  /* A custom property cannot hold a gradient for `background-color`, so
+     `bg-primary` needs a real color. The brand gradient lives in the Button's
+     default variant; this stays as a solid fallback for any other use. */
+  --primary: #7c3aed;
+  --primary-foreground: #ffffff;
   --secondary: rgba(255, 255, 255, 0.1);
   --secondary-foreground: #ffffff;
   --muted: rgba(255, 255, 255, 0.05);

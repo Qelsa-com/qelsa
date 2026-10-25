@@ -87,13 +87,19 @@ function PlanConfigCard({ config }: { config: AdminPlanConfig }) {
   };
 
   return (
-    <section className="rounded-2xl border border-glass-border glass p-5">
+    <section className="flex flex-col rounded-2xl border border-glass-border glass p-5">
       <div className="flex items-start justify-between gap-3">
-        <div>
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           <h3 className="text-base font-semibold text-white">{PLAN_LABELS[config.plan]}</h3>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            {config.updated_at ? "Custom settings" : "Using defaults"}
-          </p>
+          <span
+            className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
+              config.updated_at
+                ? "bg-neon-purple/20 text-neon-purple"
+                : "bg-white/10 text-muted-foreground"
+            }`}
+          >
+            {config.updated_at ? "Custom" : "Default"}
+          </span>
         </div>
         <Button
           type="button"
@@ -106,7 +112,11 @@ function PlanConfigCard({ config }: { config: AdminPlanConfig }) {
         </Button>
       </div>
 
-      <div className="mt-4 grid gap-4 sm:grid-cols-2">
+      <div
+        className={`mt-5 grid gap-4 ${
+          config.audience === "candidate" ? "sm:grid-cols-2" : "grid-cols-1"
+        }`}
+      >
         <div className="space-y-2">
           <Label htmlFor={`${config.audience}-${config.plan}-agent`}>Agent messages / day</Label>
           <Input
@@ -137,12 +147,13 @@ function PlanConfigCard({ config }: { config: AdminPlanConfig }) {
       </div>
 
       {!isFree ? (
-        <div className="mt-4 space-y-4">
+        <div className="mt-5 space-y-4 border-t border-glass-border pt-5">
           <div className="space-y-2">
             <Label htmlFor={`${config.audience}-${config.plan}-description`}>Description</Label>
-            <Input
+            <Textarea
               id={`${config.audience}-${config.plan}-description`}
               value={description}
+              rows={2}
               maxLength={240}
               onChange={(event) => setDescription(event.target.value)}
             />
@@ -196,7 +207,7 @@ export default function PlansPage() {
                 <h2 className="text-lg font-semibold text-white">{audience.title}</h2>
                 <p className="mt-1 text-sm text-muted-foreground">{audience.description}</p>
               </div>
-              <div className="mt-4 grid gap-4 lg:grid-cols-3">
+              <div className="mt-4 grid items-start gap-4 lg:grid-cols-3">
                 {(["free", "plus", "pro"] as const).map((plan) => {
                   const config = configs.find(
                     (item) => item.audience === audience.id && item.plan === plan,
