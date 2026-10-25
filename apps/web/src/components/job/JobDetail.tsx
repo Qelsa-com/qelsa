@@ -688,7 +688,9 @@ export function JobDetail() {
                       </div>
                       {companyMeta && <p className="text-xs text-white/45">{companyMeta}</p>}
                     </div>
-                    <p className="col-span-2 text-sm leading-[22px] text-white/70">{job.page?.description || "Company description not available."}</p>
+                    <p className="col-span-2 text-sm leading-[22px] text-white/70">
+                      {job.page?.description || job.company_profile?.description || "Company description not available."}
+                    </p>
                     {job.page?.id && (
                       <Button
                         variant="outline"

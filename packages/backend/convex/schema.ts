@@ -224,6 +224,29 @@ export default defineSchema({
     .searchIndex("search_title", { searchField: "title", filterFields: ["status"] })
     .searchIndex("search_company", { searchField: "company_name", filterFields: ["status"] }),
 
+  /**
+   * Cached company descriptions for jobs that do not have a recruiter-owned
+   * company page. Keyed by canonical domain (or normalized name as a fallback),
+   * generated once and reused by every job at that company.
+   */
+  company_profiles: defineTable({
+    key: v.string(),
+    name: v.string(),
+    website: v.optional(v.string()),
+    description: v.optional(v.string()),
+    status: v.union(v.literal("pending"), v.literal("processing"), v.literal("ready"), v.literal("error")),
+    source: v.optional(v.union(v.literal("website"), v.literal("job"), v.literal("llm"))),
+    model: v.optional(v.string()),
+    sample_job_id: v.optional(v.id("jobs")),
+    attempts: v.number(),
+    last_error: v.optional(v.string()),
+    claimed_at: v.optional(v.number()),
+    next_retry_at: v.optional(v.number()),
+    generated_at: v.optional(v.number()),
+  })
+    .index("by_key", ["key"])
+    .index("by_status", ["status"]),
+
   job_skills: defineTable({
     job_id: v.id("jobs"),
     skill_id: v.id("skills"),

@@ -41,6 +41,7 @@ import {
   scoreInRange,
   type UserRoleProfile,
 } from "./lib/jobProfileMatch";
+import { companyProfileKey, companyProfileSeed, type CompanyProfileSeed } from "./lib/companyProfile";
 import { withSkillAliases } from "./lib/skillCatalog";
 import { buildCompetencyFramework, clipPlainText } from "./lib/skillMatch";
 import { calculateCareerAlignment, calculateSmartMatch } from "./lib/careerAlignment";
@@ -922,11 +923,29 @@ export const getById = optionalAuthQuery({
     }
     const sizeId = (base.page as { size_id?: Id<"company_sizes"> } | null)?.size_id;
     const size = sizeId ? await ctx.db.get(sizeId) : null;
+    const profileKeys = [
+      companyProfileKey({ website: job.company_website_url, name: job.company_name }),
+      companyProfileKey({ name: job.company_name }),
+    ].filter((key, index, keys): key is string => Boolean(key) && keys.indexOf(key) === index);
+    let companyProfile: Doc<"company_profiles"> | null = null;
+    for (const key of profileKeys) {
+      const candidate = await ctx.db
+        .query("company_profiles")
+        .withIndex("by_key", (q) => q.eq("key", key))
+        .unique();
+      if (candidate?.status === "ready" && candidate.description) {
+        companyProfile = candidate;
+        break;
+      }
+    }
     return {
       ...base,
       is_owner: Boolean(isOwner),
       questionSets,
       page: base.page ? { ...base.page, company_size: size ? withId(size) : null } : null,
+      company_profile: companyProfile
+        ? { description: companyProfile.description, source: companyProfile.source ?? null }
+        : null,
     };
   },
 });
@@ -1619,10 +1638,22 @@ export const storeAtsJobs = internalMutation({
     jobs: v.array(v.any()),
     seenAt: v.number(),
   },
-  returns: v.object({ stored: v.number(), needsSkills: v.array(v.id("jobs")) }),
+  returns: v.object({
+    stored: v.number(),
+    needsSkills: v.array(v.id("jobs")),
+    companySeeds: v.array(
+      v.object({
+        key: v.string(),
+        name: v.string(),
+        website: v.optional(v.string()),
+        sampleJobId: v.optional(v.id("jobs")),
+      }),
+    ),
+  }),
   handler: async (ctx, args) => {
     await ensureOpenJobCount(ctx);
     const needsSkills: Id<"jobs">[] = [];
+    const companySeeds = new Map<string, CompanyProfileSeed>();
     let stored = 0;
     let openDelta = 0;
     let inserted = 0;
@@ -1665,23 +1696,31 @@ export const storeAtsJobs = internalMutation({
           description: job.description as string | undefined,
         }),
       };
+      let jobId: Id<"jobs">;
       if (existing) {
         await ctx.db.patch(existing._id, payload);
+        jobId = existing._id;
         openDelta += openCountDelta(existing.status, "open");
         await queueSkillEnrichment(ctx, existing._id, payload.title, payload.description, existing.skills_extracted, needsSkills);
       } else {
-        const jobId = await ctx.db.insert("jobs", { ...payload, view_count: 0, application_count: 0 });
+        jobId = await ctx.db.insert("jobs", { ...payload, view_count: 0, application_count: 0 });
         await ensureJobStats(ctx, jobId);
         openDelta += 1;
         inserted += 1;
         await queueSkillEnrichment(ctx, jobId, payload.title, payload.description, undefined, needsSkills);
       }
+      const profileSeed = companyProfileSeed({
+        name: payload.company_name,
+        website: payload.company_website_url,
+        sampleJobId: jobId,
+      });
+      if (profileSeed && !companySeeds.has(profileSeed.key)) companySeeds.set(profileSeed.key, profileSeed);
       stored++;
     }
     await bumpOpenJobCount(ctx, openDelta);
     await bumpAdminStat(ctx, ADMIN_STAT_KEYS.jobs, inserted);
     await bumpAdminStat(ctx, ADMIN_STAT_KEYS.openJobs, openDelta);
-    return { stored, needsSkills };
+    return { stored, needsSkills, companySeeds: [...companySeeds.values()] };
   },
 });
 

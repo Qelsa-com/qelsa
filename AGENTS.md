@@ -30,6 +30,7 @@ The admin "Public job boards" page (`apps/admin/src/app/(admin)/boards/page.tsx`
 - The picker only offers boards for the currently selected ATS, drops any board already ingested for that ATS, and still accepts a manually typed slug.
 - `packages/backend/convex/atsProviders.ts` owns the vendor fetchers. `fetchLever` tries the US host then `api.eu.lever.co`, because Lever serves EU boards from a host that 404s on `.com`.
 - Prefer branding declared by the ATS over a slug-derived domain. `fetchAshby` reads `publicWebsite` and `logoSquareImageUrl` from the board page's `window.__appData`, so `sarvam` resolves to `sarvam.ai` rather than the wrong `sarvam.com`.
+- Company descriptions are cached in `company_profiles`, keyed by canonical domain (or normalized name). ATS sync only enqueues missing profiles; it never calls an LLM inline. Generation uses website metadata first, then a company excerpt from a job description, and only falls back to the LLM when neither exists. Re-run `npx convex run companyProfiles:backfill '{}'` after deployment to enqueue companies ingested before this cache existed.
 - Public-board support for Darwinbox, Keka, and Zoho Recruit is still pending because their public careers endpoints need verification.
 
 ## ATS sync cadence
@@ -137,7 +138,7 @@ Auth is email + password and email OTP (Better Auth). **No email provider is wir
 
 Set on the Convex deployment with `npx convex env set <NAME> <value>` (from `packages/backend`) only if you need the feature:
 
-- `OPENROUTER_API_KEY` — AI job matching, skill extraction, summaries, cover letters. Optional `AI_AGENT_MODEL` (default `openai/gpt-4o-mini`) and `AI_AGENT_REASONING_EFFORT` (`minimal`/`low`/`medium`/`high`/`xhigh`; `off` disables reasoning).
+- `OPENROUTER_API_KEY` — AI job matching, skill extraction, summaries, cover letters. Optional `AI_AGENT_MODEL` (default `openai/gpt-4o-mini`) and `AI_AGENT_REASONING_EFFORT` (`minimal`/`low`/`medium`/`high`/`xhigh`; `off` disables reasoning). Optional `AI_COMPANY_PROFILE_MODEL` overrides the company-profile fallback model.
 - `EXA_API_KEY` or `TAVILY_API_KEY` — external web search for the candidate Agent when Qelsa has no in-house course or answer. If neither is set it falls back to OpenRouter's web plugin; `AI_WEB_SEARCH_MODEL` controls that fallback.
 - Cloudflare R2 credentials — resume/profile-image uploads (the `@convex-dev/r2` component).
 - `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` — Google social login (disabled unless the secret is set).

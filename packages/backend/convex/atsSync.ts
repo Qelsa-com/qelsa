@@ -4,6 +4,7 @@ import type { Id } from "./_generated/dataModel";
 import { ATS_JOB_FETCH_LIMIT, fetchJobsForProvider } from "./atsProviders";
 import { resolveAtsSyncEnabled } from "./lib/atsSyncEnabled";
 import { ATS_SYNC_INTERVAL_MS } from "./lib/atsSyncInterval";
+import type { CompanyProfileSeed } from "./lib/companyProfile";
 import { ensureOpenJobCount } from "./lib/jobCounts";
 import { internalAction, internalMutation, internalQuery, type ActionCtx } from "./_generated/server";
 
@@ -58,6 +59,7 @@ export const syncIntegration = internalAction({
       const canEnrich = Boolean(process.env.OPENROUTER_API_KEY);
 
       let stored = 0;
+      const profileSeeds = new Map<string, CompanyProfileSeed>();
       for (let i = 0; i < jobs.length; i += STORE_BATCH) {
         const chunk = jobs.slice(i, i + STORE_BATCH);
         const result = await storeAtsJobsWithRetry(ctx, {
@@ -67,6 +69,9 @@ export const syncIntegration = internalAction({
           seenAt: startedAt,
         });
         stored += result.stored;
+        for (const seed of result.companySeeds) {
+          if (!profileSeeds.has(seed.key)) profileSeeds.set(seed.key, seed);
+        }
         if (canEnrich && result.needsSkills.length > 0) {
           await ctx.scheduler.runAfter(0, internal.jobSkillsEnrich.enrichBatch, { jobIds: result.needsSkills });
         }
@@ -74,6 +79,20 @@ export const syncIntegration = internalAction({
         for (const job of chunk) job.description = undefined;
       }
       jobs.length = 0;
+
+      // Queue company-profile generation outside the sync path. Existing
+      // profiles are skipped, so repeat syncs never spend another LLM call.
+      const profileSeedList = [...profileSeeds.values()];
+      try {
+        for (let i = 0; i < profileSeedList.length; i += 200) {
+          await ctx.runMutation(internal.companyProfiles.ensureProfiles, {
+            seeds: profileSeedList.slice(i, i + 200),
+          });
+        }
+      } catch (err) {
+        // Profile copy is supplementary; never fail an otherwise good sync.
+        console.warn("[atsSync] could not enqueue company profiles", args.integrationId, err);
+      }
 
       if (listComplete) {
         await closeUnseenWithRetry(ctx, {

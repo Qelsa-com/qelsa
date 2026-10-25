@@ -36,6 +36,7 @@ export type Job = {
   company_linkedin_url?: string | null;
   company_is_agency: boolean;
   company_github_url?: string | null;
+  company_profile?: { description?: string | null; source?: "website" | "job" | "llm" | null } | null;
 
   // JSON field
   other_info?: Record<string, any> | null;
