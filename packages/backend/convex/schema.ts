@@ -718,7 +718,9 @@ export default defineSchema({
     completed_at: v.optional(v.number()),
     blog_id: v.optional(v.id("blog_posts")),
     error: v.optional(v.string()),
-  }).index("by_started_at", ["started_at"]),
+  })
+    .index("by_started_at", ["started_at"])
+    .index("by_status_started_at", ["status", "started_at"]),
 
   // Singleton (at most one row). Admin toggle for ATS / public-board ingest.
   admin_settings: defineTable({

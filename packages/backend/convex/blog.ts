@@ -25,7 +25,6 @@ const MAX_TITLE_HINT = 120;
 const MAX_EXISTING_POSTS = 200;
 const MAX_BLOG_WORDS = 2_400;
 const MIN_BLOG_WORDS = 1_200;
-const ACTIVE_RUN_WINDOW_MS = 10 * 60 * 1000;
 
 const ALLOWED_INTERNAL_LINKS = new Set([
   "/jobs",
@@ -673,6 +672,26 @@ export const generationState = adminQuery({
   },
 });
 
+export const listActiveRuns = adminQuery({
+  args: {},
+  returns: v.any(),
+  handler: async (ctx) => {
+    const rows = await ctx.db
+      .query("blog_generation_runs")
+      .withIndex("by_status_started_at", (q) => q.eq("status", "running"))
+      .order("desc")
+      .take(20);
+    return rows.map((row) => ({
+      id: row._id,
+      status: row.status,
+      title_hint: row.title_hint ?? null,
+      started_at: row.started_at,
+      model: row.model,
+      image_model: row.image_model,
+    }));
+  },
+});
+
 /* ------------------------------------------------------------------ */
 /* Admin mutations                                                     */
 /* ------------------------------------------------------------------ */
@@ -682,30 +701,13 @@ export const startGeneration = adminMutation({
   returns: v.object({ runId: v.id("blog_generation_runs") }),
   handler: async (ctx, args) => {
     const titleHint = cleanText(args.title, "").slice(0, MAX_TITLE_HINT);
-    const now = Date.now();
-    const latest = await ctx.db
-      .query("blog_generation_runs")
-      .withIndex("by_started_at")
-      .order("desc")
-      .first();
-    if (latest?.status === "running") {
-      if (now - latest.started_at < ACTIVE_RUN_WINDOW_MS) {
-        throw new Error("The blog agent is already writing one post. Wait for it to finish.");
-      }
-      await ctx.db.patch(latest._id, {
-        status: "failed",
-        completed_at: now,
-        error: "The previous generation timed out.",
-      });
-    }
-
     const runId = await ctx.db.insert("blog_generation_runs", {
       status: "running",
       title_hint: titleHint || undefined,
       model: BLOG_MODEL,
       image_model: BLOG_IMAGE_MODEL,
       actor_user_id: ctx.user._id,
-      started_at: now,
+      started_at: Date.now(),
     });
     await ctx.scheduler.runAfter(0, internal.blog.runGeneration, { runId });
     return { runId };
@@ -787,17 +789,6 @@ export const getRun = internalQuery({
   args: { runId: v.id("blog_generation_runs") },
   returns: v.any(),
   handler: async (ctx, args) => await ctx.db.get(args.runId),
-});
-
-export const latestRun = internalQuery({
-  args: {},
-  returns: v.any(),
-  handler: async (ctx) =>
-    await ctx.db
-      .query("blog_generation_runs")
-      .withIndex("by_started_at")
-      .order("desc")
-      .first(),
 });
 
 export const listForPrompt = internalQuery({

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  useActiveBlogRunsQuery,
   useBlogGenerationStateQuery,
   useDeleteBlogMutation,
   useGetAdminBlogQuery,
@@ -13,6 +14,7 @@ import {
   useRetryBlogCoverMutation,
   useSetBlogStatusMutation,
   useStartBlogGenerationMutation,
+  type ActiveBlogRun,
   type AdminBlog,
   type AdminBlogSummary,
 } from "@/features/api/blogApi";
@@ -38,6 +40,14 @@ function formatDate(value: number | null) {
     day: "numeric",
     year: "numeric",
   });
+}
+
+function elapsed(value: number) {
+  const seconds = Math.max(1, Math.floor((Date.now() - value) / 1000));
+  if (seconds < 60) return "Just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  return `${Math.floor(minutes / 60)}h ago`;
 }
 
 function StatusPill({ status }: { status: "draft" | "published" }) {
@@ -221,6 +231,7 @@ export default function BlogPage() {
   const alert = useAlert();
   const { data: postsData, isLoading } = useListAdminBlogsQuery();
   const { data: runData } = useBlogGenerationStateQuery();
+  const { data: activeRunsData } = useActiveBlogRunsQuery();
   const [startGeneration, { isLoading: isStarting }] = useStartBlogGenerationMutation();
   const [setStatus] = useSetBlogStatusMutation();
   const [deleteBlog] = useDeleteBlogMutation();
@@ -231,6 +242,7 @@ export default function BlogPage() {
   const [coverBusyId, setCoverBusyId] = useState<string | null>(null);
 
   const posts = (postsData as AdminBlogSummary[] | undefined) ?? [];
+  const activeRuns = (activeRunsData as ActiveBlogRun[] | undefined) ?? [];
   const generation = runData as
     | {
         status: "running" | "completed" | "failed";
@@ -239,8 +251,7 @@ export default function BlogPage() {
         error: string | null;
       }
     | undefined;
-  const isRunning = generation?.status === "running";
-  const busy = isStarting || isRunning;
+  const busy = isStarting;
   const drafts = useMemo(() => posts.filter((post) => post.status === "draft").length, [posts]);
   const published = posts.length - drafts;
 
@@ -249,7 +260,7 @@ export default function BlogPage() {
     try {
       await startGeneration({ title: title.trim() || undefined });
       setTitle("");
-      toast.success("Blog generation started. You can leave this page while it writes.");
+      toast.success("Blog generation started. You can start another while it writes.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not start the blog agent.");
     }
@@ -303,7 +314,7 @@ export default function BlogPage() {
     <div className="min-h-full">
       <PageHeader
         title="Blog"
-        description="One post at a time. The agent finds a gap, writes a long guide in a natural human voice for search and AI answers, and makes a cover."
+        description="Run as many as you need. Each agent finds a gap, writes a long guide in a natural human voice for search and AI answers, and makes a cover."
       />
 
       <div className="space-y-6 p-5 md:p-8">
@@ -315,7 +326,7 @@ export default function BlogPage() {
                 Generate a post
               </h2>
               <p className="mt-1 max-w-2xl text-xs leading-relaxed text-muted-foreground">
-                Runs in the background. Leave the title blank and the agent picks a topic that is not already covered.
+                Runs in the background. Start another whenever you want. Leave the title blank and the agent picks a gap.
               </p>
             </div>
             <span className="rounded-md bg-white/[0.04] px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-white/40">
@@ -346,18 +357,18 @@ export default function BlogPage() {
               className="gradient-primary h-11 rounded-xl px-5 text-xs font-bold text-white sm:h-9"
             >
               {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Sparkles className="size-3.5" />}
-              {busy ? "Writing…" : "Generate blog"}
+              {busy ? "Starting…" : activeRuns.length ? "Generate another" : "Generate blog"}
             </Button>
           </form>
 
-          {isRunning ? (
+          {activeRuns.length ? (
             <div className="mt-3 flex items-center gap-2 rounded-lg border border-sky-400/15 bg-sky-400/[0.05] px-3 py-2 text-[11px] text-sky-200">
               <Loader2 className="size-3.5 animate-spin" />
-              Planning, writing, scoring, and making the cover. This keeps running if you leave.
+              {activeRuns.length} generation{activeRuns.length === 1 ? "" : "s"} running in the background.
             </div>
           ) : null}
 
-          {!isRunning && generation?.status === "failed" ? (
+          {generation?.status === "failed" ? (
             <div className="mt-3 rounded-lg border border-rose-400/20 bg-rose-400/[0.06] px-3 py-2 text-[11px] leading-relaxed text-rose-200">
               Last run failed: {generation.error ?? "The agent stopped before finishing."}
             </div>
@@ -372,7 +383,13 @@ export default function BlogPage() {
                 Posts
               </h2>
               <p className="mt-1 text-xs text-muted-foreground">
-                {posts.length ? `${drafts} draft${drafts === 1 ? "" : "s"} · ${published} published` : "No posts yet."}
+                {activeRuns.length || posts.length
+                  ? [
+                      activeRuns.length ? `${activeRuns.length} in progress` : null,
+                      `${drafts} draft${drafts === 1 ? "" : "s"}`,
+                      `${published} published`,
+                    ].filter(Boolean).join(" · ")
+                  : "No posts yet."}
               </p>
             </div>
           </div>
@@ -383,7 +400,7 @@ export default function BlogPage() {
                 <Skeleton key={index} className="h-28 w-full rounded-xl bg-white/[0.05]" />
               ))}
             </div>
-          ) : posts.length === 0 ? (
+          ) : activeRuns.length === 0 && posts.length === 0 ? (
             <div className="px-5 py-14 text-center">
               <BookOpen className="mx-auto size-8 text-white/20" />
               <p className="mt-3 text-sm font-semibold">The blog is ready for its first post.</p>
@@ -391,6 +408,35 @@ export default function BlogPage() {
             </div>
           ) : (
             <div className="divide-y divide-white/[0.06]">
+              {activeRuns.map((run) => (
+                <article key={run.id} className="flex flex-col gap-4 p-4 sm:flex-row sm:p-5">
+                  <div className="flex aspect-video w-full shrink-0 items-center justify-center overflow-hidden rounded-xl border border-dashed border-sky-400/20 bg-gradient-to-br from-sky-400/[0.06] via-[#111326] to-neon-purple/[0.08] sm:w-40">
+                    <div className="flex flex-col items-center gap-2 text-sky-300">
+                      <Loader2 className="size-6 animate-spin" />
+                      <span className="text-[10px] font-medium">Writing</span>
+                    </div>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-md bg-sky-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-sky-300">
+                        In progress
+                      </span>
+                      <span className="text-[10px] text-white/35">Started {elapsed(run.started_at)}</span>
+                    </div>
+                    <h3 className="mt-2 text-base font-bold leading-snug">{run.title_hint || "Choosing a topic…"}</h3>
+                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                      Planning, writing, editing, and making the cover. You can start another while this runs.
+                    </p>
+                    <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-white/30">
+                      <span className="inline-flex items-center gap-1">
+                        <Loader2 className="size-3 animate-spin" />
+                        Running
+                      </span>
+                      <span>No action needed</span>
+                    </div>
+                  </div>
+                </article>
+              ))}
               {posts.map((post) => (
                 <article key={post.id} className="flex flex-col gap-4 p-4 sm:flex-row sm:p-5">
                   <div className="aspect-video w-full shrink-0 overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.03] sm:w-40">

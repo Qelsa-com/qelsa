@@ -62,12 +62,25 @@ export type BlogRunState = {
   error: string | null;
 };
 
+export type ActiveBlogRun = {
+  id: string;
+  status: "running";
+  title_hint: string | null;
+  started_at: number;
+  model: string;
+  image_model: string;
+};
+
 export function useListAdminBlogsQuery() {
   return useConvexQueryHook(api.blog.listAdmin, {});
 }
 
 export function useBlogGenerationStateQuery() {
   return useConvexQueryHook(api.blog.generationState, {});
+}
+
+export function useActiveBlogRunsQuery() {
+  return useConvexQueryHook(api.blog.listActiveRuns, {});
 }
 
 export function useGetAdminBlogQuery(blogId: string | null) {
