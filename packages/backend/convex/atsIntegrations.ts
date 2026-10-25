@@ -8,8 +8,8 @@ import { ATS_SYNC_INTERVAL_MS } from "./lib/atsSyncInterval";
 import { adminMutation, adminQuery, authedMutation, authedQuery } from "./lib/customFunctions";
 import { withId } from "./lib/helpers";
 
-const provider = v.union(v.literal("zoho_recruit"), v.literal("greenhouse"), v.literal("lever"), v.literal("keka"), v.literal("ashby"), v.literal("bamboohr"), v.literal("workday"), v.literal("darwinbox"), v.literal("icims"));
-const publicBoardProvider = v.union(v.literal("greenhouse"), v.literal("lever"), v.literal("ashby"));
+const provider = v.union(v.literal("zoho_recruit"), v.literal("greenhouse"), v.literal("lever"), v.literal("keka"), v.literal("ashby"), v.literal("bamboohr"), v.literal("workday"), v.literal("smartrecruiters"), v.literal("workable"), v.literal("oracle_cloud"), v.literal("eightfold"), v.literal("rippling"), v.literal("breezy"), v.literal("recruitee"), v.literal("personio"), v.literal("teamtailor"), v.literal("darwinbox"), v.literal("icims"));
+const publicBoardProvider = v.union(v.literal("greenhouse"), v.literal("lever"), v.literal("ashby"), v.literal("smartrecruiters"), v.literal("workday"), v.literal("workable"), v.literal("oracle_cloud"), v.literal("eightfold"), v.literal("rippling"), v.literal("breezy"), v.literal("recruitee"), v.literal("personio"), v.literal("teamtailor"));
 
 type Ctx = { db: any; user: { _id: string } };
 
@@ -262,7 +262,7 @@ const publicBoardReturn = v.object({
 
 function asPublicBoard(row: {
   _id: Id<"ats_integrations">;
-  provider: "greenhouse" | "lever" | "ashby" | string;
+  provider: "greenhouse" | "lever" | "ashby" | "smartrecruiters" | "workday" | "workable" | "oracle_cloud" | "eightfold" | "rippling" | "breezy" | "recruitee" | "personio" | "teamtailor" | string;
   status: "connected" | "error" | "pending" | "disconnected";
   auth_type: string;
   kind?: string;
@@ -280,7 +280,7 @@ function asPublicBoard(row: {
   return {
     id: row._id,
     _id: row._id,
-    provider: row.provider as "greenhouse" | "lever" | "ashby",
+    provider: row.provider as "greenhouse" | "lever" | "ashby" | "smartrecruiters" | "workday" | "workable" | "oracle_cloud" | "eightfold" | "rippling" | "breezy" | "recruitee" | "personio" | "teamtailor",
     status: row.status,
     auth_type: "board" as const,
     kind: "public_board" as const,
@@ -319,7 +319,7 @@ export const addPublicBoard = adminMutation({
   args: { provider: publicBoardProvider, subdomain: v.string() },
   returns: publicBoardReturn,
   handler: async (ctx, args) => {
-    const subdomain = normalizePublicBoardSlug(args.subdomain);
+    const subdomain = normalizePublicBoardSlug(args.subdomain, args.provider);
     if (!subdomain) throw new Error("A board slug is required");
     const existing = await ctx.db
       .query("ats_integrations")

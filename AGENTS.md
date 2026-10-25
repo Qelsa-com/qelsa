@@ -22,12 +22,14 @@ Make the best decision that will elevate all three: the user experience (UX), de
 
 ## Public job boards
 
-The admin "Public job boards" page (`apps/admin/src/app/(admin)/boards/page.tsx`) ingests Greenhouse / Lever / Ashby boards. Boards are keyed on `(provider, subdomain)` — the same slug under a different ATS is a different board.
+The admin "Public job boards" page (`apps/admin/src/app/(admin)/boards/page.tsx`) ingests Greenhouse, Lever, Ashby, SmartRecruiters, Workday, Workable, Oracle Cloud HCM, Eightfold, Rippling, Breezy HR, Recruitee, Personio, and Teamtailor boards. Boards are keyed on `(provider, subdomain)` — the same slug under a different ATS is a different board.
 
 - `apps/admin/src/components/ats/boardCatalog.ts` powers the "Company" picker, grouped by ATS and by `india` / `global`. It is hand-maintained data, not live discovery: slugs rot as companies drop boards or switch ATS.
+- Composite identifiers are normalized at add time: Workday uses `tenant|wdN|site`, Oracle uses `host|siteNumber`, and Eightfold uses `careers-host|company-domain`. The admin can paste a full careers URL instead.
 - After editing it, run `pnpm check:board-catalog` to probe every slug; `--fix` strips dead entries.
 - The picker only offers boards for the currently selected ATS, drops any board already ingested for that ATS, and still accepts a manually typed slug.
 - `packages/backend/convex/atsProviders.ts` owns the vendor fetchers. `fetchLever` tries the US host then `api.eu.lever.co`, because Lever serves EU boards from a host that 404s on `.com`.
+- Public-board support for Darwinbox, Keka, and Zoho Recruit is still pending because their public careers endpoints need verification.
 
 ## ATS sync cadence
 

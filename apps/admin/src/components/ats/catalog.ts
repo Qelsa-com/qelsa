@@ -1,4 +1,17 @@
-export type PublicBoardProviderId = "greenhouse" | "lever" | "ashby";
+export type PublicBoardProviderId =
+  | "greenhouse"
+  | "lever"
+  | "ashby"
+  | "smartrecruiters"
+  | "workday"
+  | "workable"
+  | "oracle_cloud"
+  | "eightfold"
+  | "rippling"
+  | "breezy"
+  | "recruitee"
+  | "personio"
+  | "teamtailor";
 
 export type AtsStatus = "connected" | "error" | "pending" | "disconnected";
 
@@ -62,6 +75,106 @@ export const PUBLIC_BOARD_PROVIDERS: PublicBoardProviderMeta[] = [
     boardLabel: "Job board name",
     boardPlaceholder: "your-company",
     credentialsHelp: "The last segment of jobs.ashbyhq.com/your-company.",
+  },
+  {
+    id: "smartrecruiters",
+    name: "SmartRecruiters",
+    initials: "SR",
+    tileClass: "bg-sky-500/20 text-sky-400",
+    description: "Public SmartRecruiters postings. Strong enterprise coverage.",
+    boardLabel: "Company identifier",
+    boardPlaceholder: "Freshworks",
+    credentialsHelp: "The company identifier in jobs.smartrecruiters.com/Freshworks/…, or paste that careers URL.",
+  },
+  {
+    id: "workday",
+    name: "Workday",
+    initials: "W",
+    tileClass: "bg-amber-500/20 text-amber-400",
+    description: "Public Workday careers sites. The biggest enterprise source.",
+    boardLabel: "Careers URL",
+    boardPlaceholder: "https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite",
+    credentialsHelp: "Paste the public Workday careers URL. We derive tenant, wd host, and site. You can also use tenant|wd5|site.",
+  },
+  {
+    id: "workable",
+    name: "Workable",
+    initials: "Wk",
+    tileClass: "bg-cyan-500/20 text-cyan-400",
+    description: "Public Workable account jobs, including descriptions.",
+    boardLabel: "Account subdomain",
+    boardPlaceholder: "huggingface",
+    credentialsHelp: "The subdomain from apply.workable.com/your-company.",
+  },
+  {
+    id: "oracle_cloud",
+    name: "Oracle Cloud HCM",
+    initials: "O",
+    tileClass: "bg-rose-500/20 text-rose-300",
+    description: "Oracle Cloud HCM candidate-experience job requisitions.",
+    boardLabel: "Careers URL",
+    boardPlaceholder: "https://jpmc.fa.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1001",
+    credentialsHelp: "Paste the public Oracle careers URL containing /sites/CX_…, or use host|siteNumber.",
+  },
+  {
+    id: "eightfold",
+    name: "Eightfold",
+    initials: "8",
+    tileClass: "bg-indigo-500/20 text-indigo-300",
+    description: "Eightfold-powered career sites, including large tech firms.",
+    boardLabel: "Careers host | company domain",
+    boardPlaceholder: "explore.jobs.netflix.net|netflix.com",
+    credentialsHelp: "Use careers-host|company-domain, or paste a careers URL containing ?domain=company.com.",
+  },
+  {
+    id: "rippling",
+    name: "Rippling",
+    initials: "R",
+    tileClass: "bg-blue-500/20 text-blue-400",
+    description: "Public Rippling ATS boards. Good US startup coverage.",
+    boardLabel: "Board slug",
+    boardPlaceholder: "rippling",
+    credentialsHelp: "The board slug from ats.rippling.com/board-slug/jobs.",
+  },
+  {
+    id: "breezy",
+    name: "Breezy HR",
+    initials: "B",
+    tileClass: "bg-lime-500/20 text-lime-300",
+    description: "Public Breezy HR career sites.",
+    boardLabel: "Company subdomain",
+    boardPlaceholder: "prageru",
+    credentialsHelp: "The company part of your-company.breezy.hr.",
+  },
+  {
+    id: "recruitee",
+    name: "Recruitee",
+    initials: "Rc",
+    tileClass: "bg-teal-500/20 text-teal-300",
+    description: "Public Recruitee offers. Good EU coverage.",
+    boardLabel: "Company subdomain",
+    boardPlaceholder: "bunq",
+    credentialsHelp: "The company part of your-company.recruitee.com.",
+  },
+  {
+    id: "personio",
+    name: "Personio",
+    initials: "P",
+    tileClass: "bg-fuchsia-500/20 text-fuchsia-300",
+    description: "Public Personio XML feeds for European companies.",
+    boardLabel: "Company subdomain",
+    boardPlaceholder: "personio",
+    credentialsHelp: "The company part of your-company.jobs.personio.de.",
+  },
+  {
+    id: "teamtailor",
+    name: "Teamtailor",
+    initials: "T",
+    tileClass: "bg-pink-500/20 text-pink-300",
+    description: "Public Teamtailor careers RSS feeds. Nordic and EU coverage.",
+    boardLabel: "Careers host",
+    boardPlaceholder: "career.teamtailor.com",
+    credentialsHelp: "The hostname of the public Teamtailor careers site. We read its /jobs.rss feed.",
   },
 ];
 

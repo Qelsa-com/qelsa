@@ -232,7 +232,7 @@ export default function BoardsPage() {
         <section className="rounded-2xl border border-glass-border glass p-5">
           <h2 className="text-sm font-semibold">Add a public board</h2>
           <p className="mt-1 text-xs text-muted-foreground">
-            Add as many Greenhouse, Lever, or Ashby boards as you need.
+            Add as many boards as you need across Greenhouse, Lever, Ashby, and 10 more ATS sources.
           </p>
 
           <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -354,7 +354,7 @@ export default function BoardsPage() {
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="font-semibold text-white">{boardProvider.name}</p>
                     <span className="truncate text-sm text-muted-foreground">
-                      {board.subdomain}
+                      {board.subdomain?.replace(/\|/g, " · ")}
                     </span>
                     <StatusBadge board={board} />
                   </div>

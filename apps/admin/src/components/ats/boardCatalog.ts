@@ -1,7 +1,6 @@
 import type { PublicBoardProviderId } from "./catalog";
 
-// Hand-curated catalog of well-known companies with a live public
-// Greenhouse / Lever / Ashby board.
+// Hand-curated catalog of well-known companies with a live public ATS board.
 //
 // The labels below are written by hand; every slug was probed against the
 // vendor's public board API before landing here, so selecting one always
@@ -339,6 +338,47 @@ export const PUBLIC_BOARD_COMPANIES: Record<PublicBoardProviderId, PublicBoardCo
     { slug: "writer", label: "WRITER", region: "global", roles: 45 },
     { slug: "xero", label: "Xero", region: "global", roles: 110 },
     { slug: "zip", label: "Zip", region: "global", roles: 117 },
+  ],
+  smartrecruiters: [
+    { slug: "Freshworks", label: "Freshworks", region: "india", roles: 126 },
+    { slug: "BoschGroup", label: "Bosch Group", region: "global", roles: 5084 },
+  ],
+  workday: [
+    { slug: "nvidia|wd5|NVIDIAExternalCareerSite", label: "NVIDIA", region: "global", roles: 2000 },
+    { slug: "salesforce|wd12|External_Career_Site", label: "Salesforce", region: "global", roles: 1577 },
+    { slug: "adobe|wd5|external_experienced", label: "Adobe", region: "global", roles: 297 },
+  ],
+  workable: [
+    { slug: "huggingface", label: "Hugging Face", region: "global", roles: 6 },
+    { slug: "sideinc", label: "Side", region: "global", roles: 375 },
+    { slug: "navarro-inc", label: "Navarro", region: "global", roles: 48 },
+    { slug: "organox", label: "OrganOx", region: "global", roles: 31 },
+    { slug: "fabulousco", label: "Fabulous", region: "global", roles: 30 },
+    { slug: "connexity", label: "Connexity", region: "global", roles: 7 },
+    { slug: "scalable", label: "The Scalable Company", region: "global", roles: 6 },
+  ],
+  oracle_cloud: [
+    { slug: "jpmc.fa.oraclecloud.com|CX_1001", label: "JPMorgan Chase", region: "global", roles: 7250 },
+  ],
+  eightfold: [
+    { slug: "explore.jobs.netflix.net|netflix.com", label: "Netflix", region: "global", roles: 391 },
+  ],
+  rippling: [
+    { slug: "rippling", label: "Rippling", region: "global", roles: 649 },
+  ],
+  breezy: [
+    { slug: "prageru", label: "PragerU", region: "global", roles: 9 },
+    { slug: "aceandcompany", label: "ACE and Company", region: "global", roles: 2 },
+  ],
+  recruitee: [
+    { slug: "bunq", label: "bunq", region: "global", roles: 21 },
+  ],
+  personio: [
+    { slug: "matrix42", label: "Matrix42", region: "global", roles: 35 },
+    { slug: "climate", label: "Climate Analytics", region: "global", roles: 3 },
+  ],
+  teamtailor: [
+    { slug: "career.teamtailor.com", label: "Teamtailor", region: "global", roles: 14 },
   ],
 };
 

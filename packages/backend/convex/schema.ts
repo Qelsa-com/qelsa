@@ -622,7 +622,7 @@ export default defineSchema({
 
   ats_integrations: defineTable({
     user_id: v.id("users"),
-    provider: v.union(v.literal("zoho_recruit"), v.literal("greenhouse"), v.literal("lever"), v.literal("keka"), v.literal("ashby"), v.literal("bamboohr"), v.literal("workday"), v.literal("darwinbox"), v.literal("icims")),
+    provider: v.union(v.literal("zoho_recruit"), v.literal("greenhouse"), v.literal("lever"), v.literal("keka"), v.literal("ashby"), v.literal("bamboohr"), v.literal("workday"), v.literal("smartrecruiters"), v.literal("workable"), v.literal("oracle_cloud"), v.literal("eightfold"), v.literal("rippling"), v.literal("breezy"), v.literal("recruitee"), v.literal("personio"), v.literal("teamtailor"), v.literal("darwinbox"), v.literal("icims")),
     status: v.union(v.literal("connected"), v.literal("error"), v.literal("pending"), v.literal("disconnected")),
     auth_type: v.union(v.literal("oauth"), v.literal("api_key"), v.literal("gated"), v.literal("board")),
     // employer = user's own ATS (Harvest / API key). public_board = admin-ingested career site.
