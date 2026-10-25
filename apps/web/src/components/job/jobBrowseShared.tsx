@@ -25,7 +25,8 @@ import { City } from "@/types/city";
 import { Job } from "@/types/job";
 import { BarChart3, Building2, Check, ChevronDown, MapPin, Search, Sparkle, Target, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 /* --------------------------------- types ---------------------------------- */
 
@@ -408,6 +409,19 @@ export function MatchRing({
 
 /* --------------------------- multi-select pill ---------------------------- */
 
+/** Keep filter menus above the scroll container that clips absolutely positioned children on mobile. */
+function filterMenuStyle(rect: DOMRect, width: number): CSSProperties {
+  const maxWidth = window.innerWidth - 16;
+  const menuWidth = Math.min(width, maxWidth);
+  return {
+    position: "fixed",
+    top: rect.bottom + 8,
+    left: Math.max(8, Math.min(rect.left, window.innerWidth - menuWidth - 8)),
+    width: menuWidth,
+    zIndex: 10_000,
+  };
+}
+
 /**
  * Filter pill whose dropdown holds checkboxes rather than radio-style options.
  * Figma: Qelsa-Screen — all-jobs-filter-active (262:10); the pill turns cyan
@@ -415,15 +429,45 @@ export function MatchRing({
  */
 export function MultiSelectPill({ label, options, values, onChange }: { label: string; options: { label: string; value: string }[]; values: string[]; onChange: (values: string[]) => void }) {
   const [open, setOpen] = useState(false);
+  const [menuStyle, setMenuStyle] = useState<CSSProperties | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [alignRight, setAlignRight] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
   const active = values.length > 0;
 
   useEffect(() => {
-    if (open && containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect();
-      setAlignRight(rect.left + 230 > window.innerWidth);
+    if (!open) return;
+    const closeOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (containerRef.current?.contains(target) || menuRef.current?.contains(target)) return;
+      setOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", closeOutside);
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("mousedown", closeOutside);
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) {
+      setMenuStyle(null);
+      return;
     }
+    const update = () => {
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (rect) setMenuStyle(filterMenuStyle(rect, 220));
+    };
+    update();
+    window.addEventListener("resize", update);
+    window.addEventListener("scroll", update, true);
+    return () => {
+      window.removeEventListener("resize", update);
+      window.removeEventListener("scroll", update, true);
+    };
   }, [open]);
 
   const toggle = (value: string) => {
@@ -433,6 +477,9 @@ export function MultiSelectPill({ label, options, values, onChange }: { label: s
   return (
     <div ref={containerRef} className="relative">
       <button
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
         className={`flex h-[34px] items-center gap-1 rounded-full border py-2 pl-3 pr-2.5 text-xs font-medium transition-colors sm:h-[42px] sm:gap-1.5 sm:py-3 sm:pl-5 sm:pr-4 sm:text-[13px] ${
           active ? "border-neon-cyan bg-neon-cyan/10 text-neon-cyan" : "border-glass-border text-white/70 hover:border-white/25"
@@ -443,24 +490,36 @@ export function MultiSelectPill({ label, options, values, onChange }: { label: s
         <ChevronDown className={`size-3.5 transition-transform sm:size-4 ${open ? "rotate-180" : ""}`} />
       </button>
 
-      {open && (
-        <>
-          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className={`absolute z-20 mt-2 flex w-[220px] max-w-[calc(100vw-24px)] flex-col gap-0.5 rounded-xl border border-glass-border bg-[#1a1a24] p-2 shadow-2xl ${alignRight ? "right-0" : "left-0"}`}>
-            {options.map((o) => {
-              const checked = values.includes(o.value);
-              return (
-                <button key={o.value} onClick={() => toggle(o.value)} className={`flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors ${checked ? "bg-white/[0.08]" : "hover:bg-white/5"}`}>
-                  <span className={`flex size-[18px] shrink-0 items-center justify-center rounded border-2 ${checked ? "border-neon-cyan bg-neon-cyan" : "border-white/35"}`}>
-                    {checked && <Check className="size-2.5 text-[#06060f]" strokeWidth={4} />}
-                  </span>
-                  <span className="text-sm font-medium text-white/90">{o.label}</span>
-                </button>
-              );
-            })}
-          </div>
-        </>
-      )}
+      {open && menuStyle
+        ? createPortal(
+            <div
+              ref={menuRef}
+              role="menu"
+              style={menuStyle}
+              className="flex max-h-[min(60vh,320px)] flex-col gap-0.5 overflow-y-auto rounded-xl border border-glass-border bg-[#1a1a24] p-2 shadow-2xl"
+            >
+                {options.map((o) => {
+                  const checked = values.includes(o.value);
+                  return (
+                    <button
+                      key={o.value}
+                      type="button"
+                      role="menuitemcheckbox"
+                      aria-checked={checked}
+                      onClick={() => toggle(o.value)}
+                      className={`flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors ${checked ? "bg-white/[0.08]" : "hover:bg-white/5"}`}
+                    >
+                      <span className={`flex size-[18px] shrink-0 items-center justify-center rounded border-2 ${checked ? "border-neon-cyan bg-neon-cyan" : "border-white/35"}`}>
+                        {checked && <Check className="size-2.5 text-[#06060f]" strokeWidth={4} />}
+                      </span>
+                      <span className="text-sm font-medium text-white/90">{o.label}</span>
+                    </button>
+                  );
+                })}
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }
@@ -491,20 +550,53 @@ export function AppliedFilters({ chips, onClear }: { chips: { key: string; label
 
 export function PillDropdown({ label, value, options, onSelect }: { label: string; value: string; options: { label: string; value: string }[]; onSelect: (value: string) => void }) {
   const [open, setOpen] = useState(false);
+  const [menuStyle, setMenuStyle] = useState<CSSProperties | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [alignRight, setAlignRight] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (open && containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect();
-      setAlignRight(rect.left + 190 > window.innerWidth);
+    if (!open) return;
+    const closeOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (containerRef.current?.contains(target) || menuRef.current?.contains(target)) return;
+      setOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", closeOutside);
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("mousedown", closeOutside);
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) {
+      setMenuStyle(null);
+      return;
     }
+    const update = () => {
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (rect) setMenuStyle(filterMenuStyle(rect, 220));
+    };
+    update();
+    window.addEventListener("resize", update);
+    window.addEventListener("scroll", update, true);
+    return () => {
+      window.removeEventListener("resize", update);
+      window.removeEventListener("scroll", update, true);
+    };
   }, [open]);
 
   const current = options.find((o) => o.value === value && o.value !== "");
   return (
     <div ref={containerRef} className="relative">
       <button
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
         className={`flex h-[34px] items-center gap-1 rounded-full border py-2 pl-3 pr-2.5 text-xs font-medium transition-colors sm:h-[42px] sm:gap-1.5 sm:py-3 sm:pl-5 sm:pr-4 sm:text-[13px] ${
           current ? "border-neon-cyan/40 text-white" : "border-glass-border text-white/70 hover:border-white/25"
@@ -513,25 +605,33 @@ export function PillDropdown({ label, value, options, onSelect }: { label: strin
         <span>{current?.label ?? label}</span>
         <ChevronDown className={`size-3.5 transition-transform sm:size-4 ${open ? "rotate-180" : ""}`} />
       </button>
-      {open && (
-        <>
-          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className={`absolute z-20 mt-2 min-w-[180px] max-w-[calc(100vw-24px)] overflow-hidden rounded-xl border border-glass-border bg-[#0d0d1a] p-1 shadow-2xl ${alignRight ? "right-0" : "left-0"}`}>
-            {options.map((o) => (
-              <button
-                key={o.value || "any"}
-                onClick={() => {
-                  onSelect(o.value);
-                  setOpen(false);
-                }}
-                className={`block w-full rounded-lg px-3 py-2 text-left text-[13px] transition-colors hover:bg-white/5 ${o.value === value ? "text-neon-cyan" : "text-white/80"}`}
-              >
-                {o.label}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
+      {open && menuStyle
+        ? createPortal(
+            <div
+              ref={menuRef}
+              role="menu"
+              style={menuStyle}
+              className="max-h-[min(60vh,320px)] overflow-y-auto rounded-xl border border-glass-border bg-[#0d0d1a] p-1 shadow-2xl"
+            >
+              {options.map((o) => (
+                <button
+                  key={o.value || "any"}
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={o.value === value}
+                  onClick={() => {
+                    onSelect(o.value);
+                    setOpen(false);
+                  }}
+                  className={`block w-full rounded-lg px-3 py-2 text-left text-[13px] transition-colors hover:bg-white/5 ${o.value === value ? "text-neon-cyan" : "text-white/80"}`}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }
