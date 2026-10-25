@@ -277,6 +277,21 @@ async function getJson(url: string, init?: RequestInit) {
   return JSON.parse(text) as unknown;
 }
 
+async function getJsonRetry(url: string, init?: RequestInit, attempts = 3) {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    try {
+      return await getJson(url, init);
+    } catch (error) {
+      lastError = error;
+      const status = Number(String(error).match(/failed: (\d+)/)?.[1] ?? 0);
+      if (status && status !== 429 && status < 500) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 700 * (attempt + 1)));
+    }
+  }
+  throw lastError;
+}
+
 function basicAuth(user: string, password: string) {
   return `Basic ${btoa(`${user}:${password}`)}`;
 }
@@ -588,10 +603,14 @@ export async function fetchZohoRecruit(clientId?: string, clientSecret?: string,
 /* Additional public boards                                            */
 /* ------------------------------------------------------------------ */
 
-const SMART_DETAIL_LIMIT = 300;
-const WORKDAY_DETAIL_LIMIT = 200;
-const EIGHTFOLD_DETAIL_LIMIT = 150;
-const RIPPLING_DETAIL_LIMIT = 150;
+// These providers only return list summaries. Fetch detail for every listed
+// job (bounded by MAX_JOBS) so the stored description and skill extraction do
+// not disappear for jobs later in the list.
+const SMART_DETAIL_LIMIT = MAX_JOBS;
+const WORKDAY_DETAIL_LIMIT = MAX_JOBS;
+const EIGHTFOLD_DETAIL_LIMIT = MAX_JOBS;
+const RIPPLING_DETAIL_LIMIT = MAX_JOBS;
+const ZOHO_DETAIL_LIMIT = 250;
 
 async function getText(url: string, accept = "text/plain") {
   const res = await fetch(url, {
@@ -656,11 +675,11 @@ export async function fetchSmartRecruiters(identifier: string): Promise<Normaliz
   }
 
   const details = new Map<string, Record<string, unknown>>();
-  await mapLimit(postings.slice(0, SMART_DETAIL_LIMIT), 8, async (row) => {
+  await mapLimit(postings.slice(0, SMART_DETAIL_LIMIT), 6, async (row) => {
     const id = String(row.id ?? "");
     if (!id) return null;
     try {
-      details.set(id, (await getJson(`${base}/${encodeURIComponent(id)}`)) as Record<string, unknown>);
+      details.set(id, (await getJsonRetry(`${base}/${encodeURIComponent(id)}`)) as Record<string, unknown>);
     } catch {
       // List data is still useful if one detail call fails.
     }
@@ -735,11 +754,11 @@ export async function fetchWorkday(identifier: string): Promise<NormalizedJob[]>
   }
 
   const details = new Map<string, Record<string, unknown>>();
-  await mapLimit(postings.slice(0, WORKDAY_DETAIL_LIMIT), 6, async (posting) => {
+  await mapLimit(postings.slice(0, WORKDAY_DETAIL_LIMIT), 4, async (posting) => {
     const externalPath = typeof posting.externalPath === "string" ? posting.externalPath : "";
     if (!externalPath) return null;
     try {
-      const detail = (await getJson(`https://${host}/wday/cxs/${encodeURIComponent(tenant)}/${encodeURIComponent(site)}${externalPath}`)) as Record<string, unknown>;
+      const detail = (await getJsonRetry(`https://${host}/wday/cxs/${encodeURIComponent(tenant)}/${encodeURIComponent(site)}${externalPath}`)) as Record<string, unknown>;
       const info = detail.jobPostingInfo as Record<string, unknown> | undefined;
       if (info) details.set(externalPath, info);
     } catch {
@@ -886,7 +905,7 @@ export async function fetchEightfold(identifier: string): Promise<NormalizedJob[
     const id = String(row.id ?? "");
     if (!id) return null;
     try {
-      details.set(id, (await getJson(`https://${host}/api/apply/v2/jobs/${encodeURIComponent(id)}?domain=${encodeURIComponent(domain)}`)) as Record<string, unknown>);
+      details.set(id, (await getJsonRetry(`https://${host}/api/apply/v2/jobs/${encodeURIComponent(id)}?domain=${encodeURIComponent(domain)}`)) as Record<string, unknown>);
     } catch {
       // Keep the list row.
     }
@@ -942,7 +961,7 @@ export async function fetchRippling(identifier: string): Promise<NormalizedJob[]
     const id = String(item.id ?? item.uuid ?? "");
     if (!id) return null;
     try {
-      details.set(id, (await getJson(`${base}/${encodeURIComponent(id)}`)) as Record<string, unknown>);
+      details.set(id, (await getJsonRetry(`${base}/${encodeURIComponent(id)}`)) as Record<string, unknown>);
     } catch {
       // Keep list data.
     }
@@ -1257,6 +1276,76 @@ function hiddenInputJson(html: string, id: string) {
   return undefined;
 }
 
+function decodeJsString(raw: string) {
+  let result = "";
+  for (let i = 0; i < raw.length; i++) {
+    const char = raw[i];
+    if (char !== "\\") {
+      result += char;
+      continue;
+    }
+    const next = raw[++i];
+    if (!next) break;
+    if (next === "x") {
+      result += String.fromCharCode(Number.parseInt(raw.slice(i + 1, i + 3), 16));
+      i += 2;
+    } else if (next === "u") {
+      result += String.fromCharCode(Number.parseInt(raw.slice(i + 1, i + 5), 16));
+      i += 4;
+    } else if (next === "n") result += "\n";
+    else if (next === "r") result += "\r";
+    else if (next === "t") result += "\t";
+    else if (next === "b") result += "\b";
+    else if (next === "f") result += "\f";
+    else if (next === "v") result += "\v";
+    else if (next === "0") result += "\0";
+    else result += next;
+  }
+  return result;
+}
+
+function zohoDetailJobs(html: string) {
+  const marker = "var jobs = JSON.parse('";
+  const start = html.indexOf(marker);
+  if (start === -1) return [];
+  const contentStart = start + marker.length;
+  let escaped = false;
+  let end = -1;
+  for (let i = contentStart; i < html.length; i++) {
+    const char = html[i];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (char === "\\") {
+      escaped = true;
+      continue;
+    }
+    if (char === "'") {
+      end = i;
+      break;
+    }
+  }
+  if (end === -1) return [];
+  try {
+    const parsed = JSON.parse(decodeJsString(html.slice(contentStart, end))) as unknown;
+    return Array.isArray(parsed) ? (parsed as Array<Record<string, unknown>>) : [];
+  } catch {
+    return [];
+  }
+}
+
+async function fetchZohoDescription(origin: string, id: string) {
+  try {
+    const html = await getText(`${origin}/jobs/careers/${encodeURIComponent(id)}`, "text/html");
+    const rows = zohoDetailJobs(html);
+    const row = rows.find((item) => String(item.id) === String(id)) ?? rows[0];
+    return normalizeAtsHtml(typeof row?.Job_Description === "string" ? row.Job_Description : undefined);
+  } catch {
+    return undefined;
+  }
+}
+
 /** Zoho Recruit's hosted careers page embeds the complete job list in #jobs. */
 export async function fetchZohoRecruitPublic(identifier: string): Promise<NormalizedJob[]> {
   const slug = slugFromInput(identifier, /\.zohorecruit\.com$/i).trim();
@@ -1269,10 +1358,20 @@ export async function fetchZohoRecruitPublic(identifier: string): Promise<Normal
   const companyName = meta?.org_info?.company_name || titleCaseCompany(slug);
   const companyWebsite = meta?.org_info?.website;
   const domain = companyDomain(companyWebsite, slug);
-  return (jobs as Array<Record<string, unknown>>)
+  const rows = (jobs as Array<Record<string, unknown>>)
     .filter((job) => job.Publish !== false)
-    .slice(0, MAX_JOBS)
-    .map((job) => {
+    .slice(0, MAX_JOBS);
+  const descriptions = new Map<string, string>();
+  await mapLimit(
+    rows.filter((job) => !job.Job_Description).slice(0, ZOHO_DETAIL_LIMIT),
+    6,
+    async (job) => {
+      const description = await fetchZohoDescription(origin, String(job.id));
+      if (description) descriptions.set(String(job.id), description);
+      return undefined;
+    },
+  );
+  return rows.map((job) => {
       const location = joinLocation([
         typeof job.City === "string" ? job.City : undefined,
         typeof job.State === "string" ? job.State : undefined,
@@ -1283,7 +1382,9 @@ export async function fetchZohoRecruitPublic(identifier: string): Promise<Normal
       return {
         external_id: `zoho_public_${slug}_${job.id}`,
         title: typeof job.Posting_Title === "string" ? job.Posting_Title : typeof job.Job_Opening_Name === "string" ? job.Job_Opening_Name : undefined,
-        description: normalizeAtsHtml(typeof job.Job_Description === "string" ? job.Job_Description : undefined),
+        description:
+          normalizeAtsHtml(typeof job.Job_Description === "string" ? job.Job_Description : undefined) ??
+          descriptions.get(String(job.id)),
         application_url: `${origin}/jobs/careers/${job.id}`,
         company_name: companyName,
         company_logo: logoForDomain(domain),

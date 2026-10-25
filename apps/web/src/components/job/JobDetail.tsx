@@ -281,7 +281,11 @@ export function JobDetail() {
   const companyName = displayCompanyName(job.page?.name || job.company_name);
   const locationLabel = displayLocation(job);
   const title = job.job_title?.name ?? job.title;
-  const description = DOMPurify.sanitize(jobDescriptionToHtml(job.description || ""));
+  // ATS descriptions often carry their own light-theme inline colors and
+  // backgrounds. Strip those so the job copy inherits Qelsa's dark theme.
+  const description = DOMPurify.sanitize(jobDescriptionToHtml(job.description || ""), {
+    FORBID_ATTR: ["style"],
+  });
   const applied = Boolean(job.has_applied || (user?.id && job.applications?.some((a) => a.user_id === user.id)) || justApplied);
   const competency = job.competency;
 
