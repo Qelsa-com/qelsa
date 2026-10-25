@@ -27,7 +27,7 @@ import { jobDescriptionToHtml } from "@/lib/jobDescription";
 import { goBackJobs } from "@/lib/jobNavigation";
 import { Job } from "@/types/job";
 import DOMPurify from "dompurify";
-import { ArrowLeft, ArrowRight, ArrowUpRight, Bookmark, BookmarkCheck, BookOpen, Briefcase, Building2, CheckCircle2, FileText, Linkedin, Link as LinkIcon, MessageCircle, Pencil, Share2, Sparkles, Twitter, Users } from "lucide-react";
+import { ArrowLeft, ArrowRight, ArrowUpRight, Bookmark, BookmarkCheck, Briefcase, Building2, CheckCircle2, FileText, Linkedin, Link as LinkIcon, MessageCircle, Pencil, Share2, Sparkles, Twitter, Users } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -657,7 +657,7 @@ export function JobDetail() {
 
             {/* About the Company */}
             <div id="job-company" className="scroll-mt-36">
-              <SectionCard icon={<BookOpen className="size-5 text-neon-purple" />} title="About the Company">
+              <SectionCard title="About the Company">
                 {/*
                 Two shapes, one DOM. On a phone this is a 2-column grid: the logo
                 takes the first cell and the name/Verified block sits beside it,
