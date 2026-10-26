@@ -89,12 +89,7 @@ export function CoursesCatalog() {
   };
 
   return (
-    <main className="relative isolate min-h-screen overflow-hidden text-white">
-      <div aria-hidden className="pointer-events-none fixed inset-0 -z-10">
-        <div className="absolute left-1/2 top-0 h-[520px] w-[780px] -translate-x-1/2 rounded-full bg-neon-purple/[0.12] blur-[150px]" />
-        <div className="absolute -left-48 top-[420px] size-[420px] rounded-full bg-neon-cyan/[0.06] blur-[130px]" />
-      </div>
-
+    <main className="min-h-screen text-white">
       <div className="mx-auto w-full max-w-7xl px-5 py-10 sm:px-8 lg:py-14">
         <header>
           <h1 className="text-4xl font-extrabold tracking-[-0.035em] sm:text-5xl lg:text-6xl">Learn &amp; Practice</h1>
