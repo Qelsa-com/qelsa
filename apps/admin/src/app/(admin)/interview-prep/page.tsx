@@ -76,12 +76,10 @@ function ExtendTrackDialog({
   track,
   onClose,
   onExtend,
-  isExtending,
 }: {
   track: CurriculumTrack;
   onClose: () => void;
   onExtend: (count: number) => void;
-  isExtending: boolean;
 }) {
   const remaining = Math.max(0, MAX_TRACK_QUESTIONS - track.question_count);
   const max = Math.min(MAX_QUESTIONS_PER_GENERATION, remaining);
@@ -89,7 +87,7 @@ function ExtendTrackDialog({
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !isExtending) onClose();
+      if (event.key === "Escape") onClose();
     };
     document.addEventListener("keydown", onKey);
     const previous = document.body.style.overflow;
@@ -98,7 +96,7 @@ function ExtendTrackDialog({
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = previous;
     };
-  }, [isExtending, onClose]);
+  }, [onClose]);
 
   const submit = () => {
     if (count < 1 || count > max) return;
@@ -108,9 +106,7 @@ function ExtendTrackDialog({
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-0 backdrop-blur-sm sm:items-center sm:p-4"
-      onClick={() => {
-        if (!isExtending) onClose();
-      }}
+      onClick={onClose}
     >
       <form
         onSubmit={(event) => {
@@ -133,9 +129,8 @@ function ExtendTrackDialog({
           <button
             type="button"
             onClick={onClose}
-            disabled={isExtending}
             aria-label="Close extend dialog"
-            className="flex size-11 shrink-0 items-center justify-center rounded-full border border-glass-border text-white/60 transition-colors hover:text-white disabled:opacity-40"
+            className="flex size-11 shrink-0 items-center justify-center rounded-full border border-glass-border text-white/60 transition-colors hover:text-white"
           >
             <X className="size-4" />
           </button>
@@ -155,7 +150,6 @@ function ExtendTrackDialog({
             step={1}
             value={count}
             onChange={(event) => setCount(Number(event.target.value))}
-            disabled={isExtending}
             autoFocus
             className="h-11 rounded-xl border-glass-border bg-[#0c0d16] text-base font-semibold"
           />
@@ -165,16 +159,16 @@ function ExtendTrackDialog({
         </div>
 
         <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <Button type="button" variant="outline" onClick={onClose} disabled={isExtending} className="h-10 rounded-xl">
+          <Button type="button" variant="outline" onClick={onClose} className="h-10 rounded-xl">
             Cancel
           </Button>
           <Button
             type="submit"
-            disabled={isExtending || max === 0 || count < 1 || count > max}
+            disabled={max === 0 || count < 1 || count > max}
             className="gradient-primary h-10 rounded-xl px-5 text-xs font-bold text-white"
           >
-            {isExtending ? <Loader2 className="size-3.5 animate-spin" /> : <Sparkles className="size-3.5" />}
-            {isExtending ? "Writing questions…" : count > 0 ? `Add ${questionLabel(count)}` : "Add questions"}
+            <Sparkles className="size-3.5" />
+            {count > 0 ? `Add ${questionLabel(count)}` : "Add questions"}
           </Button>
         </div>
       </form>
@@ -195,6 +189,7 @@ export default function InterviewPrepPage() {
   const [level, setLevel] = useState("All");
   const [questionCount, setQuestionCount] = useState(DEFAULT_QUESTION_COUNT);
   const [extendTarget, setExtendTarget] = useState<CurriculumTrack | null>(null);
+  const [extendingTrack, setExtendingTrack] = useState<{ id: string; count: number } | null>(null);
   const [runsExpanded, setRunsExpanded] = useState(false);
 
   const runs = (runsData as CurriculumRun[] | undefined) ?? [];
@@ -251,20 +246,28 @@ export default function InterviewPrepPage() {
     }
   };
 
-  const handleExtendTrack = async (count: number) => {
-    if (!extendTarget) return;
-    try {
-      const result = (await extendForTrack({ trackId: extendTarget.id, count }).unwrap()) as {
-        added: number;
-        total: number;
-      };
-      toast.success(
-        `Added ${questionLabel(result.added)} to “${extendTarget.title}” · ${questionLabel(result.total)} total.`,
-      );
-      setExtendTarget(null);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not extend the track.");
-    }
+  const handleExtendTrack = (count: number) => {
+    const target = extendTarget;
+    if (!target) return;
+
+    // The Convex action owns the generation. Close the dialog immediately so
+    // the admin can keep working while the new questions are written.
+    setExtendTarget(null);
+    setExtendingTrack({ id: target.id, count });
+    toast.info(`Generating ${questionLabel(count)} in the background…`);
+
+    extendForTrack({ trackId: target.id, count })
+      .unwrap()
+      .then((raw) => {
+        const result = raw as { added: number; total: number };
+        toast.success(
+          `Added ${questionLabel(result.added)} to “${target.title}” · ${questionLabel(result.total)} total.`,
+        );
+      })
+      .catch((error) => {
+        toast.error(error instanceof Error ? error.message : "Could not extend the track.");
+      })
+      .finally(() => setExtendingTrack(null));
   };
 
   const updateStatus = async (track: CurriculumTrack, status: "draft" | "published" | "archived") => {
@@ -389,9 +392,11 @@ export default function InterviewPrepPage() {
                 <Bot className="size-4 text-neon-cyan" />
                 Curriculum agent runs
               </h2>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Each run plans against a bounded job-demand snapshot, builds content, runs QA, and auto-publishes only clean tracks.
-              </p>
+              {runsExpanded ? (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Each run plans against a bounded job-demand snapshot, builds content, runs QA, and auto-publishes only clean tracks.
+                </p>
+              ) : null}
             </div>
             <button
               type="button"
@@ -486,7 +491,12 @@ export default function InterviewPrepPage() {
                     ) : null}
                   </div>
                   <div className="flex shrink-0 flex-wrap items-center gap-2">
-                    {track.status !== "archived" && track.question_count < MAX_TRACK_QUESTIONS ? (
+                    {extendingTrack?.id === track.id ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-lg border border-sky-400/20 bg-sky-400/[0.06] px-3 py-1.5 text-[11px] font-semibold text-sky-300">
+                        <Loader2 className="size-3 animate-spin" />
+                        Generating…
+                      </span>
+                    ) : track.status !== "archived" && track.question_count < MAX_TRACK_QUESTIONS ? (
                       <button
                         type="button"
                         disabled={isExtending}
@@ -522,8 +532,7 @@ export default function InterviewPrepPage() {
         <ExtendTrackDialog
           track={extendTarget}
           onClose={() => setExtendTarget(null)}
-          onExtend={(count) => void handleExtendTrack(count)}
-          isExtending={isExtending}
+          onExtend={handleExtendTrack}
         />
       ) : null}
     </div>
