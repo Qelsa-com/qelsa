@@ -365,6 +365,7 @@ export function useJobBrowseFilters(
     max_readiness: tier ? MATCH_TIER[tier].maxReadiness : undefined,
   }));
   const wasSearching = useRef(false);
+  const previousDefaultSort = useRef(defaultSort);
 
   // URL is the source of truth so a filtered list survives refresh, sharing,
   // and browser back/forward from a job-detail page.
@@ -379,6 +380,18 @@ export function useJobBrowseFilters(
     }
     setHydrated(true);
   }, [router.isReady, router.query, hydrated, tier, defaultSort]);
+
+  // Adopt a changed default once auth/profile state resolves, unless the URL
+  // already carries an explicit sort chosen by the user.
+  useEffect(() => {
+    if (!hydrated) return;
+    const previous = previousDefaultSort.current;
+    previousDefaultSort.current = defaultSort;
+    if (previous === defaultSort || router.query.sort) return;
+    setFilters((current) =>
+      current.sort_by === previous ? { ...current, sort_by: defaultSort } : current,
+    );
+  }, [defaultSort, hydrated, router.query.sort]);
 
   // All Jobs opens as a raw newest-first listing. Once the candidate starts
   // searching, switch the default sort to Best match so readiness ranks the

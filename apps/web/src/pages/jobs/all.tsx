@@ -15,7 +15,8 @@ import Layout from "../../layout";
 const All = () => {
   const router = useRouter();
   const { user, isAuthenticated } = useAuth();
-  const { searchInput, setSearchInput, filters, applyFilters, discoverArgs, cityFilter, setCityFilter, commitSearch, hydrated } = useJobBrowseFilters(undefined, "date", isAuthenticated);
+  const defaultSort = isAuthenticated ? "relevance" : "date";
+  const { searchInput, setSearchInput, filters, applyFilters, discoverArgs, cityFilter, setCityFilter, commitSearch, hydrated } = useJobBrowseFilters(undefined, defaultSort, isAuthenticated);
   const { results, status, isLoading, loadMore } = usePaginatedJobsQuery(discoverArgs, JOBS_PAGE_SIZE, { skip: !hydrated });
   const { data: filteredTotal } = useCountJobsQuery(discoverArgs, { skip: !hydrated });
   const { data: myResumes } = useGetMyResumesQuery(undefined, { skip: !isAuthenticated });
@@ -42,7 +43,7 @@ const All = () => {
           setCityFilter={setCityFilter}
           resultsCount={{ loaded, total }}
           suppressGoalBanner
-          defaultSort="date"
+          defaultSort={defaultSort}
         />
 
         {/* ----------------------------- All jobs ------------------------------ */}
