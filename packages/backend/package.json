@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "convex dev",
     "dev:once": "convex dev --once",
-    "deploy": "convex deploy",
+    "deploy": "convex deploy --yes",
     "check-types": "tsc --noEmit -p tsconfig.json",
     "lint": "eslint convex"
   },

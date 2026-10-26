@@ -1,10 +1,10 @@
+import { formatCity } from "@/constants/city";
+import { ProficiencyLevel, proficiencyLabel } from "@/constants/skills";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGetCertificationsQuery } from "@/features/api/certificationsApi";
 import { useGetEducationsQuery } from "@/features/api/educationsApi";
 import { useGetExperiencesQuery } from "@/features/api/experiencesApi";
 import { useGetUserSkillsQuery } from "@/features/api/userSkillsApi";
-import { ProficiencyLevel, proficiencyLabel } from "@/constants/skills";
-import { formatCity } from "@/constants/city";
 import {
   Activity,
   ArrowRight,
@@ -231,7 +231,7 @@ export function MySpacePage({}: MySpacePageProps) {
   }
 
   const handleEditCertifications = () => {
-    router.push('/profile/certifications');
+    router.push("/profile/certifications");
   };
 
   const dashboardContent = (
@@ -242,7 +242,7 @@ export function MySpacePage({}: MySpacePageProps) {
         <div className="relative z-10 text-center space-y-6">
           <div>
             <h1 className="text-5xl font-bold mb-4">
-              <span className="bg-gradient-to-r from-neon-cyan via-neon-purple to-neon-pink bg-clip-text text-transparent">Welcome back,</span>
+              <span className="bg-gradient-to-r from-neon-cyan via-neon-purple to-neon-pink bg-clip-text text-transparent">Hi,</span>
               <br />
               <span className="text-white">{user?.name}! 👋</span>
             </h1>
@@ -250,20 +250,13 @@ export function MySpacePage({}: MySpacePageProps) {
           </div>
 
           <div className="flex items-center justify-center gap-4">
-            <Button
-              className="group glass-strong hover:glow-cyan transition-all duration-300 px-8 py-3 rounded-2xl border-0 gradient-primary hover:scale-105"
-              onClick={() => router.push("/agent")}
-            >
+            <Button className="group glass-strong hover:glow-cyan transition-all duration-300 px-8 py-3 rounded-2xl border-0 gradient-primary hover:scale-105" onClick={() => router.push("/agent")}>
               <Brain className="h-5 w-5 mr-2 group-hover:rotate-12 transition-transform" />
               Ask Qelsa AI
               <Sparkles className="h-4 w-4 ml-2 group-hover:rotate-45 transition-transform" />
             </Button>
 
-            <Button
-              variant="outline"
-              className="group glass hover:glass-strong transition-all duration-300 px-8 py-3 rounded-2xl border border-glass-border hover:border-neon-purple hover:scale-105"
-              onClick={() => router.push("/jobs/all")}
-            >
+            <Button variant="outline" className="group glass hover:glass-strong transition-all duration-300 px-8 py-3 rounded-2xl border border-glass-border hover:border-neon-purple hover:scale-105" onClick={() => router.push("/jobs/all")}>
               <Rocket className="h-5 w-5 mr-2 group-hover:-rotate-12 transition-transform" />
               Explore Jobs
             </Button>
@@ -292,9 +285,7 @@ export function MySpacePage({}: MySpacePageProps) {
               </div>
             </div>
             <Progress value={animatedValues.careerScore} className="h-4 bg-glass-bg mb-4" />
-            <p className="text-muted-foreground">
-              Your career health is excellent! You&apos;re in the top 15% of professionals in your field. Focus on expanding your network to reach the next level.
-            </p>
+            <p className="text-muted-foreground">Your career health is excellent! You&apos;re in the top 15% of professionals in your field. Focus on expanding your network to reach the next level.</p>
           </div>
 
           <div className="space-y-4">
@@ -754,7 +745,7 @@ export function MySpacePage({}: MySpacePageProps) {
                       map.get(key)!.skills.push(skill);
                       return map;
                     }, new Map<number, { name: string; skills: typeof userSkills }>())
-                    .entries()
+                    .entries(),
                 ).map(([catId, { name: categoryName, skills: categorySkills }], idx, arr) => {
                   const limited = categorySkills!.slice(0, 3);
                   if (limited.length === 0) return null;
@@ -770,13 +761,7 @@ export function MySpacePage({}: MySpacePageProps) {
                               </div>
                               <span
                                 className={`font-medium ${
-                                  skill.experience_level === "Expert"
-                                    ? "text-neon-yellow"
-                                    : skill.experience_level === "Advanced"
-                                      ? "text-neon-green"
-                                      : skill.experience_level === "Intermediate"
-                                        ? "text-neon-cyan"
-                                        : "text-neon-pink"
+                                  skill.experience_level === "Expert" ? "text-neon-yellow" : skill.experience_level === "Advanced" ? "text-neon-green" : skill.experience_level === "Intermediate" ? "text-neon-cyan" : "text-neon-pink"
                                 }`}
                               >
                                 {skill.experience_level}
@@ -801,12 +786,7 @@ export function MySpacePage({}: MySpacePageProps) {
             <Award className="h-5 w-5 text-neon-yellow" />
             <h3 className="text-xl font-bold text-white">Certifications & Licenses</h3>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="glass hover:glass-strong border-neon-yellow/30 text-neon-yellow hover:text-neon-yellow"
-            onClick={handleEditCertifications}
-          >
+          <Button variant="ghost" size="sm" className="glass hover:glass-strong border-neon-yellow/30 text-neon-yellow hover:text-neon-yellow" onClick={handleEditCertifications}>
             <Edit3 className="h-4 w-4 mr-2" />
             Edit
           </Button>
@@ -815,10 +795,10 @@ export function MySpacePage({}: MySpacePageProps) {
           {certifications && certifications.length > 0 ? (
             certifications.map((cert, index) => {
               const formatDate = (dateStr: string) => {
-                if (!dateStr) return '';
-                const [year, month] = dateStr.split('-');
+                if (!dateStr) return "";
+                const [year, month] = dateStr.split("-");
                 if (!month) return year;
-                const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
                 return `${monthNames[parseInt(month) - 1]} ${year}`;
               };
 
@@ -830,41 +810,23 @@ export function MySpacePage({}: MySpacePageProps) {
                       <p className="text-neon-yellow">{cert.issuing_body?.name}</p>
                       <p className="text-sm text-muted-foreground">
                         Issued {formatDate(cert.issue_date)}
-                        {!cert.does_not_expire && cert.expiration_date &&
-                          ` • Expires ${formatDate(cert.expiration_date)}`}
-                        {cert.does_not_expire && ' • No Expiration'}
+                        {!cert.does_not_expire && cert.expiration_date && ` • Expires ${formatDate(cert.expiration_date)}`}
+                        {cert.does_not_expire && " • No Expiration"}
                       </p>
-                      {cert.credential_id && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Credential ID: {cert.credential_id}
-                        </p>
-                      )}
+                      {cert.credential_id && <p className="text-xs text-muted-foreground mt-1">Credential ID: {cert.credential_id}</p>}
                       {cert.skills && cert.skills.length > 0 && (
                         <div className="flex flex-wrap gap-1.5 mt-2">
                           {cert.skills.slice(0, 3).map((skill) => (
-                            <Badge
-                              key={skill.id}
-                              className="bg-neon-purple/20 text-white border-0 text-xs"
-                            >
+                            <Badge key={skill.id} className="bg-neon-purple/20 text-white border-0 text-xs">
                               {skill.name}
                             </Badge>
                           ))}
-                          {cert.skills.length > 3 && (
-                            <Badge className="bg-white/5 text-muted-foreground border-0 text-xs">
-                              +{cert.skills.length - 3} more
-                            </Badge>
-                          )}
+                          {cert.skills.length > 3 && <Badge className="bg-white/5 text-muted-foreground border-0 text-xs">+{cert.skills.length - 3} more</Badge>}
                         </div>
                       )}
                     </div>
                     {cert.credential_url && (
-                      <a
-                        href={cert.credential_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="ml-3 text-neon-cyan hover:text-neon-cyan/80 transition-colors"
-                        title="View Credential"
-                      >
+                      <a href={cert.credential_url} target="_blank" rel="noopener noreferrer" className="ml-3 text-neon-cyan hover:text-neon-cyan/80 transition-colors" title="View Credential">
                         <Award className="h-5 w-5" />
                       </a>
                     )}
@@ -875,14 +837,8 @@ export function MySpacePage({}: MySpacePageProps) {
           ) : (
             <div className="p-6 glass rounded-xl border border-glass-border text-center">
               <Award className="h-8 w-8 text-neon-yellow/30 mx-auto mb-2" />
-              <p className="text-sm text-muted-foreground mb-3">
-                No certifications added yet
-              </p>
-              <Button
-                size="sm"
-                onClick={handleEditCertifications}
-                className="bg-neon-cyan"
-              >
+              <p className="text-sm text-muted-foreground mb-3">No certifications added yet</p>
+              <Button size="sm" onClick={handleEditCertifications} className="bg-neon-cyan">
                 <Plus className="h-4 w-4 mr-2" />
                 Add Certification
               </Button>
@@ -890,7 +846,6 @@ export function MySpacePage({}: MySpacePageProps) {
           )}
         </div>
       </Card>
-
     </div>
   );
 
@@ -962,9 +917,7 @@ export function MySpacePage({}: MySpacePageProps) {
         </div>
 
         {/* Professional Profile */}
-        <div className="space-y-8">
-          {profileContent}
-        </div>
+        <div className="space-y-8">{profileContent}</div>
       </div>
     </div>
   );

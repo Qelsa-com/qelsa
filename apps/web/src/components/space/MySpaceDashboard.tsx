@@ -219,7 +219,7 @@ export function MySpaceDashboard() {
         <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
             {/* <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/30">My Space</p> */}
-            <h1 className="mt-1.5 text-[26px] font-semibold tracking-tight text-white sm:text-[30px]">Welcome back{firstName ? `, ${firstName}` : ""}.</h1>
+            <h1 className="mt-1.5 text-[26px] font-semibold tracking-tight text-white sm:text-[30px]">Hi{firstName ? `, ${firstName}` : ""}.</h1>
             <p className="mt-1 text-sm text-white/45">{headerSubtitle}</p>
           </div>
           <span
@@ -294,11 +294,7 @@ export function MySpaceDashboard() {
 
             {(heroState === "matches" || heroState === "goal-matches") && bestScore != null ? (
               <div className="hidden items-center gap-4 md:flex md:flex-col md:items-end">
-                <HeroRing
-                  value={bestScore}
-                  label={heroState === "goal-matches" ? "Goal fit" : "Match"}
-                  color={heroState === "goal-matches" ? GOAL_MATCH.color : undefined}
-                />
+                <HeroRing value={bestScore} label={heroState === "goal-matches" ? "Goal fit" : "Match"} color={heroState === "goal-matches" ? GOAL_MATCH.color : undefined} />
                 <div className="min-w-0 md:text-right">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/30">{heroState === "goal-matches" ? "Best goal fit" : "Best match"}</p>
                   <p className="mt-1 line-clamp-2 max-w-[220px] text-sm font-medium leading-snug text-white/85">{bestTitle}</p>
@@ -306,15 +302,7 @@ export function MySpaceDashboard() {
                 </div>
               </div>
             ) : setupVisible ? (
-              <HeroSnapshot
-                goalReady={goalReady}
-                targetRole={targetRole}
-                profilePercent={profilePercent}
-                profileDataLoading={profileDataLoading}
-                experienceCount={experienceCount}
-                skillCount={skillCount}
-                resumeCount={resumeCount}
-              />
+              <HeroSnapshot goalReady={goalReady} targetRole={targetRole} profilePercent={profilePercent} profileDataLoading={profileDataLoading} experienceCount={experienceCount} skillCount={skillCount} resumeCount={resumeCount} />
             ) : (
               <div className="hidden size-24 shrink-0 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.025] md:flex">
                 {heroState === "no-matches" ? <Search className="size-8 text-white/25" /> : <Target className="size-9 text-neon-cyan/60" />}
@@ -529,9 +517,7 @@ function SetupAction({ label, onClick, primary }: { label: string; onClick: () =
       onClick={onClick}
       className={cn(
         "inline-flex w-full items-center justify-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold transition sm:w-auto",
-        primary
-          ? "bg-gradient-to-r from-[#7c2ff3] to-[#d73e9d] text-white hover:brightness-110"
-          : "border border-white/[0.12] bg-white/[0.03] text-white/65 hover:border-white/20 hover:text-white",
+        primary ? "bg-gradient-to-r from-[#7c2ff3] to-[#d73e9d] text-white hover:brightness-110" : "border border-white/[0.12] bg-white/[0.03] text-white/65 hover:border-white/20 hover:text-white",
       )}
     >
       {label}
@@ -579,7 +565,7 @@ function HeroSnapshot({
       </div>
       <div className="mt-3 flex items-start justify-between gap-3 border-t border-white/[0.06] pt-3 text-[11px]">
         <span className="text-white/45">Goal</span>
-        <span className="max-w-[140px] text-right font-medium leading-snug text-white/75">{goalReady ? targetRole ?? "Set" : "Not set"}</span>
+        <span className="max-w-[140px] text-right font-medium leading-snug text-white/75">{goalReady ? (targetRole ?? "Set") : "Not set"}</span>
       </div>
     </div>
   );

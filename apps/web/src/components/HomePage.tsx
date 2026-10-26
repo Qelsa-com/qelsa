@@ -1,9 +1,9 @@
-import { ArrowRight, TrendingUp, Users, BookOpen, Briefcase, Zap, Target, Rocket, Star, Activity, Brain, Network, Sparkles } from 'lucide-react';
-import { Button } from './ui/button';
-import { Card } from './ui/card';
-import { Badge } from './ui/badge';
-import { Progress } from './ui/progress';
-import { useState, useEffect } from 'react';
+import { Activity, ArrowRight, BookOpen, Brain, Briefcase, Network, Rocket, Sparkles, Star, Target, TrendingUp, Users } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Badge } from "./ui/badge";
+import { Button } from "./ui/button";
+import { Card } from "./ui/card";
+import { Progress } from "./ui/progress";
 
 interface HomePageProps {
   onNavigate: (section: string) => void;
@@ -29,56 +29,56 @@ export function HomePage({ onNavigate }: HomePageProps) {
           current = target;
           clearInterval(timer);
         }
-        setAnimatedValues(prev => ({ ...prev, [key]: Math.floor(current) }));
+        setAnimatedValues((prev) => ({ ...prev, [key]: Math.floor(current) }));
       }, 30);
     };
 
-    animate(12, 'jobs');
-    animate(73, 'progress');
-    animate(45, 'connections');
-    animate(3, 'courses');
+    animate(12, "jobs");
+    animate(73, "progress");
+    animate(45, "connections");
+    animate(3, "courses");
   }, []);
 
   const quickStats = [
-    { 
-      label: 'Applications', 
-      value: animatedValues.jobs, 
-      target: '12',
-      icon: Briefcase, 
-      color: 'from-neon-cyan to-blue-500',
-      glow: 'glow-cyan'
+    {
+      label: "Applications",
+      value: animatedValues.jobs,
+      target: "12",
+      icon: Briefcase,
+      color: "from-neon-cyan to-blue-500",
+      glow: "glow-cyan",
     },
-    { 
-      label: 'Skill Level', 
-      value: animatedValues.progress, 
-      target: '73%',
-      icon: TrendingUp, 
-      color: 'from-neon-green to-emerald-500',
-      glow: 'glow-green'
+    {
+      label: "Skill Level",
+      value: animatedValues.progress,
+      target: "73%",
+      icon: TrendingUp,
+      color: "from-neon-green to-emerald-500",
+      glow: "glow-green",
     },
-    { 
-      label: 'Network', 
-      value: animatedValues.connections, 
-      target: '45',
-      icon: Users, 
-      color: 'from-neon-purple to-violet-500',
-      glow: 'glow-purple'
+    {
+      label: "Network",
+      value: animatedValues.connections,
+      target: "45",
+      icon: Users,
+      color: "from-neon-purple to-violet-500",
+      glow: "glow-purple",
     },
-    { 
-      label: 'Learning', 
-      value: animatedValues.courses, 
-      target: '3',
-      icon: BookOpen, 
-      color: 'from-neon-pink to-rose-500',
-      glow: 'glow-pink'
-    }
+    {
+      label: "Learning",
+      value: animatedValues.courses,
+      target: "3",
+      icon: BookOpen,
+      color: "from-neon-pink to-rose-500",
+      glow: "glow-pink",
+    },
   ];
 
   const recentActivity = [
-    { type: 'job', title: 'Applied to Product Manager at PayNxt Technologies', time: '2 hours ago' },
-    { type: 'skill', title: 'Completed: Digital Marketing Fundamentals Module 3', time: '1 day ago' },
-    { type: 'connection', title: 'Connected with Sarah Chen, Senior PM at TechCorp', time: '2 days ago' },
-    { type: 'assessment', title: 'Career Assessment completed - 89% match for PM roles', time: '3 days ago' }
+    { type: "job", title: "Applied to Product Manager at PayNxt Technologies", time: "2 hours ago" },
+    { type: "skill", title: "Completed: Digital Marketing Fundamentals Module 3", time: "1 day ago" },
+    { type: "connection", title: "Connected with Sarah Chen, Senior PM at TechCorp", time: "2 days ago" },
+    { type: "assessment", title: "Career Assessment completed - 89% match for PM roles", time: "3 days ago" },
   ];
 
   return (
@@ -92,35 +92,22 @@ export function HomePage({ onNavigate }: HomePageProps) {
       <div className="relative z-10 max-w-7xl mx-auto px-4 py-8">
         {/* Hero Section */}
         <div className="text-center mb-12">
-
-          
           <h1 className="text-5xl font-bold mb-4">
-            <span className="bg-gradient-to-r from-neon-cyan via-neon-purple to-neon-pink bg-clip-text text-transparent">
-              Welcome back,
-            </span>
+            <span className="bg-gradient-to-r from-neon-cyan via-neon-purple to-neon-pink bg-clip-text text-transparent">Hi,</span>
             <br />
             <span className="text-white">Alex! 👋</span>
           </h1>
-          
-          <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-            Your AI-powered career journey continues. Let&apos;s make today count and unlock new opportunities! 🚀
-          </p>
+
+          <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">Your AI-powered career journey continues. Let&apos;s make today count and unlock new opportunities! 🚀</p>
 
           <div className="flex items-center justify-center gap-4">
-            <Button 
-              onClick={() => onNavigate('kelsa-ai')}
-              className="group glass-strong hover:glow-cyan transition-all duration-300 px-8 py-3 rounded-2xl border-0 gradient-primary hover:scale-105"
-            >
+            <Button onClick={() => onNavigate("kelsa-ai")} className="group glass-strong hover:glow-cyan transition-all duration-300 px-8 py-3 rounded-2xl border-0 gradient-primary hover:scale-105">
               <Brain className="h-5 w-5 mr-2 group-hover:rotate-12 transition-transform" />
               Ask Kelsa AI
               <Sparkles className="h-4 w-4 ml-2 group-hover:rotate-45 transition-transform" />
             </Button>
-            
-            <Button 
-              variant="outline"
-              onClick={() => onNavigate('jobs')}
-              className="group glass hover:glass-strong transition-all duration-300 px-8 py-3 rounded-2xl border border-glass-border hover:border-neon-purple hover:scale-105"
-            >
+
+            <Button variant="outline" onClick={() => onNavigate("jobs")} className="group glass hover:glass-strong transition-all duration-300 px-8 py-3 rounded-2xl border border-glass-border hover:border-neon-purple hover:scale-105">
               <Rocket className="h-5 w-5 mr-2 group-hover:-rotate-12 transition-transform" />
               Explore Jobs
             </Button>
@@ -132,38 +119,24 @@ export function HomePage({ onNavigate }: HomePageProps) {
           {quickStats.map((stat, index) => {
             const Icon = stat.icon;
             return (
-              <Card 
-                key={index} 
-                className={`group relative glass hover:glass-strong ${stat.glow} p-6 rounded-2xl border border-glass-border hover:scale-105 transition-all duration-300 cursor-pointer`}
-              >
+              <Card key={index} className={`group relative glass hover:glass-strong ${stat.glow} p-6 rounded-2xl border border-glass-border hover:scale-105 transition-all duration-300 cursor-pointer`}>
                 <div className="flex items-center justify-between mb-4">
                   <div className={`p-3 rounded-xl bg-gradient-to-r ${stat.color} shadow-lg group-hover:scale-110 transition-transform duration-300`}>
                     <Icon className="h-6 w-6 text-white" />
                   </div>
-                  <Badge className="bg-glass-bg text-neon-cyan border-glass-border">
-                    +{Math.floor(Math.random() * 15) + 8}%
-                  </Badge>
+                  <Badge className="bg-glass-bg text-neon-cyan border-glass-border">+{Math.floor(Math.random() * 15) + 8}%</Badge>
                 </div>
-                
+
                 <div className="space-y-2">
                   <div className="flex items-baseline gap-2">
-                    <span className="text-3xl font-bold text-white">
-                      {stat.label.includes('Level') ? `${stat.value}%` : stat.value}
-                    </span>
-                    <span className="text-sm text-muted-foreground">
-                      {stat.label.includes('Level') ? 'Complete' : 'Total'}
-                    </span>
+                    <span className="text-3xl font-bold text-white">{stat.label.includes("Level") ? `${stat.value}%` : stat.value}</span>
+                    <span className="text-sm text-muted-foreground">{stat.label.includes("Level") ? "Complete" : "Total"}</span>
                   </div>
                   <p className="text-sm text-muted-foreground">{stat.label}</p>
-                  
-                  {stat.label.includes('Level') && (
-                    <Progress 
-                      value={stat.value} 
-                      className="h-2 bg-glass-bg"
-                    />
-                  )}
+
+                  {stat.label.includes("Level") && <Progress value={stat.value} className="h-2 bg-glass-bg" />}
                 </div>
-                
+
                 {/* Professional hover effect */}
                 <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-transparent via-white/3 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
               </Card>
@@ -179,12 +152,9 @@ export function HomePage({ onNavigate }: HomePageProps) {
               <h2 className="text-2xl font-bold text-white">Quick Actions</h2>
               <div className="h-px bg-gradient-to-r from-neon-cyan to-transparent flex-1"></div>
             </div>
-            
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
-              <Card 
-                className="group relative glass hover:glass-strong hover:glow-cyan p-6 rounded-2xl border border-glass-border hover:scale-105 transition-all duration-300 cursor-pointer"
-                onClick={() => onNavigate('kelsa-ai')}
-              >
+              <Card className="group relative glass hover:glass-strong hover:glow-cyan p-6 rounded-2xl border border-glass-border hover:scale-105 transition-all duration-300 cursor-pointer" onClick={() => onNavigate("kelsa-ai")}>
                 <div className="flex items-center gap-4">
                   <div className="relative">
                     <div className="w-14 h-14 rounded-2xl bg-gradient-to-r from-neon-cyan to-neon-purple flex items-center justify-center group-hover:rotate-6 transition-transform duration-300">
@@ -200,10 +170,7 @@ export function HomePage({ onNavigate }: HomePageProps) {
                 </div>
               </Card>
 
-              <Card 
-                className="group relative glass hover:glass-strong hover:glow-purple p-6 rounded-2xl border border-glass-border hover:scale-105 transition-all duration-300 cursor-pointer"
-                onClick={() => onNavigate('jobs')}
-              >
+              <Card className="group relative glass hover:glass-strong hover:glow-purple p-6 rounded-2xl border border-glass-border hover:scale-105 transition-all duration-300 cursor-pointer" onClick={() => onNavigate("jobs")}>
                 <div className="flex items-center gap-4">
                   <div className="relative">
                     <div className="w-14 h-14 rounded-2xl bg-gradient-to-r from-neon-purple to-neon-pink flex items-center justify-center group-hover:rotate-6 transition-transform duration-300">
@@ -219,10 +186,7 @@ export function HomePage({ onNavigate }: HomePageProps) {
                 </div>
               </Card>
 
-              <Card 
-                className="group relative glass hover:glass-strong hover:glow-pink p-6 rounded-2xl border border-glass-border hover:scale-105 transition-all duration-300 cursor-pointer"
-                onClick={() => onNavigate('courses')}
-              >
+              <Card className="group relative glass hover:glass-strong hover:glow-pink p-6 rounded-2xl border border-glass-border hover:scale-105 transition-all duration-300 cursor-pointer" onClick={() => onNavigate("courses")}>
                 <div className="flex items-center gap-4">
                   <div className="relative">
                     <div className="w-14 h-14 rounded-2xl bg-gradient-to-r from-neon-pink to-neon-yellow flex items-center justify-center group-hover:rotate-6 transition-transform duration-300">
@@ -238,10 +202,7 @@ export function HomePage({ onNavigate }: HomePageProps) {
                 </div>
               </Card>
 
-              <Card 
-                className="group relative glass hover:glass-strong hover:glow-green p-6 rounded-2xl border border-glass-border hover:scale-105 transition-all duration-300 cursor-pointer"
-                onClick={() => onNavigate('connections')}
-              >
+              <Card className="group relative glass hover:glass-strong hover:glow-green p-6 rounded-2xl border border-glass-border hover:scale-105 transition-all duration-300 cursor-pointer" onClick={() => onNavigate("connections")}>
                 <div className="flex items-center gap-4">
                   <div className="relative">
                     <div className="w-14 h-14 rounded-2xl bg-gradient-to-r from-neon-green to-neon-cyan flex items-center justify-center group-hover:rotate-6 transition-transform duration-300">
@@ -270,30 +231,21 @@ export function HomePage({ onNavigate }: HomePageProps) {
                     <span className="text-foreground">Product Management</span>
                     <span className="font-medium text-neon-cyan">73%</span>
                   </div>
-                  <Progress 
-                    value={73} 
-                    className="h-2 bg-glass-bg"
-                  />
+                  <Progress value={73} className="h-2 bg-glass-bg" />
                 </div>
                 <div>
                   <div className="flex justify-between text-sm mb-2">
                     <span className="text-foreground">Digital Marketing</span>
                     <span className="font-medium text-neon-purple">45%</span>
                   </div>
-                  <Progress 
-                    value={45} 
-                    className="h-2 bg-glass-bg"
-                  />
+                  <Progress value={45} className="h-2 bg-glass-bg" />
                 </div>
                 <div>
                   <div className="flex justify-between text-sm mb-2">
                     <span className="text-foreground">Data Analysis</span>
                     <span className="font-medium text-neon-green">82%</span>
                   </div>
-                  <Progress 
-                    value={82} 
-                    className="h-2 bg-glass-bg"
-                  />
+                  <Progress value={82} className="h-2 bg-glass-bg" />
                 </div>
               </div>
             </Card>
@@ -319,12 +271,8 @@ export function HomePage({ onNavigate }: HomePageProps) {
                   </div>
                 ))}
               </div>
-              
-              <Button 
-                variant="outline" 
-                className="w-full mt-4 glass hover:glass-strong border-glass-border hover:border-neon-cyan transition-all duration-300" 
-                onClick={() => onNavigate('profile')}
-              >
+
+              <Button variant="outline" className="w-full mt-4 glass hover:glass-strong border-glass-border hover:border-neon-cyan transition-all duration-300" onClick={() => onNavigate("profile")}>
                 View All Activity
               </Button>
             </Card>

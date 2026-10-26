@@ -130,7 +130,7 @@ export function ProfileDrawer({ isOpen, onClose, activeSection, isPro = false }:
                   console.error("Sign out error", e);
                 }
                 onClose();
-                window.location.replace("/candidates");
+                window.location.replace("/auth");
               }}
             />
           ) : (
