@@ -67,6 +67,7 @@ import type * as lib_deleteUserData from "../lib/deleteUserData.js";
 import type * as lib_email from "../lib/email.js";
 import type * as lib_employerEmail from "../lib/employerEmail.js";
 import type * as lib_helpers from "../lib/helpers.js";
+import type * as lib_interviewPrepLimits from "../lib/interviewPrepLimits.js";
 import type * as lib_jobBrowse from "../lib/jobBrowse.js";
 import type * as lib_jobCounts from "../lib/jobCounts.js";
 import type * as lib_jobProfileMatch from "../lib/jobProfileMatch.js";
@@ -163,6 +164,7 @@ declare const fullApi: ApiFromModules<{
   "lib/email": typeof lib_email;
   "lib/employerEmail": typeof lib_employerEmail;
   "lib/helpers": typeof lib_helpers;
+  "lib/interviewPrepLimits": typeof lib_interviewPrepLimits;
   "lib/jobBrowse": typeof lib_jobBrowse;
   "lib/jobCounts": typeof lib_jobCounts;
   "lib/jobProfileMatch": typeof lib_jobProfileMatch;

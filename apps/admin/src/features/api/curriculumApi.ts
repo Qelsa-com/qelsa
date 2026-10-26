@@ -146,10 +146,22 @@ export function useRunCurriculumAgentAction() {
 export function useGenerateForRoleAction() {
   const run = useAction(api.curriculum.generateForRole);
   const [isLoading, setIsLoading] = useState(false);
-  const trigger = (input: { role: string; level?: string }) => {
+  const trigger = (input: { role: string; level?: string; questionCount?: number }) => {
     setIsLoading(true);
     return withUnwrap(
       Promise.resolve(run(input as never)).finally(() => setIsLoading(false)),
+    );
+  };
+  return [trigger, { isLoading }] as const;
+}
+
+export function useExtendTrackAction() {
+  const extend = useAction(api.curriculum.extendTrack);
+  const [isLoading, setIsLoading] = useState(false);
+  const trigger = (input: { trackId: string; count?: number }) => {
+    setIsLoading(true);
+    return withUnwrap(
+      Promise.resolve(extend(input as never)).finally(() => setIsLoading(false)),
     );
   };
   return [trigger, { isLoading }] as const;

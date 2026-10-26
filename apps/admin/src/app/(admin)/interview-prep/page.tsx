@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  useExtendTrackAction,
   useGenerateForRoleAction,
   useListCurriculumRunsQuery,
   useListCurriculumTracksQuery,
@@ -15,9 +16,17 @@ import {
   type CurriculumRun,
   type CurriculumTrack,
 } from "@/features/api/curriculumApi";
-import { Bot, CheckCircle2, Clock3, GraduationCap, Loader2, Plus, ShieldCheck, Sparkles } from "lucide-react";
-import { useState } from "react";
+import { Bot, CheckCircle2, Clock3, GraduationCap, Loader2, Plus, ShieldCheck, Sparkles, X } from "lucide-react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
+
+const DEFAULT_QUESTION_COUNT = 10;
+const MAX_QUESTIONS_PER_GENERATION = 30;
+const MAX_TRACK_QUESTIONS = 240;
+
+function questionLabel(count: number) {
+  return `${count} question${count === 1 ? "" : "s"}`;
+}
 
 function formatDate(value: number | null) {
   if (!value) return "—";
@@ -63,16 +72,129 @@ function StatCard({ label, value, hint }: { label: string; value: string | numbe
   );
 }
 
+function ExtendTrackDialog({
+  track,
+  onClose,
+  onExtend,
+  isExtending,
+}: {
+  track: CurriculumTrack;
+  onClose: () => void;
+  onExtend: (count: number) => void;
+  isExtending: boolean;
+}) {
+  const remaining = Math.max(0, MAX_TRACK_QUESTIONS - track.question_count);
+  const max = Math.min(MAX_QUESTIONS_PER_GENERATION, remaining);
+  const [count, setCount] = useState(Math.max(1, Math.min(DEFAULT_QUESTION_COUNT, max || 1)));
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !isExtending) onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = previous;
+    };
+  }, [isExtending, onClose]);
+
+  const submit = () => {
+    if (count < 1 || count > max) return;
+    onExtend(count);
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+      onClick={() => {
+        if (!isExtending) onClose();
+      }}
+    >
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          submit();
+        }}
+        onClick={(event) => event.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="extend-track-title"
+        className="w-full max-w-md rounded-t-[24px] border border-glass-border bg-[#0b0d17] p-5 shadow-2xl sm:rounded-[22px] sm:p-6"
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neon-cyan">Extend track</p>
+            <h2 id="extend-track-title" className="mt-1 text-lg font-bold leading-snug">
+              {track.title}
+            </h2>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isExtending}
+            aria-label="Close extend dialog"
+            className="flex size-11 shrink-0 items-center justify-center rounded-full border border-glass-border text-white/60 transition-colors hover:text-white disabled:opacity-40"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+
+        <p className="mt-3 text-xs leading-relaxed text-white/50">
+          The agent reads the {questionLabel(track.question_count)} already in this track and adds new ones without repeating them.
+        </p>
+
+        <div className="mt-5 space-y-2">
+          <Label htmlFor="extend-question-count">New questions</Label>
+          <Input
+            id="extend-question-count"
+            type="number"
+            min={1}
+            max={max}
+            step={1}
+            value={count}
+            onChange={(event) => setCount(Number(event.target.value))}
+            disabled={isExtending}
+            autoFocus
+            className="h-11 rounded-xl border-glass-border bg-[#0c0d16] text-base font-semibold"
+          />
+          <p className="text-[11px] text-muted-foreground">
+            Default 10 · up to {max} more available
+          </p>
+        </div>
+
+        <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <Button type="button" variant="outline" onClick={onClose} disabled={isExtending} className="h-10 rounded-xl">
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            disabled={isExtending || max === 0 || count < 1 || count > max}
+            className="gradient-primary h-10 rounded-xl px-5 text-xs font-bold text-white"
+          >
+            {isExtending ? <Loader2 className="size-3.5 animate-spin" /> : <Sparkles className="size-3.5" />}
+            {isExtending ? "Writing questions…" : count > 0 ? `Add ${questionLabel(count)}` : "Add questions"}
+          </Button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 export default function InterviewPrepPage() {
   const { data: runsData, isLoading: runsLoading } = useListCurriculumRunsQuery();
   const { data: tracksData, isLoading: tracksLoading } = useListCurriculumTracksQuery();
   const { data: roleOptionsData } = useListRoleOptionsQuery();
   const [runAgent, { isLoading: isRunning }] = useRunCurriculumAgentAction();
   const [generateForRole, { isLoading: isGenerating }] = useGenerateForRoleAction();
+  const [extendForTrack, { isLoading: isExtending }] = useExtendTrackAction();
   const [setTrackStatus, { isLoading: isUpdating }] = useSetCurriculumTrackStatusMutation();
   const [maxTracks, setMaxTracks] = useState(2);
   const [role, setRole] = useState("");
   const [level, setLevel] = useState("All");
+  const [questionCount, setQuestionCount] = useState(DEFAULT_QUESTION_COUNT);
+  const [extendTarget, setExtendTarget] = useState<CurriculumTrack | null>(null);
 
   const runs = (runsData as CurriculumRun[] | undefined) ?? [];
   const tracks = (tracksData as CurriculumTrack[] | undefined) ?? [];
@@ -104,8 +226,13 @@ export default function InterviewPrepPage() {
       toast.error("Choose a role or type one in.");
       return;
     }
+    const count = Math.floor(questionCount);
+    if (!Number.isFinite(count) || count < 1 || count > MAX_QUESTIONS_PER_GENERATION) {
+      toast.error(`Choose between 1 and ${MAX_QUESTIONS_PER_GENERATION} questions.`);
+      return;
+    }
     try {
-      const result = (await generateForRole({ role: role.trim(), level }).unwrap()) as {
+      const result = (await generateForRole({ role: role.trim(), level, questionCount: count }).unwrap()) as {
         created: number;
         published: number;
         decisions: Array<{ status?: string; error?: string }>;
@@ -115,10 +242,27 @@ export default function InterviewPrepPage() {
         toast.error(failure?.error ?? "The track could not be generated.");
         return;
       }
-      toast.success(`Track generated and ${result.published ? "published" : "saved as draft"}.`);
+      toast.success(`Track with ${questionLabel(count)} generated and ${result.published ? "published" : "saved as draft"}.`);
       setRole("");
+      setQuestionCount(DEFAULT_QUESTION_COUNT);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not generate the track.");
+    }
+  };
+
+  const handleExtendTrack = async (count: number) => {
+    if (!extendTarget) return;
+    try {
+      const result = (await extendForTrack({ trackId: extendTarget.id, count }).unwrap()) as {
+        added: number;
+        total: number;
+      };
+      toast.success(
+        `Added ${questionLabel(result.added)} to “${extendTarget.title}” · ${questionLabel(result.total)} total.`,
+      );
+      setExtendTarget(null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not extend the track.");
     }
   };
 
@@ -182,7 +326,7 @@ export default function InterviewPrepPage() {
               </p>
             </div>
           </div>
-          <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_180px_auto] sm:items-end">
+          <div className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_150px_100px_auto] sm:items-end">
             <div className="space-y-2">
               <Label htmlFor="track-role">Role</Label>
               <Input
@@ -213,9 +357,22 @@ export default function InterviewPrepPage() {
                 ))}
               </select>
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="track-question-count">Questions</Label>
+              <Input
+                id="track-question-count"
+                type="number"
+                min={1}
+                max={MAX_QUESTIONS_PER_GENERATION}
+                step={1}
+                value={questionCount}
+                onChange={(event) => setQuestionCount(Number(event.target.value))}
+                className="h-9 rounded-xl text-center"
+              />
+            </div>
             <Button
               onClick={() => void handleGenerateForRole()}
-              disabled={isGenerating || !role.trim()}
+              disabled={isGenerating || !role.trim() || questionCount < 1 || questionCount > MAX_QUESTIONS_PER_GENERATION}
               className="gradient-primary h-9 rounded-xl px-4 text-xs font-bold text-white"
             >
               {isGenerating ? <Loader2 className="size-3.5 animate-spin" /> : <Sparkles className="size-3.5" />}
@@ -314,6 +471,17 @@ export default function InterviewPrepPage() {
                     ) : null}
                   </div>
                   <div className="flex shrink-0 flex-wrap items-center gap-2">
+                    {track.status !== "archived" && track.question_count < MAX_TRACK_QUESTIONS ? (
+                      <button
+                        type="button"
+                        disabled={isExtending}
+                        onClick={() => setExtendTarget(track)}
+                        className="inline-flex items-center gap-1 rounded-lg border border-sky-400/25 bg-sky-400/[0.08] px-3 py-1.5 text-[11px] font-semibold text-sky-300 transition-colors hover:bg-sky-400/15 disabled:opacity-50"
+                      >
+                        <Sparkles className="size-3" />
+                        Extend
+                      </button>
+                    ) : null}
                     {track.status !== "published" ? (
                       <button type="button" disabled={isUpdating} onClick={() => void updateStatus(track, "published")} className="rounded-lg border border-emerald-400/25 bg-emerald-400/10 px-3 py-1.5 text-[11px] font-semibold text-emerald-300 transition-colors hover:bg-emerald-400/15 disabled:opacity-50">
                         Publish
@@ -335,6 +503,14 @@ export default function InterviewPrepPage() {
           )}
         </section>
       </div>
+      {extendTarget ? (
+        <ExtendTrackDialog
+          track={extendTarget}
+          onClose={() => setExtendTarget(null)}
+          onExtend={(count) => void handleExtendTrack(count)}
+          isExtending={isExtending}
+        />
+      ) : null}
     </div>
   );
 }

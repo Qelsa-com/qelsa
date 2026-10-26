@@ -6,9 +6,14 @@ import { internal } from "./_generated/api";
 import { adminMutation, adminQuery } from "./lib/customFunctions";
 import { AI_AGENT_MODEL, createAgentChatModel, openRouter } from "./lib/ai";
 import { listExternalCourses } from "./lib/courseCatalog";
+import {
+  DEFAULT_INTERVIEW_PREP_QUESTION_COUNT,
+  MAX_INTERVIEW_PREP_QUESTIONS_PER_GENERATION,
+  MAX_INTERVIEW_PREP_TRACK_QUESTIONS,
+} from "./lib/interviewPrepLimits";
 import { parseJsonObject } from "./lib/parsedProfile";
 
-const PROMPT_VERSION = "interview-prep-v1";
+const PROMPT_VERSION = "interview-prep-v2";
 const PLANNER_PROMPT_VERSION = "curriculum-planner-v1";
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -26,6 +31,16 @@ function stringList(value: unknown, limit = 12) {
 
 function numberValue(value: unknown, fallback = 0) {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+function questionCountValue(value: unknown, fallback = DEFAULT_INTERVIEW_PREP_QUESTION_COUNT) {
+  const count = Math.floor(numberValue(value, fallback));
+  if (count < 1 || count > MAX_INTERVIEW_PREP_QUESTIONS_PER_GENERATION) {
+    throw new Error(
+      `Question count must be between 1 and ${MAX_INTERVIEW_PREP_QUESTIONS_PER_GENERATION}.`,
+    );
+  }
+  return count;
 }
 
 function slugify(value: string) {
@@ -100,7 +115,7 @@ Demand snapshot:
 ${JSON.stringify(snapshot).slice(0, 30_000)}`;
 }
 
-function builderPrompt(decision: PlannedTrack) {
+function builderPrompt(decision: PlannedTrack, questionCount: number) {
   return `You are Qelsa's interview-prep author. Write an original, practical interview prep track for this role.
 
 Role: ${decision.title}
@@ -109,7 +124,7 @@ Level: ${decision.level}
 Focus skills: ${decision.skills.join(", ") || "role-relevant skills"}
 Interview types: ${decision.interviewTypes.join(", ") || "Behavioral, Technical"}
 
-Create 10 questions that are commonly useful for this role, prioritizing questions that are frequently asked in real interviews. Questions must be role-level and generic — never claim they came from a specific company or a leaked interview. Cover a mix of behavioral, role-specific, and technical/functional questions.
+Create exactly ${questionCount} questions that are commonly useful for this role, prioritizing questions that are frequently asked in real interviews these days. Questions must be role-level and generic — never claim they came from a specific company or a leaked interview. Cover a mix of behavioral, role-specific, and technical/functional questions. Do not return duplicate or near-duplicate questions.
 
 For every question include:
 - a complete model answer written as a practical answer framework (roughly 120–250 words)
@@ -120,6 +135,46 @@ For every question include:
 
 Return ONLY valid JSON:
 {"title":"...","summary":"max 120 characters","description":"max 240 characters","skills":["..."],"interview_types":["..."],"estimated_minutes":30,"questions":[{"category":"Behavioral","question":"...","answer":"...","key_points":["..."],"follow_ups":["..."],"difficulty":"Mid","skills":["..."]}]}`;
+}
+
+function extensionPrompt(
+  track: {
+    title: string;
+    role_family: string;
+    level: string;
+    summary: string;
+    skills: string[];
+    interview_types: string[];
+  },
+  existingQuestions: Array<{ category: string; difficulty: string; question: string }>,
+  questionCount: number,
+) {
+  const existing = existingQuestions
+    .map((question, index) => `${index + 1}. [${question.category} · ${question.difficulty}] ${question.question}`)
+    .join("\n");
+  return `You are Qelsa's interview-prep author extending an existing track. Add new questions without repeating what is already there.
+
+Track: ${track.title}
+Role family: ${track.role_family}
+Level: ${track.level}
+Summary: ${track.summary}
+Focus skills: ${track.skills.join(", ") || "role-relevant skills"}
+Interview types: ${track.interview_types.join(", ") || "Behavioral, Technical"}
+
+Questions already in this track (${existingQuestions.length}):
+${existing || "None yet."}
+
+Write exactly ${questionCount} NEW questions that are commonly asked in real interviews for this role these days. Do not repeat or paraphrase any question above. Prioritize gaps and topics that are currently useful for candidates, with a mix of behavioral, role-specific, and technical/functional questions. Questions must be role-level and generic — never claim they came from a specific company or a leaked interview.
+
+For every question include:
+- a complete model answer written as a practical answer framework (roughly 120–250 words)
+- 3–5 key points the answer should hit
+- 1–3 useful follow-up questions
+- difficulty: Beginner, Intermediate, or Advanced
+- related skills
+
+Return ONLY valid JSON:
+{"questions":[{"category":"Behavioral","question":"...","answer":"...","key_points":["..."],"follow_ups":["..."],"difficulty":"Mid","skills":["..."]}]}`;
 }
 
 function qaPrompt(track: GeneratedTrack) {
@@ -139,14 +194,14 @@ Track:
 ${JSON.stringify(track).slice(0, 45_000)}`;
 }
 
-async function callJson(prompt: string) {
+async function callJson(prompt: string, totalMs = 120_000) {
   if (!openRouter) throw new Error("OPENROUTER_API_KEY is not configured on this deployment.");
   const response = await generateText({
     model: createAgentChatModel("low"),
     prompt,
     temperature: 0.3,
     maxRetries: 2,
-    timeout: { totalMs: 120_000 },
+    timeout: { totalMs },
   });
   return asRecord(parseJsonObject(response.text));
 }
@@ -176,27 +231,43 @@ function parsePlannerDecisions(raw: Record<string, unknown>, maxTracks: number):
     .slice(0, Math.max(1, Math.min(maxTracks, 5)));
 }
 
-function parseGeneratedTrack(raw: Record<string, unknown>, decision: PlannedTrack): GeneratedTrack {
-  const rawQuestions = Array.isArray(raw.questions) ? raw.questions : [];
-  const questions = rawQuestions
-    .map((item): GeneratedQuestion | null => {
-      const row = asRecord(item);
-      const question = stringValue(row.question);
-      const answer = stringValue(row.answer);
-      if (!question || answer.length < 80) return null;
-      return {
-        category: stringValue(row.category, "Role-specific"),
-        question,
-        answer,
-        keyPoints: stringList(row.key_points, 8),
-        followUps: stringList(row.follow_ups, 6),
-        difficulty: stringValue(row.difficulty, decision.level),
-        skills: stringList(row.skills, 8),
-      };
-    })
-    .filter((item): item is GeneratedQuestion => item !== null);
+function parseGeneratedQuestions(rawQuestions: unknown[], fallbackLevel: string) {
+  const seen = new Set<string>();
+  const questions: GeneratedQuestion[] = [];
+  for (const item of rawQuestions) {
+    const row = asRecord(item);
+    const question = stringValue(row.question);
+    const answer = stringValue(row.answer);
+    if (!question || answer.length < 80) continue;
+    const key = normalizeQuestion(question);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    questions.push({
+      category: stringValue(row.category, "Role-specific"),
+      question,
+      answer,
+      keyPoints: stringList(row.key_points, 8),
+      followUps: stringList(row.follow_ups, 6),
+      difficulty: stringValue(row.difficulty, fallbackLevel),
+      skills: stringList(row.skills, 8),
+    });
+  }
+  return questions;
+}
 
-  if (questions.length < 8) throw new Error("Generated track had fewer than 8 valid questions.");
+function parseGeneratedTrack(
+  raw: Record<string, unknown>,
+  decision: PlannedTrack,
+  questionCount = DEFAULT_INTERVIEW_PREP_QUESTION_COUNT,
+): GeneratedTrack {
+  const requested = questionCountValue(questionCount);
+  const questions = parseGeneratedQuestions(
+    Array.isArray(raw.questions) ? raw.questions : [],
+    decision.level,
+  );
+  if (questions.length < requested) {
+    throw new Error(`Generated ${questions.length} valid questions; expected ${requested}. Try again.`);
+  }
 
   return {
     title: stringValue(raw.title, decision.title),
@@ -204,9 +275,25 @@ function parseGeneratedTrack(raw: Record<string, unknown>, decision: PlannedTrac
     description: stringValue(raw.description, decision.summary),
     skills: stringList(raw.skills, 16).length ? stringList(raw.skills, 16) : decision.skills,
     interviewTypes: stringList(raw.interview_types, 8).length ? stringList(raw.interview_types, 8) : decision.interviewTypes,
-    estimatedMinutes: Math.max(10, Math.min(120, numberValue(raw.estimated_minutes, questions.length * 3))),
-    questions: questions.slice(0, 20),
+    estimatedMinutes: Math.max(10, Math.min(300, numberValue(raw.estimated_minutes, questions.length * 3))),
+    questions: questions.slice(0, requested),
   };
+}
+
+function parseExtendedQuestions(
+  raw: Record<string, unknown>,
+  level: string,
+  requested: number,
+  existingKeys: Set<string>,
+) {
+  const questions = parseGeneratedQuestions(
+    Array.isArray(raw.questions) ? raw.questions : [],
+    level,
+  ).filter((question) => !existingKeys.has(normalizeQuestion(question.question)));
+  if (questions.length < requested) {
+    throw new Error(`Generated ${questions.length} new unique questions; expected ${requested}. Try again.`);
+  }
+  return questions.slice(0, requested);
 }
 
 function deterministicQa(track: GeneratedTrack) {
@@ -248,6 +335,7 @@ async function buildTracks(
   ctx: ActionCtx,
   runId: any,
   planned: PlannedTrack[],
+  questionCount = DEFAULT_INTERVIEW_PREP_QUESTION_COUNT,
 ): Promise<{ decisions: any[]; created: number; published: number }> {
   const decisions: any[] = [];
   let created = 0;
@@ -255,8 +343,8 @@ async function buildTracks(
 
   for (const decision of planned) {
     try {
-      const raw = await callJson(builderPrompt(decision));
-      const track = parseGeneratedTrack(raw, decision);
+      const raw = await callJson(builderPrompt(decision, questionCount), 180_000);
+      const track = parseGeneratedTrack(raw, decision, questionCount);
       const deterministic = deterministicQa(track);
       let aiScore = deterministic.score;
       let flags = deterministic.flags;
@@ -418,6 +506,7 @@ export const generateForRole = action({
     level: v.optional(v.string()),
     skills: v.optional(v.array(v.string())),
     interviewTypes: v.optional(v.array(v.string())),
+    questionCount: v.optional(v.number()),
   },
   returns: v.any(),
   handler: async (ctx, args) => {
@@ -426,6 +515,7 @@ export const generateForRole = action({
 
     const role = args.role.trim().slice(0, 120);
     if (role.length < 2) throw new Error("Enter a role to build a track for.");
+    const questionCount = questionCountValue(args.questionCount);
     const level = (args.level?.trim() || "All").slice(0, 40);
     const slug = slugify(`${role}-${level === "All" ? "interview" : level}`);
     const existing: any = await ctx.runQuery(internal.interviewPrep.findTrackBySlug, { slug });
@@ -450,7 +540,7 @@ export const generateForRole = action({
       actorUserId: admin._id,
     });
 
-    const { decisions, created, published } = await buildTracks(ctx, runId, [decision]);
+    const { decisions, created, published } = await buildTracks(ctx, runId, [decision], questionCount);
     await ctx.runMutation(internal.interviewPrep.finishRun, {
       runId,
       status: created > 0 ? "completed" : "failed",
@@ -461,6 +551,63 @@ export const generateForRole = action({
     });
 
     return { runId, created, published, decisions };
+  },
+});
+
+/** Add fresh questions to an existing track while preserving its current order. */
+export const extendTrack = action({
+  args: {
+    trackId: v.id("interview_prep_tracks"),
+    count: v.optional(v.number()),
+    note: v.optional(v.string()),
+  },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    const admin = await requireAdmin(ctx);
+    if (!openRouter) throw new Error("OPENROUTER_API_KEY is not configured on this deployment.");
+
+    const count = questionCountValue(args.count);
+    const data: any = await ctx.runQuery(internal.interviewPrep.getTrackForExtension, {
+      trackId: args.trackId,
+    });
+    if (!data?.track) throw new Error("Track not found.");
+    if (data.track.status === "archived") throw new Error("Archived tracks cannot be extended.");
+
+    const existingCount = Math.max(data.track.question_count, data.questions.length);
+    if (existingCount >= MAX_INTERVIEW_PREP_TRACK_QUESTIONS) {
+      throw new Error(`This track already has the maximum of ${MAX_INTERVIEW_PREP_TRACK_QUESTIONS} questions.`);
+    }
+    if (existingCount + count > MAX_INTERVIEW_PREP_TRACK_QUESTIONS) {
+      throw new Error(
+        `You can add at most ${MAX_INTERVIEW_PREP_TRACK_QUESTIONS - existingCount} more questions to this track.`,
+      );
+    }
+
+    const existingKeys = new Set<string>(
+      (data.questions as Array<{ question: string }>).map((question) =>
+        normalizeQuestion(question.question),
+      ),
+    );
+    const raw = await callJson(
+      extensionPrompt(data.track, data.questions, count),
+      180_000,
+    );
+    const questions = parseExtendedQuestions(raw, data.track.level, count, existingKeys);
+    const result: any = await ctx.runMutation(internal.interviewPrep.appendGeneratedQuestions, {
+      trackId: args.trackId,
+      adminUserId: admin._id,
+      note: args.note,
+      questions: questions.map((question) => ({
+        category: question.category,
+        question: question.question,
+        answer: question.answer,
+        keyPoints: question.keyPoints,
+        followUps: question.followUps,
+        difficulty: question.difficulty,
+        skills: question.skills,
+      })),
+    });
+    return result;
   },
 });
 

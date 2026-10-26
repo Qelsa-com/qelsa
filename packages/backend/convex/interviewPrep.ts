@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { internalMutation, internalQuery, query } from "./_generated/server";
 import { listExternalCourses } from "./lib/courseCatalog";
+import { MAX_INTERVIEW_PREP_TRACK_QUESTIONS } from "./lib/interviewPrepLimits";
 import { skillMatchKey } from "./lib/skillMatch";
 
 const MAX_PUBLISHED = 200;
@@ -57,7 +58,7 @@ export const getBySlug = query({  args: { slug: v.string() },
     const questions = await ctx.db
       .query("interview_prep_questions")
       .withIndex("by_track_and_order", (q) => q.eq("track_id", track._id))
-      .take(80);
+      .take(MAX_INTERVIEW_PREP_TRACK_QUESTIONS);
 
     return {
       ...summary(track),
@@ -342,7 +343,7 @@ export const insertGeneratedTrack = internalMutation({
       skills: args.skills.slice(0, 20).map((skill) => skill.slice(0, 80)),
       interview_types: args.interviewTypes.slice(0, 10).map((type) => type.slice(0, 60)),
       question_count: args.questions.length,
-      estimated_minutes: Math.max(10, Math.min(180, args.estimatedMinutes)),
+      estimated_minutes: Math.max(10, Math.min(300, args.estimatedMinutes)),
       status: published ? "published" : "draft",
       quality_score: args.qualityScore,
       quality_flags: args.qualityFlags.slice(0, 20).map((flag) => flag.slice(0, 200)),
@@ -371,5 +372,94 @@ export const insertGeneratedTrack = internalMutation({
     }
 
     return { skipped: false, trackId, status: published ? "published" : "draft" };
+  },
+});
+
+/** Existing track + question clues for the admin extension prompt. */
+export const getTrackForExtension = internalQuery({
+  args: { trackId: v.id("interview_prep_tracks") },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    const track = await ctx.db.get(args.trackId);
+    if (!track) return null;
+    const questions = await ctx.db
+      .query("interview_prep_questions")
+      .withIndex("by_track_and_order", (q) => q.eq("track_id", track._id))
+      .take(MAX_INTERVIEW_PREP_TRACK_QUESTIONS);
+    return {
+      track,
+      questions: questions.map((question) => ({
+        category: question.category,
+        difficulty: question.difficulty,
+        question: question.question,
+      })),
+    };
+  },
+});
+
+/** Append admin-requested questions and keep the track summary in sync. */
+export const appendGeneratedQuestions = internalMutation({
+  args: {
+    trackId: v.id("interview_prep_tracks"),
+    adminUserId: v.id("users"),
+    note: v.optional(v.string()),
+    questions: v.array(
+      v.object({
+        category: v.string(),
+        question: v.string(),
+        answer: v.string(),
+        keyPoints: v.array(v.string()),
+        followUps: v.array(v.string()),
+        difficulty: v.string(),
+        skills: v.array(v.string()),
+      }),
+    ),
+  },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    const track = await ctx.db.get(args.trackId);
+    if (!track) throw new Error("Track not found.");
+    if (track.status === "archived") throw new Error("Archived tracks cannot be extended.");
+
+    const existing = await ctx.db
+      .query("interview_prep_questions")
+      .withIndex("by_track_and_order", (q) => q.eq("track_id", track._id))
+      .take(MAX_INTERVIEW_PREP_TRACK_QUESTIONS);
+    const total = existing.length + args.questions.length;
+    if (total > MAX_INTERVIEW_PREP_TRACK_QUESTIONS) {
+      throw new Error(`This track cannot exceed ${MAX_INTERVIEW_PREP_TRACK_QUESTIONS} questions.`);
+    }
+
+    const startOrder = existing[existing.length - 1]?.order ?? 0;
+    const now = Date.now();
+    for (const [index, question] of args.questions.entries()) {
+      await ctx.db.insert("interview_prep_questions", {
+        track_id: track._id,
+        order: startOrder + index + 1,
+        category: question.category.slice(0, 80),
+        question: question.question.slice(0, 1000),
+        answer: question.answer.slice(0, 8000),
+        key_points: question.keyPoints.slice(0, 10).map((point) => point.slice(0, 300)),
+        follow_ups: question.followUps.slice(0, 8).map((followUp) => followUp.slice(0, 300)),
+        difficulty: question.difficulty.slice(0, 40),
+        skills: question.skills.slice(0, 12).map((skill) => skill.slice(0, 80)),
+      });
+    }
+
+    await ctx.db.patch(track._id, {
+      question_count: total,
+      estimated_minutes: Math.max(10, Math.min(300, total * 3)),
+      updated_at: now,
+    });
+    await ctx.db.insert("admin_audit_log", {
+      admin_user_id: args.adminUserId,
+      action: "interview_prep.questions_extended",
+      before: { question_count: track.question_count },
+      after: { question_count: total, added: args.questions.length },
+      note: args.note,
+      created_at: now,
+    });
+
+    return { added: args.questions.length, total, status: track.status };
   },
 });
