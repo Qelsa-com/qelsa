@@ -181,6 +181,9 @@ export default defineSchema({
     salary_min: v.optional(v.number()),
     salary: v.optional(v.number()),
     title: v.optional(v.string()),
+    // Denormalized title + company + location + skills text for the single
+    // full-catalog search index. Refreshed whenever those inputs change.
+    search_text: v.optional(v.string()),
     company_name: v.optional(v.string()),
     company_logo: v.optional(v.string()),
     company_twitter_handle: v.optional(v.string()),
@@ -222,7 +225,8 @@ export default defineSchema({
     .index("by_ats_integration", ["ats_integration_id"])
     .index("by_resource", ["resource"])
     .searchIndex("search_title", { searchField: "title", filterFields: ["status"] })
-    .searchIndex("search_company", { searchField: "company_name", filterFields: ["status"] }),
+    .searchIndex("search_company", { searchField: "company_name", filterFields: ["status"] })
+    .searchIndex("search_all", { searchField: "search_text", filterFields: ["status"] }),
 
   /**
    * Cached company descriptions for jobs that do not have a recruiter-owned

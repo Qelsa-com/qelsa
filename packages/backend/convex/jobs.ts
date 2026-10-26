@@ -15,9 +15,9 @@ import {
   rankByCareerAlignment,
   rankBySmartMatch,
   rankCandidates,
+  salaryValue,
   scoreReadiness,
   scoreTierMatches,
-  SEARCH_SCORE_CAP,
   slimListJobs,
   sortEnrichedJobs,
   findSimilarOpenJobs,
@@ -29,6 +29,7 @@ import { bumpJobCount, bumpOpenJobCount, ensureJobStats, ensureOpenJobCount, get
 import { ADMIN_STAT_KEYS, bumpAdminStat } from "./lib/adminStats";
 import { isWithdrawn } from "./lib/applications";
 import { resolveJobSalary } from "./lib/jobSalary";
+import { composeJobSearchText, refreshJobSearchText } from "./lib/jobSearchText";
 import { canExtractSkills, jobNeedsSkillEnrichment, markSkillsExtracted, skillContentHash } from "./lib/jobSkillExtraction";
 import {
   hasRoleProfile,
@@ -560,42 +561,58 @@ export const listPaginated = optionalAuthQuery({
     };
 
     if (search) {
-      const found = await jobsMatchingBrowseSearch(ctx, search);
+      // One denormalized search index gives the result set. It paginates the
+      // entire catalog and never scores the whole result set just to rank it.
+      const legacyCursor =
+        paginationOpts.cursor &&
+        (paginationOpts.cursor.startsWith("qelsa-rank:") || paginationOpts.cursor.startsWith("qelsa:"))
+          ? null
+          : paginationOpts.cursor;
+      const searchPage = await ctx.db
+        .query("jobs")
+        .withSearchIndex("search_all", (q) => q.search("search_text", search).eq("status", "open"))
+        .paginate({ numItems: target, cursor: legacyCursor });
+      const jobs = searchPage.page;
+      if (needsCity) await prefetchCities(ctx, jobs, cache);
+      const matched = jobs.filter(passesListing);
       let candidates: BrowseCandidate[];
 
       if (scoreFilter) {
-        // Match-tier pages need every candidate's score before filtering.
-        candidates = await toCandidates(found);
-      } else {
-        if (needsCity) await prefetchCities(ctx, found, cache);
-        const matched = found.filter(passesListing);
-        if (shouldScore) {
-          // Score the head for Best match, but keep every search hit after it.
-          const head = matched.slice(0, SEARCH_SCORE_CAP);
-          const scores = await scoreReadiness(ctx, head, hydration.userSkills, profileContext, hydration.skillCache);
-          candidates = [
-            ...head.map((job) => ({ job, readiness: scores.get(job._id) ?? null })),
-            ...matched.slice(SEARCH_SCORE_CAP).map((job) => ({ job, readiness: null })),
-          ];
-        } else {
-          candidates = matched.map((job) => ({ job, readiness: null }));
+        const scored = await scoreTierMatches(ctx, matched, hydration.userSkills, profileContext, hydration.careerGoal ?? null, {
+          skills: hydration.skillCache,
+          pages: cache.pages,
+          titles: cache.titles,
+        });
+        candidates = [];
+        for (const job of matched) {
+          const row = scored.get(job._id);
+          const readiness = row?.readiness ?? null;
+          const smartMatch = row?.smartMatch ?? null;
+          if (!scoreInRange(smartMatch ?? readiness, minReadiness, maxReadiness)) continue;
+          candidates.push({
+            job,
+            readiness,
+            careerAlignment: row?.careerAlignment ?? null,
+            smartMatch,
+            gap: row?.gap ?? null,
+          });
         }
+      } else {
+        candidates = await withPageReadiness(matched.map((job) => ({ job, readiness: null })));
       }
 
-      rankBrowse(candidates);
-      const afterId = decodeRankCursor(paginationOpts.cursor);
-      const afterIndex = afterId ? candidates.findIndex((item) => item.job._id === afterId) : -1;
-      if (afterId && afterIndex < 0) {
-        return { page: [], isDone: true, continueCursor: paginationOpts.cursor ?? "" };
+      // Search relevance is the index order. Only reorder the current page for
+      // explicit date/salary choices; readiness is shown, never a filter.
+      if (sortBy === "date") {
+        candidates.sort((a, b) => publishedMs(b.job) - publishedMs(a.job));
+      } else if (sortBy === "salary") {
+        candidates.sort((a, b) => salaryValue(b.job) - salaryValue(a.job));
       }
-      const start = afterId ? afterIndex + 1 : 0;
-      const slice = candidates.slice(start, start + target);
-      const last = slice[slice.length - 1];
-      const pageCandidates = scoreFilter ? slice : await withPageReadiness(slice);
+
       return {
-        page: await slimListJobs(ctx, pageCandidates, hydration, cache),
-        isDone: start + slice.length >= candidates.length,
-        continueCursor: last ? encodeRankCursor(last.job._id) : (paginationOpts.cursor ?? ""),
+        page: await slimListJobs(ctx, candidates, hydration, cache),
+        isDone: searchPage.isDone,
+        continueCursor: searchPage.continueCursor,
       };
     }
 
@@ -1313,6 +1330,7 @@ export const update = authedMutation({
       }
     }
 
+    await refreshJobSearchText(ctx, args.jobId);
     return withId((await ctx.db.get(args.jobId))!);
   },
 });
@@ -1351,6 +1369,7 @@ export const duplicate = authedMutation({
         weight: skill.weight,
       });
     }
+    await refreshJobSearchText(ctx, newJobId);
 
     // Copy question sets and questions
     const questionSets = await ctx.db
@@ -1569,6 +1588,7 @@ export const createWithQuestions = authedMutation({
       }
     }
 
+    await refreshJobSearchText(ctx, jobId);
     const job = await ctx.db.get(jobId);
     return enrichJob(ctx, job!, ctx.user);
   },
@@ -1611,6 +1631,13 @@ export const storeScrapedJobs = internalMutation({
         .unique();
       const types = (job.types as Array<{ name?: string }> | undefined) ?? [];
       const work_type = (job.work_type as string | undefined) ?? types.find((t) => t.name)?.name;
+      const cities = job.cities as Array<{ name?: string }> | undefined;
+      const search_text = composeJobSearchText({
+        title: job.title as string | undefined,
+        companyName: (job.company as { name?: string } | undefined)?.name,
+        location: cities?.map((city) => city.name).filter(Boolean).join(", "),
+        departments: types.map((type) => type.name).filter((name): name is string => Boolean(name)),
+      });
       const payload = {
         external_id,
         description: job.description as string | undefined,
@@ -1620,6 +1647,7 @@ export const storeScrapedJobs = internalMutation({
         language: job.language as string | undefined,
         published_date: job.published ? new Date(job.published as string).getTime() : Date.now(),
         title: job.title as string | undefined,
+        search_text,
         company_name: (job.company as { name?: string } | undefined)?.name,
         company_logo: (job.company as { logo?: string } | undefined)?.logo,
         work_type,
@@ -1639,7 +1667,11 @@ export const storeScrapedJobs = internalMutation({
         }),
       };
       if (existing) {
-        await ctx.db.patch(existing._id, payload);
+        await ctx.db.patch(existing._id, {
+          ...payload,
+          search_text: existing.search_text ?? search_text,
+        });
+        if (!existing.search_text) await refreshJobSearchText(ctx, existing._id);
         openDelta += openCountDelta(existing.status, "open");
         await queueSkillEnrichment(ctx, existing._id, payload.title, payload.description, existing.skills_extracted, needsSkills);
       } else {
@@ -1698,9 +1730,20 @@ export const storeAtsJobs = internalMutation({
         .unique();
       const location = typeof job.location === "string" ? job.location.trim() : "";
       const cityHint = location.split(",")[0]?.trim();
+      const search_text = composeJobSearchText({
+        title: job.title as string | undefined,
+        companyName: job.company_name as string | undefined,
+        location,
+        departments: Array.isArray(job.departments)
+          ? (job.departments as unknown[]).filter(
+              (department): department is string => typeof department === "string",
+            )
+          : undefined,
+      });
       const payload = {
         external_id,
         title: job.title as string | undefined,
+        search_text,
         description: job.description as string | undefined,
         application_url: job.application_url as string | undefined,
         company_name: job.company_name as string | undefined,
@@ -1730,7 +1773,11 @@ export const storeAtsJobs = internalMutation({
       };
       let jobId: Id<"jobs">;
       if (existing) {
-        await ctx.db.patch(existing._id, payload);
+        await ctx.db.patch(existing._id, {
+          ...payload,
+          search_text: existing.search_text ?? search_text,
+        });
+        if (!existing.search_text) await refreshJobSearchText(ctx, existing._id);
         jobId = existing._id;
         openDelta += openCountDelta(existing.status, "open");
         await queueSkillEnrichment(ctx, existing._id, payload.title, payload.description, existing.skills_extracted, needsSkills);
@@ -1833,6 +1880,26 @@ export const saveAiSummary = internalMutation({
     if (!job) throw new Error("Job not found");
     await ctx.db.patch(args.jobId, { ai_summary: args.summary });
     return args.summary;
+  },
+});
+
+export const backfillSearchTextPage = internalMutation({
+  args: { cursor: v.union(v.string(), v.null()) },
+  returns: v.object({
+    continueCursor: v.string(),
+    isDone: v.boolean(),
+    updated: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const page = await ctx.db.query("jobs").paginate({ numItems: 40, cursor: args.cursor });
+    for (const job of page.page) {
+      await refreshJobSearchText(ctx, job._id);
+    }
+    return {
+      continueCursor: page.continueCursor,
+      isDone: page.isDone,
+      updated: page.page.length,
+    };
   },
 });
 

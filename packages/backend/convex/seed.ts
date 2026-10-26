@@ -4,6 +4,7 @@ import { assertEmployerEmail } from "./lib/employerEmail";
 import { withId } from "./lib/helpers";
 import { bumpOpenJobCount, ensureJobStats } from "./lib/jobCounts";
 import { ADMIN_STAT_KEYS, bumpAdminStat } from "./lib/adminStats";
+import { refreshJobSearchText } from "./lib/jobSearchText";
 import { insertSkill } from "./lib/skillCatalog";
 import * as catalog from "./seedCatalogData";
 import cityData from "./seed/cities.json";
@@ -418,6 +419,7 @@ export const seedJobs = mutation({
           proficiency: skill.proficiency,
         });
       }
+      await refreshJobSearchText(ctx, jobId);
 
       created += 1;
     }

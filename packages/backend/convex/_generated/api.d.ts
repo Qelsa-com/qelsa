@@ -72,6 +72,7 @@ import type * as lib_jobBrowse from "../lib/jobBrowse.js";
 import type * as lib_jobCounts from "../lib/jobCounts.js";
 import type * as lib_jobProfileMatch from "../lib/jobProfileMatch.js";
 import type * as lib_jobSalary from "../lib/jobSalary.js";
+import type * as lib_jobSearchText from "../lib/jobSearchText.js";
 import type * as lib_jobSkillExtraction from "../lib/jobSkillExtraction.js";
 import type * as lib_parsedProfile from "../lib/parsedProfile.js";
 import type * as lib_planConfig from "../lib/planConfig.js";
@@ -169,6 +170,7 @@ declare const fullApi: ApiFromModules<{
   "lib/jobCounts": typeof lib_jobCounts;
   "lib/jobProfileMatch": typeof lib_jobProfileMatch;
   "lib/jobSalary": typeof lib_jobSalary;
+  "lib/jobSearchText": typeof lib_jobSearchText;
   "lib/jobSkillExtraction": typeof lib_jobSkillExtraction;
   "lib/parsedProfile": typeof lib_parsedProfile;
   "lib/planConfig": typeof lib_planConfig;

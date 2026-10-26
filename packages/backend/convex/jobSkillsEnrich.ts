@@ -6,6 +6,7 @@ import type { Id } from "./_generated/dataModel";
 import { internalAction, internalMutation, internalQuery } from "./_generated/server";
 import { AI_AGENT_MODEL, requireOpenRouter } from "./lib/ai";
 import { parseSalaryFromText, salaryFillPatch, salaryFromLlm } from "./lib/jobSalary";
+import { refreshJobSearchText } from "./lib/jobSearchText";
 import { hasExtractedSkills, markSkillsExtracted, MIN_SKILL_DESCRIPTION_CHARS, skillContentHash } from "./lib/jobSkillExtraction";
 import { findOrCreateSkill } from "./lib/skillCatalog";
 import { clipPlainText } from "./lib/skillMatch";
@@ -169,6 +170,7 @@ export const copyExtractedSkills = internalMutation({
           })
         : undefined) ?? salaryFillPatch(job, parseSalaryFromText(job.description));
     if (salary) await ctx.db.patch(args.jobId, salary);
+    await refreshJobSearchText(ctx, args.jobId);
     return inserted;
   },
 });
@@ -213,6 +215,7 @@ export const applyExtractedSkills = internalMutation({
     await markSkillsExtracted(ctx, args.jobId, args.contentHash);
     const salary = salaryFillPatch(job, args.salary) ?? salaryFillPatch(job, parseSalaryFromText(job.description));
     if (salary) await ctx.db.patch(args.jobId, salary);
+    await refreshJobSearchText(ctx, args.jobId);
     return inserted;
   },
 });
