@@ -243,25 +243,6 @@ function clampScore(value: number) {
   return Math.max(0, Math.min(100, Math.round(value)));
 }
 
-function overallFromParts(
-  skillReadiness: number | null,
-  experience: number,
-  education: number,
-  domain: number,
-  responsibilities: number,
-) {
-  if (skillReadiness != null) {
-    return clampScore(
-      0.45 * skillReadiness +
-        0.2 * experience +
-        0.15 * education +
-        0.1 * domain +
-        0.1 * responsibilities,
-    );
-  }
-  return clampScore(0.3 * experience + 0.2 * education + 0.25 * domain + 0.25 * responsibilities);
-}
-
 function analysisBody(analysis: Analysis) {
   const list = (items: string[], empty: string) =>
     items.length ? items.map((item) => `- ${item}`).join("\n") : empty;
@@ -420,7 +401,9 @@ async function analyzeMatch(
   const listed = competency?.competencies.filter((row) => Boolean(row.candidate_proficiency)) ?? [];
   const skillFacts = competency
     ? {
-        readiness: competency.readiness,
+        // Skill-only readiness, given to the model as context. The headline
+        // score uses `competency.readiness` directly, so this stays skill-only.
+        readiness: competency.skillReadiness,
         strong: skillNames(listed.filter((row) => row.status !== "gap")),
         partial: skillNames(listed.filter((row) => row.status === "gap")),
         missing: skillNames(competency.competencies.filter((row) => !row.candidate_proficiency)),
@@ -460,13 +443,12 @@ Write headline as one sentence on fit, with no percentage. can_apply should say 
     },
   );
 
-  const overall = overallFromParts(
-    skillFacts?.readiness ?? null,
-    generated.experience_match,
-    generated.education_match,
-    generated.domain_match,
-    generated.responsibilities_match,
-  );
+  // One score everywhere: the job page's readiness ring renders
+  // `competency.readiness`, so the report headline uses that exact value instead
+  // of a second blend. Domain and responsibilities stay as informational rows.
+  const overall = competency
+    ? competency.readiness
+    : clampScore(0.6 * generated.experience_match + 0.4 * generated.education_match);
 
   return {
     overall,

@@ -6,13 +6,26 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { internalMutation, internalQuery } from "./_generated/server";
 import { authedQuery } from "./lib/customFunctions";
 import { withSkillAliases } from "./lib/skillCatalog";
-import { clipPlainText, buildCompetencyFramework, extractJdListItems } from "./lib/skillMatch";
+import { clipPlainText, buildCompetencyFramework, computeYearsExperience, extractJdListItems } from "./lib/skillMatch";
 
 export const skillRefValidator = v.object({
   name: v.string(),
   skill_id: v.optional(v.id("skills")),
   type: v.optional(v.union(v.literal("core"), v.literal("preferred"), v.literal("nice_to_have"))),
 });
+
+/**
+ * Small stable hash for the match fingerprint. The Convex runtime has no
+ * `node:crypto`, and the full text would bloat every stored session.
+ */
+function contentHash(text: string) {
+  let hash = 5381;
+  const normalized = text.trim().replace(/\s+/g, " ").toLowerCase();
+  for (let i = 0; i < normalized.length; i++) {
+    hash = ((hash << 5) + hash + normalized.charCodeAt(i)) | 0;
+  }
+  return (hash >>> 0).toString(36);
+}
 
 export const analysisValidator = v.object({
   overall: v.number(),
@@ -198,10 +211,19 @@ export const loadUserContext = internalQuery({
 
     const fingerprint = [
       skills.map((s) => `${s.skill_id}:${s.proficiency ?? ""}`).sort().join(","),
-      experiences.map((e) => `${e.title}:${e.company}`).join(","),
-      educations.map((e) => `${e.degree ?? ""}:${e.college ?? ""}`).join(","),
+      // Dates matter: they drive the computed years of experience and the
+      // education score. Omitting them let an edited profile keep a stored
+      // analysis whose readiness inputs had already changed.
+      experiences
+        .map((e) => `${e.title}:${e.company}:${e.start_date}:${e.end_date ?? ""}:${e.is_current ? 1 : 0}`)
+        .join(","),
+      educations
+        .map((e) => `${e.degree ?? ""}:${e.college ?? ""}:${e.start_year ?? ""}:${e.end_year ?? ""}`)
+        .join(","),
       resumes.map((r) => r.storage_id ?? r.title).join(","),
-      String((user.professional_summary ?? user.about ?? "").length),
+      // Content, not just length: an edit that keeps the same length is still a
+      // different profile and must invalidate the stored analysis.
+      contentHash(`${user.professional_summary ?? ""}|${user.about ?? ""}`),
       careerGoal ? `${careerGoal.target_role}:${careerGoal.updated_at}` : "",
     ].join("|");
 
@@ -252,7 +274,7 @@ export const loadJobSnapshot = internalQuery({
       job.page_id ? ctx.db.get(job.page_id) : null,
       job.city_id ? ctx.db.get(job.city_id) : null,
       job.job_title_id ? ctx.db.get(job.job_title_id) : null,
-      ctx.db.query("job_skills").withIndex("by_job", (q) => q.eq("job_id", job._id)).take(30),
+      ctx.db.query("job_skills").withIndex("by_job", (q) => q.eq("job_id", job._id)).collect(),
     ]);
     const state = city ? await ctx.db.get(city.state_id) : null;
     const skills = [];
@@ -267,10 +289,13 @@ export const loadJobSnapshot = internalQuery({
         weight: row.weight,
       });
     }
-    const userSkillRows = await ctx.db
-      .query("user_skills")
-      .withIndex("by_user", (q) => q.eq("user_id", args.userId))
-      .take(80);
+    const [userSkillRows, expRows, eduRows] = await Promise.all([
+      ctx.db.query("user_skills").withIndex("by_user", (q) => q.eq("user_id", args.userId)).collect(),
+      ctx.db.query("experiences").withIndex("by_user", (q) => q.eq("user_id", args.userId)).collect(),
+      ctx.db.query("educations").withIndex("by_user", (q) => q.eq("user_id", args.userId)).collect(),
+    ]);
+    // Same profile inputs as `jobs.getJobById`, so this readiness is identical to
+    // the ring on the job page rather than a skills-only variant.
     const competency = buildCompetencyFramework(
       skills.map((s) => ({
         skill_id: s.skill_id,
@@ -280,6 +305,11 @@ export const loadJobSnapshot = internalQuery({
         skill: { name: s.name },
       })),
       await withSkillAliases(ctx, userSkillRows),
+      {
+        candidateYearsExperience: computeYearsExperience(expRows),
+        requiredExperienceYears: job.experience ?? null,
+        candidateEducationCount: eduRows.length,
+      },
     );
     return {
       job_id: job._id,

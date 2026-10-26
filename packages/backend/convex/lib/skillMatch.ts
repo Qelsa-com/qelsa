@@ -104,6 +104,27 @@ export interface CompetencyProfileContext {
   candidateEducationCount?: number | null;
 }
 
+/**
+ * Years of experience from experience rows. Shared so the job page and the
+ * agent's match snapshot feed `buildCompetencyFramework` identical inputs —
+ * otherwise the readiness ring and the fit report can never agree.
+ */
+export function computeYearsExperience(
+  rows: Array<{ start_date?: number | null; end_date?: number | null; is_current?: boolean | null }>,
+): number | null {
+  const now = Date.now();
+  const starts = rows
+    .map((row) => row.start_date)
+    .filter((value): value is number => typeof value === "number" && Number.isFinite(value));
+  if (!starts.length) return null;
+  const earliest = Math.min(...starts);
+  const hasCurrent = rows.some((row) => row.is_current || !row.end_date);
+  const latest = hasCurrent
+    ? now
+    : Math.max(...rows.map((row) => row.end_date ?? row.start_date ?? earliest));
+  return Math.max(0, Math.floor((Math.min(latest, now) - earliest) / (1000 * 60 * 60 * 24 * 365)));
+}
+
 /** Same weights as `buildCompetencyFramework`. Ready Now is 80 or above. */
 export function composeReadiness(skillReadiness: number, experienceScore: number | null, educationScore: number | null) {
   if (experienceScore !== null && educationScore !== null) {

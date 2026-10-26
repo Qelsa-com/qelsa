@@ -43,7 +43,7 @@ import {
 } from "./lib/jobProfileMatch";
 import { companyProfileKey, companyProfileSeed, type CompanyProfileSeed } from "./lib/companyProfile";
 import { withSkillAliases } from "./lib/skillCatalog";
-import { buildCompetencyFramework, clipPlainText } from "./lib/skillMatch";
+import { buildCompetencyFramework, clipPlainText, computeYearsExperience } from "./lib/skillMatch";
 import { calculateCareerAlignment, calculateSmartMatch } from "./lib/careerAlignment";
 import { canonicalizeCatalogName, catalogKey, looksLikeConvexId, resolveCityRef, resolveNamedRef, type CityRefInput } from "./lib/resolve";
 
@@ -189,12 +189,7 @@ async function enrichJob(ctx: QueryCtx, job: Doc<"jobs">, user: Doc<"users"> | n
         ctx.db.query("experiences").withIndex("by_user", (q) => q.eq("user_id", user._id)).collect(),
         ctx.db.query("educations").withIndex("by_user", (q) => q.eq("user_id", user._id)).collect(),
       ]);
-      const now = Date.now();
-      const starts = expRows.map((r) => r.start_date).filter((v) => Number.isFinite(v));
-      const earliest = starts.length ? Math.min(...starts) : null;
-      const hasCurrent = expRows.some((r) => r.is_current || !r.end_date);
-      const latest = hasCurrent ? now : starts.length ? Math.max(...expRows.map((r) => r.end_date ?? r.start_date)) : now;
-      yearsExp = earliest ? Math.max(0, Math.floor((Math.min(latest, now) - earliest) / (1000 * 60 * 60 * 24 * 365))) : null;
+      yearsExp = computeYearsExperience(expRows);
       eduCount = eduRows.length;
     }
     const hasProfile = list ? list.hasProfile : (userSkills.length > 0 || yearsExp != null || (eduCount != null && eduCount > 0));
