@@ -611,7 +611,9 @@ function ToolBody({
               Open application page <ExternalLink className="size-3.5" />
             </a>
           )}
-          {!isMobile && typeof output.autofill?.bookmarklet === "string" && (
+
+          {/* Remove these for now. */}
+          {/* {!isMobile && typeof output.autofill?.bookmarklet === "string" && (
             <button
               type="button"
               onClick={async () => {
@@ -629,8 +631,8 @@ function ToolBody({
               <Copy className="size-3.5" />
               Copy autofill bookmark
             </button>
-          )}
-          {!isMobile && typeof output.autofill?.bookmarklet === "string" && (
+          )} */}
+          {/* {!isMobile && typeof output.autofill?.bookmarklet === "string" && (
             <a
               href={output.autofill.bookmarklet}
               draggable
@@ -644,8 +646,8 @@ function ToolBody({
             >
               Drag to bookmarks
             </a>
-          )}
-          {isMobile && typeof output.autofill?.copy_text === "string" && (
+          )} */}
+          {/* {isMobile && typeof output.autofill?.copy_text === "string" && (
             <button
               type="button"
               onClick={async () => {
@@ -661,7 +663,7 @@ function ToolBody({
               <Copy className="size-3.5" />
               Copy profile details
             </button>
-          )}
+          )} */}
           {typeof output.resume_link?.url === "string" && (
             <a
               href={output.resume_link.url}
@@ -1103,55 +1105,23 @@ export function AgentToolCard({
   if (awaitingApproval) {
     return (
       <div
-        className={cn(
-          "rounded-xl border px-3 py-2.5",
-          approvalDecision === undefined
-            ? "border-amber-400/25 bg-amber-400/[0.06]"
-            : approvalDecision
-              ? "border-emerald-400/25 bg-emerald-400/[0.06]"
-              : "border-white/[0.1] bg-white/[0.03]",
-        )}
+        className={cn("rounded-xl border px-3 py-2.5", approvalDecision === undefined ? "border-amber-400/25 bg-amber-400/[0.06]" : approvalDecision ? "border-emerald-400/25 bg-emerald-400/[0.06]" : "border-white/[0.1] bg-white/[0.03]")}
       >
         <div className="flex items-center gap-2">
           <div
             className={cn(
               "flex size-6 shrink-0 items-center justify-center rounded-md border",
-              approvalDecision === undefined
-                ? "border-amber-400/25 bg-amber-400/10 text-amber-300"
-                : approvalDecision
-                  ? "border-emerald-400/25 bg-emerald-400/10 text-emerald-300"
-                  : "border-white/10 bg-white/[0.05] text-white/45",
+              approvalDecision === undefined ? "border-amber-400/25 bg-amber-400/10 text-amber-300" : approvalDecision ? "border-emerald-400/25 bg-emerald-400/10 text-emerald-300" : "border-white/10 bg-white/[0.05] text-white/45",
             )}
           >
             <Icon className="size-3.5" />
           </div>
-          <p
-            className={cn(
-              "min-w-0 flex-1 truncate text-[12px] font-semibold",
-              approvalDecision === undefined ? "text-amber-200" : approvalDecision ? "text-emerald-200" : "text-white/55",
-            )}
-          >
+          <p className={cn("min-w-0 flex-1 truncate text-[12px] font-semibold", approvalDecision === undefined ? "text-amber-200" : approvalDecision ? "text-emerald-200" : "text-white/55")}>
             {approvalDecision === undefined ? "Needs your approval" : approvalDecision ? "Action approved" : "Action denied"}
           </p>
-          {approvalDecision === undefined ? (
-            <ShieldQuestion className="size-3.5 text-amber-300" />
-          ) : approvalDecision ? (
-            <Check className="size-3.5 text-emerald-300" />
-          ) : (
-            <Ban className="size-3.5 text-white/35" />
-          )}
+          {approvalDecision === undefined ? <ShieldQuestion className="size-3.5 text-amber-300" /> : approvalDecision ? <Check className="size-3.5 text-emerald-300" /> : <Ban className="size-3.5 text-white/35" />}
         </div>
-        {part.approval?.id && (
-          <ApprovalBody
-            name={name}
-            input={input}
-            labels={labelMap}
-            resolving={resolving}
-            decision={approvalDecision}
-            onApprove={() => onApprove(part.approval!.id)}
-            onDeny={() => onDeny(part.approval!.id)}
-          />
-        )}
+        {part.approval?.id && <ApprovalBody name={name} input={input} labels={labelMap} resolving={resolving} decision={approvalDecision} onApprove={() => onApprove(part.approval!.id)} onDeny={() => onDeny(part.approval!.id)} />}
       </div>
     );
   }
