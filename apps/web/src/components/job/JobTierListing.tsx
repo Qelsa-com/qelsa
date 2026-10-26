@@ -1,19 +1,28 @@
 import { JobGrid, JobsBrowseHeader, MatchSection, useJobBrowseFilters } from "@/components/job/jobBrowseShared";
 import { JOBS_PAGE_SIZE, JobsFeedPager } from "@/components/job/JobsFeedPager";
 import { JobCardGridSkeleton } from "@/components/job/jobSkeletons";
+import { useAuth } from "@/contexts/AuthContext";
 import { useCountJobsQuery, usePaginatedJobsQuery } from "@/features/api/jobsApi";
 import { MATCH_TIER, type MatchTierId } from "@/lib/matchTiers";
 import { Job } from "@/types/job";
 import { Search } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 import Layout from "@/layout";
 
 export function JobTierListing({ tier }: { tier: MatchTierId }) {
   const router = useRouter();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
   const meta = MATCH_TIER[tier];
   const { searchInput, setSearchInput, filters, applyFilters, discoverArgs, cityFilter, setCityFilter, commitSearch, hydrated } = useJobBrowseFilters(tier);
-  const { results, status, isLoading, loadMore } = usePaginatedJobsQuery(discoverArgs, JOBS_PAGE_SIZE, { skip: !hydrated });
-  const { data: filteredTotal } = useCountJobsQuery(discoverArgs, { skip: !hydrated });
+  const skip = !hydrated || authLoading || !isAuthenticated;
+  const { results, status, isLoading, loadMore } = usePaginatedJobsQuery(discoverArgs, JOBS_PAGE_SIZE, { skip });
+  const { data: filteredTotal } = useCountJobsQuery(discoverArgs, { skip });
+
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) router.replace("/jobs/all");
+  }, [authLoading, isAuthenticated, router]);
+
   const jobs = (results as Job[]) ?? [];
   const loaded = jobs.length;
   const total = typeof filteredTotal === "number" ? filteredTotal : undefined;

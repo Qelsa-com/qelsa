@@ -17,7 +17,7 @@ import {
   rankCandidates,
   scoreReadiness,
   scoreTierMatches,
-  SCORE_CAP,
+  SEARCH_SCORE_CAP,
   slimListJobs,
   sortEnrichedJobs,
   findSimilarOpenJobs,
@@ -474,8 +474,28 @@ export const listPaginated = optionalAuthQuery({
 
     const sortBy = typeof filterArgs.sort_by === "string" ? filterArgs.sort_by : undefined;
     const canScore = Boolean(ctx.user && hydration.hasProfile);
-    const shouldScore = canScore && (scoreFilter || (sortBy !== "date" && sortBy !== "salary"));
+    // Readiness ranks search results and the explicit match-tier pages. It is
+    // never a listing filter, and it must not cap how many jobs are browsable.
+    const shouldScore = canScore && (scoreFilter || Boolean(search && sortBy !== "date" && sortBy !== "salary"));
     const newestFirst = sortBy === "date" || (!shouldScore && sortBy !== "salary");
+    const profileContext = {
+      yearsExperience: hydration.yearsExperience,
+      educationCount: hydration.educationCount,
+    };
+    const withPageReadiness = async (candidates: BrowseCandidate[]) => {
+      if (!canScore || candidates.length === 0) return candidates;
+      const scores = await scoreReadiness(
+        ctx,
+        candidates.map((candidate) => candidate.job),
+        hydration.userSkills,
+        profileContext,
+        hydration.skillCache,
+      );
+      return candidates.map((candidate) => ({
+        ...candidate,
+        readiness: scores.get(candidate.job._id) ?? null,
+      }));
+    };
     const cities = (filterArgs.cities as string[] | undefined) ?? (filterArgs.city ? [filterArgs.city] : []);
     const needsCity = cities.length > 0;
     const cache = emptyRelationCache();
@@ -488,20 +508,14 @@ export const listPaginated = optionalAuthQuery({
       return matchesFilters(job, cityName, { ...filterArgs, cities, search: undefined });
     };
 
-    const toCandidates = async (jobs: Doc<"jobs">[], stopAt?: number): Promise<BrowseCandidate[]> => {
+    const toCandidates = async (jobs: Doc<"jobs">[]): Promise<BrowseCandidate[]> => {
       if (needsCity) await prefetchCities(ctx, jobs, cache);
       const matched: Doc<"jobs">[] = [];
       for (const job of jobs) {
         if (!passesListing(job)) continue;
         matched.push(job);
-        if (shouldScore && matched.length >= SCORE_CAP) break;
-        if (!shouldScore && stopAt != null && matched.length >= stopAt) break;
       }
       if (scoreFilter && !canScore) return [];
-      const profileContext = {
-        yearsExperience: hydration.yearsExperience,
-        educationCount: hydration.educationCount,
-      };
       const candidates: BrowseCandidate[] = [];
       if (shouldScore && scoreFilter) {
         const scored = await scoreTierMatches(ctx, matched, hydration.userSkills, profileContext, hydration.careerGoal ?? null, {
@@ -529,7 +543,6 @@ export const listPaginated = optionalAuthQuery({
       for (const job of matched) {
         const readiness = scores?.get(job._id) ?? null;
         candidates.push({ job, readiness });
-        if (stopAt != null && candidates.length >= stopAt) break;
       }
       return candidates;
     };
@@ -548,7 +561,27 @@ export const listPaginated = optionalAuthQuery({
 
     if (search) {
       const found = await jobsMatchingBrowseSearch(ctx, search);
-      const candidates = await toCandidates(found);
+      let candidates: BrowseCandidate[];
+
+      if (scoreFilter) {
+        // Match-tier pages need every candidate's score before filtering.
+        candidates = await toCandidates(found);
+      } else {
+        if (needsCity) await prefetchCities(ctx, found, cache);
+        const matched = found.filter(passesListing);
+        if (shouldScore) {
+          // Score the head for Best match, but keep every search hit after it.
+          const head = matched.slice(0, SEARCH_SCORE_CAP);
+          const scores = await scoreReadiness(ctx, head, hydration.userSkills, profileContext, hydration.skillCache);
+          candidates = [
+            ...head.map((job) => ({ job, readiness: scores.get(job._id) ?? null })),
+            ...matched.slice(SEARCH_SCORE_CAP).map((job) => ({ job, readiness: null })),
+          ];
+        } else {
+          candidates = matched.map((job) => ({ job, readiness: null }));
+        }
+      }
+
       rankBrowse(candidates);
       const afterId = decodeRankCursor(paginationOpts.cursor);
       const afterIndex = afterId ? candidates.findIndex((item) => item.job._id === afterId) : -1;
@@ -558,8 +591,9 @@ export const listPaginated = optionalAuthQuery({
       const start = afterId ? afterIndex + 1 : 0;
       const slice = candidates.slice(start, start + target);
       const last = slice[slice.length - 1];
+      const pageCandidates = scoreFilter ? slice : await withPageReadiness(slice);
       return {
-        page: await slimListJobs(ctx, slice, hydration, cache),
+        page: await slimListJobs(ctx, pageCandidates, hydration, cache),
         isDone: start + slice.length >= candidates.length,
         continueCursor: last ? encodeRankCursor(last.job._id) : (paginationOpts.cursor ?? ""),
       };
@@ -582,8 +616,9 @@ export const listPaginated = optionalAuthQuery({
       const start = afterId ? afterIndex + 1 : 0;
       const slice = candidates.slice(start, start + target);
       const last = slice[slice.length - 1];
+      const pageCandidates = shouldScore ? slice : await withPageReadiness(slice);
       return {
-        page: await slimListJobs(ctx, slice, hydration, cache),
+        page: await slimListJobs(ctx, pageCandidates, hydration, cache),
         isDone: start + slice.length >= candidates.length,
         continueCursor: last ? encodeRankCursor(last.job._id) : (paginationOpts.cursor ?? ""),
       };
@@ -621,8 +656,10 @@ export const listPaginated = optionalAuthQuery({
       }
     }
 
+    const pageCandidates = await withPageReadiness(picked);
+
     return {
-      page: await slimListJobs(ctx, picked, hydration, cache),
+      page: await slimListJobs(ctx, pageCandidates, hydration, cache),
       isDone: scanned.length < BROWSE_SCAN && picked.length < target,
       continueCursor: lastExamined ? encodeBrowseCursor(lastExamined) : (paginationOpts.cursor ?? ""),
     };

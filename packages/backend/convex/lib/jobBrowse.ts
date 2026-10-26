@@ -7,19 +7,19 @@ import { buildCompetencyFramework, closingGap, type ClosingGap } from "./skillMa
 
 /** Newest-open scan for ranked browse. Indexed `take`, not `.collect()`. */
 export const BROWSE_SCAN = 160;
-/** Role-matching jobs we score before ranking. */
-export const SCORE_CAP = 48;
 /** Skill rows per job are enough for a stable readiness rank. */
 export const SCORE_SKILL_TAKE = 20;
+/** Best-match search scores the head of the result set, not every hit. */
+export const SEARCH_SCORE_CAP = 160;
 /** Title / company search hits. Each is one indexed search, not a table scan. */
-const SEARCH_TITLE_TAKE = 64;
-const SEARCH_COMPANY_TAKE = 48;
-const SEARCH_SKILL_TAKE = 8;
-const JOBS_PER_SKILL = 32;
-const SEARCH_PAGE_TAKE = 8;
-const JOBS_PER_PAGE = 24;
+const SEARCH_TITLE_TAKE = 600;
+const SEARCH_COMPANY_TAKE = 200;
+const SEARCH_SKILL_TAKE = 20;
+const JOBS_PER_SKILL = 64;
+const SEARCH_PAGE_TAKE = 40;
+const JOBS_PER_PAGE = 100;
 /** Hard cap after merging title + company + skill + page hits. */
-const SEARCH_CANDIDATE_CAP = 160;
+const SEARCH_CANDIDATE_CAP = 800;
 
 export type BrowseCandidate = {
   job: Doc<"jobs">;
@@ -589,7 +589,7 @@ export async function jobsMatchingBrowseSearch(ctx: QueryCtx, rawSearch: string)
         .take(JOBS_PER_SKILL),
     ),
   );
-  const skillJobIds = [...new Set(skillRows.flat().map((row) => row.job_id))].slice(0, 80);
+  const skillJobIds = [...new Set(skillRows.flat().map((row) => row.job_id))].slice(0, 300);
   const skillJobs = await Promise.all(skillJobIds.map((id) => ctx.db.get(id)));
   for (const job of skillJobs) addOpenJob(pool, job);
 

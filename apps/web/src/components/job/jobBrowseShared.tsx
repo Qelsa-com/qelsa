@@ -291,7 +291,7 @@ function listQueryValues(value: string | string[] | undefined) {
   return values.flatMap((entry) => entry.split(",")).map((entry) => entry.trim()).filter(Boolean);
 }
 
-function filtersFromUrl(raw: FilterQuery, tier?: MatchTierId) {
+function filtersFromUrl(raw: FilterQuery, tier?: MatchTierId, defaultSort: SearchFilters["sort_by"] = "relevance") {
   if (!FILTER_QUERY_KEYS.some((key) => raw[key] != null)) return null;
 
   const workplace = new Set(WORKPLACE_TYPE_OPTIONS.map((option) => option.value));
@@ -303,7 +303,7 @@ function filtersFromUrl(raw: FilterQuery, tier?: MatchTierId) {
     ...EMPTY_SEARCH_FILTERS,
     min_readiness: tier ? MATCH_TIER[tier].minReadiness : undefined,
     max_readiness: tier ? MATCH_TIER[tier].maxReadiness : undefined,
-    sort_by: SORT_OPTIONS.some((option) => option.value === sort) ? (sort as SearchFilters["sort_by"]) : "relevance",
+    sort_by: SORT_OPTIONS.some((option) => option.value === sort) ? (sort as SearchFilters["sort_by"]) : defaultSort,
     date_posted: DATE_POSTED_OPTIONS.some((option) => option.value === posted) ? (posted as SearchFilters["date_posted"]) : "",
     workplace_types: listQueryValues(raw.workplace).filter((value) => workplace.has(value)),
     job_types: listQueryValues(raw.type).filter((value) => jobTypes.has(value)),
@@ -337,7 +337,11 @@ function filtersToQueryString(search: string, filters: SearchFilters, cityFilter
   return params.toString();
 }
 
-export function useJobBrowseFilters(tier?: MatchTierId) {
+export function useJobBrowseFilters(
+  tier?: MatchTierId,
+  defaultSort: SearchFilters["sort_by"] = "relevance",
+  autoSearchSort = true,
+) {
   const router = usePagesRouter();
   const [hydrated, setHydrated] = useState(false);
   const [query, setQuery] = useState("");
@@ -345,15 +349,17 @@ export function useJobBrowseFilters(tier?: MatchTierId) {
   const [cityFilter, setCityFilter] = useState<City | null>(null);
   const [filters, setFilters] = useState<SearchFilters>(() => ({
     ...EMPTY_SEARCH_FILTERS,
+    sort_by: tier ? "relevance" : defaultSort,
     min_readiness: tier ? MATCH_TIER[tier].minReadiness : undefined,
     max_readiness: tier ? MATCH_TIER[tier].maxReadiness : undefined,
   }));
+  const wasSearching = useRef(false);
 
   // URL is the source of truth so a filtered list survives refresh, sharing,
   // and browser back/forward from a job-detail page.
   useEffect(() => {
     if (!router.isReady || hydrated) return;
-    const parsed = filtersFromUrl(router.query as FilterQuery, tier);
+    const parsed = filtersFromUrl(router.query as FilterQuery, tier, defaultSort);
     if (parsed) {
       setSearchInput(parsed.search);
       setQuery(parsed.search);
@@ -361,7 +367,22 @@ export function useJobBrowseFilters(tier?: MatchTierId) {
       setCityFilter(parsed.cityFilter);
     }
     setHydrated(true);
-  }, [router.isReady, router.query, hydrated, tier]);
+  }, [router.isReady, router.query, hydrated, tier, defaultSort]);
+
+  // All Jobs opens as a raw newest-first listing. Once the candidate starts
+  // searching, switch the default sort to Best match so readiness ranks the
+  // results; lower-readiness matches remain in the list.
+  useEffect(() => {
+    if (!hydrated || tier || defaultSort !== "date" || !autoSearchSort) return;
+    const searching = Boolean(query.trim());
+    if (searching === wasSearching.current) return;
+    wasSearching.current = searching;
+    setFilters((previous) => {
+      if (searching && previous.sort_by === "date") return { ...previous, sort_by: "relevance" };
+      if (!searching && previous.sort_by === "relevance") return { ...previous, sort_by: "date" };
+      return previous;
+    });
+  }, [query, hydrated, tier, defaultSort, autoSearchSort]);
 
   useEffect(() => {
     if (!router.isReady || !hydrated) return;
@@ -750,9 +771,10 @@ interface JobsBrowseHeaderProps {
   setCityFilter: (city: City | null) => void;
   resultsCount?: { loaded: number; total?: number };
   suppressGoalBanner?: boolean;
+  defaultSort?: SearchFilters["sort_by"];
 }
 
-export function JobsBrowseHeader({ activeTab, query, setQuery, onSearch, filters, onApplyFilters, cityFilter, setCityFilter, resultsCount, suppressGoalBanner = false }: JobsBrowseHeaderProps) {
+export function JobsBrowseHeader({ activeTab, query, setQuery, onSearch, filters, onApplyFilters, cityFilter, setCityFilter, resultsCount, suppressGoalBanner = false, defaultSort = "relevance" }: JobsBrowseHeaderProps) {
   const router = useRouter();
   const { user, isAuthenticated } = useAuth();
   const showGoalBanner = !suppressGoalBanner && isAuthenticated && Boolean(user) && !hasCareerGoal(user?.career_goal);
@@ -815,8 +837,12 @@ export function JobsBrowseHeader({ activeTab, query, setQuery, onSearch, filters
 
   const clearAll = () => {
     setCityFilter(null);
-    onApplyFilters({ workplace_types: [], job_types: [], cities: [], date_posted: "", sort_by: "relevance" });
+    onApplyFilters({ workplace_types: [], job_types: [], cities: [], date_posted: "", sort_by: defaultSort });
   };
+  const sortOptions =
+    activeTab === "all" && (!query.trim() || !isAuthenticated)
+      ? SORT_OPTIONS.filter((option) => option.value !== "relevance")
+      : SORT_OPTIONS;
 
   return (
     <div className="flex flex-col gap-5 sm:gap-6">
@@ -864,7 +890,7 @@ export function JobsBrowseHeader({ activeTab, query, setQuery, onSearch, filters
       {/* Filter pills — mobile scrolls horizontally; desktop wraps in one row. */}
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
         <div className="scrollbar-hide flex items-center gap-2 overflow-x-auto [&>*]:shrink-0 sm:contents">
-          {activeTab === "all" && <PillDropdown label="Sort" value={filters.sort_by} options={SORT_OPTIONS} onSelect={(v) => onApplyFilters({ sort_by: v as SearchFilters["sort_by"] })} />}
+          {activeTab === "all" && <PillDropdown label="Sort" value={filters.sort_by} options={sortOptions} onSelect={(v) => onApplyFilters({ sort_by: v as SearchFilters["sort_by"] })} />}
           <PillDropdown label="Date posted" value={filters.date_posted} options={DATE_POSTED_OPTIONS} onSelect={(v) => onApplyFilters({ date_posted: v as SearchFilters["date_posted"] })} />
           <MultiSelectPill label="Workplace type" options={WORKPLACE_TYPE_OPTIONS} values={filters.workplace_types} onChange={(v) => onApplyFilters({ workplace_types: v })} />
           <MultiSelectPill label="Work type" options={WORK_TYPE_OPTIONS} values={filters.job_types} onChange={(v) => onApplyFilters({ job_types: v })} />
