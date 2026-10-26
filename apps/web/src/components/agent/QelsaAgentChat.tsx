@@ -18,7 +18,7 @@ import { api } from "@/lib/convexApi";
 import { isAgentQuotaError, isApplicationLimitError, toastUnknownError } from "@/lib/errors";
 import { useUIMessages } from "@convex-dev/agent/react";
 import { useMutation, useQuery } from "convex/react";
-import { ArrowUp, Bell, Brain, Check, Loader2, MessageSquarePlus, PanelLeft, PanelRight, Plus, RotateCcw, Search, Sparkles, Square, Trash2, WifiOff, X } from "lucide-react";
+import { ArrowUp, Bell, Brain, Loader2, MessageSquarePlus, PanelLeft, PanelRight, Plus, RotateCcw, Search, Sparkles, Square, Trash2, WifiOff, X } from "lucide-react";
 import { useRouter } from "next/router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -637,13 +637,7 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
     return undefined;
   }, [messages]);
   const pendingApproval = useMemo(() => Boolean(lastAssistant?.parts?.some((part) => isToolPart(part) && part.state === "approval-requested")), [lastAssistant]);
-  const hasAnyPendingApproval = useMemo(
-    () =>
-      messages.some((message) =>
-        (message.parts ?? []).some((part) => isToolPart(part) && part.state === "approval-requested"),
-      ),
-    [messages],
-  );
+  const hasAnyPendingApproval = useMemo(() => messages.some((message) => (message.parts ?? []).some((part) => isToolPart(part) && part.state === "approval-requested")), [messages]);
   const lastToolNames = useMemo(() => (lastAssistant ? (lastAssistant.parts ?? []).filter(isToolPart).map((part) => toolNameOf(part)) : []), [lastAssistant]);
   const suggestions = useMemo(() => {
     const fallback = fallbackFollowUps(lastToolNames, isRecruiter);
@@ -1129,8 +1123,8 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
           onDelete={(threadId) => void handleDelete(threadId)}
         />
       </div>
-      <div className="space-y-2 border-t border-white/[0.08] px-3 py-3">
-        {!isRecruiter && Boolean(vapidPublicKey) && pushSupported && (
+      {/* <div className="space-y-2 border-t border-white/[0.08] px-3 py-3"> */}
+      {/* {!isRecruiter && Boolean(vapidPublicKey) && pushSupported && (
           <button
             type="button"
             disabled={pushBusy}
@@ -1141,13 +1135,13 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
             <span className="min-w-0 flex-1">{pushEnabled ? "Browser alerts on" : "Enable browser alerts"}</span>
             {pushEnabled && <Check className="size-3.5 text-emerald-300" />}
           </button>
-        )}
-        {/* Comment this section out for now */}
-        {/* <div className="flex items-center justify-between gap-2 px-1 text-[10px] text-white/30">
+        )} */}
+      {/* Comment this section out for now */}
+      {/* <div className="flex items-center justify-between gap-2 px-1 text-[10px] text-white/30">
           <span className="truncate">{agentStatus?.configured ? agentStatus.model : "AI not configured"}</span>
           {usage && <span className={cn("shrink-0 tabular-nums", quotaExhausted ? "text-amber-300/80" : "")}>{usage.remaining} left today</span>}
         </div> */}
-      </div>
+      {/* </div> */}
     </>
   );
 
@@ -1298,17 +1292,15 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
               </div>
             ) : messages.length === 0 ? (
               <div className="flex flex-col items-center py-6 text-center sm:py-10">
-                <div className="flex size-16 items-center justify-center rounded-2xl bg-gradient-to-br from-neon-cyan via-neon-purple to-neon-pink shadow-xl shadow-purple-900/30">
+                {/* <div className="flex size-16 items-center justify-center rounded-2xl bg-gradient-to-br from-neon-cyan via-neon-purple to-neon-pink shadow-xl shadow-purple-900/30">
                   <Sparkles className="size-8 text-black" />
-                </div>
-                <h1 className="mt-5 text-2xl font-semibold text-white sm:text-3xl">
-                  Hi {firstNameOf(user?.name)}, <span className="bg-gradient-to-r from-neon-cyan via-neon-purple to-neon-pink bg-clip-text text-transparent">what&apos;s next?</span>
-                </h1>
-                <p className="mt-2 max-w-md text-[13px] leading-relaxed text-white/50 sm:text-sm">
+                </div> */}
+                <h1 className="mt-5 text-2xl font-semibold text-white sm:text-3xl">Hi {firstNameOf(user?.name)}, What do you want to work on?</h1>
+                {/* <p className="mt-2 max-w-md text-[13px] leading-relaxed text-white/50 sm:text-sm">
                   {isRecruiter
                     ? "Review your jobs, find the strongest applicants, and draft outreach. I'll do the work — you approve anything that changes your pipeline."
                     : "Search jobs, check your fit, tailor your resume, or prepare an application. I'll do the work — you approve anything that changes your account."}
-                </p>
+                </p> */}
 
                 <div className="mt-6 grid w-full gap-2 text-left sm:grid-cols-2">
                   {(isRecruiter ? RECRUITER_SUGGESTIONS : SUGGESTIONS).map((suggestion) => {
@@ -1452,7 +1444,7 @@ export function QelsaAgentChat({ initialPrompt }: { initialPrompt?: string }) {
                 </button>
               )}
             </div>
-            <p className="mt-2 hidden text-center text-[10px] text-white/30 sm:block">Enter to send · Shift + Enter for a new line · Approve anything that changes your data</p>
+            <p className="mt-2 hidden text-center text-[10px] text-white/30 sm:block">Qelsa can make mistakes, so check anything important.</p>
           </div>
         </div>
       </main>
