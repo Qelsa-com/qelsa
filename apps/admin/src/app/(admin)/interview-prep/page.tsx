@@ -16,7 +16,7 @@ import {
   type CurriculumRun,
   type CurriculumTrack,
 } from "@/features/api/curriculumApi";
-import { Bot, CheckCircle2, Clock3, GraduationCap, Loader2, Plus, ShieldCheck, Sparkles, X } from "lucide-react";
+import { Bot, CheckCircle2, ChevronDown, Clock3, GraduationCap, Loader2, Plus, ShieldCheck, Sparkles, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -195,6 +195,7 @@ export default function InterviewPrepPage() {
   const [level, setLevel] = useState("All");
   const [questionCount, setQuestionCount] = useState(DEFAULT_QUESTION_COUNT);
   const [extendTarget, setExtendTarget] = useState<CurriculumTrack | null>(null);
+  const [runsExpanded, setRunsExpanded] = useState(false);
 
   const runs = (runsData as CurriculumRun[] | undefined) ?? [];
   const tracks = (tracksData as CurriculumTrack[] | undefined) ?? [];
@@ -382,8 +383,8 @@ export default function InterviewPrepPage() {
         </section>
 
         <section className="overflow-hidden rounded-2xl border border-glass-border bg-white/[0.02]">
-          <div className="flex flex-col gap-2 border-b border-glass-border px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
+          <div className="flex items-start justify-between gap-3 px-5 py-4">
+            <div className="min-w-0">
               <h2 className="flex items-center gap-2 text-sm font-bold">
                 <Bot className="size-4 text-neon-cyan" />
                 Curriculum agent runs
@@ -392,53 +393,67 @@ export default function InterviewPrepPage() {
                 Each run plans against a bounded job-demand snapshot, builds content, runs QA, and auto-publishes only clean tracks.
               </p>
             </div>
+            <button
+              type="button"
+              onClick={() => setRunsExpanded((expanded) => !expanded)}
+              aria-expanded={runsExpanded}
+              aria-controls="curriculum-runs-content"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-glass-border bg-white/[0.03] px-3 py-1.5 text-[11px] font-semibold text-white/55 transition-colors hover:bg-white/[0.06] hover:text-white"
+            >
+              {runsExpanded ? "Hide logs" : "Show logs"}
+              <ChevronDown className={`size-3.5 transition-transform ${runsExpanded ? "rotate-180" : ""}`} />
+            </button>
           </div>
-          {runsLoading ? (
-            <div className="space-y-3 p-5">
-              <Skeleton className="h-12 w-full" />
-              <Skeleton className="h-12 w-full" />
-            </div>
-          ) : runs.length === 0 ? (
-            <div className="px-5 py-10 text-center">
-              <GraduationCap className="mx-auto size-8 text-white/20" />
-              <p className="mt-3 text-sm font-semibold">No curriculum runs yet</p>
-              <p className="mt-1 text-xs text-muted-foreground">Run the agent to generate the first interview-prep tracks.</p>
-            </div>
-          ) : (
-            <div className="divide-y divide-white/[0.06]">
-              {runs.map((run) => (
-                <div key={run.id} className="flex flex-col gap-2 px-5 py-4 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <StatusPill status={run.status} />
-                      <span className="text-xs font-semibold capitalize">{run.trigger.replace(/_/g, " ")}</span>
-                      <span className="text-[11px] text-muted-foreground">{formatDate(run.started_at)}</span>
-                    </div>
-                    <p className="mt-2 text-xs text-muted-foreground">
-                      {run.tracks_created} created · {run.tracks_published} published · {run.model}
-                    </p>
-                    {run.error ? <p className="mt-1 text-xs text-rose-300">{run.error}</p> : null}
-                    {run.decisions.length ? (
-                      <div className="mt-2 flex flex-wrap gap-1.5">
-                        {run.decisions.slice(0, 6).map((decision, index) => (
-                          <span key={`${run.id}-${index}`} className="rounded-md border border-white/10 bg-white/[0.03] px-2 py-1 text-[10px] text-white/55">
-                            {String(decision.title ?? decision.slug ?? "decision")}
-                            {decision.status ? ` · ${String(decision.status)}` : ""}
-                          </span>
-                        ))}
-                      </div>
-                    ) : null}
-                  </div>
-                  <div className="flex shrink-0 items-center gap-2 text-[11px] text-muted-foreground">
-                    {run.status === "completed" ? <CheckCircle2 className="size-3.5 text-emerald-400" /> : null}
-                    {run.status === "running" ? <Clock3 className="size-3.5 text-sky-300" /> : null}
-                    {run.status === "failed" ? <ShieldCheck className="size-3.5 text-rose-300" /> : null}
-                    {run.completed_at ? `Finished ${formatDate(run.completed_at)}` : "In progress"}
-                  </div>
+          {runsExpanded ? (
+            <div id="curriculum-runs-content" className="border-t border-glass-border">
+              {runsLoading ? (
+                <div className="space-y-3 p-5">
+                  <Skeleton className="h-12 w-full" />
+                  <Skeleton className="h-12 w-full" />
                 </div>
-              ))}
+              ) : runs.length === 0 ? (
+                <div className="px-5 py-10 text-center">
+                  <GraduationCap className="mx-auto size-8 text-white/20" />
+                  <p className="mt-3 text-sm font-semibold">No curriculum runs yet</p>
+                  <p className="mt-1 text-xs text-muted-foreground">Run the agent to generate the first interview-prep tracks.</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-white/[0.06]">
+                  {runs.map((run) => (
+                    <div key={run.id} className="flex flex-col gap-2 px-5 py-4 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <StatusPill status={run.status} />
+                          <span className="text-xs font-semibold capitalize">{run.trigger.replace(/_/g, " ")}</span>
+                          <span className="text-[11px] text-muted-foreground">{formatDate(run.started_at)}</span>
+                        </div>
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          {run.tracks_created} created · {run.tracks_published} published · {run.model}
+                        </p>
+                        {run.error ? <p className="mt-1 text-xs text-rose-300">{run.error}</p> : null}
+                        {run.decisions.length ? (
+                          <div className="mt-2 flex flex-wrap gap-1.5">
+                            {run.decisions.slice(0, 6).map((decision, index) => (
+                              <span key={`${run.id}-${index}`} className="rounded-md border border-white/10 bg-white/[0.03] px-2 py-1 text-[10px] text-white/55">
+                                {String(decision.title ?? decision.slug ?? "decision")}
+                                {decision.status ? ` · ${String(decision.status)}` : ""}
+                              </span>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2 text-[11px] text-muted-foreground">
+                        {run.status === "completed" ? <CheckCircle2 className="size-3.5 text-emerald-400" /> : null}
+                        {run.status === "running" ? <Clock3 className="size-3.5 text-sky-300" /> : null}
+                        {run.status === "failed" ? <ShieldCheck className="size-3.5 text-rose-300" /> : null}
+                        {run.completed_at ? `Finished ${formatDate(run.completed_at)}` : "In progress"}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          )}
+          ) : null}
         </section>
 
         <section className="overflow-hidden rounded-2xl border border-glass-border bg-white/[0.02]">
