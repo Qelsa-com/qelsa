@@ -22,7 +22,8 @@ export function MobileTopBar({
   scrolled?: boolean;
 }) {
   const router = useRouter();
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, isLoading } = useAuth();
+  const authBootstrapping = isLoading && !user;
 
   return (
     <header
@@ -39,8 +40,10 @@ export function MobileTopBar({
         <QelsaLogo className="h-[22px] w-auto" />
       </button>
 
-      <div className="flex items-center gap-2">
-        {isAuthenticated && user?.account_type !== "recruiter" && !premiumLoading && !isPro ? (
+      <div className="flex items-center gap-2" aria-busy={authBootstrapping}>
+        {authBootstrapping ? (
+          <span aria-hidden className="h-8 w-20 animate-pulse rounded-full bg-white/[0.06]" />
+        ) : isAuthenticated && user?.account_type !== "recruiter" && !premiumLoading && !isPro ? (
           <button
             type="button"
             onClick={() => router.push("/pricing")}

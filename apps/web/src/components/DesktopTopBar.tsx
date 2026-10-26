@@ -49,7 +49,8 @@ export function DesktopTopBar({
   scrolled?: boolean;
 }) {
   const router = useRouter();
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, isLoading } = useAuth();
+  const authBootstrapping = isLoading && !user;
   const links = isAuthenticated ? AUTHED_NAV_LINKS : GUEST_NAV_LINKS;
 
   return (
@@ -59,20 +60,33 @@ export function DesktopTopBar({
           <QelsaLogo priority className="h-[26px] w-auto" />
         </button>
 
-        <nav className="flex items-center gap-9">
-          {links.map((link) => {
-            const active = link.id === activeSection;
-            return (
-              <button key={link.id} type="button" onClick={() => router.push(link.href)} className="relative flex items-center justify-center">
-                <span className={`text-[15px] font-semibold transition-colors ${active ? "text-sky-400" : "text-white/70 hover:text-white"}`}>{link.label}</span>
-                {/* Sits on the header's bottom edge, clearing the 16px padding. */}
-                {active && <span className="absolute -bottom-4 left-0 h-0.5 w-full bg-sky-400" />}
-              </button>
-            );
-          })}
+        <nav className="flex items-center gap-9" aria-busy={authBootstrapping}>
+          {authBootstrapping
+            ? Array.from({ length: 5 }, (_, index) => (
+                <span
+                  key={index}
+                  aria-hidden
+                  className="h-4 w-16 animate-pulse rounded bg-white/[0.06]"
+                />
+              ))
+            : links.map((link) => {
+                const active = link.id === activeSection;
+                return (
+                  <button key={link.id} type="button" onClick={() => router.push(link.href)} className="relative flex items-center justify-center">
+                    <span className={`text-[15px] font-semibold transition-colors ${active ? "text-sky-400" : "text-white/70 hover:text-white"}`}>{link.label}</span>
+                    {/* Sits on the header's bottom edge, clearing the 16px padding. */}
+                    {active && <span className="absolute -bottom-4 left-0 h-0.5 w-full bg-sky-400" />}
+                  </button>
+                );
+              })}
         </nav>
 
-        {!isAuthenticated ? (
+        {authBootstrapping ? (
+          <div className="flex items-center gap-3" aria-hidden>
+            <span className="h-10 w-24 animate-pulse rounded-full bg-white/[0.06]" />
+            <span className="h-10 w-28 animate-pulse rounded-full bg-white/[0.08]" />
+          </div>
+        ) : !isAuthenticated ? (
           <div className="flex items-center gap-3">
             <button
               type="button"

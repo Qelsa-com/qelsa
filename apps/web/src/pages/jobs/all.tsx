@@ -2,6 +2,7 @@ import { JobGrid, JobsBrowseHeader, useJobBrowseFilters } from "@/components/job
 import { JOBS_PAGE_SIZE, JobsFeedPager } from "@/components/job/JobsFeedPager";
 import { AllJobsGridSkeleton } from "@/components/job/jobSkeletons";
 import { SetupBanner } from "@/components/SetupBanner";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCountJobsQuery, usePaginatedJobsQuery } from "@/features/api/jobsApi";
 import { useGetMyResumesQuery } from "@/features/api/resumeApi";
@@ -12,7 +13,22 @@ import Layout from "../../layout";
 
 /* --------------------------------- page ----------------------------------- */
 
-const All = () => {
+function AllJobsLoading() {
+  return (
+    <div className="mx-auto w-full max-w-[1400px] px-4 py-6 text-white sm:px-6 sm:py-8 md:px-12">
+      <div className="space-y-3">
+        <Skeleton className="h-9 w-64 rounded-lg bg-white/[0.08]" />
+        <Skeleton className="h-4 w-80 max-w-full rounded bg-white/[0.06]" />
+        <Skeleton className="mt-5 h-11 w-full rounded-xl bg-white/[0.06] sm:h-14 sm:rounded-[28px]" />
+      </div>
+      <div className="mt-8">
+        <AllJobsGridSkeleton />
+      </div>
+    </div>
+  );
+}
+
+function AllJobsContent() {
   const router = useRouter();
   const { user, isAuthenticated } = useAuth();
   const defaultSort = isAuthenticated ? "relevance" : "date";
@@ -30,9 +46,8 @@ const All = () => {
   const isInitialLoading = isLoading && loaded === 0;
 
   return (
-    <Layout activeSection={"jobs"}>
-      <div className="mx-auto w-full max-w-[1400px] px-4 py-6 text-white sm:px-6 sm:py-8 md:px-12">
-        <JobsBrowseHeader
+    <div className="mx-auto w-full max-w-[1400px] px-4 py-6 text-white sm:px-6 sm:py-8 md:px-12">
+      <JobsBrowseHeader
           activeTab="all"
           query={searchInput}
           setQuery={setSearchInput}
@@ -78,7 +93,20 @@ const All = () => {
 
           <JobsFeedPager status={status} loadMore={loadMore} loadedCount={loaded} />
         </div>
-      </div>
+    </div>
+  );
+}
+
+const All = () => {
+  const { isAuthenticated, isLoading, user } = useAuth();
+  const authBootstrapping = isLoading && !user;
+  return (
+    <Layout activeSection="jobs">
+      {authBootstrapping ? (
+        <AllJobsLoading />
+      ) : (
+        <AllJobsContent key={isAuthenticated ? "signed-in" : "guest"} />
+      )}
     </Layout>
   );
 };
