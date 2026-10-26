@@ -554,7 +554,7 @@ export function LandingPage() {
               <div className="mt-8">
                 <Link
                   href="/auth?returnUrl=/agent"
-                  className="inline-flex items-center whitespace-nowrap rounded-full border border-white/15 bg-white/[0.04] px-6 py-3 text-sm font-semibold text-white transition-colors hover:border-white/30 hover:bg-white/[0.08]"
+                  className="inline-flex items-center whitespace-nowrap rounded-full bg-gradient-to-r from-[#623dd6] via-[#8433ae] to-[#be2680] px-7 py-3.5 text-sm font-semibold text-white shadow-xl shadow-purple-950/40 transition-opacity hover:opacity-95 sm:text-base"
                 >
                   Try Qelsa Agent
                 </Link>
