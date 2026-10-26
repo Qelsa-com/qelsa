@@ -322,7 +322,13 @@ function filtersFromUrl(raw: FilterQuery, tier?: MatchTierId, defaultSort: Searc
   };
 }
 
-function filtersToQueryString(search: string, filters: SearchFilters, cityFilter: City | null, raw: FilterQuery) {
+function filtersToQueryString(
+  search: string,
+  filters: SearchFilters,
+  cityFilter: City | null,
+  raw: FilterQuery,
+  defaultSort: SearchFilters["sort_by"] = "relevance",
+) {
   const params = new URLSearchParams();
 
   // Preserve campaign/analytics parameters and any future non-filter params.
@@ -333,7 +339,7 @@ function filtersToQueryString(search: string, filters: SearchFilters, cityFilter
   }
 
   if (search.trim()) params.set("q", search.trim());
-  if (filters.sort_by !== "relevance") params.set("sort", filters.sort_by);
+  if (filters.sort_by !== defaultSort) params.set("sort", filters.sort_by);
   if (filters.date_posted) params.set("posted", filters.date_posted);
   if (filters.workplace_types.length) params.set("workplace", filters.workplace_types.join(","));
   if (filters.job_types.length) params.set("type", filters.job_types.join(","));
@@ -391,11 +397,11 @@ export function useJobBrowseFilters(
 
   useEffect(() => {
     if (!router.isReady || !hydrated) return;
-    const search = filtersToQueryString(query, filters, cityFilter, router.query as FilterQuery);
+    const search = filtersToQueryString(query, filters, cityFilter, router.query as FilterQuery, defaultSort);
     const target = `${router.pathname}${search ? `?${search}` : ""}`;
     if (router.asPath === target) return;
     void router.replace(target, undefined, { shallow: true, scroll: false });
-  }, [router, router.isReady, hydrated, query, filters, cityFilter]);
+  }, [router, router.isReady, hydrated, query, filters, cityFilter, defaultSort]);
 
   useEffect(() => {
     const t = setTimeout(() => setQuery(searchInput), 300);
@@ -845,7 +851,7 @@ export function JobsBrowseHeader({ activeTab, query, setQuery, onSearch, filters
     onApplyFilters({ workplace_types: [], job_types: [], cities: [], date_posted: "", sort_by: defaultSort });
   };
   const sortOptions =
-    activeTab === "all" && (!query.trim() || !isAuthenticated)
+    activeTab === "all" && !isAuthenticated
       ? SORT_OPTIONS.filter((option) => option.value !== "relevance")
       : SORT_OPTIONS;
 

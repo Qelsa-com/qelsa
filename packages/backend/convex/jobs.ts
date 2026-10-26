@@ -344,6 +344,47 @@ async function openJobs(ctx: QueryCtx, limit: number) {
     .take(limit);
 }
 
+const BEST_MATCH_CANDIDATE_CAP = 240;
+
+/**
+ * Candidate generation for personalized Best match. This is intentionally a
+ * bounded retrieval pass: exact scoring still runs on the returned jobs, but
+ * we never scan the full catalog for every page.
+ */
+async function bestMatchCandidates(
+  ctx: QueryCtx,
+  hydration: ListHydration,
+  profile: UserRoleProfile | null,
+) {
+  const skills = hydration.userSkills
+    .map((skill) => skill.name?.trim() ?? "")
+    .filter(Boolean)
+    .slice(0, 8);
+  const roles = (profile?.phrases ?? []).map((phrase) => phrase.trim()).filter(Boolean).slice(0, 2);
+  const query = [...new Set([...skills, ...roles])].join(" ").trim();
+  const [searched, titled] = await Promise.all([
+    query
+      ? ctx.db
+          .query("jobs")
+          .withSearchIndex("search_all", (q) => q.search("search_text", query).eq("status", "open"))
+          .take(BEST_MATCH_CANDIDATE_CAP)
+      : Promise.resolve([] as Doc<"jobs">[]),
+    profile && hasRoleProfile(profile)
+      ? jobsMatchingRoleTitles(ctx, profile)
+      : Promise.resolve([] as Doc<"jobs">[]),
+  ]);
+
+  const pool = new Map<Id<"jobs">, Doc<"jobs">>();
+  for (const job of [...searched, ...titled]) {
+    if (job.status === "open") pool.set(job._id, job);
+    if (pool.size >= BEST_MATCH_CANDIDATE_CAP) break;
+  }
+  if (pool.size === 0) {
+    for (const job of await openJobs(ctx, 48)) pool.set(job._id, job);
+  }
+  return [...pool.values()].slice(0, BEST_MATCH_CANDIDATE_CAP);
+}
+
 export const list = optionalAuthQuery({
   args: {
     cities: v.optional(v.array(v.string())),
@@ -411,6 +452,8 @@ export const list = optionalAuthQuery({
 
 const BROWSE_CURSOR_PREFIX = "qelsa";
 const RANK_CURSOR_PREFIX = "qelsa-rank:";
+const BEST_CURSOR_PREFIX = "qelsa-best:";
+const BEST_REST_CURSOR_PREFIX = "qelsa-best-rest:";
 
 function encodeBrowseCursor(job: Doc<"jobs">) {
   return `${BROWSE_CURSOR_PREFIX}:${job.published_date ?? job._creationTime}:${job._id}`;
@@ -435,6 +478,24 @@ function decodeRankCursor(cursor: string | null) {
   if (!cursor || !cursor.startsWith(RANK_CURSOR_PREFIX)) return null;
   const id = cursor.slice(RANK_CURSOR_PREFIX.length);
   return id || null;
+}
+
+function encodeBestCursor(id: string) {
+  return `${BEST_CURSOR_PREFIX}${id}`;
+}
+
+function decodeBestCursor(cursor: string | null) {
+  if (!cursor || !cursor.startsWith(BEST_CURSOR_PREFIX)) return null;
+  return cursor.slice(BEST_CURSOR_PREFIX.length) || null;
+}
+
+function decodeBestRestCursor(cursor: string | null) {
+  if (!cursor || !cursor.startsWith(BEST_REST_CURSOR_PREFIX)) return null;
+  return cursor.slice(BEST_REST_CURSOR_PREFIX.length) || null;
+}
+
+function encodeBestRestCursor(feedCursor: string | null) {
+  return `${BEST_REST_CURSOR_PREFIX}${feedCursor ?? ""}`;
 }
 
 /**
@@ -616,6 +677,96 @@ export const listPaginated = optionalAuthQuery({
       };
     }
 
+    if (!search && canScore && !scoreFilter && sortBy === "relevance") {
+      // Best match keeps the exact top matches first and every remaining job
+      // after them by recency. Candidate generation is bounded; no per-user
+      // score cache or full-catalog scoring.
+      const candidateDocs = await bestMatchCandidates(ctx, hydration, profile);
+      if (needsCity) await prefetchCities(ctx, candidateDocs, cache);
+      const filteredCandidates = candidateDocs.filter(passesListing);
+      const topIds = new Set(filteredCandidates.map((job) => job._id));
+      const isRestCursor = Boolean(decodeBestRestCursor(paginationOpts.cursor));
+      const hasRestPrefix = Boolean(paginationOpts.cursor?.startsWith(BEST_REST_CURSOR_PREFIX));
+
+      if (!hasRestPrefix && !isRestCursor) {
+        const scored = await scoreTierMatches(
+          ctx,
+          filteredCandidates,
+          hydration.userSkills,
+          profileContext,
+          hydration.careerGoal ?? null,
+          { skills: hydration.skillCache, pages: cache.pages, titles: cache.titles },
+        );
+        const ranked: BrowseCandidate[] = filteredCandidates.map((job) => {
+          const row = scored.get(job._id);
+          return {
+            job,
+            readiness: row?.readiness ?? null,
+            careerAlignment: row?.careerAlignment ?? null,
+            smartMatch: row?.smartMatch ?? null,
+            gap: row?.gap ?? null,
+          };
+        });
+        rankCandidates(ranked, "relevance");
+        const afterId = decodeBestCursor(paginationOpts.cursor);
+        const afterIndex = afterId ? ranked.findIndex((item) => item.job._id === afterId) : -1;
+        const start = afterIndex >= 0 ? afterIndex + 1 : 0;
+        if (start < ranked.length) {
+          const slice = ranked.slice(start, start + target);
+          const last = slice[slice.length - 1];
+          return {
+            page: await slimListJobs(ctx, slice, hydration, cache),
+            isDone: false,
+            continueCursor:
+              start + slice.length < ranked.length
+                ? encodeBestCursor(last.job._id)
+                : encodeBestRestCursor(null),
+          };
+        }
+      }
+
+      const restCursor = decodeBestRestCursor(paginationOpts.cursor);
+      const cursor = decodeBrowseCursor(restCursor);
+      const scanned = await ctx.db
+        .query("jobs")
+        .withIndex("by_status_and_published", (q) =>
+          cursor ? q.eq("status", "open").lte("published_date", cursor.published_date) : q.eq("status", "open"),
+        )
+        .order("desc")
+        .take(BROWSE_SCAN);
+      if (needsCity) await prefetchCities(ctx, scanned, cache);
+      const picked: BrowseCandidate[] = [];
+      let pastCursor = cursor == null;
+      let lastExamined: Doc<"jobs"> | null = null;
+      const considerRest = (job: Doc<"jobs">) => {
+        lastExamined = job;
+        if (topIds.has(job._id)) return;
+        if (passesListing(job)) picked.push({ job, readiness: null });
+      };
+      for (const job of scanned) {
+        if (!pastCursor && cursor) {
+          if (job._id === cursor.id) pastCursor = true;
+          continue;
+        }
+        considerRest(job);
+        if (picked.length >= target) break;
+      }
+      if (cursor && !pastCursor) {
+        for (const job of scanned) {
+          considerRest(job);
+          if (picked.length >= target) break;
+        }
+      }
+      const pageCandidates = await withPageReadiness(picked);
+      return {
+        page: await slimListJobs(ctx, pageCandidates, hydration, cache),
+        isDone: scanned.length < BROWSE_SCAN && picked.length < target,
+        continueCursor: encodeBestRestCursor(
+          lastExamined ? encodeBrowseCursor(lastExamined) : restCursor,
+        ),
+      };
+    }
+
     if (!newestFirst) {
       const [newest, titled] = await Promise.all([
         openJobs(ctx, BROWSE_SCAN),
@@ -778,17 +929,20 @@ export const listMatchTiers = authedQuery({
     }
 
     const search = ((args.search as string | undefined) ?? "").trim();
-    const [newest, titled, searched] = await Promise.all([
-      search || goalFirst ? Promise.resolve([] as Doc<"jobs">[]) : openJobs(ctx, ROLE_SCAN.TITLE_SCAN_LIMIT),
-      search ? Promise.resolve([] as Doc<"jobs">[]) : jobsMatchingRoleTitles(ctx, profile),
+    const titled = search || goalFirst
+      ? search
+        ? Promise.resolve([] as Doc<"jobs">[])
+        : jobsMatchingRoleTitles(ctx, profile)
+      : Promise.resolve([] as Doc<"jobs">[]);
+    const [titledJobs, searched] = await Promise.all([
+      titled,
       search ? jobsMatchingBrowseSearch(ctx, search) : Promise.resolve([] as Doc<"jobs">[]),
     ]);
-    const seen = new Set(titled.map((job) => job._id));
     const open = search
       ? searched
       : goalFirst
-        ? titled
-        : [...titled, ...newest.filter((job) => !seen.has(job._id))];
+        ? titledJobs
+        : await bestMatchCandidates(ctx, hydration, profile);
     const cities = args.cities ?? (args.city ? [args.city] : []);
     const needsCity = cities.length > 0;
     const cache = emptyRelationCache();
