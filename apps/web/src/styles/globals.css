@@ -574,6 +574,69 @@ html {
 }
 
 /* ==========================================================================
+   Landing page company logo marquee
+   Two rows move in opposite directions, with edge fades so logos can loop
+   without a visible seam.
+   ========================================================================== */
+.company-marquee-mask {
+  overflow: hidden;
+  mask-image: linear-gradient(to right, transparent, #000 7%, #000 93%, transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 7%, #000 93%, transparent);
+}
+
+.company-marquee {
+  display: flex;
+  width: max-content;
+  animation-duration: 42s;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  will-change: transform;
+}
+
+.company-marquee-right {
+  animation-name: company-marquee-right;
+}
+
+.company-marquee-left {
+  animation-name: company-marquee-left;
+}
+
+.company-marquee:hover {
+  animation-play-state: paused;
+}
+
+@keyframes company-marquee-right {
+  from {
+    transform: translate3d(-50%, 0, 0);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes company-marquee-left {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+@media (max-width: 768px) {
+  .company-marquee {
+    animation-duration: 32s;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .company-marquee {
+    animation: none;
+    transform: none;
+  }
+}
+
+/* ==========================================================================
    Global Mobile Readability & Typography (iOS / Android Standards)
    Applies across all pages on mobile devices (<= 768px)
    ========================================================================== */

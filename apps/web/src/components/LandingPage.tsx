@@ -1,15 +1,110 @@
 "use client";
 
 import { QelsaLogo } from "@/components/QelsaLogo";
-import { ArrowRight, Check, ShieldCheck, Sparkles } from "lucide-react";
+import { ArrowRight, BarChart3, Briefcase, Check, ChevronRight, ShieldCheck, Sparkles, TriangleAlert, X } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 
-const AGENT_HIGHLIGHTS = ["Find roles matched to your skills and preferences", "See the gap between you and a role before you apply", "Draft a cover letter and prepare applications in one thread"];
+const AGENT_HIGHLIGHTS = [
+  "Build your profile",
+  "Explain your score",
+  "Find jobs that fit",
+  "Plan next steps",
+  "Check and tailor resumes",
+  "Write cover letters",
+];
+
+type Company = {
+  name: string;
+  slug?: string;
+  domain: string;
+  icon?: string;
+  invert?: boolean;
+};
+
+const COMPANY_LOGOS_TOP: Company[] = [
+  { name: "Anthropic", slug: "anthropic", domain: "anthropic.com" },
+  { name: "Stripe", slug: "stripe", domain: "stripe.com" },
+  { name: "NVIDIA", slug: "nvidia", domain: "nvidia.com" },
+  { name: "Airbnb", slug: "airbnb", domain: "airbnb.com" },
+  { name: "Figma", slug: "figma", domain: "figma.com" },
+  { name: "Notion", slug: "notion", domain: "notion.so" },
+  { name: "OpenAI", slug: "openai", domain: "openai.com", icon: "https://svgl.app/library/openai.svg", invert: true },
+  { name: "Swiggy", slug: "swiggy", domain: "swiggy.com" },
+  { name: "PhonePe", slug: "phonepe", domain: "phonepe.com" },
+  { name: "Bosch", slug: "bosch", domain: "bosch.com" },
+];
+
+const COMPANY_LOGOS_BOTTOM: Company[] = [
+  { name: "Netflix", slug: "netflix", domain: "netflix.com" },
+  { name: "Databricks", slug: "databricks", domain: "databricks.com" },
+  { name: "Razorpay", slug: "razorpay", domain: "razorpay.com" },
+  { name: "Atlassian", slug: "atlassian", domain: "atlassian.com" },
+  { name: "Google", slug: "google", domain: "google.com" },
+  { name: "Meta", slug: "meta", domain: "meta.com" },
+  { name: "Apple", slug: "apple", domain: "apple.com" },
+  { name: "Uber", slug: "uber", domain: "uber.com" },
+  { name: "Infosys", slug: "infosys", domain: "infosys.com" },
+  { name: "Zomato", slug: "zomato", domain: "zomato.com" },
+];
+
+function CompanyMark({ company }: { company: Company }) {
+  const [stage, setStage] = useState<"icon" | "favicon" | "text">("icon");
+  if (stage === "text") {
+    return (
+      <span className="flex size-5 items-center justify-center rounded border border-white/15 text-[9px] font-bold text-white/45">
+        {company.name.slice(0, 1)}
+      </span>
+    );
+  }
+  return (
+    <img
+      src={
+        stage === "icon"
+          ? company.icon ?? `https://cdn.simpleicons.org/${company.slug}/white`
+          : `https://www.google.com/s2/favicons?sz=128&domain=${company.domain}`
+      }
+      alt=""
+      aria-hidden="true"
+      width={24}
+      height={24}
+      decoding="async"
+      draggable={false}
+      onError={() => setStage((current) => (current === "icon" ? "favicon" : "text"))}
+      className={`h-6 w-6 object-contain ${company.invert || stage === "favicon" ? "brightness-0 invert" : ""}`}
+    />
+  );
+}
+
+function CompanyMarqueeRow({
+  companies,
+  direction,
+}: {
+  companies: Company[];
+  direction: "right" | "left";
+}) {
+  return (
+    <div className={`company-marquee ${direction === "right" ? "company-marquee-right" : "company-marquee-left"}`}>
+      {[0, 1].map((copy) => (
+        <div key={copy} className="flex shrink-0 items-center gap-2 pr-2" aria-hidden={copy === 1}>
+          {companies.map((company) => (
+            <div
+              key={`${copy}-${company.name}`}
+              className="flex h-14 w-[145px] shrink-0 items-center gap-2.5 rounded-xl border border-white/[0.06] bg-white/[0.025] px-3 sm:w-[164px]"
+            >
+              <CompanyMark company={company} />
+              <span className="truncate text-[11px] font-semibold uppercase tracking-[0.06em] text-white/45">
+                {company.name}
+              </span>
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export function LandingPage() {
-  const router = useRouter();
-
   return (
     <div className="relative isolate min-h-screen overflow-hidden text-white selection:bg-neon-cyan/20 selection:text-neon-cyan font-sans">
       {/* Top glows sit in a fixed layer so they continue behind the
@@ -21,7 +116,7 @@ export function LandingPage() {
       <div aria-hidden="true" className="pointer-events-none absolute left-1/3 top-[2200px] size-[700px] rounded-full bg-indigo-600/[0.06] blur-[180px]" />
 
       {/* ------------------------------ Hero ---------------------------------- */}
-      <section className="relative mx-auto w-full max-w-7xl px-6 pt-12 pb-20 sm:pt-16 sm:pb-28 lg:pt-24 lg:pb-32">
+      <section className="relative mx-auto w-full max-w-7xl px-6 pt-12 pb-20 sm:pt-16 sm:pb-28 lg:pt-16 lg:pb-28">
         <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-12 lg:gap-8">
           {/* Left Text */}
           <div className="flex flex-col lg:col-span-6 xl:col-span-6">
@@ -32,7 +127,7 @@ export function LandingPage() {
               <span className="mt-1 block text-white/45">Know who fits the role.</span>
             </h1>
 
-            <p className="mt-6 max-w-xl text-base leading-relaxed text-white/60 sm:text-lg">Qelsa maps verified skills to exact role requirements, so candidates know what to focus on next, and hiring teams know who to talk to first.</p>
+            <p className="mt-6 max-w-xl text-base leading-relaxed text-white/60 sm:text-lg">Get a job readiness score and skills gap analysis for every job. Candidates know what to focus on next. Hiring teams know who to talk to first.</p>
 
             <div className="mt-8 flex flex-wrap items-center gap-4 sm:mt-10">
               <Link
@@ -49,122 +144,90 @@ export function LandingPage() {
             </div>
           </div>
 
-          {/* Right Live Match Preview Card */}
+          {/* Right live readiness card */}
           <div className="lg:col-span-6 xl:col-span-6">
-            <div className="rounded-[28px] border border-white/[0.08] bg-[#0d1020]/80 p-5 sm:p-7 shadow-2xl backdrop-blur-xl">
-              {/* Card top banner */}
-              <div className="flex items-center justify-between pb-4">
-                <div className="flex items-center gap-2">
-                  <span className="relative flex size-2">
-                    <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                    <span className="relative inline-flex size-2 rounded-full bg-emerald-400" />
-                  </span>
-                  <span className="text-[11px] font-mono font-semibold uppercase tracking-wider text-[#5ee3f2]">LIVE MATCH</span>
+            <div className="rounded-[28px] border border-white/[0.08] bg-[#0d1020]/80 p-5 shadow-2xl backdrop-blur-xl sm:p-7">
+              <div className="rounded-2xl border border-white/[0.08] bg-[#090b15]/90 p-4 sm:p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-purple-400/25 bg-gradient-to-br from-purple-600/40 to-pink-600/30 text-sm font-bold text-purple-200">KM</div>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-bold text-white">Karthik Menon</p>
+                      <p className="truncate text-xs text-white/50">AI Engineer</p>
+                    </div>
+                  </div>
+                  <span className="hidden whitespace-nowrap rounded-full border border-white/[0.1] bg-white/[0.04] px-2.5 py-1 text-[10px] font-semibold text-white/55 sm:inline-flex">AI Engineer</span>
                 </div>
-                <span className="text-xs font-medium text-white/50">3 of 4 requirements met</span>
-              </div>
 
-              {/* Two subcards side by side */}
-              <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-                {/* Candidate card */}
-                <div className="flex flex-col justify-between rounded-2xl border border-white/[0.06] bg-[#070913]/90 p-4 sm:p-5">
+                <div className="mt-5 grid gap-4 sm:grid-cols-[1.15fr_0.85fr]">
                   <div>
-                    <div className="flex items-center gap-3">
-                      <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-purple-600/40 to-pink-600/30 border border-purple-400/25 font-bold text-sm text-purple-200">AR</div>
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-bold text-white">Ananya Rao</p>
-                        <p className="truncate text-xs text-white/50">Frontend Engineer</p>
-                      </div>
-                    </div>
-
-                    <div className="mt-4 flex flex-wrap gap-1.5">
-                      <span className="rounded-full border border-white/12 bg-white/[0.04] px-2.5 py-1 text-[11px] font-medium text-white/80">React</span>
-                      <span className="rounded-full border border-white/12 bg-white/[0.04] px-2.5 py-1 text-[11px] font-medium text-white/80">TypeScript</span>
-                      <span className="rounded-full border border-white/12 bg-white/[0.04] px-2.5 py-1 text-[11px] font-medium text-white/80">Accessibility</span>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/35">Your skills</p>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {["Python", "API design", "AWS", "SQL"].map((skill) => (
+                        <span key={skill} className="rounded-md border border-white/[0.1] bg-white/[0.04] px-2 py-1 text-[11px] text-white/75">{skill}</span>
+                      ))}
                     </div>
                   </div>
-
-                  <div className="mt-5 flex items-center gap-1.5 text-xs font-medium text-[#5ee3f2]">
-                    <ShieldCheck className="size-3.5 shrink-0" />
-                    <span>Evidence on every skill</span>
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-300/70">Missing</p>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {["LLM apps", "RAG"].map((skill) => (
+                        <span key={skill} className="rounded-md border border-amber-400/20 bg-amber-400/[0.06] px-2 py-1 text-[11px] text-amber-200/80">{skill}</span>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
-                {/* Job description card */}
-                <div className="rounded-2xl border border-white/[0.06] bg-[#070913]/90 p-4 sm:p-5">
-                  <p className="text-[10px] font-mono font-semibold uppercase tracking-wider text-white/40">JOB DESCRIPTION</p>
-                  <p className="mt-1 text-sm font-bold text-white">Senior Frontend Engineer</p>
-
-                  <div className="mt-4 space-y-2 text-xs">
-                    <div className="flex items-center justify-between">
-                      <span className="text-white/70">React</span>
-                      <span className="font-medium text-emerald-400">Met</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-white/70">TypeScript</span>
-                      <span className="font-medium text-emerald-400">Met</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-white/70">Accessibility</span>
-                      <span className="font-medium text-emerald-400">Met</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-white/70">Web performance</span>
-                      <span className="font-medium text-amber-400">Gap</span>
-                    </div>
+                <div className="mt-5 rounded-xl border border-white/[0.08] bg-white/[0.025] p-4">
+                  <div className="flex items-end justify-between gap-3">
+                    <span className="text-xs font-medium text-white/65">Readiness for AI Engineer job</span>
+                    <span className="text-2xl font-extrabold text-emerald-300">79%</span>
                   </div>
+                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/[0.08]">
+                    <div className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-[#5ee3f2]" style={{ width: "79%" }} />
+                  </div>
+                  <p className="mt-3 flex items-start gap-1.5 text-[11px] leading-relaxed text-white/45">
+                    <ArrowRight className="mt-0.5 size-3 shrink-0 text-emerald-300" />
+                    <span><span className="font-semibold text-white/70">Next step:</span> build one LLM app; it&apos;s asked for in 9 of your 12 closest jobs.</span>
+                  </p>
                 </div>
-              </div>
-
-              {/* Progress bar container */}
-              <div className="mt-5 rounded-2xl border border-white/[0.06] bg-[#070913]/60 p-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-white/70 sm:text-sm">Readiness for this role</span>
-                  <span className="text-2xl font-extrabold text-emerald-400 font-mono sm:text-3xl">87%</span>
-                </div>
-                <div className="mt-2.5 h-2 w-full overflow-hidden rounded-full bg-white/10">
-                  <div className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-teal-400 to-[#5ee3f2]" style={{ width: "87%" }} />
-                </div>
-                <p className="mt-2.5 text-xs text-white/50">One gap named: web performance. Recommended next step included.</p>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ------------------------- How Verification Works --------------------- */}
-      <section className="border-t border-white/[0.06] bg-[#0a0c16]/50 py-20 lg:py-28">
+      {/* ------------------------- Company catalog --------------------------- */}
+      <section className="border-t border-white/[0.06] bg-[#090a13]/60 py-20 lg:py-28">
         <div className="mx-auto w-full max-w-7xl px-6">
           <div className="text-center">
-            <p className="text-[11px] font-mono font-semibold uppercase tracking-[0.2em] text-[#5ee3f2] sm:text-xs">HOW VERIFICATION WORKS</p>
-            <h2 className="mx-auto mt-4 max-w-3xl text-3xl font-bold tracking-[-0.02em] text-white sm:text-4xl lg:text-5xl">Every skill on Qelsa has evidence behind it.</h2>
-            <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-white/50 sm:text-base">A score you can’t inspect is just a guess. Here’s how one is built.</p>
+            <h2 className="mx-auto max-w-3xl text-3xl font-bold tracking-[-0.02em] text-white sm:text-4xl lg:text-5xl">
+              Jobs from the world&apos;s top companies, in one place.
+            </h2>
           </div>
 
-          <div className="mt-12 grid grid-cols-1 gap-6 sm:mt-16 md:grid-cols-3">
-            {/* Step 01 */}
-            <div className="rounded-[24px] border border-white/[0.08] bg-[#0d1020]/60 p-7 sm:p-8 backdrop-blur transition-transform hover:-translate-y-1">
-              <div className="mb-6 inline-flex rounded-lg border border-[#5ee3f2]/30 bg-[#5ee3f2]/[0.08] px-2.5 py-1 font-mono text-xs font-bold text-[#5ee3f2]">01</div>
-              <h3 className="text-lg font-bold text-white sm:text-xl">Add your evidence</h3>
-              <p className="mt-3 text-sm leading-relaxed text-white/60">[Candidate adds proof of work — e.g. projects, GitHub, work samples, past roles.]</p>
-            </div>
-
-            {/* Step 02 */}
-            <div className="rounded-[24px] border border-white/[0.08] bg-[#0d1020]/60 p-7 sm:p-8 backdrop-blur transition-transform hover:-translate-y-1">
-              <div className="mb-6 inline-flex rounded-lg border border-[#5ee3f2]/30 bg-[#5ee3f2]/[0.08] px-2.5 py-1 font-mono text-xs font-bold text-[#5ee3f2]">02</div>
-              <h3 className="text-lg font-bold text-white sm:text-xl">Qelsa verifies each skill</h3>
-              <p className="mt-3 text-sm leading-relaxed text-white/60">[How Qelsa checks it — e.g. skill assessment, AI review of work, reference check.]</p>
-            </div>
-
-            {/* Step 03 */}
-            <div className="rounded-[24px] border border-white/[0.08] bg-[#0d1020]/60 p-7 sm:p-8 backdrop-blur transition-transform hover:-translate-y-1">
-              <div className="mb-6 inline-flex rounded-lg border border-[#5ee3f2]/30 bg-[#5ee3f2]/[0.08] px-2.5 py-1 font-mono text-xs font-bold text-[#5ee3f2]">03</div>
-              <h3 className="text-lg font-bold text-white sm:text-xl">Readiness is scored per role</h3>
-              <p className="mt-3 text-sm leading-relaxed text-white/60">Verified skills are matched against the exact requirements of a role. The score is calculated, and the gap is named.</p>
+          <div className="mt-10 rounded-[28px] border border-white/[0.07] bg-white/[0.015] py-3 sm:mt-14 sm:py-5">
+            <div role="region" className="company-marquee-mask space-y-2.5 py-1" aria-label="Popular companies hiring on Qelsa">
+              <CompanyMarqueeRow companies={COMPANY_LOGOS_TOP} direction="right" />
+              <CompanyMarqueeRow companies={COMPANY_LOGOS_BOTTOM} direction="left" />
             </div>
           </div>
 
-          <p className="mt-10 text-center text-xs text-white/45 sm:text-sm">Candidates and hiring teams can open the evidence behind every score.</p>
+          <div className="mx-auto mt-7 flex max-w-2xl flex-col gap-4 rounded-2xl border border-white/[0.08] bg-[#0b0d18]/75 p-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">
+            <div className="flex items-center gap-3">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-[#5ee3f2]/25 bg-[#5ee3f2]/[0.07] text-[#5ee3f2]">
+                <Briefcase className="size-4" />
+              </span>
+              <div>
+                <p className="text-sm font-bold text-white">10K+ live jobs</p>
+                <p className="mt-0.5 text-xs text-white/45">Each one scored for you</p>
+              </div>
+            </div>
+            <Link href="/jobs/all" className="gradient-primary inline-flex h-11 items-center justify-center gap-1.5 rounded-full px-5 text-xs font-bold text-white transition-opacity hover:opacity-90">
+              Browse all jobs
+              <ArrowRight className="size-3.5" />
+            </Link>
+          </div>
         </div>
       </section>
 
@@ -173,7 +236,7 @@ export function LandingPage() {
         <div className="mx-auto w-full max-w-7xl px-6">
           <div className="text-center">
             <p className="text-[11px] font-mono font-semibold uppercase tracking-[0.2em] text-[#5ee3f2] sm:text-xs">ONE PLATFORM, TWO PATHS</p>
-            <h2 className="mx-auto mt-4 max-w-3xl text-3xl font-bold tracking-[-0.02em] text-white sm:text-4xl lg:text-5xl">The same clarity, from both sides of the table.</h2>
+            <h2 className="mx-auto mt-4 max-w-3xl text-3xl font-bold tracking-[-0.02em] text-white sm:text-4xl lg:text-5xl">One platform. Two paths.</h2>
           </div>
 
           <div className="mt-12 grid grid-cols-1 gap-8 lg:mt-16 lg:grid-cols-2">
@@ -182,36 +245,36 @@ export function LandingPage() {
               <div>
                 <p className="text-[11px] font-mono font-semibold uppercase tracking-wider text-[#5ee3f2]">FOR CANDIDATES</p>
                 <h3 className="mt-3 text-2xl font-bold text-white sm:text-3xl">Know exactly where you stand</h3>
-                <p className="mt-2 text-sm leading-relaxed text-white/60">A specific readiness score for the role you want, the one skill between you and it, and how to close the gap.</p>
+                <p className="mt-2 text-sm leading-relaxed text-white/60">A readiness score for every job you look at, the one skill between you and it, and how to close the gap.</p>
 
                 {/* Candidate visual block */}
                 <div className="mt-8 rounded-2xl border border-white/[0.06] bg-[#070913] p-5 sm:p-6">
                   <div className="flex items-start justify-between">
                     <div>
                       <p className="text-[10px] font-mono font-semibold uppercase tracking-wider text-white/40">TARGET ROLE</p>
-                      <p className="mt-1 text-base font-bold text-white sm:text-lg">Senior Frontend Engineer</p>
+                      <p className="mt-1 text-base font-bold text-white sm:text-lg">Associate Business Analyst</p>
                     </div>
-                    <span className="text-2xl font-extrabold text-emerald-400 font-mono sm:text-3xl">87%</span>
+                    <span className="text-2xl font-extrabold text-emerald-400 font-mono sm:text-3xl">74%</span>
                   </div>
 
                   <div className="mt-3.5 h-2 w-full overflow-hidden rounded-full bg-white/10">
-                    <div className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-[#5ee3f2]" style={{ width: "87%" }} />
+                    <div className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-[#5ee3f2]" style={{ width: "74%" }} />
                   </div>
 
                   <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
                       <p className="text-[10px] font-mono font-semibold uppercase tracking-wider text-emerald-400">MATCHING SKILLS</p>
                       <div className="mt-3 flex flex-wrap gap-1.5">
-                        <span className="rounded-full border border-white/12 bg-white/[0.04] px-2.5 py-1 text-xs text-white/80">React</span>
-                        <span className="rounded-full border border-white/12 bg-white/[0.04] px-2.5 py-1 text-xs text-white/80">TypeScript</span>
-                        <span className="rounded-full border border-white/12 bg-white/[0.04] px-2.5 py-1 text-xs text-white/80">Accessibility</span>
+                        <span className="rounded-full border border-white/12 bg-white/[0.04] px-2.5 py-1 text-xs text-white/80">Excel</span>
+                        <span className="rounded-full border border-white/12 bg-white/[0.04] px-2.5 py-1 text-xs text-white/80">Communication</span>
+                        <span className="rounded-full border border-white/12 bg-white/[0.04] px-2.5 py-1 text-xs text-white/80">Presentation</span>
                       </div>
                     </div>
 
                     <div className="rounded-xl border border-amber-500/25 bg-amber-500/[0.04] p-4">
                       <p className="text-[10px] font-mono font-semibold uppercase tracking-wider text-amber-400">FOCUS NEXT</p>
-                      <p className="mt-1.5 text-xs font-bold text-white sm:text-sm">Web performance optimization</p>
-                      <p className="mt-1 text-[11px] text-white/50">Recommended: Core Web Vitals in Practice · 4h</p>
+                      <p className="mt-1.5 text-xs font-bold text-white sm:text-sm">SQL basics</p>
+                      <p className="mt-1 text-[11px] text-white/50">Recommended: SQL for business analysis</p>
                     </div>
                   </div>
                 </div>
@@ -230,53 +293,53 @@ export function LandingPage() {
               <div>
                 <p className="text-[11px] font-mono font-semibold uppercase tracking-wider text-[#d73e9d]">FOR EMPLOYERS</p>
                 <h3 className="mt-3 text-2xl font-bold text-white sm:text-3xl">A ranked shortlist, not a crowded inbox</h3>
-                <p className="mt-2 text-sm leading-relaxed text-white/60">Share your job description. Every candidate arrives with a readiness score and a named gap, backed by evidence.</p>
+                <p className="mt-2 text-sm leading-relaxed text-white/60">Share your job description. Every candidate arrives with a readiness score and a ranked gap.</p>
 
                 {/* Employers visual block */}
                 <div className="mt-8 rounded-2xl border border-white/[0.06] bg-[#070913] p-5 sm:p-6">
                   <div className="flex items-end justify-between border-b border-white/[0.06] pb-3">
                     <div>
                       <p className="text-[10px] font-mono font-semibold uppercase tracking-wider text-white/40">RANKED SHORTLIST</p>
-                      <p className="mt-1 text-base font-bold text-white sm:text-lg">Senior Frontend Engineer</p>
+                      <p className="mt-1 text-base font-bold text-white sm:text-lg">Associate Business Analyst</p>
                     </div>
-                    <span className="text-xs font-medium text-white/50">3 candidates above 75%</span>
+                    <span className="text-xs font-medium text-white/50">Ranked by readiness</span>
                   </div>
 
                   <div className="mt-4 space-y-2.5">
                     {/* Candidate 1 */}
                     <div className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 sm:p-3.5">
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-emerald-500/30 bg-emerald-950/70 text-xs font-bold text-emerald-400">AR</div>
+                        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-emerald-500/30 bg-emerald-950/70 text-xs font-bold text-emerald-400">PS</div>
                         <div className="min-w-0">
-                          <p className="truncate text-xs font-semibold text-white sm:text-sm">Ananya Rao</p>
-                          <p className="truncate text-[11px] text-white/50">Gap: web performance</p>
+                          <p className="truncate text-xs font-semibold text-white sm:text-sm">Priya Sharma</p>
+                          <p className="truncate text-[11px] text-white/50">Gap: SQL basics</p>
                         </div>
                       </div>
-                      <span className="font-mono text-sm font-bold text-emerald-400 sm:text-base">87%</span>
+                      <span className="font-mono text-sm font-bold text-emerald-400 sm:text-base">81%</span>
                     </div>
 
                     {/* Candidate 2 */}
                     <div className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 sm:p-3.5">
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-teal-500/30 bg-teal-950/70 text-xs font-bold text-teal-400">RM</div>
+                        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-teal-500/30 bg-teal-950/70 text-xs font-bold text-teal-400">DO</div>
                         <div className="min-w-0">
-                          <p className="truncate text-xs font-semibold text-white sm:text-sm">Rohan Mehta</p>
-                          <p className="truncate text-[11px] text-white/50">Gap: accessibility</p>
+                          <p className="truncate text-xs font-semibold text-white sm:text-sm">Daniel Okafor</p>
+                          <p className="truncate text-[11px] text-white/50">Gap: analytics</p>
                         </div>
                       </div>
-                      <span className="font-mono text-sm font-bold text-emerald-400 sm:text-base">84%</span>
+                      <span className="font-mono text-sm font-bold text-emerald-400 sm:text-base">77%</span>
                     </div>
 
                     {/* Candidate 3 */}
                     <div className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 sm:p-3.5">
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-amber-500/30 bg-amber-950/70 text-xs font-bold text-amber-400">KI</div>
+                        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-amber-500/30 bg-amber-950/70 text-xs font-bold text-amber-400">SM</div>
                         <div className="min-w-0">
-                          <p className="truncate text-xs font-semibold text-white sm:text-sm">Kavya Iyer</p>
-                          <p className="truncate text-[11px] text-white/50">Gaps: TypeScript, web performance</p>
+                          <p className="truncate text-xs font-semibold text-white sm:text-sm">Sofia Martinez</p>
+                          <p className="truncate text-[11px] text-white/50">Gaps: Excel, SQL</p>
                         </div>
                       </div>
-                      <span className="font-mono text-sm font-bold text-amber-400 sm:text-base">76%</span>
+                      <span className="font-mono text-sm font-bold text-amber-400 sm:text-base">72%</span>
                     </div>
                   </div>
                 </div>
@@ -293,6 +356,119 @@ export function LandingPage() {
         </div>
       </section>
 
+      {/* ---------------------------- Readiness score ------------------------- */}
+      <section className="border-t border-white/[0.06] bg-[#080a14]/60 py-20 lg:py-28">
+        <div className="mx-auto w-full max-w-7xl px-6">
+          <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
+            <div>
+              <p className="text-[11px] font-mono font-semibold uppercase tracking-[0.2em] text-[#5ee3f2] sm:text-xs">THE READINESS SCORE</p>
+              <h2 className="mt-4 max-w-xl text-3xl font-bold leading-tight tracking-[-0.02em] text-white sm:text-4xl lg:text-5xl">
+                Your job readiness score, broken down skill by skill.
+              </h2>
+              <p className="mt-5 max-w-xl text-sm leading-relaxed text-white/55 sm:text-base">
+                For every job, Qelsa shows how your skills, experience and education compare with what the role asks for, skill by skill.
+              </p>
+              <ul className="mt-8 space-y-5">
+                <li className="flex items-start gap-3 text-sm leading-relaxed text-white/60">
+                  <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border border-emerald-400/25 bg-emerald-400/[0.08] text-emerald-300"><Check className="size-3" /></span>
+                  <span><span className="font-semibold text-white/80">Where you&apos;re already strong.</span> Skills you meet or beat the target level.</span>
+                </li>
+                <li className="flex items-start gap-3 text-sm leading-relaxed text-white/60">
+                  <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border border-amber-400/25 bg-amber-400/[0.08] text-amber-300"><TriangleAlert className="size-3" /></span>
+                  <span><span className="font-semibold text-white/80">Skills to close the gap.</span> Your level against the target, marked core or preferred.</span>
+                </li>
+                <li className="flex items-start gap-3 text-sm leading-relaxed text-white/60">
+                  <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border border-rose-400/25 bg-rose-400/[0.08] text-rose-300"><X className="size-3" /></span>
+                  <span><span className="font-semibold text-white/80">Not on your resume yet.</span> What the job wants that you haven&apos;t shown.</span>
+                </li>
+              </ul>
+              <Link href="/auth?returnUrl=/profile" className="gradient-primary mt-8 inline-flex h-11 items-center justify-center gap-2 rounded-full px-6 text-sm font-semibold text-white transition-opacity hover:opacity-90">
+                See my readiness
+                <ArrowRight className="size-4" />
+              </Link>
+            </div>
+
+            <div className="rounded-[28px] border border-white/[0.08] bg-[#0d1020]/70 p-5 shadow-2xl backdrop-blur sm:p-7">
+              <div className="flex items-center gap-2">
+                <BarChart3 className="size-4 text-[#5ee3f2]" />
+                <p className="text-sm font-bold text-white">How you fit this role</p>
+              </div>
+
+              <div className="mt-6 grid gap-5 sm:grid-cols-[112px_1fr] sm:items-center">
+                <div className="relative mx-auto flex size-24 items-center justify-center rounded-full" style={{ background: "conic-gradient(#5ee3f2 0 78%, rgba(255,255,255,0.08) 78% 100%)" }}>
+                  <div className="flex size-[78px] flex-col items-center justify-center rounded-full bg-[#0d1020]">
+                    <span className="text-xl font-extrabold text-[#5ee3f2]">78%</span>
+                    <span className="mt-0.5 text-[9px] font-medium uppercase tracking-[0.12em] text-white/35">Fit score</span>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  {[
+                    ["Skills match", "84%", "84%"],
+                    ["Experience match", "72%", "72%"],
+                    ["Education match", "68%", "68%"],
+                  ].map(([label, value, width]) => (
+                    <div key={label}>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-white/55">{label}</span>
+                        <span className="font-semibold text-white/80">{value}</span>
+                      </div>
+                      <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/[0.08]">
+                        <div className="h-full rounded-full bg-gradient-to-r from-[#5ee3f2] to-neon-purple" style={{ width }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-7 grid gap-4 border-t border-white/[0.07] pt-5 sm:grid-cols-2">
+                <div>
+                  <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-300"><Check className="size-3" /> Where you&apos;re already strong</p>
+                  <div className="mt-2.5 space-y-2">
+                    {[["TypeScript", "Advanced"], ["REST APIs", "Advanced"]].map(([skill, level]) => (
+                      <div key={skill} className="flex items-center justify-between rounded-lg border border-white/[0.06] bg-white/[0.025] px-2.5 py-2 text-xs">
+                        <span className="text-white/75">{skill}</span>
+                        <span className="text-[10px] text-white/35">{level}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-amber-300"><TriangleAlert className="size-3" /> 3 skills to close the gap</p>
+                  <div className="mt-2.5 space-y-2">
+                    {[["React", "Core"], ["Accessibility", "Core"], ["GraphQL", "Preferred"]].map(([skill, type]) => (
+                      <div key={skill} className="flex items-center justify-between rounded-lg border border-amber-400/[0.12] bg-amber-400/[0.035] px-2.5 py-2 text-xs">
+                        <span className="text-white/75">{skill}</span>
+                        <span className="text-[10px] text-amber-200/70">{type}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-5">
+                <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-white/35"><X className="size-3" /> Not on your resume yet</p>
+                <div className="mt-2.5 grid grid-cols-2 gap-2">
+                  {["Docker", "AWS"].map((skill) => (
+                    <div key={skill} className="flex items-center justify-between rounded-lg border border-white/[0.06] bg-white/[0.02] px-2.5 py-2 text-xs">
+                      <span className="text-white/55">{skill}</span>
+                      <span className="text-[10px] text-[#5ee3f2]">How to level</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-5 flex items-center justify-between gap-3 rounded-xl border border-[#5ee3f2]/15 bg-[#5ee3f2]/[0.04] px-3.5 py-3">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="size-4 text-[#5ee3f2]" />
+                  <span className="text-xs font-semibold text-white/80">Ask Qelsa why</span>
+                </div>
+                <ChevronRight className="size-4 text-white/35" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ------------------------------ Qelsa Agent ---------------------------- */}
       <section className="relative overflow-hidden border-t border-white/[0.06] py-20 lg:py-28">
         <div aria-hidden="true" className="pointer-events-none absolute inset-0">
@@ -301,17 +477,17 @@ export function LandingPage() {
 
         <div className="relative mx-auto w-full max-w-7xl px-6">
           <div className="text-center">
-            <p className="text-[11px] font-mono font-semibold uppercase tracking-[0.2em] text-[#5ee3f2] sm:text-xs">QELSA AGENT</p>
-            <h2 className="mx-auto mt-4 max-w-3xl text-3xl font-bold tracking-[-0.02em] text-white sm:text-4xl lg:text-5xl">Your job search, with an agent that can act.</h2>
+            <p className="text-[11px] font-mono font-semibold uppercase tracking-[0.2em] text-[#5ee3f2] sm:text-xs">MEET QELSA AGENT</p>
+            <h2 className="mx-auto mt-4 max-w-3xl text-3xl font-bold tracking-[-0.02em] text-white sm:text-4xl lg:text-5xl">Your AI career agent. Ask anything, apply ready.</h2>
           </div>
-          <div className="mt-6 lg:mt-16 grid grid-cols-1 items-center gap-12 lg:grid-cols-12 lg:gap-12">
+          <div className="mt-6 grid grid-cols-1 items-start gap-12 lg:mt-16 lg:grid-cols-12 lg:gap-12">
             {/* Left copy */}
             <div className="lg:col-span-5">
               <p className="mt-4 max-w-xl text-sm leading-relaxed text-white/55 sm:text-base">
-                Ask for roles, compare your fit, draft a cover letter, or prepare an application. Qelsa Agent works from your verified profile — and pauses for your approval before anything changes.
+                It knows your profile and your goal, and answers like a senior mentor. Build your profile, understand your score, find jobs that fit, and prepare every application with one thread.
               </p>
 
-              <ul className="mt-6 space-y-3">
+              <ul className="mt-6 grid grid-cols-1 gap-x-5 gap-y-3 sm:grid-cols-2">
                 {AGENT_HIGHLIGHTS.map((highlight) => (
                   <li key={highlight} className="flex items-start gap-2.5 text-sm leading-relaxed text-white/70">
                     <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border border-[#5ee3f2]/30 bg-[#5ee3f2]/[0.08]">
@@ -328,13 +504,12 @@ export function LandingPage() {
                   className="inline-flex items-center gap-2 whitespace-nowrap rounded-full bg-gradient-to-r from-[#623dd6] via-[#8433ae] to-[#be2680] px-7 py-3.5 text-sm font-semibold text-white shadow-xl shadow-purple-950/40 transition-all hover:opacity-95 sm:text-base"
                 >
                   <Sparkles className="size-4" />
-                  <span>Open Qelsa Agent</span>
+                  <span>Try Qelsa Agent</span>
                   <ArrowRight className="size-4" />
                 </Link>
-                <span className="text-xs leading-relaxed text-white/40">Sign in first. Your agent picks up right after.</span>
+                <span className="text-xs leading-relaxed text-white/40">Your agent picks up right after you sign in.</span>
               </div>
 
-              <p className="mt-5 text-xs text-white/35">Currently built for job seekers.</p>
             </div>
 
             {/* Right agent preview */}
@@ -360,48 +535,43 @@ export function LandingPage() {
                   </div>
 
                   <div className="space-y-4 p-5 sm:p-6">
-                    <div className="ml-auto max-w-[85%] rounded-2xl rounded-br-md border border-white/[0.06] bg-white/[0.06] px-4 py-3 text-sm text-white/80">Find remote React roles and check my fit.</div>
+                    <div className="ml-auto max-w-[85%] rounded-2xl rounded-br-md border border-white/[0.06] bg-white/[0.06] px-4 py-3 text-sm text-white/80">I'm a BCom graduate looking for my first job. Where do I start?</div>
 
                     <div className="max-w-[92%] space-y-3">
                       <p className="text-sm leading-relaxed text-white/60">
-                        I found 3 roles. Your strongest match is <span className="font-semibold text-white">Senior Frontend Engineer at Northstar</span> — <span className="font-semibold text-emerald-400">87% match</span>.
+                        You're close to <span className="font-semibold text-white">Accounts Executive (82%)</span>, <span className="font-semibold text-white">Junior Financial Analyst (76%)</span> and <span className="font-semibold text-white">Business Analyst (74%)</span>. Advanced Excel would lift all three.
                       </p>
 
-                      <div className="rounded-2xl border border-white/[0.08] bg-[#070913] p-4">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold text-white">Senior Frontend Engineer</p>
-                            <p className="mt-0.5 truncate text-xs text-white/45">Northstar · Remote</p>
-                          </div>
-                          <span className="shrink-0 rounded-full border border-emerald-500/25 bg-emerald-500/[0.08] px-2.5 py-1 font-mono text-[11px] font-bold text-emerald-300">87%</span>
-                        </div>
-
-                        <div className="mt-3 flex flex-wrap gap-1.5">
-                          {["React", "TypeScript", "Accessibility"].map((skill) => (
-                            <span key={skill} className="rounded-full border border-white/12 bg-white/[0.04] px-2.5 py-1 text-[11px] text-white/75">
-                              {skill}
-                            </span>
+                      <div className="rounded-2xl border border-white/[0.08] bg-[#070913] p-3.5">
+                        <p className="px-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/35">Your top 3 matches</p>
+                        <div className="mt-2 divide-y divide-white/[0.06]">
+                          {[
+                            { role: "Accounts Executive", company: "Meridian Finance", score: "82%" },
+                            { role: "Junior Financial Analyst", company: "Northstar", score: "76%" },
+                            { role: "Business Analyst", company: "Lattice Labs", score: "74%" },
+                          ].map((job) => (
+                            <div key={job.role} className="flex items-center justify-between gap-3 py-2.5">
+                              <div className="min-w-0">
+                                <p className="truncate text-xs font-semibold text-white">{job.role}</p>
+                                <p className="mt-0.5 truncate text-[11px] text-white/45">{job.company}</p>
+                              </div>
+                              <div className="flex shrink-0 items-center gap-2.5">
+                                <span className="font-mono text-[11px] font-bold text-emerald-300">{job.score}</span>
+                                <span className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-[#5ee3f2]">
+                                  Apply <ArrowRight className="size-3" />
+                                </span>
+                              </div>
+                            </div>
                           ))}
-                        </div>
-
-                        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-white/[0.06] pt-3">
-                          <span className="text-[11px] text-white/40">One gap: web performance</span>
-                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#5ee3f2]">
-                            Draft cover letter <ArrowRight className="size-3" />
-                          </span>
                         </div>
                       </div>
 
                       <div className="rounded-2xl border border-[#5ee3f2]/20 bg-[#5ee3f2]/[0.04] p-4">
                         <div className="flex items-center gap-2">
                           <ShieldCheck className="size-4 shrink-0 text-[#5ee3f2]" />
-                          <p className="text-xs font-semibold text-white">Ready to apply</p>
+                          <p className="text-xs font-semibold text-white">Prepare applications for the top 3</p>
                         </div>
-                        <p className="mt-1.5 text-xs leading-relaxed text-white/50">Qelsa Agent pauses before changing your profile. You review every action.</p>
-                        <div className="mt-3 flex flex-wrap items-center gap-2">
-                          <span className="rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-[11px] font-semibold text-white/75">Review application</span>
-                          <span className="text-[11px] text-white/35">Needs your approval</span>
-                        </div>
+                        <p className="mt-1.5 text-xs leading-relaxed text-white/50">Done. Each has a tailored resume and cover letter. Apply on the company site when you're ready.</p>
                       </div>
                     </div>
                   </div>
@@ -426,7 +596,7 @@ export function LandingPage() {
         <div className="mx-auto w-full max-w-5xl px-6">
           <div className="rounded-[32px] border border-white/[0.08] bg-[#0d1020]/70 p-8 text-center shadow-2xl backdrop-blur sm:p-14 lg:p-16">
             <h2 className="mx-auto max-w-2xl text-3xl font-extrabold tracking-[-0.02em] leading-tight text-white sm:text-4xl lg:text-5xl">See where you stand, or who's ready now.</h2>
-            <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-white/60 sm:text-base">Build a verified profile in minutes, or share a job description and get a ranked shortlist.</p>
+            <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-white/60 sm:text-base">Build your profile in minutes, or share a job description and get a ranked shortlist. Free to start.</p>
 
             <div className="mt-8 flex flex-wrap items-center justify-center gap-4 sm:mt-10">
               <Link
