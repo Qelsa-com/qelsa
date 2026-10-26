@@ -135,11 +135,11 @@ export function MobileTabBar() {
       data-state={visible ? "visible" : "hidden"}
       aria-label="Primary mobile navigation"
       aria-hidden={!visible}
-      className={`fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+0.5rem)] z-40 mx-auto max-w-md rounded-full border border-white/[0.08] bg-[#06060f]/60 px-2 py-1.5 shadow-[0_14px_44px_rgba(0,0,0,0.42)] backdrop-blur-2xl transition-[transform,opacity] duration-300 ease-out lg:hidden ${
-        visible ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-[calc(100%+0.5rem+env(safe-area-inset-bottom))] opacity-0"
+      className={`fixed inset-x-2 bottom-[calc(env(safe-area-inset-bottom)+0.375rem)] z-40 mx-auto max-w-xs rounded-full border border-white/[0.08] bg-[#06060f]/55 px-1.5 py-1 shadow-[0_10px_32px_rgba(0,0,0,0.38)] backdrop-blur-2xl transition-[transform,opacity] duration-300 ease-out lg:hidden ${
+        visible ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-[calc(100%+0.375rem+env(safe-area-inset-bottom))] opacity-0"
       }`}
     >
-      <div className="mx-auto grid h-12 w-full max-w-lg grid-cols-4">
+      <div className="mx-auto grid h-10 w-full max-w-xs grid-cols-4">
         {TABS.map((tab) => {
           const Icon = tab.icon;
           const active = activeTab === tab.id;
@@ -159,7 +159,7 @@ export function MobileTabBar() {
                     : "text-white/55 group-hover:bg-white/[0.04] group-hover:text-white/80"
                 }`}
               >
-                <Icon className="size-[21px]" strokeWidth={active ? 2.3 : 1.8} />
+                <Icon className="size-[18px]" strokeWidth={active ? 2.3 : 1.8} />
               </span>
             </Link>
           );

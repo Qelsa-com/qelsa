@@ -118,7 +118,7 @@ const Layout = ({ activeSection, children, hideMobileTabBar = false }: LayoutPro
             scrolled={scrolled}
           />
 
-          <div className={`flex flex-1 flex-col ${showMobileTabBar ? "max-lg:pb-[calc(4.5rem+env(safe-area-inset-bottom))]" : ""}`}>
+          <div className={`flex flex-1 flex-col ${showMobileTabBar ? "max-lg:pb-[calc(3.25rem+env(safe-area-inset-bottom))]" : ""}`}>
             <ErrorBoundary label="this page">{children}</ErrorBoundary>
           </div>
         </>
