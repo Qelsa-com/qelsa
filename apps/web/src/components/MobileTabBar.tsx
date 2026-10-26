@@ -3,13 +3,13 @@
 /**
  * Candidate mobile tab bar.
  *
- * Icon-only by design: the four primary destinations fit in one thumb row while
+ * Icon-only by design: the three primary destinations fit in one thumb row while
  * the drawer still carries the full account navigation. The bar follows native
  * app behaviour: it hides as you scroll down, reveals as you scroll up, gets out
  * of the way when a field opens the keyboard, and stays off the Agent screen.
  */
 
-import { BookOpen, BotMessageSquare, Briefcase, Home } from "lucide-react";
+import { BotMessageSquare, Briefcase, Home } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -18,7 +18,6 @@ const TABS = [
   { id: "space", label: "My Space", href: "/", icon: Home },
   { id: "jobs", label: "Jobs", href: "/jobs/all", icon: Briefcase },
   { id: "agent", label: "Agent", href: "/agent", icon: BotMessageSquare },
-  { id: "courses", label: "Learn & Practice", href: "/courses", icon: BookOpen },
 ] as const;
 
 const SCROLL_DELTA = 10;
@@ -29,7 +28,6 @@ function activeTabForPath(pathname: string | null) {
   if (pathname === "/") return "space";
   if (pathname === "/agent" || pathname.startsWith("/agent/")) return "agent";
   if (pathname.startsWith("/jobs")) return "jobs";
-  if (pathname.startsWith("/courses")) return "courses";
   return null;
 }
 
@@ -135,11 +133,11 @@ export function MobileTabBar() {
       data-state={visible ? "visible" : "hidden"}
       aria-label="Primary mobile navigation"
       aria-hidden={!visible}
-      className={`fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+0.5rem)] z-40 mx-auto max-w-[260px] rounded-full border border-white/[0.08] bg-[#06060f]/55 px-1 py-1 shadow-[0_14px_44px_rgba(0,0,0,0.42)] backdrop-blur-2xl transition-[transform,opacity] duration-300 ease-out lg:hidden ${
+      className={`fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+0.5rem)] z-40 mx-auto max-w-[200px] rounded-full border border-white/[0.08] bg-[#06060f]/55 px-1 py-1 shadow-[0_14px_44px_rgba(0,0,0,0.42)] backdrop-blur-2xl transition-[transform,opacity] duration-300 ease-out lg:hidden ${
         visible ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-[calc(100%+0.5rem+env(safe-area-inset-bottom))] opacity-0"
       }`}
     >
-      <div className="mx-auto grid h-11 w-full grid-cols-4 gap-0.5">
+      <div className="mx-auto grid h-11 w-full grid-cols-3 gap-0.5">
         {TABS.map((tab) => {
           const Icon = tab.icon;
           const active = activeTab === tab.id;
