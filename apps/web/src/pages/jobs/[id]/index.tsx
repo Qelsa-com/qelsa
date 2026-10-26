@@ -156,7 +156,7 @@ export default function JobDetails({ meta }: JobDetailsPageProps) {
         <meta name="twitter:image" content={ogImage} />
         <meta name="twitter:image:alt" content={ogTitle} />
       </Head>
-      <Layout activeSection="jobs">
+      <Layout activeSection="jobs" hideMobileTabBar>
         <JobDetail />
       </Layout>
     </>

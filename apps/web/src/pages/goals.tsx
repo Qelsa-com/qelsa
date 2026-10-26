@@ -3,7 +3,7 @@ import Layout from "@/layout";
 
 const Goals = () => {
   return (
-    <Layout activeSection="goals">
+    <Layout activeSection="goals" hideMobileTabBar>
       <GoalSettingPage />
     </Layout>
   );

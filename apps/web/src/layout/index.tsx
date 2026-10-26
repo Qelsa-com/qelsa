@@ -11,6 +11,7 @@ import Link from "next/link";
 import { useCallback, useState } from "react";
 import { JobFilterSidebar } from "../components/job/JobFilterSidebar";
 import { MainNavigation } from "../components/MainNavigation";
+import { MobileTabBar } from "../components/MobileTabBar";
 import { ProfileDrawer } from "../components/ProfileDrawer";
 
 import { useEmployerSidebar } from "@/lib/employerSidebarState";
@@ -19,9 +20,11 @@ import { useScrolled } from "@/lib/useScrolled";
 interface LayoutProps {
   activeSection?: string;
   children: React.ReactNode;
+  /** Hide the candidate tab bar on full-screen action flows (job detail, goals). */
+  hideMobileTabBar?: boolean;
 }
 
-const Layout = ({ activeSection, children }: LayoutProps) => {
+const Layout = ({ activeSection, children, hideMobileTabBar = false }: LayoutProps) => {
   const [showJobFilterSidebar, setShowJobFilterSidebar] = useState(false);
   const [showProfileDrawer, setShowProfileDrawer] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -39,6 +42,7 @@ const Layout = ({ activeSection, children }: LayoutProps) => {
   }, []);
 
   const isRecruiter = isAuthenticated && user?.account_type === "recruiter";
+  const showMobileTabBar = Boolean(isAuthenticated && !isRecruiter && !isAgentScreen && !hideMobileTabBar);
   const { data: billingData } = useGetMyBillingQuery({
     skip: !isAuthenticated || isRecruiter,
   });
@@ -114,11 +118,13 @@ const Layout = ({ activeSection, children }: LayoutProps) => {
             scrolled={scrolled}
           />
 
-          <div className="flex flex-1 flex-col">
+          <div className={`flex flex-1 flex-col ${showMobileTabBar ? "max-lg:pb-[calc(4.5rem+env(safe-area-inset-bottom))]" : ""}`}>
             <ErrorBoundary label="this page">{children}</ErrorBoundary>
           </div>
         </>
       )}
+
+      {showMobileTabBar ? <MobileTabBar /> : null}
 
       {/* Job Filter Sidebar */}
       <JobFilterSidebar isOpen={showJobFilterSidebar} />
