@@ -717,7 +717,9 @@ export async function fetchSmartRecruiters(identifier: string): Promise<Normaliz
     }
   }
   const brandDomain = companyDomain(brand.website) ?? companyDomain(undefined, slug);
-  const brandLogo = brand.logo ?? logoForDomain(brandDomain);
+  // Prefer the site icon. SmartRecruiters' `itemprop=logo` is often a wide
+  // wordmark, which is unreadable inside a small company avatar.
+  const brandLogo = logoForDomain(brandDomain) ?? brand.logo;
 
   return postings.slice(0, MAX_JOBS).map((row) => {
     const id = String(row.id ?? "");

@@ -163,9 +163,14 @@ function isUsableLogo(url?: string | null) {
 }
 
 export function companyLogoUrl(job: Job) {
+  const domain = companyDomainFromJob(job);
+  // SmartRecruiters brand assets are often wide wordmarks. Use the site icon
+  // for those cards so the avatar stays a recognizable square logo.
+  if (/^https:\/\/c\.smartrecruiters\.com\//i.test(job.company_logo ?? "") && domain) {
+    return logoUrlForDomain(domain);
+  }
   if (isUsableLogo(job.company_logo)) return job.company_logo!;
   if (isUsableLogo(job.page?.logo)) return job.page!.logo!;
-  const domain = companyDomainFromJob(job);
   return domain ? logoUrlForDomain(domain) : undefined;
 }
 
