@@ -828,6 +828,7 @@ export const listJobs = adminQuery({
     status: v.optional(v.string()),
     search: v.optional(v.string()),
     onlyIngested: v.optional(v.boolean()),
+    sort: v.optional(v.union(v.literal("newest"), v.literal("oldest"))),
     paginationOpts: paginationOptsValidator,
   },
   returns: paginationResultValidator(jobSummaryValidator),
@@ -865,7 +866,11 @@ export const listJobs = adminQuery({
         return true;
       });
 
-      rows.sort((a, b) => b._creationTime - a._creationTime);
+      rows.sort((a, b) =>
+        args.sort === "oldest"
+          ? a._creationTime - b._creationTime
+          : b._creationTime - a._creationTime,
+      );
 
       const { numItems, cursor } = args.paginationOpts;
       const start = cursor ? Number(cursor) : 0;
@@ -898,7 +903,7 @@ export const listJobs = adminQuery({
       );
     }
 
-    const result = await query.order("desc").paginate(args.paginationOpts);
+    const result = await query.order(args.sort === "oldest" ? "asc" : "desc").paginate(args.paginationOpts);
     const hydrated = await hydrateJobSummaries(ctx, result.page);
 
     return {

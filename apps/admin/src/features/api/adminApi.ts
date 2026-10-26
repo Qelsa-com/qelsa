@@ -243,7 +243,7 @@ export function useRevokeManualProMutation() {
 }
 
 export function useListJobsQuery(
-  filters: { status?: string; search?: string; onlyIngested?: boolean },
+  filters: { status?: string; search?: string; onlyIngested?: boolean; sort?: "newest" | "oldest" },
   cursor?: string,
 ) {
   return useConvexQueryHook(
@@ -252,6 +252,7 @@ export function useListJobsQuery(
       status: filters.status || undefined,
       search: filters.search || undefined,
       onlyIngested: filters.onlyIngested,
+      sort: filters.sort,
       paginationOpts: { numItems: 25, cursor: cursor ?? null },
     },
     { skip: false },

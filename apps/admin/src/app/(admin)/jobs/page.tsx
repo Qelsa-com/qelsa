@@ -25,6 +25,7 @@ import { toast } from "sonner";
 
 type StatusFilter = "all" | "open" | "closed" | "paused" | "draft";
 type SourceFilter = "all" | "ingested" | "posted";
+type DateSort = "newest" | "oldest";
 
 function Badge({ children, tone }: { children: React.ReactNode; tone: string }) {
   return (
@@ -49,6 +50,7 @@ export default function JobsPage() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<StatusFilter>("all");
   const [source, setSource] = useState<SourceFilter>("all");
+  const [dateSort, setDateSort] = useState<DateSort>("newest");
   const [cursor, setCursor] = useState<string | undefined>(undefined);
   const [page, setPage] = useState(0);
   const [pendingId, setPendingId] = useState<string | null>(null);
@@ -71,8 +73,9 @@ export default function JobsPage() {
       status: status === "all" ? undefined : status,
       search: search || undefined,
       onlyIngested: source === "all" ? undefined : source === "ingested",
+      sort: dateSort,
     }),
-    [status, search, source],
+    [status, search, source, dateSort],
   );
 
   const { data, isLoading } = useListJobsQuery(filters, cursor);
@@ -175,6 +178,19 @@ export default function JobsPage() {
               <option value="all">All sources</option>
               <option value="ingested">Ingested</option>
               <option value="posted">Posted by users</option>
+            </select>
+
+            <select
+              value={dateSort}
+              onChange={(event) => {
+                setDateSort(event.target.value as DateSort);
+                resetPaging();
+              }}
+              aria-label="Sort by date"
+              className="h-9 rounded-md border border-glass-border bg-[#12121a] px-3 text-sm text-white outline-none focus-visible:border-ring"
+            >
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
             </select>
           </div>
         </div>
