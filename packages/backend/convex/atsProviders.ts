@@ -656,6 +656,17 @@ function xmlBlocks(xml: string, tag: string) {
   return blocks;
 }
 
+function smartRecruitersBrand(html: string) {
+  const logoMatch = html.match(/<meta[^>]+itemprop=["']logo["'][^>]+content=["']([^"']+)["']/i);
+  const headerStart = html.search(/class=["'][^"']*header-logo[^"']*["']/i);
+  const header = headerStart >= 0 ? html.slice(headerStart, headerStart + 4000) : "";
+  const websiteMatch = header.match(/<a[^>]+href=["']([^"']+)["']/i);
+  return {
+    logo: logoMatch?.[1] ? decodeHtmlEntities(logoMatch[1]) : undefined,
+    website: websiteMatch?.[1] ? decodeHtmlEntities(websiteMatch[1]) : undefined,
+  };
+}
+
 /** SmartRecruiters public postings API. */
 export async function fetchSmartRecruiters(identifier: string): Promise<NormalizedJob[]> {
   const slug = slugFromInput(identifier.replace(/\|.*$/, ""), /$/i).trim();
@@ -685,6 +696,28 @@ export async function fetchSmartRecruiters(identifier: string): Promise<Normaliz
     }
     return null;
   });
+
+  // SmartRecruiters board slugs are often legal identifiers (PHONEPELIMITED),
+  // not domains. The posting page exposes the company's own logo and site.
+  const firstPosting = postings[0];
+  const firstId = firstPosting ? String(firstPosting.id ?? "") : "";
+  const firstDetail = firstId ? details.get(firstId) : undefined;
+  const sampleUrl =
+    typeof firstDetail?.postingUrl === "string"
+      ? firstDetail.postingUrl
+      : firstId
+        ? `https://jobs.smartrecruiters.com/${encodeURIComponent(slug)}/${encodeURIComponent(firstId)}`
+        : undefined;
+  let brand: { logo?: string; website?: string } = {};
+  if (sampleUrl) {
+    try {
+      brand = smartRecruitersBrand(await getText(sampleUrl, "text/html"));
+    } catch {
+      // Brand metadata is supplementary; keep the list usable.
+    }
+  }
+  const brandDomain = companyDomain(brand.website) ?? companyDomain(undefined, slug);
+  const brandLogo = brand.logo ?? logoForDomain(brandDomain);
 
   return postings.slice(0, MAX_JOBS).map((row) => {
     const id = String(row.id ?? "");
@@ -716,8 +749,8 @@ export async function fetchSmartRecruiters(identifier: string): Promise<Normaliz
           ? detail.postingUrl
           : `https://jobs.smartrecruiters.com/${encodeURIComponent(slug)}/${encodeURIComponent(id)}`,
       company_name: company?.name ? titleCaseCompany(company.name) : titleCaseCompany(slug),
-      company_logo: logoForDomain(companyDomain(undefined, slug)),
-      company_website_url: companyDomain(undefined, slug) ? `https://${companyDomain(undefined, slug)}` : undefined,
+      company_logo: brandLogo,
+      company_website_url: brandDomain ? `https://${brandDomain}` : undefined,
       location,
       departments: [department, fn].filter((name): name is string => Boolean(name)),
       has_remote: remote || /remote/i.test(location ?? ""),
