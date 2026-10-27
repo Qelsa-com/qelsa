@@ -382,6 +382,7 @@ export const seedJobs = mutation({
         cityMatches.find((row: { name: string }) => row.name.toLowerCase() === job.city.toLowerCase()) ?? cityMatches[0];
       const jobTitle = await namedDoc(ctx, "job_titles", job.title);
 
+      const publishedDate = Date.now() - index * day;
       const jobId = await ctx.db.insert("jobs", {
         external_id,
         title: job.title,
@@ -399,7 +400,7 @@ export const seedJobs = mutation({
         has_remote: job.has_remote,
         status: "open",
         resource: "qelsa",
-        published_date: Date.now() - index * day,
+        published_date: publishedDate,
         view_count: 0,
         application_count: 0,
         other_info: { cities: city ? [{ name: city.name }] : [{ name: job.city }] },
@@ -417,6 +418,7 @@ export const seedJobs = mutation({
           skill_id: row._id,
           type: skill.type,
           proficiency: skill.proficiency,
+          published_date: publishedDate,
         });
       }
       await refreshJobSearchText(ctx, jobId);

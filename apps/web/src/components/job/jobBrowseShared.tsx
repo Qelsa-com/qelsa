@@ -227,8 +227,11 @@ export function readinessScore(job: Job): number | null {
 }
 
 export function matchScore(job: Job): number | null {
-  if (job.competency?.smart_match != null) return Math.round(job.competency.smart_match);
+  // Readiness is what the ring is labelled with ("Ready"), so it must be what
+  // the ring shows. Smart match (readiness blended with career alignment) used
+  // to win here, which made the label describe a different number.
   if (job.competency?.readiness != null) return Math.round(job.competency.readiness);
+  if (job.competency?.smart_match != null) return Math.round(job.competency.smart_match);
   if (typeof job.fitScore === "number") return Math.round(job.fitScore);
   return null;
 }

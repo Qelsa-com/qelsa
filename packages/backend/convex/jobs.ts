@@ -40,11 +40,15 @@ import {
   loadUserRoleProfile,
   ROLE_SCAN,
   scoreInRange,
+  ALMOST_MIN,
+  READY_MIN,
   type UserRoleProfile,
 } from "./lib/jobProfileMatch";
+import { rankingForUser } from "./jobMatchRanking";
 import { companyProfileKey, companyProfileSeed, type CompanyProfileSeed } from "./lib/companyProfile";
 import { withSkillAliases } from "./lib/skillCatalog";
 import { buildCompetencyFramework, clipPlainText, computeYearsExperience } from "./lib/skillMatch";
+import { scoreJobForUser } from "./lib/jobMatchScoring";
 import { calculateCareerAlignment, calculateSmartMatch } from "./lib/careerAlignment";
 import { canonicalizeCatalogName, catalogKey, looksLikeConvexId, resolveCityRef, resolveNamedRef, type CityRefInput } from "./lib/resolve";
 
@@ -130,12 +134,7 @@ async function listHydration(ctx: QueryCtx, user: Doc<"users"> | null, loadSaved
       .map((row) => String(row.job_id)),
   );
 
-  const now = Date.now();
-  const starts = expRows.map((r) => r.start_date).filter((v) => Number.isFinite(v));
-  const earliest = starts.length ? Math.min(...starts) : null;
-  const hasCurrent = expRows.some((r) => r.is_current || !r.end_date);
-  const latest = hasCurrent ? now : starts.length ? Math.max(...expRows.map((r) => r.end_date ?? r.start_date)) : now;
-  const yearsExperience = earliest ? Math.max(0, Math.floor((Math.min(latest, now) - earliest) / (1000 * 60 * 60 * 24 * 365))) : null;
+  const yearsExperience = computeYearsExperience(expRows);
   const hasProfile = skillRows.length > 0 || expRows.length > 0 || eduRows.length > 0;
 
   return {
@@ -345,6 +344,10 @@ async function openJobs(ctx: QueryCtx, limit: number) {
 }
 
 const BEST_MATCH_CANDIDATE_CAP = 240;
+/** Jobs hydrated per step while walking a cached ranking. */
+const RANKED_HYDRATE_CHUNK = 40;
+/** Top text matches considered when ranking a search by readiness. */
+const SEARCH_RANK_CAP = 200;
 
 /**
  * Candidate generation for personalized Best match. This is intentionally a
@@ -375,8 +378,15 @@ async function bestMatchCandidates(
   ]);
 
   const pool = new Map<Id<"jobs">, Doc<"jobs">>();
-  for (const job of [...searched, ...titled]) {
-    if (job.status === "open") pool.set(job._id, job);
+  const add = (job: Doc<"jobs">) => {
+    if (job.status === "open" && pool.size < BEST_MATCH_CANDIDATE_CAP) pool.set(job._id, job);
+  };
+  // Interleave both sources. Appending `titled` after `searched` let a large
+  // search result set fill the cap on its own, so role-title matches — often the
+  // strongest signal — never entered the pool at all.
+  for (let i = 0; i < Math.max(searched.length, titled.length); i++) {
+    if (i < titled.length) add(titled[i]);
+    if (i < searched.length) add(searched[i]);
     if (pool.size >= BEST_MATCH_CANDIDATE_CAP) break;
   }
   if (pool.size === 0) {
@@ -622,6 +632,65 @@ export const listPaginated = optionalAuthQuery({
     };
 
     if (search) {
+      // Readiness-ranked search: score the top text matches from their vectors
+      // and order by readiness, so the best fit surfaces instead of raw text
+      // relevance. Bounded so a broad query stays cheap.
+      if (canScore && !scoreFilter && sortBy !== "date" && sortBy !== "salary") {
+        const hits = await ctx.db
+          .query("jobs")
+          .withSearchIndex("search_all", (q) => q.search("search_text", search).eq("status", "open"))
+          .take(SEARCH_RANK_CAP);
+        if (needsCity) await prefetchCities(ctx, hits, cache);
+
+        const ranked: BrowseCandidate[] = [];
+        for (const job of hits) {
+          if (!passesListing(job)) continue;
+          const vector = await ctx.db
+            .query("job_match_vectors")
+            .withIndex("by_job", (q) => q.eq("job_id", job._id))
+            .first();
+          if (!vector) {
+            ranked.push({ job, readiness: null, careerAlignment: null, smartMatch: null, gap: null });
+            continue;
+          }
+          const result = scoreJobForUser(
+            {
+              experience: vector.experience,
+              title: vector.title,
+              company_name: vector.company_name,
+              industry: vector.industry,
+              job_title_name: vector.job_title_name,
+            },
+            vector.skills ?? [],
+            hydration.userSkills,
+            profileContext,
+            hydration.careerGoal ?? null,
+          );
+          ranked.push({
+            job,
+            readiness: result.readiness,
+            careerAlignment: result.careerAlignment,
+            smartMatch: result.smartMatch,
+            gap: result.gap,
+          });
+        }
+
+        rankCandidates(ranked, "relevance");
+        const afterId = decodeRankCursor(paginationOpts.cursor);
+        const afterIndex = afterId ? ranked.findIndex((item) => item.job._id === afterId) : -1;
+        if (afterId && afterIndex < 0) {
+          return { page: [], isDone: true, continueCursor: paginationOpts.cursor ?? "" };
+        }
+        const start = afterId ? afterIndex + 1 : 0;
+        const slice = ranked.slice(start, start + target);
+        const last = slice[slice.length - 1];
+        return {
+          page: await slimListJobs(ctx, slice, hydration, cache),
+          isDone: start + slice.length >= ranked.length,
+          continueCursor: last ? encodeRankCursor(last.job._id) : (paginationOpts.cursor ?? ""),
+        };
+      }
+
       // One denormalized search index gives the result set. It paginates the
       // entire catalog and never scores the whole result set just to rank it.
       const legacyCursor =
@@ -649,7 +718,7 @@ export const listPaginated = optionalAuthQuery({
           const row = scored.get(job._id);
           const readiness = row?.readiness ?? null;
           const smartMatch = row?.smartMatch ?? null;
-          if (!scoreInRange(smartMatch ?? readiness, minReadiness, maxReadiness)) continue;
+          if (!scoreInRange(readiness, minReadiness, maxReadiness)) continue;
           candidates.push({
             job,
             readiness,
@@ -678,13 +747,75 @@ export const listPaginated = optionalAuthQuery({
     }
 
     if (!search && canScore && !scoreFilter && sortBy === "relevance") {
+      // Whole-catalog ranking, when the cache matches this profile. Jobs past
+      // the cached window fall through to the recency scan below, so the rest of
+      // the catalog stays browsable.
+      const viewerId = ctx.user?._id;
+      const cached = viewerId ? await rankingForUser(ctx, viewerId) : null;
+      if (cached && cached.entries.length > 0) {
+        const isRestCursor = Boolean(decodeBestRestCursor(paginationOpts.cursor));
+        const hasRestPrefix = Boolean(paginationOpts.cursor?.startsWith(BEST_REST_CURSOR_PREFIX));
+        if (!hasRestPrefix && !isRestCursor) {
+          // Order by readiness, matching the ring on the card. Older cached rows
+          // were stored in smart-match order, so sort here as well.
+          const entries = cached.entries
+            .slice()
+            .sort((a, b) => b.readiness - a.readiness);
+          const afterId = decodeBestCursor(paginationOpts.cursor);
+          const afterIndex = afterId
+            ? entries.findIndex((entry) => entry.job_id === afterId)
+            : -1;
+          let index = afterIndex >= 0 ? afterIndex + 1 : 0;
+          const ranked: BrowseCandidate[] = [];
+
+          // Hydrate in chunks so filters stay cheap and reads stay bounded by
+          // the cache size.
+          while (ranked.length < target && index < entries.length) {
+            const chunk = entries.slice(index, index + RANKED_HYDRATE_CHUNK);
+            const docs = await Promise.all(chunk.map((entry) => ctx.db.get(entry.job_id)));
+            const pairs = docs.flatMap((doc, i) =>
+              doc ? [{ job: doc, entry: chunk[i] }] : [],
+            );
+            if (needsCity) await prefetchCities(ctx, pairs.map((pair) => pair.job), cache);
+            for (const pair of pairs) {
+              if (ranked.length >= target) break;
+              if (!passesListing(pair.job)) continue;
+              ranked.push({
+                job: pair.job,
+                readiness: pair.entry.readiness,
+                careerAlignment: pair.entry.career_alignment ?? null,
+                smartMatch: pair.entry.smart_match,
+                gap: null,
+              });
+            }
+            index += chunk.length;
+          }
+
+          const atEnd = index >= cached.entries.length;
+          const last = ranked[ranked.length - 1];
+          if (last) {
+            return {
+              page: await slimListJobs(ctx, ranked, hydration, cache),
+              isDone: false,
+              continueCursor: atEnd
+                ? encodeBestRestCursor(null)
+                : encodeBestCursor(last.job._id),
+            };
+          }
+          // Nothing matched within the cached window: fall through to recency.
+        }
+      }
+
       // Best match keeps the exact top matches first and every remaining job
       // after them by recency. Candidate generation is bounded; no per-user
       // score cache or full-catalog scoring.
       const candidateDocs = await bestMatchCandidates(ctx, hydration, profile);
       if (needsCity) await prefetchCities(ctx, candidateDocs, cache);
       const filteredCandidates = candidateDocs.filter(passesListing);
-      const topIds = new Set(filteredCandidates.map((job) => job._id));
+      const topIds = new Set<Id<"jobs">>(filteredCandidates.map((job) => job._id));
+      // The cached ranking can hold jobs outside the keyword candidate set. They
+      // were already served, so the recency pass must not repeat them.
+      if (cached) for (const entry of cached.entries) topIds.add(entry.job_id);
       const isRestCursor = Boolean(decodeBestRestCursor(paginationOpts.cursor));
       const hasRestPrefix = Boolean(paginationOpts.cursor?.startsWith(BEST_REST_CURSOR_PREFIX));
 
@@ -929,6 +1060,63 @@ export const listMatchTiers = authedQuery({
     }
 
     const search = ((args.search as string | undefined) ?? "").trim();
+
+    // Whole-catalog cached ranking, when it matches the current profile. Search
+    // and goal-first keep their own ordering, so only the default profile view
+    // uses it.
+    if (!goalFirst && !search) {
+      const cached = await rankingForUser(ctx, ctx.user._id);
+      if (cached && cached.entries.length > 0) {
+        const tierOf = (score: number) =>
+          score >= READY_MIN ? "ready" : score >= ALMOST_MIN ? "almost" : "growth";
+        const topOf = (tier: "ready" | "almost" | "growth") =>
+          cached.entries.filter((entry) => tierOf(entry.smart_match) === tier).slice(0, 4);
+
+        const readyEntries = topOf("ready");
+        const almostEntries = topOf("almost");
+        const growthEntries = topOf("growth");
+        const ids = [...readyEntries, ...almostEntries, ...growthEntries].map((entry) => entry.job_id);
+        const docs = await Promise.all(ids.map((jobId) => ctx.db.get(jobId)));
+        const byId = new Map<Id<"jobs">, Doc<"jobs">>();
+        for (const doc of docs) if (doc) byId.set(doc._id, doc);
+
+        const toCandidates = (entries: typeof readyEntries): BrowseCandidate[] =>
+          entries.flatMap((entry) => {
+            const job = byId.get(entry.job_id);
+            if (!job) return [];
+            return [
+              {
+                job,
+                readiness: entry.readiness,
+                careerAlignment: entry.career_alignment ?? null,
+                smartMatch: entry.smart_match,
+                gap: null,
+              },
+            ];
+          });
+
+        const tierCache = emptyRelationCache();
+        const [ready, almost, growth] = await Promise.all([
+          slimListJobs(ctx, toCandidates(readyEntries), hydration, tierCache),
+          slimListJobs(ctx, toCandidates(almostEntries), hydration, tierCache),
+          slimListJobs(ctx, toCandidates(growthEntries), hydration, tierCache),
+        ]);
+
+        return {
+          ready,
+          almost,
+          growth,
+          readyTotal: cached.counts.ready,
+          almostTotal: cached.counts.almost,
+          growthTotal: cached.counts.growth,
+          goalMatches: [],
+          goalTotal: 0,
+          matchMode: "profile" as const,
+          hasRoleProfile: true,
+        };
+      }
+    }
+
     const titled = search || goalFirst
       ? search
         ? Promise.resolve([] as Doc<"jobs">[])
@@ -948,25 +1136,20 @@ export const listMatchTiers = authedQuery({
     const cache = emptyRelationCache();
     if (needsCity) await prefetchCities(ctx, open, cache);
 
-    const matchedRole: Doc<"jobs">[] = [];
-    const matchedOther: Doc<"jobs">[] = [];
+    // Score the whole pool, not the first slice of it: the old 48/48 cap
+    // silently dropped high-scoring jobs before they were ever evaluated. The
+    // pool itself stays bounded (search can return up to 800) so one query does
+    // at most BEST_MATCH_CANDIDATE_CAP score passes; each tier still shows four.
+    const matched: Doc<"jobs">[] = [];
     for (const job of open) {
+      if (matched.length >= BEST_MATCH_CANDIDATE_CAP) break;
       const cityName = needsCity && job.city_id ? (cache.cities.get(job.city_id)?.name ?? null) : null;
       if (!matchesFilters(job, cityName, { ...args, cities, search: undefined })) continue;
-      if (matchesUserRole(job, profile)) {
-        if (matchedRole.length < ROLE_SCAN.TITLE_MATCH_CAP) {
-          matchedRole.push(job);
-        }
-      } else {
-        if (matchedOther.length < ROLE_SCAN.TITLE_MATCH_CAP) {
-          matchedOther.push(job);
-        }
-      }
-      if (matchedRole.length >= ROLE_SCAN.TITLE_MATCH_CAP && matchedOther.length >= ROLE_SCAN.TITLE_MATCH_CAP) break;
+      matched.push(job);
     }
 
     if (goalFirst) {
-      const goalPool = (search ? [...matchedRole, ...matchedOther] : matchedRole).filter((job) =>
+      const goalPool = (search ? matched : matched.filter((job) => matchesUserRole(job, profile))).filter((job) =>
         isSeniorityCompatible(job, careerGoal?.experience_level),
       );
       const scores = await scoreTierMatches(
@@ -1005,7 +1188,6 @@ export const listMatchTiers = authedQuery({
       };
     }
 
-    const matched = [...matchedRole, ...matchedOther];
     const scores = await scoreTierMatches(
       ctx,
       matched,
@@ -1036,8 +1218,8 @@ export const listMatchTiers = authedQuery({
         gap: row?.gap ?? null,
       };
       const primaryScore = smartMatch ?? readiness;
-      if (primaryScore != null && primaryScore >= 80) readyJobs.push(scored);
-      else if (primaryScore != null && primaryScore >= 60) almostJobs.push(scored);
+      if (primaryScore != null && primaryScore >= READY_MIN) readyJobs.push(scored);
+      else if (primaryScore != null && primaryScore >= ALMOST_MIN) almostJobs.push(scored);
       else if (primaryScore != null) growthJobs.push(scored);
     }
     rankBySmartMatch(readyJobs);
@@ -1065,6 +1247,20 @@ export const listMatchTiers = authedQuery({
       matchMode: "profile" as const,
       hasRoleProfile: true,
     };
+  },
+});
+
+/** Career-goal title matches, used as a ranking candidate source. */
+export const goalCandidateIds = internalQuery({
+  args: { userId: v.id("users") },
+  returns: v.array(v.id("jobs")),
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.userId);
+    if (!user) return [];
+    const profile = await loadUserRoleProfile(ctx, user);
+    if (profile.titleIds.size === 0 && profile.phrases.length === 0) return [];
+    const jobs = await jobsMatchingRoleTitles(ctx, profile);
+    return jobs.map((job) => job._id);
   },
 });
 
@@ -1758,6 +1954,7 @@ async function queueSkillEnrichment(
 ) {
   if (!canExtractSkills(description)) {
     await markSkillsExtracted(ctx, jobId);
+    await ctx.scheduler.runAfter(0, internal.jobMatchRanking.upsertVector, { jobId });
     return;
   }
   const contentHash = skillContentHash(title ?? "", clipPlainText(description, 6000));
@@ -1766,6 +1963,7 @@ async function queueSkillEnrichment(
     return;
   }
   await markSkillsExtracted(ctx, jobId, contentHash);
+  await ctx.scheduler.runAfter(0, internal.jobMatchRanking.upsertVector, { jobId });
 }
 
 export const storeScrapedJobs = internalMutation({

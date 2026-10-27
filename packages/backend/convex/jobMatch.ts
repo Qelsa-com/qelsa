@@ -7,25 +7,13 @@ import { internalMutation, internalQuery } from "./_generated/server";
 import { authedQuery } from "./lib/customFunctions";
 import { withSkillAliases } from "./lib/skillCatalog";
 import { clipPlainText, buildCompetencyFramework, computeYearsExperience, extractJdListItems } from "./lib/skillMatch";
+import { buildProfileFingerprint } from "./lib/profileFingerprint";
 
 export const skillRefValidator = v.object({
   name: v.string(),
   skill_id: v.optional(v.id("skills")),
   type: v.optional(v.union(v.literal("core"), v.literal("preferred"), v.literal("nice_to_have"))),
 });
-
-/**
- * Small stable hash for the match fingerprint. The Convex runtime has no
- * `node:crypto`, and the full text would bloat every stored session.
- */
-function contentHash(text: string) {
-  let hash = 5381;
-  const normalized = text.trim().replace(/\s+/g, " ").toLowerCase();
-  for (let i = 0; i < normalized.length; i++) {
-    hash = ((hash << 5) + hash + normalized.charCodeAt(i)) | 0;
-  }
-  return (hash >>> 0).toString(36);
-}
 
 export const analysisValidator = v.object({
   overall: v.number(),
@@ -209,23 +197,15 @@ export const loadUserContext = internalQuery({
       text: r.extracted_text ? clipPlainText(r.extracted_text, 4000) : "",
     }));
 
-    const fingerprint = [
-      skills.map((s) => `${s.skill_id}:${s.proficiency ?? ""}`).sort().join(","),
-      // Dates matter: they drive the computed years of experience and the
-      // education score. Omitting them let an edited profile keep a stored
-      // analysis whose readiness inputs had already changed.
-      experiences
-        .map((e) => `${e.title}:${e.company}:${e.start_date}:${e.end_date ?? ""}:${e.is_current ? 1 : 0}`)
-        .join(","),
-      educations
-        .map((e) => `${e.degree ?? ""}:${e.college ?? ""}:${e.start_year ?? ""}:${e.end_year ?? ""}`)
-        .join(","),
-      resumes.map((r) => r.storage_id ?? r.title).join(","),
-      // Content, not just length: an edit that keeps the same length is still a
-      // different profile and must invalidate the stored analysis.
-      contentHash(`${user.professional_summary ?? ""}|${user.about ?? ""}`),
-      careerGoal ? `${careerGoal.target_role}:${careerGoal.updated_at}` : "",
-    ].join("|");
+    const fingerprint = buildProfileFingerprint({
+      skills,
+      experiences,
+      educations,
+      resumes,
+      professionalSummary: user.professional_summary,
+      about: user.about,
+      careerGoal,
+    });
 
     return {
       userId: user._id,

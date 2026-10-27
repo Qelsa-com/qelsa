@@ -156,10 +156,14 @@ export const copyExtractedSkills = internalMutation({
         skill_id: row.skill_id,
         type: row.type,
         proficiency: row.proficiency,
+        published_date: job?.published_date,
       });
       inserted++;
     }
     await markSkillsExtracted(ctx, args.jobId, args.contentHash);
+    // Skills are final now: rebuild this job's scoring vector immediately
+    // instead of waiting for the nightly refresh.
+    await ctx.scheduler.runAfter(0, internal.jobMatchRanking.upsertVector, { jobId: args.jobId });
     const salary =
       (sourceJob
         ? salaryFillPatch(job, {
@@ -207,12 +211,16 @@ export const applyExtractedSkills = internalMutation({
         // Leave proficiency unset when the JD gives no depth signal — the matcher
         // treats "skill present, no required level" as a baseline match.
         proficiency: skill.proficiency ?? undefined,
+        published_date: job?.published_date,
       });
       inserted++;
     }
     // Sidecar for skills; salary fills empty min/max only so ATS numbers stay
     // authoritative and a later regex/LLM pass can still complete a partial range.
     await markSkillsExtracted(ctx, args.jobId, args.contentHash);
+    // Skills are final now: rebuild this job's scoring vector immediately
+    // instead of waiting for the nightly refresh.
+    await ctx.scheduler.runAfter(0, internal.jobMatchRanking.upsertVector, { jobId: args.jobId });
     const salary = salaryFillPatch(job, args.salary) ?? salaryFillPatch(job, parseSalaryFromText(job.description));
     if (salary) await ctx.db.patch(args.jobId, salary);
     await refreshJobSearchText(ctx, args.jobId);

@@ -3,7 +3,7 @@ import { SmartMatchesSkeleton } from "@/components/job/jobSkeletons";
 import { SkillsModal } from "@/components/profile/modals/SkillsModal";
 import { SetupBanner } from "@/components/SetupBanner";
 import { useAuth } from "@/contexts/AuthContext";
-import { useMatchTiersQuery } from "@/features/api/jobsApi";
+import { useEnsureRankingRecompute, useMatchTiersQuery } from "@/features/api/jobsApi";
 import { useGetMyResumesQuery } from "@/features/api/resumeApi";
 import { hasCareerGoal } from "@/lib/careerGoal";
 import { GOAL_MATCH, MATCH_TIER } from "@/lib/matchTiers";
@@ -32,6 +32,11 @@ const SmartMatches = () => {
     if (authLoading || isAuthenticated) return;
     void router.replace("/jobs/all");
   }, [authLoading, isAuthenticated, router]);
+
+  // Fill the whole-catalog ranking cache on first visit. The mutation no-ops
+  // when the cached fingerprint already matches the profile, and the reactive
+  // tier query re-renders as soon as the recompute writes.
+  useEnsureRankingRecompute(hydrated && isAuthenticated);
 
   const ready = data?.ready ?? [];
   const almost = data?.almost ?? [];

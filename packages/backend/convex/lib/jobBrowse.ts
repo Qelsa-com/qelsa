@@ -81,7 +81,7 @@ export function rankCandidates(candidates: BrowseCandidate[], sortBy?: string) {
   });
 }
 
-/** Ready Now and Almost There only. All Jobs keeps `rankCandidates` (readiness). */
+/** Smart Matches tiers order by the blended score the "Match" ring shows. */
 export function rankBySmartMatch(candidates: BrowseCandidate[]) {
   candidates.sort((a, b) => {
     const byScore = (b.smartMatch ?? b.readiness ?? -1) - (a.smartMatch ?? a.readiness ?? -1);

@@ -4,6 +4,7 @@ import { api } from "@/lib/convexApi";
 import { useConvexMutationHook, useConvexQueryHook, useLazyConvexQueryHook } from "@/lib/convexHooks";
 import type { Job } from "@/types/job";
 import { useAction, usePaginatedQuery } from "convex/react";
+import { useEffect, useRef } from "react";
 import type { JobFilters } from "./utils/buildJobQueryParams";
 
 function omitEmpty(value: Record<string, unknown>) {
@@ -89,6 +90,25 @@ export type MatchTiersResult = {
 
 export function useMatchTiersQuery(filters?: JobFilters | Record<string, string> | void, options?: { skip?: boolean }) {
   return useConvexQueryHook<ReturnType<typeof jobListArgs>, MatchTiersResult>(api.jobs.listMatchTiers, jobListArgs(filters), options);
+}
+
+/** Queue a whole-catalog ranking refresh; no-ops when the cache is already current. */
+export function useRequestRankingRecomputeMutation() {
+  return useConvexMutationHook(api.jobMatchRanking.requestRecompute, () => ({}));
+}
+
+/**
+ * Make sure a whole-catalog ranking exists for this profile. Safe to call from
+ * every jobs surface: the mutation no-ops when the cached fingerprint matches.
+ */
+export function useEnsureRankingRecompute(enabled: boolean) {
+  const [requestRecompute] = useRequestRankingRecomputeMutation();
+  const requested = useRef(false);
+  useEffect(() => {
+    if (!enabled || requested.current) return;
+    requested.current = true;
+    void requestRecompute(undefined).unwrap().catch(() => undefined);
+  }, [enabled, requestRecompute]);
 }
 export function useGetAppliedJobsQuery(filters?: Record<string, string> | void, options?: { skip?: boolean }) {
   return useConvexQueryHook(api.jobs.listApplied, { search: filters && "search" in filters ? filters.search : undefined, status: filters && "status" in filters ? filters.status : undefined }, options);

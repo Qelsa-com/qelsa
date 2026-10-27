@@ -19,4 +19,9 @@ crons.cron("cleanup autofill tokens", "17 3 * * *", internal.agentAutofill.clean
 // deployments must explicitly opt in to autonomous publishing.
 crons.cron("interview prep curriculum", "0 6 * * 2", internal.curriculum.scheduledRun, {});
 
+// Rebuild the denormalized scoring vectors. Job skills arrive asynchronously
+// (ATS sync + extraction), so vectors are refreshed nightly instead of on every
+// write. Cached rankings are rebuilt on demand from these vectors.
+crons.cron("refresh job match vectors", "41 4 * * *", internal.jobMatchRanking.backfill, {});
+
 export default crons;

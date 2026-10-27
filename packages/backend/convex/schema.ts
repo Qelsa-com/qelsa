@@ -257,9 +257,12 @@ export default defineSchema({
     type: v.optional(skillType),
     proficiency: v.optional(proficiency),
     weight: v.optional(v.number()),
+    /** Denormalized so postings can be read newest-first without joining jobs. */
+    published_date: v.optional(v.number()),
   })
     .index("by_job", ["job_id"])
-    .index("by_skill", ["skill_id"]),
+    .index("by_skill", ["skill_id"])
+    .index("by_skill_and_published", ["skill_id", "published_date"]),
 
   // Sidecar so skill enrichment never patches `jobs` (avoids OCC with ATS sync).
   job_skill_extractions: defineTable({
@@ -269,6 +272,65 @@ export default defineSchema({
   })
     .index("by_job", ["job_id"])
     .index("by_content_hash", ["content_hash"]),
+
+  /**
+   * Compact, denormalized scoring input for one job. Scoring a job from this row
+   * needs no extra reads, which is what lets a background pass cover the whole
+   * catalog instead of a keyword-selected slice.
+   */
+  job_match_vectors: defineTable({
+    job_id: v.id("jobs"),
+    status: v.optional(v.string()),
+    published_date: v.optional(v.number()),
+    experience: v.optional(v.number()),
+    /** Resolved display fields, so scoring needs no extra reads. */
+    title: v.optional(v.string()),
+    company_name: v.optional(v.string()),
+    industry: v.optional(v.string()),
+    job_title_name: v.optional(v.string()),
+    /** Sum of every skill weight on the job: the denominator of skill readiness. */
+    total_weight: v.number(),
+    skills: v.array(
+      v.object({
+        skill_id: v.id("skills"),
+        name: v.optional(v.string()),
+        type: v.optional(skillType),
+        proficiency: v.optional(proficiency),
+        weight: v.optional(v.number()),
+      }),
+    ),
+    updated_at: v.number(),
+  })
+    .index("by_job", ["job_id"])
+    .index("by_status_and_published", ["status", "published_date"]),
+
+  /**
+   * Cached per-user ranking across the whole catalog. `fingerprint` matches the
+   * fit-report profile fingerprint, so a profile edit invalidates it.
+   */
+  job_match_rankings: defineTable({
+    user_id: v.id("users"),
+    fingerprint: v.string(),
+    entries: v.array(
+      v.object({
+        job_id: v.id("jobs"),
+        readiness: v.number(),
+        smart_match: v.number(),
+        career_alignment: v.optional(v.number()),
+      }),
+    ),
+    /** How many catalog jobs the pass considered. */
+    scanned: v.number(),
+    /** Tier totals across the whole catalog, so counts never depend on TOP_K. */
+    ready_total: v.number(),
+    almost_total: v.number(),
+    growth_total: v.number(),
+    computed_at: v.number(),
+    /** Set while a recompute is running; guards against duplicate passes. */
+    computing_at: v.optional(v.number()),
+    /** Earliest time the debounced recompute may run. */
+    recompute_due_at: v.optional(v.number()),
+  }).index("by_user", ["user_id"]),
 
   job_applications: defineTable({
     user_id: v.id("users"),
