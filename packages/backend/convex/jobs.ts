@@ -929,6 +929,54 @@ export const listPaginated = optionalAuthQuery({
       };
     }
 
+    // Tier pages (Ready / Almost / Growth) serve the same cached ranking the
+    // Smart Matches tab renders, filtered by the tier's score range. Previously
+    // they rebuilt a separate 240-job keyword pool and scored it live, so the
+    // two surfaces listed different jobs with different scores.
+    if (!search && scoreFilter && ctx.user) {
+      const ranking = await rankingForUser(ctx, ctx.user._id);
+      if (ranking && ranking.entries.length > 0) {
+        const tierEntries = ranking.entries
+          .filter((entry) => scoreInRange(entry.smart_match, minReadiness, maxReadiness))
+          .sort((a, b) => b.smart_match - a.smart_match);
+        const afterId = decodeRankCursor(paginationOpts.cursor);
+        const afterIndex = afterId
+          ? tierEntries.findIndex((entry) => entry.job_id === afterId)
+          : -1;
+        if (afterId && afterIndex < 0) {
+          return { page: [], isDone: true, continueCursor: paginationOpts.cursor ?? "" };
+        }
+        let index = afterId ? afterIndex + 1 : 0;
+        const ranked: BrowseCandidate[] = [];
+        while (ranked.length < target && index < tierEntries.length) {
+          const chunk = tierEntries.slice(index, index + RANKED_HYDRATE_CHUNK);
+          const docs = await Promise.all(chunk.map((entry) => ctx.db.get(entry.job_id)));
+          const pairs = docs.flatMap((doc, i) =>
+            doc ? [{ job: doc, entry: chunk[i] }] : [],
+          );
+          if (needsCity) await prefetchCities(ctx, pairs.map((pair) => pair.job), cache);
+          for (const pair of pairs) {
+            if (ranked.length >= target) break;
+            if (!passesListing(pair.job)) continue;
+            ranked.push({
+              job: pair.job,
+              readiness: pair.entry.readiness,
+              careerAlignment: pair.entry.career_alignment ?? null,
+              smartMatch: pair.entry.smart_match,
+              gap: null,
+            });
+          }
+          index += chunk.length;
+        }
+        const last = ranked[ranked.length - 1];
+        return {
+          page: await slimListJobs(ctx, ranked, hydration, cache),
+          isDone: index >= tierEntries.length,
+          continueCursor: last ? encodeRankCursor(last.job._id) : (paginationOpts.cursor ?? ""),
+        };
+      }
+    }
+
     // Global salary ordering. Index-scan the compact scoring rows (ordered by
     // salary in one currency) and hydrate only those job ids. The previous path
     // sorted a 160-job recency window, so "Highest salary" was not catalog-wide.
