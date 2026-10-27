@@ -42,6 +42,7 @@ import {
   ROLE_SCAN,
   scoreInRange,
   ALMOST_MIN,
+  ALMOST_MAX,
   READY_MIN,
   type UserRoleProfile,
 } from "./lib/jobProfileMatch";
@@ -1122,6 +1123,22 @@ export const countFiltered = optionalAuthQuery({
   args: browseFilterArgs,
   returns: v.union(v.number(), v.null()),
   handler: async (ctx, args) => {
+    const min = typeof args.min_readiness === "number" ? args.min_readiness : undefined;
+    const max = typeof args.max_readiness === "number" ? args.max_readiness : undefined;
+    const { min_readiness: _min, max_readiness: _max, ...rest } = args;
+
+    // Tier pages (Ready / Almost / Growth) show a total from the cached
+    // ranking's whole-catalog counts, so the header can say "1-20 of 26"
+    // instead of a bare count. Only valid when nothing else is filtered.
+    if (ctx.user && (min != null || max != null) && !hasBrowseFilters(rest)) {
+      const ranking = await rankingForUser(ctx, ctx.user._id);
+      if (!ranking) return null;
+      if (min != null && min >= READY_MIN) return ranking.counts.ready;
+      if (min != null && min >= ALMOST_MIN) return ranking.counts.almost;
+      if (max != null && max <= ALMOST_MAX) return ranking.counts.growth;
+      return null;
+    }
+
     if (hasBrowseFilters(args)) return null;
     return await getOpenJobCount(ctx);
   },

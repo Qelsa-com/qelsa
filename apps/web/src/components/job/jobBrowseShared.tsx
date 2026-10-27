@@ -438,7 +438,13 @@ export function useJobBrowseFilters(
 
 /* ------------------------------ job card ---------------------------------- */
 
-export function JobCard({ job, onClick, variant = "all" }: { job: Job; onClick: () => void; variant?: "all" | "smart" | "goal" }) {
+export function JobCard({ job, onClick, href, variant = "all" }: { job: Job; onClick: () => void; href?: string; variant?: "all" | "smart" | "goal" }) {
+  const pagesRouter = usePagesRouter();
+  // Warm the dynamic route on intent. Without this a card click downloads the
+  // route chunk before navigation, which reads as a multi-second stall.
+  const prefetch = () => {
+    if (href) void pagesRouter.prefetch(href);
+  };
   const title = job.job_title?.name ?? job.title;
   const company = displayCompanyName(job.page?.name || job.company_name);
   const location = displayLocation(job);
@@ -458,6 +464,9 @@ export function JobCard({ job, onClick, variant = "all" }: { job: Job; onClick: 
     <button
       type="button"
       onClick={onClick}
+      onMouseEnter={prefetch}
+      onFocus={prefetch}
+      onTouchStart={prefetch}
       className="flex flex-col gap-4 rounded-2xl border border-glass-border bg-white/[0.04] p-4 text-left transition-all hover:-translate-y-0.5 hover:border-neon-cyan/30 hover:bg-white/[0.06] sm:rounded-[20px] sm:p-5"
     >
       <div className="flex items-center justify-between">
@@ -1089,10 +1098,25 @@ export function MatchEmptyState({ tier = "strong", title, subtitle, actionLabel,
 }
 
 export function JobGrid({ jobs, onOpen, variant = "all" }: { jobs: Job[]; onOpen: (id: string | number) => void; variant?: "all" | "smart" | "goal" }) {
+  const pagesRouter = usePagesRouter();
+  // Every /jobs/[id] page shares one route chunk, so warming a single entry
+  // makes the first card click instant rather than waiting on a download.
+  const firstId = jobs[0]?.id;
+  useEffect(() => {
+    if (firstId == null) return;
+    void pagesRouter.prefetch(`/jobs/${firstId}`);
+  }, [firstId, pagesRouter]);
+
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
       {jobs.map((job) => (
-        <JobCard key={job.id} job={job} onClick={() => onOpen(job.id)} variant={variant} />
+        <JobCard
+          key={job.id}
+          job={job}
+          onClick={() => onOpen(job.id)}
+          href={`/jobs/${job.id}`}
+          variant={variant}
+        />
       ))}
     </div>
   );
