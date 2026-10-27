@@ -18,12 +18,12 @@ import { withSkillAliases } from "./lib/skillCatalog";
 /** How many ranked jobs a cached ranking keeps. */
 const TOP_K = 400;
 /**
- * Jobs converted per mutation. Each job costs up to ~65 index ranges (job get,
- * job_skills query, up to VECTOR_SKILL_LIMIT skill gets, two relation gets, one
- * vector lookup), so 40 keeps the worst case near 2,600 — well under Convex's
- * 4,096 range limit.
+ * Jobs converted per mutation. Convex caps a single function at 1,000 IO
+ * operations, and each job costs up to ~65 (job get, job_skills query, up to
+ * VECTOR_SKILL_LIMIT skill gets, two relation gets, one vector lookup). 10 keeps
+ * the worst case near 650.
  */
-const BACKFILL_PAGE = 40;
+const BACKFILL_PAGE = 10;
 /**
  * Retrieval bounds. The recompute scores only jobs that could plausibly place,
  * never the whole catalog: postings for the user's skills, plus career-goal
@@ -238,27 +238,47 @@ export const backfillPostings = internalAction({
   },
 });
 
+/** Pages per action run, then the action re-schedules itself. */
+const BACKFILL_PAGES_PER_RUN = 300;
+
 /**
- * Backfill every job's scoring vector. Run once after deployment:
- *   npx convex run jobMatchRanking:backfill '{}'
+ * Backfill every job's scoring vector. Each run covers a slice and schedules the
+ * next, so it never approaches the action limit. Kick it off with:
+ *   npx convex run jobMatchRanking:startBackfill '{}'
  */
 export const backfill = internalAction({
-  args: {},
-  returns: v.object({ processed: v.number() }),
-  handler: async (ctx) => {
-    let cursor: string | null = null;
+  args: { cursor: v.optional(v.union(v.string(), v.null())) },
+  returns: v.object({ processed: v.number(), next: v.union(v.string(), v.null()) }),
+  handler: async (ctx, args) => {
+    let cursor: string | null = args.cursor ?? null;
     let processed = 0;
-    for (;;) {
+    for (let page = 0; page < BACKFILL_PAGES_PER_RUN; page++) {
       const res: { next: string | null; processed: number } = await ctx.runMutation(
         internal.jobMatchRanking.backfillPage,
         { cursor },
       );
       processed += res.processed;
-      if (!res.next) break;
+      if (!res.next) {
+        console.log("[jobMatchRanking] backfill complete", processed);
+        return { processed, next: null };
+      }
       cursor = res.next;
     }
-    console.log("[jobMatchRanking] backfill complete", processed);
-    return { processed };
+    // Continue in a fresh invocation so no single run approaches the action
+    // limit, and so a CLI caller isn't blocked for the whole backfill.
+    await ctx.scheduler.runAfter(0, internal.jobMatchRanking.backfill, { cursor });
+    console.log("[jobMatchRanking] backfill continuing", processed);
+    return { processed, next: cursor };
+  },
+});
+
+/** Kick off the vector backfill without waiting for it to finish. */
+export const startBackfill = internalMutation({
+  args: {},
+  returns: v.null(),
+  handler: async (ctx) => {
+    await ctx.scheduler.runAfter(0, internal.jobMatchRanking.backfill, { cursor: null });
+    return null;
   },
 });
 
@@ -424,12 +444,11 @@ export const recompute = internalAction({
     const idle = { scanned: 0, kept: 0, candidates: 0 };
     const state: { recompute_due_at: number | null; computing_at: number | null } | null =
       await ctx.runQuery(internal.jobMatchRanking.recomputeState, { userId: args.userId });
-    if (!state) return idle;
 
-    // Debounce: a newer edit pushed the deadline out, so wait for it instead of
-    // running against a profile that is about to change again.
+    // A missing row is the normal first run: there is no deadline to honour and
+    // no lock to respect. `claimRecompute` creates the row.
     const now = Date.now();
-    if (typeof state.recompute_due_at === "number" && now < state.recompute_due_at) {
+    if (state && typeof state.recompute_due_at === "number" && now < state.recompute_due_at) {
       await ctx.scheduler.runAfter(
         state.recompute_due_at - now,
         internal.jobMatchRanking.recompute,
