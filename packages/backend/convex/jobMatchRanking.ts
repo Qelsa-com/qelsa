@@ -12,6 +12,7 @@ import { authedMutation, authedQuery } from "./lib/customFunctions";
 import { scoreJobForUser, type ScoringCareerGoal } from "./lib/jobMatchScoring";
 import { buildProfileFingerprint } from "./lib/profileFingerprint";
 import { ALMOST_MIN, READY_MIN } from "./lib/jobProfileMatch";
+import { jobSalaryUsd } from "./lib/salary";
 import { computeYearsExperience } from "./lib/skillMatch";
 import { withSkillAliases } from "./lib/skillCatalog";
 
@@ -146,6 +147,7 @@ async function writeVector(ctx: MutationCtx, jobId: Id<"jobs">) {
     company_name: job.company_name ?? page?.name,
     industry: page?.industry,
     job_title_name: jobTitle?.name,
+    salary_usd: jobSalaryUsd(job) ?? undefined,
     total_weight: totalWeight,
     skills,
     updated_at: Date.now(),
@@ -252,17 +254,24 @@ export const backfill = internalAction({
   handler: async (ctx, args) => {
     let cursor: string | null = args.cursor ?? null;
     let processed = 0;
-    for (let page = 0; page < BACKFILL_PAGES_PER_RUN; page++) {
-      const res: { next: string | null; processed: number } = await ctx.runMutation(
-        internal.jobMatchRanking.backfillPage,
-        { cursor },
-      );
-      processed += res.processed;
-      if (!res.next) {
-        console.log("[jobMatchRanking] backfill complete", processed);
-        return { processed, next: null };
+    try {
+      for (let page = 0; page < BACKFILL_PAGES_PER_RUN; page++) {
+        const res: { next: string | null; processed: number } = await ctx.runMutation(
+          internal.jobMatchRanking.backfillPage,
+          { cursor },
+        );
+        processed += res.processed;
+        if (!res.next) {
+          console.log("[jobMatchRanking] backfill complete", processed);
+          return { processed, next: null };
+        }
+        cursor = res.next;
       }
-      cursor = res.next;
+    } catch (error) {
+      // Surface the cause instead of a bare "Error", and stop rather than
+      // re-scheduling into the same failing page forever.
+      console.error("[jobMatchRanking] backfill stopped", error);
+      return { processed, next: cursor };
     }
     // Continue in a fresh invocation so no single run approaches the action
     // limit, and so a CLI caller isn't blocked for the whole backfill.

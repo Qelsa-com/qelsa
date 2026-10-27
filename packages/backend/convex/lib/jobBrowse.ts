@@ -3,6 +3,7 @@ import type { QueryCtx } from "../_generated/server";
 import { iso, withId } from "./helpers";
 import { calculateCareerAlignment, calculateSmartMatch } from "./careerAlignment";
 import { isAlmostThere, roundedReadiness, titleSimilarity, titleTokens, type UserRoleProfile } from "./jobProfileMatch";
+import { jobSalaryUsd } from "./salary";
 import { buildCompetencyFramework, closingGap, type ClosingGap } from "./skillMatch";
 
 /** Newest-open scan for ranked browse. Indexed `take`, not `.collect()`. */
@@ -10,7 +11,7 @@ export const BROWSE_SCAN = 160;
 /** Skill rows per job are enough for a stable readiness rank. */
 export const SCORE_SKILL_TAKE = 20;
 /** Non-paginated rails (Smart Matches) only need a bounded head. */
-const SEARCH_CANDIDATE_CAP = 800;
+export const SEARCH_CANDIDATE_CAP = 800;
 
 export type BrowseCandidate = {
   job: Doc<"jobs">;
@@ -62,8 +63,13 @@ export function publishedMs(job: { published_date?: number; _creationTime?: numb
   return job.published_date ?? job._creationTime ?? 0;
 }
 
-export function salaryValue(job: { salary_max?: number | null; salary?: number | null }) {
-  return (job.salary_max ?? job.salary ?? 0) as number;
+export function salaryValue(job: {
+  salary_max?: number | null;
+  salary?: number | null;
+  salary_currency?: string | null;
+}) {
+  // Compare in a single currency: raw amounts let ₹45,00,000 outrank $850,000.
+  return jobSalaryUsd(job) ?? 0;
 }
 
 export function rankCandidates(candidates: BrowseCandidate[], sortBy?: string) {

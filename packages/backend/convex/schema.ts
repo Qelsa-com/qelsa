@@ -288,6 +288,8 @@ export default defineSchema({
     company_name: v.optional(v.string()),
     industry: v.optional(v.string()),
     job_title_name: v.optional(v.string()),
+    /** Salary ceiling converted to USD, so "Highest salary" can order by index. */
+    salary_usd: v.optional(v.number()),
     /** Sum of every skill weight on the job: the denominator of skill readiness. */
     total_weight: v.number(),
     skills: v.array(
@@ -302,7 +304,8 @@ export default defineSchema({
     updated_at: v.number(),
   })
     .index("by_job", ["job_id"])
-    .index("by_status_and_published", ["status", "published_date"]),
+    .index("by_status_and_published", ["status", "published_date"])
+    .index("by_status_and_salary", ["status", "salary_usd"]),
 
   /**
    * Cached per-user ranking across the whole catalog. `fingerprint` matches the

@@ -16,6 +16,7 @@ import {
   rankBySmartMatch,
   rankCandidates,
   salaryValue,
+  SEARCH_CANDIDATE_CAP,
   scoreReadiness,
   scoreTierMatches,
   slimListJobs,
@@ -691,6 +692,36 @@ export const listPaginated = optionalAuthQuery({
         };
       }
 
+      // Salary-ranked search. Sorting only the current page made "Highest
+      // salary" mean "highest paid within search hits 1–N"; rank the bounded
+      // result set instead, in a single currency.
+      if (sortBy === "salary") {
+        const hits = await ctx.db
+          .query("jobs")
+          .withSearchIndex("search_all", (q) => q.search("search_text", search).eq("status", "open"))
+          .take(SEARCH_CANDIDATE_CAP);
+        if (needsCity) await prefetchCities(ctx, hits, cache);
+        const matched = hits.filter(passesListing);
+        matched.sort((a, b) => salaryValue(b) - salaryValue(a));
+
+        const afterId = decodeRankCursor(paginationOpts.cursor);
+        const afterIndex = afterId ? matched.findIndex((job) => job._id === afterId) : -1;
+        if (afterId && afterIndex < 0) {
+          return { page: [], isDone: true, continueCursor: paginationOpts.cursor ?? "" };
+        }
+        const start = afterId ? afterIndex + 1 : 0;
+        const slice = matched.slice(start, start + target);
+        const last = slice[slice.length - 1];
+        const pageCandidates = await withPageReadiness(
+          slice.map((job) => ({ job, readiness: null })),
+        );
+        return {
+          page: await slimListJobs(ctx, pageCandidates, hydration, cache),
+          isDone: start + slice.length >= matched.length,
+          continueCursor: last ? encodeRankCursor(last._id) : (paginationOpts.cursor ?? ""),
+        };
+      }
+
       // One denormalized search index gives the result set. It paginates the
       // entire catalog and never scores the whole result set just to rank it.
       const legacyCursor =
@@ -895,6 +926,42 @@ export const listPaginated = optionalAuthQuery({
         continueCursor: encodeBestRestCursor(
           lastExamined ? encodeBrowseCursor(lastExamined) : restCursor,
         ),
+      };
+    }
+
+    // Global salary ordering. Index-scan the compact scoring rows (ordered by
+    // salary in one currency) and hydrate only those job ids. The previous path
+    // sorted a 160-job recency window, so "Highest salary" was not catalog-wide.
+    if (!search && !scoreFilter && sortBy === "salary") {
+      const picked: BrowseCandidate[] = [];
+      let cursor = paginationOpts.cursor;
+      let isDone = false;
+      let continueCursor = paginationOpts.cursor ?? "";
+      // Bounded so a narrow filter cannot walk the whole salary index.
+      for (let round = 0; picked.length < target && !isDone && round < 8; round++) {
+        const page = await ctx.db
+          .query("job_match_vectors")
+          .withIndex("by_status_and_salary", (q) => q.eq("status", "open"))
+          .order("desc")
+          .paginate({ numItems: target + RANKED_HYDRATE_CHUNK, cursor });
+        const docs = await Promise.all(page.page.map((vector) => ctx.db.get(vector.job_id)));
+        const jobs = docs.filter((doc): doc is Doc<"jobs"> => Boolean(doc));
+        if (needsCity) await prefetchCities(ctx, jobs, cache);
+        for (const job of jobs) {
+          if (picked.length >= target) break;
+          if (!passesListing(job)) continue;
+          picked.push({ job, readiness: null });
+        }
+        isDone = page.isDone;
+        continueCursor = page.continueCursor;
+        cursor = page.continueCursor;
+        if (page.page.length === 0) break;
+      }
+      const pageCandidates = await withPageReadiness(picked);
+      return {
+        page: await slimListJobs(ctx, pageCandidates, hydration, cache),
+        isDone,
+        continueCursor,
       };
     }
 

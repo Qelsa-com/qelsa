@@ -82,6 +82,7 @@ import type * as lib_profileFields from "../lib/profileFields.js";
 import type * as lib_profileFingerprint from "../lib/profileFingerprint.js";
 import type * as lib_r2 from "../lib/r2.js";
 import type * as lib_resolve from "../lib/resolve.js";
+import type * as lib_salary from "../lib/salary.js";
 import type * as lib_skillCatalog from "../lib/skillCatalog.js";
 import type * as lib_skillLevels from "../lib/skillLevels.js";
 import type * as lib_skillLimits from "../lib/skillLimits.js";
@@ -183,6 +184,7 @@ declare const fullApi: ApiFromModules<{
   "lib/profileFingerprint": typeof lib_profileFingerprint;
   "lib/r2": typeof lib_r2;
   "lib/resolve": typeof lib_resolve;
+  "lib/salary": typeof lib_salary;
   "lib/skillCatalog": typeof lib_skillCatalog;
   "lib/skillLevels": typeof lib_skillLevels;
   "lib/skillLimits": typeof lib_skillLimits;
