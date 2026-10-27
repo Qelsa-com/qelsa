@@ -4,7 +4,7 @@ import { AllJobsGridSkeleton } from "@/components/job/jobSkeletons";
 import { SetupBanner } from "@/components/SetupBanner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/contexts/AuthContext";
-import { useCountJobsQuery, usePaginatedJobsQuery } from "@/features/api/jobsApi";
+import { useCountJobsQuery, useEnsureRankingRecompute, usePaginatedJobsQuery } from "@/features/api/jobsApi";
 import { useGetMyResumesQuery } from "@/features/api/resumeApi";
 import { Job } from "@/types/job";
 import { Search } from "lucide-react";
@@ -34,6 +34,8 @@ function AllJobsContent() {
   const defaultSort = isAuthenticated ? "relevance" : "date";
   const { searchInput, setSearchInput, filters, applyFilters, discoverArgs, cityFilter, setCityFilter, commitSearch, hydrated } = useJobBrowseFilters(undefined, defaultSort, isAuthenticated);
   const { results, status, isLoading, loadMore } = usePaginatedJobsQuery(discoverArgs, JOBS_PAGE_SIZE, { skip: !hydrated });
+  // "Best match" reads a whole-catalog cached ranking; make sure one exists.
+  useEnsureRankingRecompute(hydrated && isAuthenticated);
   const { data: filteredTotal } = useCountJobsQuery(discoverArgs, { skip: !hydrated });
   const { data: myResumes } = useGetMyResumesQuery(undefined, { skip: !isAuthenticated });
   const hasResume = Boolean(myResumes && myResumes.length > 0);
