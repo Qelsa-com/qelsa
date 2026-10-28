@@ -1,7 +1,7 @@
 "use client";
 
 import { useCreateExperienceMutation, useDeleteExperienceMutation, useUpdateExperienceMutation } from "@/features/api/experiencesApi";
-import { useLazySearchCitiesQuery, useLazySearchCompaniesQuery, useLazySearchJobTitlesQuery } from "@/features/api/seedApi";
+import { useLazySearchCompaniesQuery, useLazySearchJobLocationsQuery, useLazySearchJobTitlesQuery } from "@/features/api/seedApi";
 import { toastUnknownError } from "@/lib/errors";
 import { City } from "@/types/city";
 import { Experience } from "@/types/experience";
@@ -82,7 +82,7 @@ export function ExperienceModal({ open, onClose, experience, onCustomSave, onCus
 
   const [searchJobTitles, { data: jobTitleOptions = [] }] = useLazySearchJobTitlesQuery();
   const [searchCompanies, { data: companyOptions = [] }] = useLazySearchCompaniesQuery();
-  const [searchCities, { data: cityOptions = [] }] = useLazySearchCitiesQuery();
+  const [searchLocations, { data: cityOptions = [] }] = useLazySearchJobLocationsQuery();
   const [createExperience] = useCreateExperienceMutation();
   const [updateExperience] = useUpdateExperienceMutation();
 
@@ -119,7 +119,12 @@ export function ExperienceModal({ open, onClose, experience, onCustomSave, onCus
       start_date: monthValueToIso(start),
       end_date: isCurrent ? undefined : monthValueToIso(end),
       is_current: isCurrent,
-      city: city ? { id: city.id } : undefined,
+      // Send the name, not just an id: the picker suggests from the same 6k+ geo
+      // index the jobs filter uses, and the backend resolves (or creates) the
+      // matching city. `null` clears the field.
+      city: city
+        ? { name: city.state?.name ? `${city.name}, ${city.state.name}` : city.name }
+        : null,
       work_type: workType || undefined,
       description: description.trim() || undefined,
       responsibilities: bulletsFromDescription(description),
@@ -268,12 +273,19 @@ export function ExperienceModal({ open, onClose, experience, onCustomSave, onCus
             <Autocomplete<City>
               value={city}
               onChange={setCity}
-              onSearch={(q) => searchCities(q)}
+              onSearch={(q) => searchLocations(q)}
               options={cityOptions as City[]}
               placeholder="Enter location"
               getInputLabel={(c) => (c.state?.name ? `${c.name}, ${c.state.name}` : c.name)}
               renderOption={(c) => (c.state?.name ? `${c.name}, ${c.state.name}` : c.name)}
               minChars={1}
+              // Match the jobs listing: the suggestion set is the same 6k+ geo
+              // index, and any typed place is accepted even when it is not in it.
+              allowFreeText
+              makeFreeTextValue={(query) => {
+                const [name, state] = query.split(",").map((part) => part.trim());
+                return { id: `location:${query.toLowerCase()}`, name: name || query, state: state ? { id: state, name: state } : undefined };
+              }}
               inputClassName={inputClass}
             />
           </Field>

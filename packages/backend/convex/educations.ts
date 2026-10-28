@@ -4,7 +4,7 @@ import type { QueryCtx } from "./_generated/server";
 import { authedMutation, authedQuery } from "./lib/customFunctions";
 import { withId } from "./lib/helpers";
 import { titledList, withLocalIds } from "./lib/profileFields";
-import { resolveNamedRef, type NamedRefInput } from "./lib/resolve";
+import { resolveCityRef, resolveNamedRef, type NamedRefInput } from "./lib/resolve";
 import { refreshInferredSkillLevels } from "./lib/skillLevels";
 
 async function hydrate(ctx: QueryCtx, row: Doc<"educations">) {
@@ -58,7 +58,7 @@ export const create = authedMutation({
       degree_id: await resolveNamedRef(ctx, "degree_names", data.degree as NamedRefInput),
       field_of_study_id: await resolveNamedRef(ctx, "fields_of_study", data.field_of_study as NamedRefInput),
       college_id: await resolveNamedRef(ctx, "colleges", data.college as NamedRefInput),
-      city_id: (data.city as { id?: Id<"cities"> } | undefined)?.id,
+      city_id: await resolveCityRef(ctx, data.city as Parameters<typeof resolveCityRef>[1]),
       start_year: startYear,
       end_year: endYear,
       grade: data.grade as string | undefined,
@@ -95,7 +95,7 @@ export const update = authedMutation({
       degree_id: data.degree !== undefined ? (data.degree ? await resolveNamedRef(ctx, "degree_names", data.degree as NamedRefInput) : undefined) : row.degree_id,
       field_of_study_id: data.field_of_study !== undefined ? (data.field_of_study ? await resolveNamedRef(ctx, "fields_of_study", data.field_of_study as NamedRefInput) : undefined) : row.field_of_study_id,
       college_id: data.college !== undefined ? (data.college ? await resolveNamedRef(ctx, "colleges", data.college as NamedRefInput) : undefined) : row.college_id,
-      city_id: "city" in data ? ((data.city as { id?: Id<"cities"> } | null)?.id ?? undefined) : row.city_id,
+      city_id: "city" in data ? await resolveCityRef(ctx, data.city as Parameters<typeof resolveCityRef>[1]) : row.city_id,
       start_year: startYear,
       end_year: endYear,
       grade: data.grade !== undefined ? ((data.grade as string | undefined)?.trim() || undefined) : row.grade,

@@ -13,7 +13,7 @@ import {
 import { Autocomplete, AutocompleteOption } from "../../ui/autocomplete";
 import { Button } from "../../ui/button";
 import { useCreateEducationMutation, useDeleteEducationMutation, useUpdateEducationMutation } from "@/features/api/educationsApi";
-import { useLazyGetCollegesQuery, useLazyGetDegreeNamesQuery, useLazyGetFieldsOfStudyQuery, useLazySearchCitiesQuery } from "@/features/api/seedApi";
+import { useLazyGetCollegesQuery, useLazyGetDegreeNamesQuery, useLazyGetFieldsOfStudyQuery, useLazySearchJobLocationsQuery } from "@/features/api/seedApi";
 import { toastUnknownError } from "@/lib/errors";
 import { City } from "@/types/city";
 import { Education } from "@/types/education";
@@ -61,7 +61,7 @@ export function EducationModal({ open, onClose, education, onCustomSave, onCusto
   const [searchColleges, { data: collegeOptions = [] }] = useLazyGetCollegesQuery();
   const [searchDegrees, { data: degreeOptions = [] }] = useLazyGetDegreeNamesQuery();
   const [searchFields, { data: fieldOptions = [] }] = useLazyGetFieldsOfStudyQuery();
-  const [searchCities, { data: cityOptions = [] }] = useLazySearchCitiesQuery();
+  const [searchLocations, { data: cityOptions = [] }] = useLazySearchJobLocationsQuery();
   const [createEducation] = useCreateEducationMutation();
   const [updateEducation] = useUpdateEducationMutation();
 
@@ -106,7 +106,7 @@ export function EducationModal({ open, onClose, education, onCustomSave, onCusto
       start_year: startYear,
       end_year: endYear ?? null,
       grade: grade.trim() || undefined,
-      city: city ? { id: city.id } : null,
+      city: city ? { name: city.state?.name ? `${city.name}, ${city.state.name}` : city.name } : null,
     };
 
     setSaving(true);
@@ -263,12 +263,17 @@ export function EducationModal({ open, onClose, education, onCustomSave, onCusto
             <Autocomplete<City>
               value={city}
               onChange={setCity}
-              onSearch={(q) => searchCities(q)}
+              onSearch={(q) => searchLocations(q)}
               options={cityOptions as City[]}
               placeholder="Enter location"
               getInputLabel={(c) => (c.state?.name ? `${c.name}, ${c.state.name}` : c.name)}
               renderOption={(c) => (c.state?.name ? `${c.name}, ${c.state.name}` : c.name)}
               minChars={1}
+              allowFreeText
+              makeFreeTextValue={(query) => {
+                const [name, state] = query.split(",").map((part) => part.trim());
+                return { id: `location:${query.toLowerCase()}`, name: name || query, state: state ? { id: state, name: state } : undefined };
+              }}
               inputClassName={inputClass}
             />
           </Field>

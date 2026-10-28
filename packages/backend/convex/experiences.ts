@@ -4,7 +4,7 @@ import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { authedMutation, authedQuery } from "./lib/customFunctions";
 import { iso, withId } from "./lib/helpers";
 import { impactMetricList, titledList, withLocalIds } from "./lib/profileFields";
-import { resolveNamedRef, type NamedRefInput } from "./lib/resolve";
+import { resolveCityRef, resolveNamedRef, type NamedRefInput } from "./lib/resolve";
 import { refreshInferredSkillLevels } from "./lib/skillLevels";
 
 async function replaceExperienceSkills(ctx: MutationCtx, experienceId: Id<"experiences">, skills: unknown) {
@@ -72,7 +72,7 @@ export const create = authedMutation({
       user_id: ctx.user._id,
       company_id: await resolveNamedRef(ctx, "companies", data.company as NamedRefInput),
       job_title_id: await resolveNamedRef(ctx, "job_titles", data.job_title as NamedRefInput),
-      city_id: (data.city as { id?: Id<"cities"> } | undefined)?.id,
+      city_id: await resolveCityRef(ctx, data.city as Parameters<typeof resolveCityRef>[1]),
       start_date: data.start_date ? new Date(data.start_date as string).getTime() : Date.now(),
       end_date: data.end_date ? new Date(data.end_date as string).getTime() : undefined,
       is_current: Boolean(data.is_current),
@@ -107,7 +107,10 @@ export const update = authedMutation({
     await ctx.db.patch(args.id, {
       company_id: data.company !== undefined ? await resolveNamedRef(ctx, "companies", data.company as NamedRefInput) : row.company_id,
       job_title_id: data.job_title !== undefined ? await resolveNamedRef(ctx, "job_titles", data.job_title as NamedRefInput) : row.job_title_id,
-      city_id: data.city !== undefined ? (data.city as { id?: Id<"cities"> } | null)?.id : row.city_id,
+      city_id:
+        data.city !== undefined
+          ? await resolveCityRef(ctx, data.city as Parameters<typeof resolveCityRef>[1])
+          : row.city_id,
       start_date: data.start_date ? new Date(data.start_date as string).getTime() : row.start_date,
       end_date: endDate,
       is_current: isCurrent,
