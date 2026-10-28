@@ -14,6 +14,7 @@ import { Autocomplete, AutocompleteOption } from "../../ui/autocomplete";
 import { Button } from "../../ui/button";
 import { useCreateEducationMutation, useDeleteEducationMutation, useUpdateEducationMutation } from "@/features/api/educationsApi";
 import { useLazyGetCollegesQuery, useLazyGetDegreeNamesQuery, useLazyGetFieldsOfStudyQuery, useLazySearchJobLocationsQuery } from "@/features/api/seedApi";
+import { cityRefName } from "@/constants/city";
 import { toastUnknownError } from "@/lib/errors";
 import { City } from "@/types/city";
 import { Education } from "@/types/education";
@@ -106,7 +107,7 @@ export function EducationModal({ open, onClose, education, onCustomSave, onCusto
       start_year: startYear,
       end_year: endYear ?? null,
       grade: grade.trim() || undefined,
-      city: city ? { name: city.state?.name ? `${city.name}, ${city.state.name}` : city.name } : null,
+      city: city ? { name: cityRefName(city) } : null,
     };
 
     setSaving(true);

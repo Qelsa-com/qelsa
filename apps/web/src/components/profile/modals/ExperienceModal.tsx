@@ -2,6 +2,7 @@
 
 import { useCreateExperienceMutation, useDeleteExperienceMutation, useUpdateExperienceMutation } from "@/features/api/experiencesApi";
 import { useLazySearchCompaniesQuery, useLazySearchJobLocationsQuery, useLazySearchJobTitlesQuery } from "@/features/api/seedApi";
+import { cityRefName } from "@/constants/city";
 import { toastUnknownError } from "@/lib/errors";
 import { City } from "@/types/city";
 import { Experience } from "@/types/experience";
@@ -122,9 +123,7 @@ export function ExperienceModal({ open, onClose, experience, onCustomSave, onCus
       // Send the name, not just an id: the picker suggests from the same 6k+ geo
       // index the jobs filter uses, and the backend resolves (or creates) the
       // matching city. `null` clears the field.
-      city: city
-        ? { name: city.state?.name ? `${city.name}, ${city.state.name}` : city.name }
-        : null,
+      city: city ? { name: cityRefName(city) } : null,
       work_type: workType || undefined,
       description: description.trim() || undefined,
       responsibilities: bulletsFromDescription(description),

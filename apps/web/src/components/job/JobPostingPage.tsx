@@ -22,12 +22,12 @@
 import React from "react";
 import { Autocomplete } from "@/components/ui/autocomplete";
 import { GlassSelect, GlassSelectOption } from "@/components/ui/glass-select";
-import { formatCity } from "@/constants/city";
+import { cityRefName, formatCity } from "@/constants/city";
 import { JOB_SKILL_TYPES, JobSkillType, jobSkillTypeLabel, PROFICIENCY_LEVELS, ProficiencyLevel, proficiencyLabel } from "@/constants/skills";
 import { useCreateJobMutation, useEditJobMutation, useGenerateJobDraftAction, useGetJobByIdQuery } from "@/features/api/jobsApi";
 import { useLazySearchJobTitlesQuery } from "@/features/api/jobTitlesApi";
 import { useGetMyPagesQuery, useLazyGetMyPagesQuery } from "@/features/api/pagesApi";
-import { useLazyGetSkillsQuery, useLazySearchCitiesQuery } from "@/features/api/seedApi";
+import { useLazyGetSkillsQuery, useLazySearchJobLocationsQuery } from "@/features/api/seedApi";
 import { toastUnknownError } from "@/lib/errors";
 import { looksLikeConvexId } from "@/lib/catalogId";
 import { City } from "@/types/city";
@@ -223,7 +223,7 @@ export function JobPostingPage() {
   const [targetBudget, setTargetBudget] = useState(""); // static / not submitted
 
   const [searchJobTitles, { data: jobTitleResults = [] }] = useLazySearchJobTitlesQuery();
-  const [searchCities, { data: cityResults = [] }] = useLazySearchCitiesQuery();
+  const [searchLocations, { data: cityResults = [] }] = useLazySearchJobLocationsQuery();
   const [searchSkills, { data: skillResults = [] }] = useLazyGetSkillsQuery();
 
   const companyOptions: CompanyOption[] = pageResults.flatMap((p) => {
@@ -236,10 +236,10 @@ export function JobPostingPage() {
   const { data: existingJob, isLoading: isLoadingExisting } = useGetJobByIdQuery(editJobId ?? undefined, { skip: !editJobId });
   const [editJobMutation, { isLoading: isUpdatingJob }] = useEditJobMutation();
 
-  // Prefetch location DB cities so focus immediately shows suggestions
+  // Prefetch the geo index so focus immediately shows suggestions
   useEffect(() => {
-    searchCities("");
-  }, [searchCities]);
+    searchLocations("");
+  }, [searchLocations]);
 
   // Auto-bind employer company when posting from an account that owns a page
   useEffect(() => {
@@ -474,7 +474,7 @@ export function JobPostingPage() {
             page_name: company && looksLikeConvexId(company.id) ? undefined : resolvedCompanyName,
             company_name: resolvedCompanyName,
             city_id: looksLikeConvexId(resolvedCity.id) ? String(resolvedCity.id) : undefined,
-            city: { id: looksLikeConvexId(resolvedCity.id) ? resolvedCity.id : undefined, name: resolvedCity.name, state: resolvedCity.state },
+            city: { id: looksLikeConvexId(resolvedCity.id) ? resolvedCity.id : undefined, name: cityRefName(resolvedCity), state: resolvedCity.state },
             work_type: workType,
             workplace_type: workplaceType,
             experience,
@@ -498,7 +498,7 @@ export function JobPostingPage() {
       job: {
         job_title: { id: looksLikeConvexId(resolvedTitle.id) ? resolvedTitle.id : undefined, name: resolvedTitle.name },
         description,
-        city: { id: looksLikeConvexId(resolvedCity.id) ? resolvedCity.id : undefined, name: resolvedCity.name, state: resolvedCity.state },
+        city: { id: looksLikeConvexId(resolvedCity.id) ? resolvedCity.id : undefined, name: cityRefName(resolvedCity), state: resolvedCity.state },
         work_type: workType,
         workplace_type: workplaceType,
         experience,
@@ -614,7 +614,7 @@ export function JobPostingPage() {
               <Autocomplete<City>
                 value={city}
                 onChange={setCity}
-                onSearch={(q) => searchCities(q)}
+                onSearch={(q) => searchLocations(q)}
                 onQueryChange={setCityQuery}
                 options={cityResults}
                 placeholder="Search city..."

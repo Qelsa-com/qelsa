@@ -3,7 +3,8 @@
 import { useGetProfileQuery, useUpdateProfileMutation } from "@/features/api/authApi";
 import { useGetExperiencesQuery } from "@/features/api/experiencesApi";
 import { useCreateResumeMutation, useDeleteResumeMutation, useGetMyResumesQuery } from "@/features/api/resumeApi";
-import { useLazySearchCitiesQuery } from "@/features/api/seedApi";
+import { useLazySearchJobLocationsQuery } from "@/features/api/seedApi";
+import { cityRefName } from "@/constants/city";
 import { api } from "@/lib/convexApi";
 import { useConvexQueryHook } from "@/lib/convexHooks";
 import { toastUnknownError } from "@/lib/errors";
@@ -124,7 +125,7 @@ export function ProfileEditor() {
   const [updateProfile] = useUpdateProfileMutation();
   const [createResume, { isLoading: isUploadingResume }] = useCreateResumeMutation();
   const [deleteResume] = useDeleteResumeMutation();
-  const [searchCities, { data: cityOptions = [] }] = useLazySearchCitiesQuery();
+  const [searchLocations, { data: cityOptions = [] }] = useLazySearchJobLocationsQuery();
 
   const generateUploadUrl = useMutation(api.files.generateUploadUrl);
   const syncMetadata = useMutation(api.files.syncMetadata);
@@ -527,13 +528,18 @@ export function ProfileEditor() {
                           value={null}
                           onChange={(city) => {
                             if (!city) return;
-                            const label = city.state?.name ? `${city.name}, ${city.state.name}` : city.name;
+                            const label = cityRefName(city);
                             const current = profile.relocate_locations ?? [];
                             if (!current.includes(label)) patch({ relocate_locations: [...current, label] });
                           }}
-                          onSearch={(q) => searchCities(q)}
+                          onSearch={(q) => searchLocations(q)}
                           options={cityOptions as City[]}
                           placeholder="Search city or region…"
+                          allowFreeText
+                          makeFreeTextValue={(query) => {
+                            const [name, state] = query.split(",").map((part) => part.trim());
+                            return { id: `location:${query.toLowerCase()}`, name: name || query, state: state ? { id: state, name: state } : undefined };
+                          }}
                           renderOption={(c) => (c.state?.name ? `${c.name}, ${c.state.name}` : c.name)}
                           minChars={1}
                           inputClassName={inputClass}

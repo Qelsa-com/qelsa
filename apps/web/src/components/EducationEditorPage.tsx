@@ -1,6 +1,6 @@
 import { useCreateEducationMutation, useDeleteEducationMutation, useGetEducationsQuery, useUpdateEducationMutation, useUpdateEducationsPositionMutation } from "@/features/api/educationsApi";
-import { useGetDegreeNamesQuery, useGetFieldsOfStudyQuery, useLazyGetCollegesQuery, useLazySearchCitiesQuery } from "@/features/api/seedApi";
-import { formatCity } from "@/constants/city";
+import { useGetDegreeNamesQuery, useGetFieldsOfStudyQuery, useLazyGetCollegesQuery, useLazySearchJobLocationsQuery } from "@/features/api/seedApi";
+import { cityRefName, formatCity } from "@/constants/city";
 import { toastUnknownError } from "@/lib/errors";
 import { College, Education } from "@/types/education";
 import { ArrowLeft, Award, Calendar, Check, Edit3, FileText, FolderOpen, GraduationCap, GripVertical, MapPin, Plus, Search, Sparkles, Trash2, Trophy, Upload } from "lucide-react";
@@ -29,7 +29,7 @@ export function EducationEditorPage() {
   const [updateEducationsPosition, { isLoading: isUpdatingPosition, error: updatePositionError }] = useUpdateEducationsPositionMutation();
 
   const [triggerCollegeSearch, { data: collegeOptions = [] }] = useLazyGetCollegesQuery();
-  const [triggerCitySearch, { data: cityResults = [] }] = useLazySearchCitiesQuery();
+  const [triggerCitySearch, { data: cityResults = [] }] = useLazySearchJobLocationsQuery();
 
   const [degreeSearch, setDegreeSearch] = useState("");
   const [fieldSearch, setFieldSearch] = useState("");
@@ -90,7 +90,7 @@ export function EducationEditorPage() {
     let newEducation: Education = {
       degree: formData.degree!,
       college: { id: formData.college!.id } as College,
-      city: formData.city,
+      city: { id: String(formData.city.id), name: cityRefName(formData.city) },
       start_year: formData.start_year!,
       end_year: formData.end_year!,
       field_of_study: formData.field_of_study!,
@@ -428,11 +428,18 @@ export function EducationEditorPage() {
                     options={cityResults}
                     placeholder="Search city..."
                     icon={<Search className="h-4 w-4" />}
-                    getInputLabel={formatCity}
+                    getInputLabel={(c) => (c.state?.name ? `${c.name}, ${c.state.name}` : c.name)}
+                    // Same 6k+ geo index as the jobs filter, plus free text so a
+                    // place missing from the list is still selectable.
+                    allowFreeText
+                    makeFreeTextValue={(query) => {
+                      const [name, state] = query.split(",").map((part) => part.trim());
+                      return { id: `location:${query.toLowerCase()}`, name: name || query, state: state ? { id: state, name: state } : undefined };
+                    }}
                     renderOption={(city) => (
                       <>
                         <MapPin className="h-4 w-4 text-neon-purple flex-shrink-0" />
-                        {formatCity(city)}
+                        {city.state?.name ? `${city.name}, ${city.state.name}` : city.name}
                       </>
                     )}
                     inputClassName="glass border-glass-border focus:border-neon-purple"
