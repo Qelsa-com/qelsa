@@ -62,11 +62,21 @@ export default function RouteGuard({ children }: { children: ReactNode }) {
     }
   }, [isPending, isLoading]);
 
+  const path = router.asPath.split(/[?#]/)[0];
+  const isPublic = isPublicPath(path) || router.pathname === "/404";
+
+  // The boot loader lives in _document so it paints before React hydrates. Keep
+  // it up until this route clears the auth gate below — private routes return
+  // null while the session resolves, so releasing the loader any earlier would
+  // trade one blank screen for another.
+  const waitingForAuth = !isPublic && (isPending || isLoading);
+  useEffect(() => {
+    if (waitingForAuth) return;
+    document.documentElement.classList.add("qelsa-ready");
+  }, [waitingForAuth]);
+
   useEffect(() => {
     if (!isClient || isPending || isLoading || !router.isReady) return;
-
-    const path = router.asPath.split(/[?#]/)[0];
-    const isPublic = isPublicPath(path) || router.pathname === "/404";
 
     if (!session && !isPublic) {
       if (path.startsWith("/courses/") || path === "/pricing") {
@@ -108,9 +118,6 @@ export default function RouteGuard({ children }: { children: ReactNode }) {
       router.replace("/onboarding");
     }
   }, [session, user, isClient, isPending, isLoading, router.isReady, router.asPath, logout, router]);
-
-  const path = router.asPath.split(/[?#]/)[0];
-  const isPublic = isPublicPath(path) || router.pathname === "/404";
 
   // Public pages (including /jobs/[id]) must SSR so crawlers see <Head> OG tags.
   // Returning null on the server previously stripped job link previews.
