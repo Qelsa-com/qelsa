@@ -535,13 +535,15 @@ export function MatchRing({
   const offset = circumference * (1 - Math.min(100, Math.max(0, value)) / 100);
   const ringStroke = color ?? ringColor(tone ?? value);
   return (
-    <div className="relative size-11 sm:size-12">
+    <div className="relative size-12 shrink-0 sm:size-14">
       <svg className="absolute inset-0 size-full -rotate-90" viewBox="0 0 40 40">
         <circle cx="20" cy="20" r={r} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="3" />
         <circle cx="20" cy="20" r={r} fill="none" stroke={ringStroke} strokeWidth="3" strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={offset} />
       </svg>
+      {/* `100%` is four glyphs wide; at 44px it ran into the ring stroke. The
+          larger circle plus a slightly smaller number keeps clear of the border. */}
       <div className="absolute inset-0 flex flex-col items-center justify-center leading-none">
-        <span className="text-[11px] font-bold text-white sm:text-xs">{value}%</span>
+        <span className="text-[10px] font-bold text-white sm:text-xs">{value}%</span>
         <span className="mt-0.5 text-[8px] font-medium text-white/60">{label}</span>
       </div>
     </div>

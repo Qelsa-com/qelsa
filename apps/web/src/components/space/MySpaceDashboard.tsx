@@ -13,7 +13,7 @@ import { GOAL_EXPERIENCE_OPTIONS, goalTimelineLabel, hasCareerGoal } from "@/lib
 import { GOAL_MATCH, matchRingColor } from "@/lib/matchTiers";
 import type { CareerGoal } from "@/types/careerGoal";
 import type { Job } from "@/types/job";
-import { ArrowRight, ArrowUpRight, Bot, Briefcase, Building2, Check, CheckCircle2, ChevronRight, Plus, Search, Sparkles, Target, TrendingUp, type LucideIcon } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Bot, Briefcase, Building2, Check, ChevronRight, Plus, Search, Sparkles, Target, TrendingUp, type LucideIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, type ReactNode } from "react";
 
@@ -222,15 +222,12 @@ export function MySpaceDashboard() {
             <h1 className="mt-1.5 text-[26px] font-semibold tracking-tight text-white sm:text-[30px]">Hi{firstName ? `, ${firstName}` : ""}.</h1>
             <p className="mt-1 text-sm text-white/45">{headerSubtitle}</p>
           </div>
-          <span
-            className={cn(
-              "inline-flex w-fit items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-medium",
-              profileComplete ? "border-emerald-400/20 bg-emerald-400/[0.06] text-emerald-300" : "border-white/[0.09] bg-white/[0.03] text-white/50",
-            )}
-          >
-            {profileComplete ? <CheckCircle2 className="size-3.5" /> : <span className="size-1.5 rounded-full bg-neon-cyan" />}
-            {profileDataLoading ? "Profile —" : profileComplete ? "Profile complete" : `Profile ${profilePercent}%`}
-          </span>
+          {!profileComplete && (
+            <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-white/[0.09] bg-white/[0.03] px-3 py-1.5 text-[11px] font-medium text-white/50">
+              <span className="size-1.5 rounded-full bg-neon-cyan" />
+              {profileDataLoading ? "Profile —" : `Profile ${profilePercent}%`}
+            </span>
+          )}
         </header>
 
         <section className="relative mt-6 overflow-hidden rounded-[24px] border border-white/[0.09] bg-[#0a0a14] p-5 sm:p-7">
