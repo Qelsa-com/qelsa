@@ -118,7 +118,9 @@ function fitReportArtifact(
   const evidence = asArray(output.resume_evidence).filter((item) => typeof item === "string") as string[];
   const canApply = clean(output.can_apply);
 
-  const sections: string[] = [`# Full analysis — ${jobTitle}`];
+  // The panel header already renders "Full analysis · {job}", so the body
+  // starts at the headline rather than repeating the title.
+  const sections: string[] = [];
   if (typeof output.headline === "string" && output.headline.trim()) sections.push(output.headline.trim());
   if (strong.length) sections.push(`## Strong matches\n\n${strong.map((item) => `- ${item}`).join("\n")}`);
   if (partial.length) sections.push(`## Partial matches\n\n${partial.map((item) => `- ${item}`).join("\n")}`);
