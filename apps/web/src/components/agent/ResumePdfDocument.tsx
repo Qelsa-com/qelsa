@@ -92,9 +92,6 @@ export function ResumePdfDocument({ resume }: { resume: AgentResumeDocument }) {
                     <Text style={styles.bulletText}>{bullet}</Text>
                   </View>
                 ))}
-                {role.skills.length > 0 && (
-                  <Text style={styles.small}>Skills: {role.skills.join(", ")}</Text>
-                )}
               </View>
             ))}
           </View>

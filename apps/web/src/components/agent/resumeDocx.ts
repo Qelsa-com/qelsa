@@ -109,14 +109,6 @@ export async function renderResumeDocx(resume: AgentResumeDocument): Promise<Blo
         }),
       );
       for (const item of role.bullets) children.push(bullet(item));
-      if (role.skills.length) {
-        children.push(
-          new Paragraph({
-            spacing: { after: 60 },
-            children: [new TextRun({ text: `Skills: ${role.skills.join(", ")}`, size: 17, color: "555555" })],
-          }),
-        );
-      }
     }
   }
 
