@@ -13,8 +13,11 @@ const styles = StyleSheet.create({
     color: "#161616",
     lineHeight: 1.35,
   },
-  name: { fontSize: 20, fontFamily: "Helvetica-Bold", letterSpacing: 0.2 },
-  headline: { fontSize: 10.5, color: "#333333", marginTop: 2 },
+  // `lineHeight` inherits from the page, where it resolves against the 9pt base
+  // font. At 20pt that produced a ~12pt line box, so the headline drew over the
+  // name. Pin an explicit line height on both header lines.
+  name: { fontSize: 20, fontFamily: "Helvetica-Bold", letterSpacing: 0.2, lineHeight: 1.2 },
+  headline: { fontSize: 10.5, color: "#333333", marginTop: 2, lineHeight: 1.3 },
   contact: { fontSize: 8.5, color: "#555555", marginTop: 5 },
   section: { marginTop: 14 },
   sectionTitle: {
