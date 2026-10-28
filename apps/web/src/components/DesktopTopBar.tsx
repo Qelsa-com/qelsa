@@ -93,7 +93,7 @@ export function DesktopTopBar({
               onClick={() => router.push("/auth?returnUrl=/profile")}
               className="rounded-full border border-white/20 bg-white/[0.04] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/35 hover:bg-white/[0.08]"
             >
-              Get a job
+              Get a Job
             </button>
             <button
               type="button"
