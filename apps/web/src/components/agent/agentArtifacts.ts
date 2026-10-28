@@ -101,18 +101,6 @@ function formatDate(value: unknown): string {
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
-function scoreRows(output: Record<string, any>): Array<[string, number]> {
-  const rows: Array<[string, number]> = [];
-  const push = (label: string, value: unknown) => {
-    if (typeof value === "number" && Number.isFinite(value)) rows.push([label, Math.round(value)]);
-  };
-  push("Experience", output.experience_match);
-  push("Education", output.education_match);
-  push("Domain", output.domain_match);
-  push("Responsibilities", output.responsibilities_match);
-  return rows;
-}
-
 function fitReportArtifact(
   part: AgentToolPart,
   output: Record<string, any>,
@@ -127,20 +115,11 @@ function fitReportArtifact(
   const missing = asArray(output.missing).filter((item) => typeof item === "string") as string[];
   const actions = asArray(output.actions).filter((item) => typeof item === "string") as string[];
   const courses = asArray(output.courses).filter((course) => course && typeof course.title === "string" && typeof course.url === "string");
-  const rows = scoreRows(output);
   const evidence = asArray(output.resume_evidence).filter((item) => typeof item === "string") as string[];
   const canApply = clean(output.can_apply);
 
   const sections: string[] = [`# Full analysis — ${jobTitle}`];
-  if (score != null) sections.push(`## ${score}% match`);
   if (typeof output.headline === "string" && output.headline.trim()) sections.push(output.headline.trim());
-  if (rows.length) {
-    sections.push(
-      `## Score breakdown\n\n| Area | Score |\n| --- | --- |\n${rows
-        .map(([label, value]) => `| ${label} | ${value}% |`)
-        .join("\n")}`,
-    );
-  }
   if (strong.length) sections.push(`## Strong matches\n\n${strong.map((item) => `- ${item}`).join("\n")}`);
   if (partial.length) sections.push(`## Partial matches\n\n${partial.map((item) => `- ${item}`).join("\n")}`);
   if (missing.length) sections.push(`## Gaps\n\n${missing.map((item) => `- ${item}`).join("\n")}`);
