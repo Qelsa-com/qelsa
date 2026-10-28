@@ -5,14 +5,7 @@ import { ArrowRight, ArrowUpRight, Briefcase, Check, ChevronRight, Sparkles, Zap
 import Link from "next/link";
 import { useState } from "react";
 
-const AGENT_HIGHLIGHTS = [
-  "Builds your profile",
-  "Explains your score",
-  "Finds jobs that fit",
-  "Plans your career path",
-  "Checks and tailors resumes",
-  "Writes cover letters",
-];
+const AGENT_HIGHLIGHTS = ["Builds your profile", "Explains your score", "Finds jobs that fit", "Plans your career path", "Checks and tailors resumes", "Writes cover letters"];
 
 type Company = {
   name: string;
@@ -51,19 +44,11 @@ const COMPANY_LOGOS_BOTTOM: Company[] = [
 function CompanyMark({ company }: { company: Company }) {
   const [stage, setStage] = useState<"icon" | "favicon" | "text">("icon");
   if (stage === "text") {
-    return (
-      <span className="flex size-5 items-center justify-center rounded border border-white/15 text-[9px] font-bold text-white/45">
-        {company.name.slice(0, 1)}
-      </span>
-    );
+    return <span className="flex size-5 items-center justify-center rounded border border-white/15 text-[9px] font-bold text-white/45">{company.name.slice(0, 1)}</span>;
   }
   return (
     <img
-      src={
-        stage === "icon"
-          ? company.icon ?? `https://cdn.simpleicons.org/${company.slug}/white`
-          : `https://www.google.com/s2/favicons?sz=128&domain=${company.domain}`
-      }
+      src={stage === "icon" ? (company.icon ?? `https://cdn.simpleicons.org/${company.slug}/white`) : `https://www.google.com/s2/favicons?sz=128&domain=${company.domain}`}
       alt=""
       aria-hidden="true"
       width={24}
@@ -76,26 +61,15 @@ function CompanyMark({ company }: { company: Company }) {
   );
 }
 
-function CompanyMarqueeRow({
-  companies,
-  direction,
-}: {
-  companies: Company[];
-  direction: "right" | "left";
-}) {
+function CompanyMarqueeRow({ companies, direction }: { companies: Company[]; direction: "right" | "left" }) {
   return (
     <div className={`company-marquee ${direction === "right" ? "company-marquee-right" : "company-marquee-left"}`}>
       {[0, 1].map((copy) => (
         <div key={copy} className="flex shrink-0 items-center gap-2 pr-2" aria-hidden={copy === 1}>
           {companies.map((company) => (
-            <div
-              key={`${copy}-${company.name}`}
-              className="flex h-14 w-[145px] shrink-0 items-center gap-2.5 rounded-xl border border-white/[0.06] bg-white/[0.025] px-3 sm:w-[164px]"
-            >
+            <div key={`${copy}-${company.name}`} className="flex h-14 w-[145px] shrink-0 items-center gap-2.5 rounded-xl border border-white/[0.06] bg-white/[0.025] px-3 sm:w-[164px]">
               <CompanyMark company={company} />
-              <span className="truncate text-[11px] font-semibold uppercase tracking-[0.06em] text-white/45">
-                {company.name}
-              </span>
+              <span className="truncate text-[11px] font-semibold uppercase tracking-[0.06em] text-white/45">{company.name}</span>
             </div>
           ))}
         </div>
@@ -104,43 +78,16 @@ function CompanyMarqueeRow({
   );
 }
 
-function FitSkillRow({
-  skill,
-  yours,
-  target,
-  badge,
-}: {
-  skill: string;
-  yours: string;
-  target: string;
-  badge: "core" | "preferred" | "nice";
-}) {
-  const badgeClass =
-    badge === "core"
-      ? "border-amber-400 bg-amber-400 text-[#2a1700]"
-      : badge === "preferred"
-        ? "border-amber-400/40 text-amber-300"
-        : "border-white/15 text-white/55";
+function FitSkillRow({ skill, yours, target, badge }: { skill: string; yours: string; target: string; badge: "core" | "preferred" | "nice" }) {
+  const badgeClass = badge === "core" ? "border-amber-400 bg-amber-400 text-[#2a1700]" : badge === "preferred" ? "border-amber-400/40 text-amber-300" : "border-white/15 text-white/55";
   return (
     <div className="flex items-center justify-between gap-2 py-1.5 text-[10px]">
       <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
         <span className="w-20 shrink-0 font-medium text-white/85 sm:w-24">{skill}</span>
-        <span
-          className={`rounded-full border px-2 py-0.5 text-[10px] ${
-            yours === "Not listed"
-              ? "border-white/[0.08] text-white/40"
-              : "border-cyan-400/25 bg-cyan-400/[0.03] text-[#5ee3f2]"
-          }`}
-        >
-          {yours}
-        </span>
-        <span className="rounded-full border border-white/[0.08] px-2 py-0.5 text-[10px] text-white/40">
-          {target}
-        </span>
+        <span className={`rounded-full border px-2 py-0.5 text-[10px] ${yours === "Not listed" ? "border-white/[0.08] text-white/40" : "border-cyan-400/25 bg-cyan-400/[0.03] text-[#5ee3f2]"}`}>{yours}</span>
+        <span className="rounded-full border border-white/[0.08] px-2 py-0.5 text-[10px] text-white/40">{target}</span>
       </div>
-      <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${badgeClass}`}>
-        {badge === "core" ? "Core" : badge === "preferred" ? "Preferred" : "Nice to have"}
-      </span>
+      <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${badgeClass}`}>{badge === "core" ? "Core" : badge === "preferred" ? "Preferred" : "Nice to have"}</span>
     </div>
   );
 }
@@ -179,7 +126,10 @@ export function LandingPage() {
                 <ArrowRight className="size-4" />
               </Link>
 
-              <Link href="/employer/auth?returnUrl=/jobs/posted" className="rounded-full border border-white/20 bg-white/[0.04] px-7 py-3.5 text-sm font-semibold text-white transition-colors hover:border-white/35 hover:bg-white/[0.08] sm:text-base">
+              <Link
+                href="/employer/auth?returnUrl=/jobs/posted"
+                className="rounded-full border border-white/20 bg-white/[0.04] px-7 py-3.5 text-sm font-semibold text-white transition-colors hover:border-white/35 hover:bg-white/[0.08] sm:text-base"
+              >
                 Hire talent
               </Link>
             </div>
@@ -207,7 +157,9 @@ export function LandingPage() {
                   <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/40">You have</p>
                   <div className="mt-2.5 flex flex-wrap gap-1.5">
                     {["Python", "API design", "AWS", "SQL"].map((skill) => (
-                      <span key={skill} className="rounded-full border border-white/[0.1] bg-white/[0.04] px-2.5 py-1 text-[11px] text-white/75">{skill}</span>
+                      <span key={skill} className="rounded-full border border-white/[0.1] bg-white/[0.04] px-2.5 py-1 text-[11px] text-white/75">
+                        {skill}
+                      </span>
                     ))}
                   </div>
                 </div>
@@ -215,7 +167,9 @@ export function LandingPage() {
                   <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-300/80">Missing</p>
                   <div className="mt-2.5 flex flex-wrap gap-1.5">
                     {["LLM apps", "RAG"].map((skill) => (
-                      <span key={skill} className="rounded-full border border-amber-500/30 bg-amber-500/[0.08] px-2.5 py-1 text-[11px] text-amber-200/90">{skill}</span>
+                      <span key={skill} className="rounded-full border border-amber-500/30 bg-amber-500/[0.08] px-2.5 py-1 text-[11px] text-amber-200/90">
+                        {skill}
+                      </span>
                     ))}
                   </div>
                 </div>
@@ -246,9 +200,7 @@ export function LandingPage() {
       <section className="border-t border-white/[0.06] bg-[#090a13]/60 py-20 lg:py-28">
         <div className="mx-auto w-full max-w-7xl px-6">
           <div className="text-center">
-            <h2 className="mx-auto max-w-3xl text-3xl font-bold tracking-[-0.02em] text-white sm:text-4xl lg:text-5xl">
-              Jobs from the world&apos;s top companies, in one place.
-            </h2>
+            <h2 className="mx-auto max-w-3xl text-3xl font-bold tracking-[-0.02em] text-white sm:text-4xl lg:text-5xl">Jobs from the world&apos;s top companies, in one place.</h2>
           </div>
 
           <div className="mt-10 rounded-[28px] border border-white/[0.07] bg-white/[0.015] py-3 sm:mt-14 sm:py-5">
@@ -264,7 +216,7 @@ export function LandingPage() {
                 <Briefcase className="size-4" />
               </span>
               <div>
-                <p className="text-sm font-bold text-white">10K+ live jobs</p>
+                <p className="text-sm font-bold text-white">20K+ live jobs</p>
                 <p className="mt-0.5 text-xs text-white/45">Each one scored for you</p>
               </div>
             </div>
@@ -413,24 +365,26 @@ export function LandingPage() {
           <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-2 lg:gap-16">
             <div className="min-w-0">
               <p className="text-[11px] font-mono font-semibold uppercase tracking-[0.2em] text-[#5ee3f2] sm:text-xs">THE READINESS SCORE</p>
-              <h2 className="mt-4 max-w-lg text-3xl font-bold leading-tight tracking-[-0.02em] text-white sm:text-4xl lg:text-5xl">
-                Your job readiness score, broken down skill by skill.
-              </h2>
-              <p className="mt-5 max-w-xl text-sm leading-relaxed text-white/55 sm:text-base">
-                For every job, Qelsa shows how your skills, experience and education compare with what the role asks for, skill by skill.
-              </p>
+              <h2 className="mt-4 max-w-lg text-3xl font-bold leading-tight tracking-[-0.02em] text-white sm:text-4xl lg:text-5xl">Your job readiness score, broken down skill by skill.</h2>
+              <p className="mt-5 max-w-xl text-sm leading-relaxed text-white/55 sm:text-base">For every job, Qelsa shows how your skills, experience and education compare with what the role asks for, skill by skill.</p>
               <ul className="mt-8 space-y-5">
                 <li className="flex items-start gap-3 text-sm leading-relaxed text-white/60">
                   <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-emerald-400" />
-                  <span><span className="font-semibold text-white/80">Where you&apos;re already strong.</span> Skills where you meet or beat the target level.</span>
+                  <span>
+                    <span className="font-semibold text-white/80">Where you&apos;re already strong.</span> Skills where you meet or beat the target level.
+                  </span>
                 </li>
                 <li className="flex items-start gap-3 text-sm leading-relaxed text-white/60">
                   <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-amber-400" />
-                  <span><span className="font-semibold text-white/80">Skills to close the gap.</span> Your level against the target, marked core or preferred.</span>
+                  <span>
+                    <span className="font-semibold text-white/80">Skills to close the gap.</span> Your level against the target, marked core or preferred.
+                  </span>
                 </li>
                 <li className="flex items-start gap-3 text-sm leading-relaxed text-white/60">
                   <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-white/30" />
-                  <span><span className="font-semibold text-white/80">Not on your resume yet.</span> What the job wants that you haven&apos;t shown.</span>
+                  <span>
+                    <span className="font-semibold text-white/80">Not on your resume yet.</span> What the job wants that you haven&apos;t shown.
+                  </span>
                 </li>
               </ul>
               <Link href="/auth?returnUrl=/profile" className="gradient-primary mt-8 inline-flex h-11 items-center justify-center gap-2 rounded-full px-6 text-sm font-semibold text-white transition-opacity hover:opacity-90">
@@ -446,10 +400,7 @@ export function LandingPage() {
               </div>
 
               <div className="mt-6 grid gap-5 sm:grid-cols-[104px_1fr] sm:items-center">
-                <div
-                  className="relative mx-auto flex size-24 items-center justify-center rounded-full"
-                  style={{ background: "conic-gradient(#f97316 0 76%, rgba(255,255,255,0.08) 76% 100%)" }}
-                >
+                <div className="relative mx-auto flex size-24 items-center justify-center rounded-full" style={{ background: "conic-gradient(#f97316 0 76%, rgba(255,255,255,0.08) 76% 100%)" }}>
                   <div className="flex size-[76px] flex-col items-center justify-center rounded-full bg-[#0b0d1b]">
                     <span className="text-xl font-extrabold text-white">76%</span>
                     <span className="mt-0.5 text-[9px] font-medium text-white/40">Ready</span>
@@ -538,9 +489,7 @@ export function LandingPage() {
           <div className="mt-6 grid grid-cols-1 items-start gap-12 lg:mt-16 lg:grid-cols-12 lg:gap-12">
             {/* Left copy */}
             <div className="lg:col-span-6">
-              <p className="mt-4 max-w-xl text-sm leading-relaxed text-white/55 sm:text-base">
-                It knows your profile and your goal, and answers like a senior mentor.
-              </p>
+              <p className="mt-4 max-w-xl text-sm leading-relaxed text-white/55 sm:text-base">It knows your profile and your goal, and answers like a senior mentor.</p>
 
               <ul className="mt-6 grid grid-cols-1 gap-x-5 gap-y-3 sm:grid-cols-2">
                 {AGENT_HIGHLIGHTS.map((highlight) => (
@@ -559,7 +508,6 @@ export function LandingPage() {
                   Try Qelsa Agent
                 </Link>
               </div>
-
             </div>
 
             {/* Right agent preview */}
@@ -581,17 +529,14 @@ export function LandingPage() {
                 </div>
 
                 <div className="space-y-3 p-5 sm:p-6">
-                  <div className="ml-auto max-w-[88%] rounded-lg bg-[#29305a] px-3.5 py-2.5 text-[12px] leading-relaxed text-white/75">
-                    I&apos;m a BCom graduate looking for my first job. Where do I fit?
-                  </div>
+                  <div className="ml-auto max-w-[88%] rounded-lg bg-[#29305a] px-3.5 py-2.5 text-[12px] leading-relaxed text-white/75">I&apos;m a BCom graduate looking for my first job. Where do I fit?</div>
 
                   <div className="max-w-[92%] rounded-lg bg-[#171d3a] px-3.5 py-3 text-[12px] leading-relaxed text-white/60">
-                    You&apos;re closest to <span className="font-semibold text-white">Accounts Executive (82)</span>, <span className="font-semibold text-white">Junior Financial Analyst (76)</span> and <span className="font-semibold text-white">Business Analyst (74)</span>. Advanced Excel would lift all three.
+                    You&apos;re closest to <span className="font-semibold text-white">Accounts Executive (82)</span>, <span className="font-semibold text-white">Junior Financial Analyst (76)</span> and{" "}
+                    <span className="font-semibold text-white">Business Analyst (74)</span>. Advanced Excel would lift all three.
                   </div>
 
-                  <div className="ml-auto w-fit rounded-lg bg-[#29305a] px-3.5 py-2.5 text-[11px] text-white/70">
-                    Prepare applications for the top 3.
-                  </div>
+                  <div className="ml-auto w-fit rounded-lg bg-[#29305a] px-3.5 py-2.5 text-[11px] text-white/70">Prepare applications for the top 3.</div>
 
                   <div className="rounded-lg bg-[#171d3a] p-3.5 text-[12px] leading-relaxed text-white/60">
                     Done. Each has a tailored resume and cover letter. Apply on the company site when you&apos;re ready.
@@ -627,7 +572,10 @@ export function LandingPage() {
               >
                 Check my readiness
               </Link>
-              <Link href="/employer/auth?returnUrl=/jobs/posted" className="rounded-full border border-white/20 bg-white/[0.04] px-7 py-3.5 text-sm font-semibold text-white transition-colors hover:border-white/35 hover:bg-white/[0.08] sm:text-base">
+              <Link
+                href="/employer/auth?returnUrl=/jobs/posted"
+                className="rounded-full border border-white/20 bg-white/[0.04] px-7 py-3.5 text-sm font-semibold text-white transition-colors hover:border-white/35 hover:bg-white/[0.08] sm:text-base"
+              >
                 Hire talent
               </Link>
             </div>

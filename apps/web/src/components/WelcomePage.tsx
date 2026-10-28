@@ -1,18 +1,7 @@
-import { useState } from 'react';
-import { Button } from './ui/button';
-import { Card } from './ui/card';
-import { Badge } from './ui/badge';
-import { 
-  Zap, 
-  Briefcase, 
-  Users, 
-  BookOpen, 
-  Home,
-  ArrowRight,
-  Sparkles,
-  Target,
-  TrendingUp
-} from 'lucide-react';
+import { ArrowRight, BookOpen, Briefcase, Home, Sparkles, Target, TrendingUp, Users, Zap } from "lucide-react";
+import { useState } from "react";
+import { Button } from "./ui/button";
+import { Card } from "./ui/card";
 
 interface WelcomePageProps {
   onNavigate: (section: string) => void;
@@ -27,47 +16,47 @@ export function WelcomePage({ onNavigate }: WelcomePageProps) {
       title: "Kelsa AI",
       description: "Get personalized career guidance and job recommendations powered by advanced AI",
       color: "neon-cyan",
-      section: "kelsa-ai"
+      section: "kelsa-ai",
     },
     {
       icon: Briefcase,
       title: "Smart Job Matching",
       description: "Discover opportunities from Kelsa and top platforms like LinkedIn, Indeed, and Naukri",
       color: "neon-purple",
-      section: "jobs"
+      section: "jobs",
     },
     {
       icon: Users,
       title: "Professional Network",
       description: "Connect with industry professionals and build meaningful career relationships",
       color: "neon-pink",
-      section: "connections"
+      section: "connections",
     },
     {
       icon: BookOpen,
       title: "Skill Development",
       description: "Access personalized learning paths and industry-relevant courses",
       color: "neon-green",
-      section: "courses"
-    }
+      section: "courses",
+    },
   ];
 
   const steps = [
     {
       title: "Welcome to Kelsa",
       subtitle: "The Future of Professional Growth",
-      description: "Join thousands of professionals who are accelerating their careers with AI-powered insights and connections."
+      description: "Join thousands of professionals who are accelerating their careers with AI-powered insights and connections.",
     },
     {
       title: "Discover Your Path",
       subtitle: "AI-Powered Career Guidance",
-      description: "Our intelligent platform analyzes your skills, experience, and goals to provide personalized recommendations."
+      description: "Our intelligent platform analyzes your skills, experience, and goals to provide personalized recommendations.",
     },
     {
       title: "Connect & Grow",
       subtitle: "Professional Community",
-      description: "Share insights, discover opportunities, and build your professional brand in our vibrant community."
-    }
+      description: "Share insights, discover opportunities, and build your professional brand in our vibrant community.",
+    },
   ];
 
   return (
@@ -90,33 +79,23 @@ export function WelcomePage({ onNavigate }: WelcomePageProps) {
               <div className="absolute inset-0 w-16 h-16 rounded-2xl bg-gradient-to-r from-neon-cyan to-neon-purple opacity-50 blur-lg"></div>
             </div>
           </div>
-          
+
           <h1 className="text-4xl lg:text-6xl font-bold mb-6">
-            <span className="bg-gradient-to-r from-neon-cyan via-neon-purple to-neon-pink bg-clip-text text-transparent">
-              Welcome to Kelsa
-            </span>
+            <span className="bg-gradient-to-r from-neon-cyan via-neon-purple to-neon-pink bg-clip-text text-transparent">Welcome to Kelsa</span>
           </h1>
-          
+
           <p className="text-xl lg:text-2xl text-muted-foreground mb-8 max-w-3xl mx-auto">
-            The future of professional growth is here. Accelerate your career with AI-powered insights, 
-            smart job matching, and a thriving professional community.
+            The future of professional growth is here. Accelerate your career with AI-powered insights, smart job matching, and a thriving professional community.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
-            <Button 
-              onClick={() => onNavigate('home')}
-              className="relative px-8 py-6 text-lg gradient-animated text-black hover:scale-105 transition-all duration-300 shadow-2xl"
-            >
+            <Button onClick={() => onNavigate("home")} className="relative px-8 py-6 text-lg gradient-animated text-black hover:scale-105 transition-all duration-300 shadow-2xl">
               <Home className="h-5 w-5 mr-2" />
               Explore Feed
               <ArrowRight className="h-5 w-5 ml-2" />
             </Button>
-            
-            <Button 
-              onClick={() => onNavigate('kelsa-ai')}
-              variant="outline"
-              className="px-8 py-6 text-lg glass border-neon-cyan text-neon-cyan hover:bg-neon-cyan/10 hover:glow-cyan transition-all duration-300"
-            >
+
+            <Button onClick={() => onNavigate("kelsa-ai")} variant="outline" className="px-8 py-6 text-lg glass border-neon-cyan text-neon-cyan hover:bg-neon-cyan/10 hover:glow-cyan transition-all duration-300">
               <Sparkles className="h-5 w-5 mr-2" />
               Try Kelsa AI
             </Button>
@@ -128,26 +107,18 @@ export function WelcomePage({ onNavigate }: WelcomePageProps) {
           {features.map((feature, index) => {
             const Icon = feature.icon;
             return (
-              <Card 
-                key={index}
-                className="glass hover:glass-strong hover:scale-105 transition-all duration-300 cursor-pointer group"
-                onClick={() => onNavigate(feature.section)}
-              >
+              <Card key={index} className="glass hover:glass-strong hover:scale-105 transition-all duration-300 cursor-pointer group" onClick={() => onNavigate(feature.section)}>
                 <div className="p-6">
                   <div className="relative mb-4">
                     <div className={`w-12 h-12 rounded-xl bg-${feature.color}/20 flex items-center justify-center group-hover:scale-110 transition-all duration-300`}>
                       <Icon className={`h-6 w-6 text-${feature.color}`} />
                     </div>
                   </div>
-                  
-                  <h3 className="font-semibold mb-2 text-white group-hover:text-neon-cyan transition-colors">
-                    {feature.title}
-                  </h3>
-                  
-                  <p className="text-sm text-muted-foreground">
-                    {feature.description}
-                  </p>
-                  
+
+                  <h3 className="font-semibold mb-2 text-white group-hover:text-neon-cyan transition-colors">{feature.title}</h3>
+
+                  <p className="text-sm text-muted-foreground">{feature.description}</p>
+
                   <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-neon-cyan group-hover:translate-x-1 transition-all duration-300 mt-3" />
                 </div>
               </Card>
@@ -161,12 +132,12 @@ export function WelcomePage({ onNavigate }: WelcomePageProps) {
             <div className="text-3xl lg:text-4xl font-bold text-neon-cyan mb-2">50K+</div>
             <p className="text-muted-foreground">Active Professionals</p>
           </div>
-          
+
           <div className="text-center">
-            <div className="text-3xl lg:text-4xl font-bold text-neon-purple mb-2">10K+</div>
+            <div className="text-3xl lg:text-4xl font-bold text-neon-purple mb-2">20K+</div>
             <p className="text-muted-foreground">Job Opportunities</p>
           </div>
-          
+
           <div className="text-center">
             <div className="text-3xl lg:text-4xl font-bold text-neon-pink mb-2">95%</div>
             <p className="text-muted-foreground">Career Success Rate</p>
@@ -182,27 +153,19 @@ export function WelcomePage({ onNavigate }: WelcomePageProps) {
                 <TrendingUp className="h-6 w-6 text-neon-purple" />
                 <Sparkles className="h-6 w-6 text-neon-pink" />
               </div>
-              
+
               <h2 className="text-2xl font-bold mb-4">Ready to Transform Your Career?</h2>
-              
+
               <p className="text-muted-foreground mb-6">
-                Join Kelsa today and discover how AI can accelerate your professional growth. 
-                Get personalized insights, connect with industry leaders, and unlock opportunities you never knew existed.
+                Join Kelsa today and discover how AI can accelerate your professional growth. Get personalized insights, connect with industry leaders, and unlock opportunities you never knew existed.
               </p>
-              
+
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                <Button 
-                  onClick={() => onNavigate('kelsa-ai')}
-                  className="gradient-animated text-black hover:scale-105 transition-all duration-300"
-                >
+                <Button onClick={() => onNavigate("kelsa-ai")} className="gradient-animated text-black hover:scale-105 transition-all duration-300">
                   Start with AI Guidance
                 </Button>
-                
-                <Button 
-                  onClick={() => onNavigate('home')}
-                  variant="outline"
-                  className="glass border-glass-border hover:border-neon-cyan hover:text-neon-cyan transition-all duration-300"
-                >
+
+                <Button onClick={() => onNavigate("home")} variant="outline" className="glass border-glass-border hover:border-neon-cyan hover:text-neon-cyan transition-all duration-300">
                   Browse Community
                 </Button>
               </div>
