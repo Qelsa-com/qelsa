@@ -8,6 +8,10 @@ import { useEffect, useState, type ReactNode } from "react";
 
 const PUBLIC_ROUTES = ["/", "/start", "/login", "/register", "/auth", "/employer/auth", "/jobs/all", "/jobs", "/blog", "/courses", "/employers", "/candidates", "/privacy", "/terms", "/cookies", "/sitemap.xml", "/robots.txt"];
 const ONBOARDING_EXEMPT = new Set(["/onboarding", "/auth", "/employer/auth", "/privacy", "/terms", "/cookies"]);
+// Public routes that still read auth to decide what to render (guest landing vs
+// My Space, guest vs redirect). They return null while the session resolves, so
+// they need the same boot-loader hold as private routes.
+const AUTH_GATED_PUBLIC_ROUTES = new Set(["/", "/start", "/candidates"]);
 const JOB_STATIC = new Set(["all", "posted", "smart-matches", "create-job", "match", "ready", "almost", "smart_matches"]);
 const PUBLIC_JOB = /^\/jobs\/([^/]+)$/;
 const PUBLIC_PAGE = /^\/pages\/([^/]+)$/;
@@ -66,10 +70,11 @@ export default function RouteGuard({ children }: { children: ReactNode }) {
   const isPublic = isPublicPath(path) || router.pathname === "/404";
 
   // The boot loader lives in _document so it paints before React hydrates. Keep
-  // it up until this route clears the auth gate below — private routes return
-  // null while the session resolves, so releasing the loader any earlier would
-  // trade one blank screen for another.
-  const waitingForAuth = !isPublic && (isPending || isLoading);
+  // it up until this route clears the auth gate below — private routes (and the
+  // public ones that switch on auth) return null while the session resolves, so
+  // releasing the loader any earlier would trade one blank screen for another.
+  const needsAuthToRender = !isPublic || AUTH_GATED_PUBLIC_ROUTES.has(path);
+  const waitingForAuth = needsAuthToRender && (isPending || isLoading);
   useEffect(() => {
     if (waitingForAuth) return;
     document.documentElement.classList.add("qelsa-ready");
