@@ -20,7 +20,7 @@ import { formatCity } from "@/constants/city";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLazySearchJobLocationsQuery } from "@/features/api/seedApi";
 import { hasCareerGoal } from "@/lib/careerGoal";
-import { ALMOST_MAX, ALMOST_MIN, GOAL_MATCH, MATCH_TIER, matchRingColor, type MatchTierId } from "@/lib/matchTiers";
+import { ALMOST_MAX, ALMOST_MIN, GOAL_MATCH, MATCH_TIER, matchRingColor, smartMatchRingColor, type MatchTierId } from "@/lib/matchTiers";
 import { City } from "@/types/city";
 import { Job } from "@/types/job";
 import { BarChart3, Building2, Check, ChevronDown, MapPin, Search, Sparkle, Target, X } from "lucide-react";
@@ -473,7 +473,7 @@ export function JobCard({ job, onClick, href, variant = "all" }: { job: Job; onC
         <div className="flex size-9 items-center justify-center overflow-hidden rounded-lg" style={hasLogo ? undefined : { backgroundColor: `${tint}22`, border: `1px solid ${tint}55` }}>
           <CompanyLogo job={job} name={company} fallback={<Building2 className="size-4" style={{ color: tint }} />} />
         </div>
-        {score != null && <MatchRing value={score} tone={score} color={variant === "goal" ? GOAL_MATCH.color : undefined} label={ringLabel} />}
+        {score != null && <MatchRing value={score} tone={score} color={variant === "goal" ? GOAL_MATCH.color : variant === "smart" ? smartMatchRingColor(score) : undefined} label={ringLabel} />}
       </div>
 
       <div className="flex flex-col gap-1">

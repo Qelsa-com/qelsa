@@ -56,7 +56,7 @@ const MATCHES = [
   },
   {
     status: "Almost there",
-    score: "76%",
+    score: "66%",
     role: "Lead Product Engineer",
     listLabel: "Remaining gaps",
     items: ["GraphQL", "Kubernetes"],

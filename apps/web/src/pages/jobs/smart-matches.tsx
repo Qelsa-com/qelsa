@@ -124,11 +124,11 @@ const SmartMatches = () => {
               )}
 
               <MatchSection dotColor={MATCH_TIER.ready.dotColor} title={MATCH_TIER.ready.title} subtitle={MATCH_TIER.ready.subtitle} viewAllHref={ready.length > 0 ? MATCH_TIER.ready.href : undefined}>
-                {ready.length > 0 ? <JobGrid jobs={ready} onOpen={openJob} variant="smart" /> : <MatchSectionEmpty message="No strong matches yet. Roles where you're an 80%+ match will show here." />}
+                {ready.length > 0 ? <JobGrid jobs={ready} onOpen={openJob} variant="smart" /> : <MatchSectionEmpty message="No strong matches yet. Roles where you're a 70%+ match will show here." />}
               </MatchSection>
 
               <MatchSection dotColor={MATCH_TIER.almost.dotColor} title={MATCH_TIER.almost.title} subtitle={MATCH_TIER.almost.subtitle} viewAllHref={almost.length > 0 ? MATCH_TIER.almost.href : undefined}>
-                {almost.length > 0 ? <JobGrid jobs={almost} onOpen={openJob} variant="smart" /> : <MatchSectionEmpty message="Nothing here yet. Roles close to 80% match will show here." />}
+                {almost.length > 0 ? <JobGrid jobs={almost} onOpen={openJob} variant="smart" /> : <MatchSectionEmpty message="Nothing here yet. Roles at a 60–69% match will show here." />}
               </MatchSection>
 
               <MatchSection dotColor={MATCH_TIER.growth.dotColor} title={MATCH_TIER.growth.title} subtitle={MATCH_TIER.growth.subtitle} viewAllHref={growth.length > 0 ? MATCH_TIER.growth.href : undefined}>

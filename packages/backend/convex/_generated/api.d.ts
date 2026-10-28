@@ -87,6 +87,7 @@ import type * as lib_skillCatalog from "../lib/skillCatalog.js";
 import type * as lib_skillLevels from "../lib/skillLevels.js";
 import type * as lib_skillLimits from "../lib/skillLimits.js";
 import type * as lib_skillMatch from "../lib/skillMatch.js";
+import type * as lib_smartMatchTiers from "../lib/smartMatchTiers.js";
 import type * as onboarding from "../onboarding.js";
 import type * as pageMembers from "../pageMembers.js";
 import type * as pages from "../pages.js";
@@ -189,6 +190,7 @@ declare const fullApi: ApiFromModules<{
   "lib/skillLevels": typeof lib_skillLevels;
   "lib/skillLimits": typeof lib_skillLimits;
   "lib/skillMatch": typeof lib_skillMatch;
+  "lib/smartMatchTiers": typeof lib_smartMatchTiers;
   onboarding: typeof onboarding;
   pageMembers: typeof pageMembers;
   pages: typeof pages;

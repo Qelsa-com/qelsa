@@ -2,7 +2,7 @@ import { JobGrid, JobsBrowseHeader, MatchSection, useJobBrowseFilters } from "@/
 import { JOBS_PAGE_SIZE, JobsFeedPager } from "@/components/job/JobsFeedPager";
 import { JobCardGridSkeleton } from "@/components/job/jobSkeletons";
 import { useAuth } from "@/contexts/AuthContext";
-import { useCountJobsQuery, usePaginatedJobsQuery } from "@/features/api/jobsApi";
+import { useCountJobsQuery, useEnsureRankingRecompute, usePaginatedJobsQuery } from "@/features/api/jobsApi";
 import { MATCH_TIER, type MatchTierId } from "@/lib/matchTiers";
 import { Job } from "@/types/job";
 import { Search } from "lucide-react";
@@ -18,6 +18,9 @@ export function JobTierListing({ tier }: { tier: MatchTierId }) {
   const skip = !hydrated || authLoading || !isAuthenticated;
   const { results, status, isLoading, loadMore } = usePaginatedJobsQuery(discoverArgs, JOBS_PAGE_SIZE, { skip });
   const { data: filteredTotal } = useCountJobsQuery(discoverArgs, { skip });
+
+  // Keep the cached tier counts fresh when a tier page is opened directly.
+  useEnsureRankingRecompute(hydrated && isAuthenticated);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) router.replace("/jobs/all");

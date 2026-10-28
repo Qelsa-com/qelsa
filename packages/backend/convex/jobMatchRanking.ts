@@ -11,7 +11,7 @@ import {
 import { authedMutation, authedQuery } from "./lib/customFunctions";
 import { scoreJobForUser, type ScoringCareerGoal } from "./lib/jobMatchScoring";
 import { buildProfileFingerprint } from "./lib/profileFingerprint";
-import { ALMOST_MIN, READY_MIN } from "./lib/jobProfileMatch";
+import { SMART_ALMOST_MIN, SMART_READY_MIN } from "./lib/smartMatchTiers";
 import { jobSalaryUsd } from "./lib/salary";
 import { computeYearsExperience } from "./lib/skillMatch";
 import { withSkillAliases } from "./lib/skillCatalog";
@@ -97,7 +97,7 @@ async function profileInputsFor(ctx: QueryCtx, userId: Id<"users">) {
       educationCount: eduRows.length,
     },
     careerGoal: (careerGoal ?? null) as unknown as ScoringCareerGoal,
-    fingerprint: buildProfileFingerprint({
+    fingerprint: `${buildProfileFingerprint({
       skills: skillRows,
       experiences: expRows,
       educations: eduRows,
@@ -105,7 +105,7 @@ async function profileInputsFor(ctx: QueryCtx, userId: Id<"users">) {
       professionalSummary: user.professional_summary,
       about: user.about,
       careerGoal,
-    }),
+    })}|smart-tiers:${SMART_READY_MIN}-${SMART_ALMOST_MIN}`,
   };
 }
 
@@ -539,8 +539,8 @@ export const recompute = internalAction({
         );
         scanned += 1;
         if (result.readiness == null || result.smartMatch == null) continue;
-        if (result.smartMatch >= READY_MIN) readyTotal += 1;
-        else if (result.smartMatch >= ALMOST_MIN) almostTotal += 1;
+        if (result.smartMatch >= SMART_READY_MIN) readyTotal += 1;
+        else if (result.smartMatch >= SMART_ALMOST_MIN) almostTotal += 1;
         else growthTotal += 1;
         scored.push({
           job_id: vector.job_id,
