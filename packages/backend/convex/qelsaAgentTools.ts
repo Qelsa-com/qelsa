@@ -361,6 +361,7 @@ export const getJobReadinessInternal = internalQuery({
       responsibilities_match: analysis.responsibilities_match,
       actions: analysis.actions.slice(0, 8),
       can_apply: analysis.can_apply,
+      resume_evidence: (analysis.resume_evidence ?? []).slice(0, 6),
       courses: recommendCourses([...analysis.missing, ...analysis.partial], 4),
       match_url_path: `/jobs/match/${session._id}`,
     };
@@ -1526,6 +1527,7 @@ export const runJobMatchTool = createTool({
       responsibilities_match: session.analysis.responsibilities_match,
       actions: session.analysis.actions,
       can_apply: session.analysis.can_apply,
+      resume_evidence: (session.analysis.resume_evidence ?? []).slice(0, 6),
       courses: recommendCourses([...session.analysis.missing, ...session.analysis.partial], 4),
       interview_prep: interviewPrep,
       match_url_path: `/jobs/match/${session.id}`,
@@ -1569,6 +1571,7 @@ export const analyzeExternalJobTool = createTool({
       responsibilities_match: session.analysis.responsibilities_match,
       actions: session.analysis.actions,
       can_apply: session.analysis.can_apply,
+      resume_evidence: (session.analysis.resume_evidence ?? []).slice(0, 6),
       courses: recommendCourses([...session.analysis.missing, ...session.analysis.partial], 4),
       match_url_path: `/jobs/match/${session.id}`,
     };

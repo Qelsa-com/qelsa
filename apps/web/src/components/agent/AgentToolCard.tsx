@@ -190,9 +190,11 @@ function CourseList({ courses, jobId }: { courses: AgentCourse[]; jobId?: string
 }
 
 function ChipList({ label, items, tone }: { label: string; items: string[]; tone: string }) {
+  const [expanded, setExpanded] = useState(false);
   if (!items.length) return null;
-  const visible = items.slice(0, 3);
-  const rest = items.length - visible.length;
+  const PREVIEW = 3;
+  const visible = expanded ? items : items.slice(0, PREVIEW);
+  const rest = items.length - PREVIEW;
   return (
     <div className="flex flex-wrap items-center gap-1">
       <span className="text-[10px] font-semibold uppercase tracking-wide text-white/35">{label}</span>
@@ -201,7 +203,17 @@ function ChipList({ label, items, tone }: { label: string; items: string[]; tone
           {item}
         </span>
       ))}
-      {rest > 0 && <span className="text-[10px] text-white/35">+{rest}</span>}
+      {rest > 0 && (
+        <button
+          type="button"
+          onClick={() => setExpanded((value) => !value)}
+          aria-expanded={expanded}
+          aria-label={expanded ? `Show fewer ${label.toLowerCase()}` : `Show all ${items.length} ${label.toLowerCase()}`}
+          className="cursor-pointer rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-medium text-white/50 transition-colors hover:border-white/20 hover:text-white/80"
+        >
+          {expanded ? "Less" : `+${rest}`}
+        </button>
+      )}
     </div>
   );
 }
@@ -462,11 +474,8 @@ function ToolBody({
         <ChipList label="Missing" items={asArray(output.missing)} tone="border-rose-400/25 bg-rose-400/10 text-rose-300" />
         <CourseList courses={asArray(output.courses) as AgentCourse[]} jobId={jobId} />
         <div className="flex flex-wrap items-center gap-3">
-          {artifact && onOpenArtifact && <ArtifactButton onClick={() => onOpenArtifact(artifact)} label="Open fit report" />}
-          {typeof output.match_url_path === "string" && (
-            <a href={output.match_url_path} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[11px] font-semibold text-sky-300 hover:text-sky-200">
-              Open full analysis <ArrowUpRight className="size-3" />
-            </a>
+          {artifact && onOpenArtifact && (
+            <ArtifactButton onClick={() => onOpenArtifact(artifact)} label="Show full analysis" />
           )}
         </div>
       </div>

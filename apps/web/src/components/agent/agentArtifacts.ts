@@ -128,9 +128,10 @@ function fitReportArtifact(
   const actions = asArray(output.actions).filter((item) => typeof item === "string") as string[];
   const courses = asArray(output.courses).filter((course) => course && typeof course.title === "string" && typeof course.url === "string");
   const rows = scoreRows(output);
-  const matchUrl = typeof output.match_url_path === "string" ? output.match_url_path : null;
+  const evidence = asArray(output.resume_evidence).filter((item) => typeof item === "string") as string[];
+  const canApply = clean(output.can_apply);
 
-  const sections: string[] = [`# Fit report — ${jobTitle}`];
+  const sections: string[] = [`# Full analysis — ${jobTitle}`];
   if (score != null) sections.push(`## ${score}% match`);
   if (typeof output.headline === "string" && output.headline.trim()) sections.push(output.headline.trim());
   if (rows.length) {
@@ -143,7 +144,11 @@ function fitReportArtifact(
   if (strong.length) sections.push(`## Strong matches\n\n${strong.map((item) => `- ${item}`).join("\n")}`);
   if (partial.length) sections.push(`## Partial matches\n\n${partial.map((item) => `- ${item}`).join("\n")}`);
   if (missing.length) sections.push(`## Gaps\n\n${missing.map((item) => `- ${item}`).join("\n")}`);
+  if (evidence.length) {
+    sections.push(`## Resume evidence\n\n${evidence.map((item) => `- ${item}`).join("\n")}`);
+  }
   if (actions.length) sections.push(`## Suggested next steps\n\n${actions.map((item) => `- ${item}`).join("\n")}`);
+  if (canApply) sections.push(`## Should you apply?\n\n${canApply}`);
   if (courses.length) {
     sections.push(
       `## Courses to close gaps\n\n${courses
@@ -157,12 +162,10 @@ function fitReportArtifact(
         .join("\n")}`,
     );
   }
-  if (matchUrl) sections.push(`[Open the full Qelsa Match analysis](${matchUrl})`);
-
   return {
     id: `fit-${part.toolCallId ?? jobId ?? "report"}`,
     kind: "fit_report",
-    title: `Fit report · ${jobTitle}`,
+    title: `Full analysis · ${jobTitle}`,
     subtitle: company || undefined,
     badge: score != null ? `${score}% match` : undefined,
     jobId,
