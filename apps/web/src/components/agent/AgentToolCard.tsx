@@ -13,7 +13,7 @@ import { useCreateJobApplicationMutation } from "@/features/api/jobApplicationsA
 import { api } from "@/lib/convexApi";
 import { toastUnknownError } from "@/lib/errors";
 import { useMutation, useQuery } from "convex/react";
-import { AlertCircle, ArrowUpRight, Ban, Brain, BriefcaseBusiness, Check, ChevronDown, Copy, ExternalLink, FileText, Globe2, GraduationCap, Loader2, PanelRight, ShieldQuestion, Trash2 } from "lucide-react";
+import { AlertCircle, ArrowUpRight, Ban, BookmarkPlus, Brain, BriefcaseBusiness, Check, ChevronDown, Copy, ExternalLink, FileText, Globe2, GraduationCap, Loader2, PanelRight, ShieldQuestion, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { artifactFromToolPart, type AgentArtifact } from "./agentArtifacts";
@@ -403,12 +403,12 @@ function RecordAppliedButton({ jobId, coverLetter }: { jobId?: string; coverLett
             toastUnknownError(error, "Couldn't record that application.");
           }
         }}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-400/25 bg-emerald-400/[0.08] px-3 py-1.5 text-[12px] font-semibold text-emerald-200 transition-colors hover:bg-emerald-400/[0.14] disabled:opacity-60"
+        className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/[0.04] px-3 py-1.5 text-[12px] font-semibold text-white/75 transition-colors hover:border-white/30 hover:bg-white/[0.07] hover:text-white disabled:opacity-60"
       >
-        {isLoading ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />}
-        I&apos;ve applied — record it
+        {isLoading ? <Loader2 className="size-3.5 animate-spin" /> : <BookmarkPlus className="size-3.5" />}
+        Mark as applied
       </button>
-      <span className="text-[10px] text-white/35">Adds it to your application tracker.</span>
+      <span className="text-[10px] text-white/35">Saves it to your application tracker.</span>
     </div>
   );
 }
