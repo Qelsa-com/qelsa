@@ -266,27 +266,54 @@ export function normalizePublicBoardSlug(input: string, provider?: string): stri
     ?.toLowerCase() ?? "";
 }
 
+class AtsHttpError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly retryAfterMs?: number,
+  ) {
+    super(message);
+    this.name = "AtsHttpError";
+  }
+}
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 async function getJson(url: string, init?: RequestInit) {
   const res = await fetch(url, {
     ...init,
     headers: { Accept: "application/json", "User-Agent": REQUEST_UA, ...(init?.headers ?? {}) },
   });
   const text = await res.text();
-  if (!res.ok) throw new Error(`${url} failed: ${res.status}`);
+  if (!res.ok) {
+    const retryAfter = Number(res.headers.get("retry-after") ?? "") * 1000;
+    throw new AtsHttpError(
+      `${url} failed: ${res.status}`,
+      res.status,
+      Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : undefined,
+    );
+  }
   if (text.trimStart().startsWith("<")) throw new Error(`${url} returned HTML instead of JSON`);
   return JSON.parse(text) as unknown;
 }
 
-async function getJsonRetry(url: string, init?: RequestInit, attempts = 3) {
+async function getJsonRetry(url: string, init?: RequestInit, attempts = 5) {
   let lastError: unknown;
   for (let attempt = 0; attempt < attempts; attempt++) {
     try {
       return await getJson(url, init);
     } catch (error) {
       lastError = error;
-      const status = Number(String(error).match(/failed: (\d+)/)?.[1] ?? 0);
+      const status =
+        error instanceof AtsHttpError
+          ? error.status
+          : Number(String(error).match(/failed: (\d+)/)?.[1] ?? 0);
       if (status && status !== 403 && status !== 429 && status < 500) throw error;
-      await new Promise((resolve) => setTimeout(resolve, 700 * (attempt + 1)));
+      // Workday rate limits in bursts; back off exponentially and honour
+      // Retry-After when it is sent.
+      const retryAfter = error instanceof AtsHttpError ? (error.retryAfterMs ?? 0) : 0;
+      const backoff = Math.max(retryAfter, 600 * 2 ** attempt) + Math.floor(Math.random() * 250);
+      await sleep(backoff);
     }
   }
   throw lastError;
@@ -764,19 +791,28 @@ export async function fetchSmartRecruiters(identifier: string): Promise<Normaliz
   });
 }
 
-function parseWorkdayIdentifier(identifier: string) {
+export function parseWorkdayIdentifier(identifier: string) {
   const [tenant, wd, site] = splitIdentifier(identifier, 3);
   return { tenant, wd, site, host: `${tenant}.${wd}.myworkdayjobs.com` };
 }
 
-/** Workday's public careers endpoint. List responses do not include descriptions, so details are bounded. */
-export async function fetchWorkday(identifier: string): Promise<NormalizedJob[]> {
-  const { tenant, wd, site, host } = parseWorkdayIdentifier(identifier);
-  const endpoint = `https://${host}/wday/cxs/${encodeURIComponent(tenant)}/${encodeURIComponent(site)}/jobs`;
+const workdaySitePath = (tenant: string, site: string) =>
+  `/wday/cxs/${encodeURIComponent(tenant)}/${encodeURIComponent(site)}`;
+
+/** Stable id from a list row, before the detail call supplies jobReqId. */
+export function workdayExternalId(tenant: string, site: string, jobReqId: unknown, externalPath: string) {
+  const idPart = typeof jobReqId === "string" && jobReqId.trim() ? jobReqId : externalPath;
+  return `wd_${tenant}_${site}_${idPart.replace(/[^a-z0-9_-]+/gi, "_")}`;
+}
+
+/** List rows are summary-only: no description, no start date. */
+export async function fetchWorkdayPostings(identifier: string) {
+  const { tenant, site, host } = parseWorkdayIdentifier(identifier);
+  const endpoint = `https://${host}${workdaySitePath(tenant, site)}/jobs`;
   const postings: Array<Record<string, unknown>> = [];
   let total = MAX_JOBS;
   for (let offset = 0; offset < MAX_JOBS; offset += 20) {
-    const page = (await getJson(endpoint, {
+    const page = (await getJsonRetry(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ appliedFacets: {}, limit: 20, offset, searchText: "" }),
@@ -787,20 +823,60 @@ export async function fetchWorkday(identifier: string): Promise<NormalizedJob[]>
     if (offset === 0 && typeof page.total === "number" && page.total > 0) total = page.total;
     if (rows.length < 20 || postings.length >= Math.min(MAX_JOBS, total)) break;
   }
+  return { tenant, site, host, postings };
+}
 
+export async function fetchWorkdayDetail(identifier: string, externalPath: string) {
+  const { tenant, site, host } = parseWorkdayIdentifier(identifier);
+  const detail = (await getJsonRetry(
+    `https://${host}${workdaySitePath(tenant, site)}${externalPath}`,
+  )) as { jobPostingInfo?: Record<string, unknown> };
+  return detail.jobPostingInfo;
+}
+
+// Workday rate limits a tight burst (429), and a failed detail call used to be
+// swallowed — storing the job with no description. Pace the calls and give the
+// stragglers a second, sequential pass.
+const WORKDAY_DETAIL_CONCURRENCY = 2;
+const WORKDAY_DETAIL_DELAY_MS = 120;
+const WORKDAY_DETAIL_JITTER_MS = 140;
+const WORKDAY_DETAIL_RETRY_DELAY_MS = 400;
+const WORKDAY_DETAIL_RETRY_CAP = 150;
+
+/** Workday's public careers endpoint. List responses do not include descriptions, so details are bounded. */
+export async function fetchWorkday(identifier: string, skipExternalIds?: Set<string>): Promise<NormalizedJob[]> {
+  const { tenant, site, host, postings } = await fetchWorkdayPostings(identifier);
   const details = new Map<string, Record<string, unknown>>();
-  await mapLimit(postings.slice(0, WORKDAY_DETAIL_LIMIT), 4, async (posting) => {
+  const failed: Array<Record<string, unknown>> = [];
+
+  const loadDetail = async (posting: Record<string, unknown>) => {
     const externalPath = typeof posting.externalPath === "string" ? posting.externalPath : "";
-    if (!externalPath) return null;
+    if (!externalPath) return true;
     try {
-      const detail = (await getJsonRetry(`https://${host}/wday/cxs/${encodeURIComponent(tenant)}/${encodeURIComponent(site)}${externalPath}`)) as Record<string, unknown>;
-      const info = detail.jobPostingInfo as Record<string, unknown> | undefined;
+      const info = await fetchWorkdayDetail(identifier, externalPath);
       if (info) details.set(externalPath, info);
+      return true;
     } catch {
-      // Fall back to the list row.
+      return false;
     }
+  };
+
+  await mapLimit(postings.slice(0, WORKDAY_DETAIL_LIMIT), WORKDAY_DETAIL_CONCURRENCY, async (posting) => {
+    const externalPath = typeof posting.externalPath === "string" ? posting.externalPath : "";
+    const bulletFields = Array.isArray(posting.bulletFields) ? posting.bulletFields : [];
+    const provisionalId = workdayExternalId(tenant, site, bulletFields[0], externalPath);
+    // Already described in the DB: the store step preserves the existing text.
+    if (skipExternalIds?.has(provisionalId)) return null;
+    const ok = await loadDetail(posting);
+    if (!ok) failed.push(posting);
+    await sleep(WORKDAY_DETAIL_DELAY_MS + Math.floor(Math.random() * WORKDAY_DETAIL_JITTER_MS));
     return null;
   });
+
+  for (const posting of failed.slice(0, WORKDAY_DETAIL_RETRY_CAP)) {
+    await sleep(WORKDAY_DETAIL_RETRY_DELAY_MS);
+    await loadDetail(posting);
+  }
 
   return postings.slice(0, MAX_JOBS).map((posting) => {
     const externalPath = typeof posting.externalPath === "string" ? posting.externalPath : "";
@@ -812,7 +888,7 @@ export async function fetchWorkday(identifier: string): Promise<NormalizedJob[]>
     const start = typeof info?.startDate === "string" ? new Date(`${info.startDate}T00:00:00Z`).getTime() : undefined;
     const posted = typeof info?.postedOn === "string" ? info.postedOn : typeof posting.postedOn === "string" ? posting.postedOn : undefined;
     return {
-      external_id: `wd_${tenant}_${site}_${String(jobReqId ?? externalPath).replace(/[^a-z0-9_-]+/gi, "_")}`,
+      external_id: workdayExternalId(tenant, site, jobReqId, externalPath),
       title: typeof posting.title === "string" ? posting.title : typeof info?.title === "string" ? info.title : undefined,
       description: normalizeAtsHtml(typeof info?.jobDescription === "string" ? info.jobDescription : undefined),
       application_url: `https://${host}/en-US/${encodeURIComponent(site)}${externalPath}`,
@@ -1441,6 +1517,8 @@ export type ProviderFetchArgs = {
   clientId?: string;
   refreshToken?: string;
   region?: string;
+  /** Jobs that already have a description, so detail calls can be skipped. */
+  skipExternalIds?: Set<string>;
 };
 
 export async function fetchJobsForProvider(args: ProviderFetchArgs): Promise<NormalizedJob[]> {
@@ -1472,7 +1550,7 @@ export async function fetchJobsForProvider(args: ProviderFetchArgs): Promise<Nor
       return await fetchSmartRecruiters(args.subdomain);
     case "workday":
       if (!args.subdomain) throw new Error("Workday board identifier is required");
-      return await fetchWorkday(args.subdomain);
+      return await fetchWorkday(args.subdomain, args.skipExternalIds);
     case "workable":
       if (!args.subdomain) throw new Error("Workable account subdomain is required");
       return await fetchWorkable(args.subdomain);

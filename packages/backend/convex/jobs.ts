@@ -2212,6 +2212,14 @@ export const storeAtsJobs = internalMutation({
         .unique();
       const location = typeof job.location === "string" ? job.location.trim() : "";
       const cityHint = location.split(",")[0]?.trim();
+      // A provider that omits a description (Workday rate limits the detail
+      // call) must not wipe the text a previous sync stored.
+      const incomingDescription =
+        typeof job.description === "string" && job.description.trim() ? job.description : undefined;
+      const description = incomingDescription ?? existing?.description;
+      const title = (job.title as string | undefined) ?? existing?.title;
+      const publishedDate =
+        (job.published_date as number | undefined) ?? existing?.published_date ?? Date.now();
       const search_text = composeJobSearchText({
         title: job.title as string | undefined,
         companyName: job.company_name as string | undefined,
@@ -2224,9 +2232,9 @@ export const storeAtsJobs = internalMutation({
       });
       const payload = {
         external_id,
-        title: job.title as string | undefined,
+        title,
         search_text,
-        description: job.description as string | undefined,
+        description,
         application_url: job.application_url as string | undefined,
         company_name: job.company_name as string | undefined,
         company_logo: job.company_logo as string | undefined,
@@ -2235,7 +2243,7 @@ export const storeAtsJobs = internalMutation({
         workplace_type: job.workplace_type as "on-site" | "hybrid" | "remote" | undefined,
         work_type: job.work_type as string | undefined,
         language: job.language as string | undefined,
-        published_date: (job.published_date as number | undefined) ?? Date.now(),
+        published_date: publishedDate,
         resource: `ats:${args.provider}`,
         ats_integration_id: args.integrationId,
         ats_seen_at: args.seenAt,
@@ -2250,7 +2258,7 @@ export const storeAtsJobs = internalMutation({
         ...resolveJobSalary({
           incoming: job,
           existing,
-          description: job.description as string | undefined,
+          description,
         }),
       };
       let jobId: Id<"jobs">;

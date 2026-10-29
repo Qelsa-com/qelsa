@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { ATS_JOB_FETCH_LIMIT, fetchJobsForProvider } from "./atsProviders";
+import { ATS_JOB_FETCH_LIMIT, fetchJobsForProvider, fetchWorkdayDetail, fetchWorkdayPostings, normalizeAtsHtml, workdayExternalId } from "./atsProviders";
 import { resolveAtsSyncEnabled } from "./lib/atsSyncEnabled";
 import { ATS_SYNC_INTERVAL_MS } from "./lib/atsSyncInterval";
 import type { CompanyProfileSeed } from "./lib/companyProfile";
@@ -13,6 +13,10 @@ const STALE_SYNC_MS = 20 * 60 * 1000;
 const OCC_RETRIES = 4;
 /** Space cron-started board syncs so they do not all hold a full pull in memory at once. */
 const CRON_STAGGER_MS = 20_000;
+/** Jobs per page when collecting the ids we already have descriptions for. */
+const DESCRIBED_PAGE = 400;
+/** Workday removes limits at ~4 req/s; keep the repair pass well under it. */
+const REPAIR_SLEEP_MS = 350;
 
 function isWriteConflict(err: unknown) {
   const message = err instanceof Error ? err.message : String(err);
@@ -54,6 +58,12 @@ export const syncIntegration = internalAction({
         clientId: integration.client_id,
         refreshToken: integration.refresh_token,
         region: integration.region,
+        // Workday needs one detail call per posting. Skip the ones we already
+        // have a description for so a re-sync stays small and rate-limit free.
+        skipExternalIds:
+          integration.provider === "workday"
+            ? await collectDescribedExternalIds(ctx, args.integrationId)
+            : undefined,
       });
       const listComplete = jobs.length < ATS_JOB_FETCH_LIMIT;
       const canEnrich = Boolean(process.env.OPENROUTER_API_KEY);
@@ -142,8 +152,27 @@ async function storeAtsJobsWithRetry(
   throw lastError;
 }
 
-async function closeUnseenWithRetry(
-  ctx: ActionCtx,
+/** External ids that already have a description, paged to stay under read limits. */
+async function collectDescribedExternalIds(ctx: ActionCtx, integrationId: Id<"ats_integrations">) {
+  const ids = new Set<string>();
+  let cursor: string | null = null;
+  for (let page = 0; page < 25; page++) {
+    const result: { ids: string[]; cursor: string | null; isDone: boolean } = await ctx.runQuery(
+      internal.atsSync.describedExternalIdsPage,
+      {
+        integrationId,
+        cursor,
+        pageSize: DESCRIBED_PAGE,
+      },
+    );
+    for (const id of result.ids) ids.add(id);
+    cursor = result.cursor;
+    if (result.isDone) break;
+  }
+  return ids;
+}
+
+async function closeUnseenWithRetry(  ctx: ActionCtx,
   args: { integrationId: Id<"ats_integrations">; provider: string; seenAt: number },
 ) {
   let cursor: string | null = null;
@@ -280,5 +309,188 @@ export const markSyncError = internalMutation({
       error_detected_at: args.at,
     });
     return null;
+  },
+});
+
+/** External ids that already have a description, one page at a time. */
+export const describedExternalIdsPage = internalQuery({
+  args: {
+    integrationId: v.id("ats_integrations"),
+    cursor: v.union(v.string(), v.null()),
+    pageSize: v.number(),
+  },
+  returns: v.object({
+    ids: v.array(v.string()),
+    cursor: v.union(v.string(), v.null()),
+    isDone: v.boolean(),
+  }),
+  handler: async (ctx, args) => {
+    const page = await ctx.db
+      .query("jobs")
+      .withIndex("by_ats_integration", (q) => q.eq("ats_integration_id", args.integrationId))
+      .paginate({ numItems: args.pageSize, cursor: args.cursor });
+    return {
+      ids: page.page
+        .filter((job) => Boolean((job.description ?? "").trim()))
+        .map((job) => job.external_id)
+        .filter((id): id is string => typeof id === "string"),
+      cursor: page.continueCursor,
+      isDone: page.isDone,
+    };
+  },
+});
+
+/** Jobs on a board whose description never made it through a sync. */
+export const jobsMissingDescriptionPage = internalQuery({
+  args: {
+    integrationId: v.id("ats_integrations"),
+    cursor: v.union(v.string(), v.null()),
+    pageSize: v.number(),
+    limit: v.number(),
+  },
+  returns: v.object({
+    jobs: v.array(v.object({ id: v.id("jobs"), external_id: v.string() })),
+    cursor: v.union(v.string(), v.null()),
+    isDone: v.boolean(),
+  }),
+  handler: async (ctx, args) => {
+    const page = await ctx.db
+      .query("jobs")
+      .withIndex("by_ats_integration", (q) => q.eq("ats_integration_id", args.integrationId))
+      .paginate({ numItems: args.pageSize, cursor: args.cursor });
+    const jobs: Array<{ id: Id<"jobs">; external_id: string }> = [];
+    for (const job of page.page) {
+      if (jobs.length >= args.limit) break;
+      if ((job.description ?? "").trim()) continue;
+      if (!job.external_id) continue;
+      jobs.push({ id: job._id, external_id: job.external_id });
+    }
+    return { jobs, cursor: page.continueCursor, isDone: page.isDone };
+  },
+});
+
+export const applyBackfilledDescription = internalMutation({
+  args: {
+    jobId: v.id("jobs"),
+    description: v.string(),
+    publishedDate: v.optional(v.number()),
+    title: v.optional(v.string()),
+  },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    const job = await ctx.db.get(args.jobId);
+    if (!job) return false;
+    if ((job.description ?? "").trim().length > 0) return false;
+    const patch: Record<string, unknown> = { description: args.description };
+    if (args.publishedDate) patch.published_date = args.publishedDate;
+    if (args.title && !job.title) patch.title = args.title;
+    await ctx.db.patch(args.jobId, patch);
+    // A missing description used to mark the job "already extracted", which
+    // blocks the enrichment pass. Clear it so skills come from the real text.
+    const extractions = await ctx.db
+      .query("job_skill_extractions")
+      .withIndex("by_job", (q) => q.eq("job_id", args.jobId))
+      .collect();
+    for (const row of extractions) await ctx.db.delete(row._id);
+    if (job.skills_extracted) await ctx.db.patch(args.jobId, { skills_extracted: undefined });
+    return true;
+  },
+});
+
+/**
+ * Re-fetch the Workday detail for jobs that were stored while the detail call
+ * was rate limited. Only the missing ones are fetched, so this is cheap.
+ */
+export const backfillMissingWorkdayDescriptions = internalAction({
+  args: { integrationId: v.id("ats_integrations"), limit: v.optional(v.number()) },
+  returns: v.object({
+    scanned: v.number(),
+    patched: v.number(),
+    unmatched: v.number(),
+    failed: v.number(),
+    deferred: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const integration = await ctx.runQuery(internal.atsSync.getIntegration, { id: args.integrationId });
+    if (!integration || integration.provider !== "workday" || !integration.subdomain) {
+      throw new Error("A connected Workday board is required");
+    }
+    const cap = Math.max(1, args.limit ?? 80);
+    const missing: Array<{ id: Id<"jobs">; external_id: string }> = [];
+    let cursor: string | null = null;
+    let deferred = 0;
+    for (let page = 0; page < 25 && missing.length < cap; page++) {
+      const result: {
+        jobs: Array<{ id: Id<"jobs">; external_id: string }>;
+        cursor: string | null;
+        isDone: boolean;
+      } = await ctx.runQuery(internal.atsSync.jobsMissingDescriptionPage, {
+        integrationId: args.integrationId,
+        cursor,
+        pageSize: DESCRIBED_PAGE,
+        limit: cap - missing.length,
+      });
+      missing.push(...result.jobs);
+      cursor = result.cursor;
+      if (result.isDone) break;
+      if (missing.length >= cap) deferred = 1;
+    }
+    if (missing.length === 0) {
+      return { scanned: 0, patched: 0, unmatched: 0, failed: 0, deferred: 0 };
+    }
+
+    const board = await fetchWorkdayPostings(integration.subdomain);
+    const byExternalId = new Map<string, Record<string, unknown>>();
+    for (const posting of board.postings) {
+      const externalPath = typeof posting.externalPath === "string" ? posting.externalPath : "";
+      const bullets = Array.isArray(posting.bulletFields) ? posting.bulletFields : [];
+      byExternalId.set(workdayExternalId(board.tenant, board.site, bullets[0], externalPath), posting);
+    }
+
+    let patched = 0;
+    let unmatched = 0;
+    let failed = 0;
+    const enriched: Id<"jobs">[] = [];
+    for (const job of missing) {
+      const posting = byExternalId.get(job.external_id);
+      const externalPath = posting && typeof posting.externalPath === "string" ? posting.externalPath : "";
+      if (!externalPath) {
+        unmatched++;
+        continue;
+      }
+      try {
+        const info = await fetchWorkdayDetail(integration.subdomain, externalPath);
+        const description = normalizeAtsHtml(
+          typeof info?.jobDescription === "string" ? info.jobDescription : undefined,
+        );
+        if (!description) {
+          failed++;
+          continue;
+        }
+        const publishedDate =
+          typeof info?.startDate === "string"
+            ? new Date(`${info.startDate}T00:00:00Z`).getTime()
+            : undefined;
+        const title = typeof info?.title === "string" ? info.title : undefined;
+        const applied = await ctx.runMutation(internal.atsSync.applyBackfilledDescription, {
+          jobId: job.id,
+          description,
+          publishedDate,
+          title,
+        });
+        if (applied) {
+          patched++;
+          enriched.push(job.id);
+        }
+      } catch {
+        failed++;
+      }
+      await new Promise((resolve) => setTimeout(resolve, REPAIR_SLEEP_MS));
+    }
+
+    if (enriched.length > 0) {
+      await ctx.scheduler.runAfter(0, internal.jobSkillsEnrich.enrichBatch, { jobIds: enriched });
+    }
+    return { scanned: missing.length, patched, unmatched, failed, deferred };
   },
 });
