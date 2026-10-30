@@ -222,6 +222,16 @@ export function useSetUserActiveMutation() {
   );
 }
 
+export function useDeleteUserMutation() {
+  return useConvexMutationHook(
+    api.admin.deleteUser,
+    (input: { userId: string; note?: string }) => ({
+      userId: input.userId as never,
+      note: input.note,
+    }),
+  );
+}
+
 export function useGrantManualProMutation() {
   return useConvexMutationHook(
     api.admin.grantManualPro,

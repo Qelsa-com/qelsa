@@ -64,6 +64,7 @@ import type * as lib_careerGoal from "../lib/careerGoal.js";
 import type * as lib_companyProfile from "../lib/companyProfile.js";
 import type * as lib_courseCatalog from "../lib/courseCatalog.js";
 import type * as lib_customFunctions from "../lib/customFunctions.js";
+import type * as lib_deleteUserAccount from "../lib/deleteUserAccount.js";
 import type * as lib_deleteUserData from "../lib/deleteUserData.js";
 import type * as lib_email from "../lib/email.js";
 import type * as lib_employerEmail from "../lib/employerEmail.js";
@@ -167,6 +168,7 @@ declare const fullApi: ApiFromModules<{
   "lib/companyProfile": typeof lib_companyProfile;
   "lib/courseCatalog": typeof lib_courseCatalog;
   "lib/customFunctions": typeof lib_customFunctions;
+  "lib/deleteUserAccount": typeof lib_deleteUserAccount;
   "lib/deleteUserData": typeof lib_deleteUserData;
   "lib/email": typeof lib_email;
   "lib/employerEmail": typeof lib_employerEmail;

@@ -4,12 +4,12 @@ import { components } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { internalMutation, query, type MutationCtx } from "./_generated/server";
 import { authedMutation, optionalAuthQuery } from "./lib/customFunctions";
-import { deleteAppUserData } from "./lib/deleteUserData";
 import { applyUserStatDeltas } from "./lib/adminStats";
 import { isSubscriptionEntitled } from "./lib/billingEntitlements";
 import { assertEmployerEmail } from "./lib/employerEmail";
 import { asUserJson, iso, withId } from "./lib/helpers";
-import { deleteR2Keys, signedFileUrl } from "./lib/r2";
+import { deleteUserAccount } from "./lib/deleteUserAccount";
+import { signedFileUrl } from "./lib/r2";
 import { refreshInferredSkillLevels } from "./lib/skillLevels";
 
 const r2 = new R2(components.r2);
@@ -402,47 +402,14 @@ export const deleteAccount = authedMutation({
       throw new Error("Cancel your active subscription before deleting your account.");
     }
 
-    const authId = ctx.user.authId;
-    await ctx.runMutation(components.agent.users.deleteAllForUserIdAsync, {
-      userId: authId,
-    });
-    const r2Keys = await deleteAppUserData(ctx, ctx.user);
-    await deleteR2Keys(r2, ctx, r2Keys);
-    await deleteBetterAuthUser(ctx, authId);
+    await deleteUserAccount(ctx, ctx.user);
     return null;
   },
 });
 
-const BA_USER_OWNED_MODELS = ["session", "account", "twoFactor", "oauthApplication", "oauthAccessToken", "oauthConsent"] as const;
-
-async function deleteBetterAuthUser(ctx: MutationCtx, authId: string) {
-  for (const model of BA_USER_OWNED_MODELS) {
-    let cursor: string | null = null;
-    for (;;) {
-      const result: { isDone: boolean; continueCursor: string } = await ctx.runMutation(components.betterAuth.adapter.deleteMany, {
-        input: {
-          model,
-          where: [{ field: "userId", value: authId }],
-        },
-        paginationOpts: { numItems: 100, cursor },
-      });
-      if (result.isDone) break;
-      cursor = result.continueCursor;
-    }
-  }
-  await ctx.runMutation(components.betterAuth.adapter.deleteOne, {
-    input: {
-      model: "user",
-      where: [{ field: "_id", value: authId }],
-    },
-  });
-}
-
 /**
  * Support-only deletion for accounts that cannot sign in themselves (for
- * example a legacy recruiter blocked by the work-email policy). Mirrors
- * `deleteAccount`: app rows, owned pages/jobs, R2 objects, agent threads and
- * the Better Auth identity.
+ * example a legacy recruiter blocked by the work-email policy).
  */
 export const internalDeleteUserByEmail = internalMutation({
   args: { email: v.string() },
@@ -461,11 +428,7 @@ export const internalDeleteUserByEmail = internalMutation({
       .unique();
     if (!user) return { deleted: false, email };
 
-    const authId = user.authId;
-    await ctx.runMutation(components.agent.users.deleteAllForUserIdAsync, { userId: authId });
-    const r2Keys = await deleteAppUserData(ctx, user);
-    await deleteR2Keys(r2, ctx, r2Keys);
-    await deleteBetterAuthUser(ctx, authId);
-    return { deleted: true, email, userId: user._id, authId };
+    await deleteUserAccount(ctx, user);
+    return { deleted: true, email, userId: user._id, authId: user.authId };
   },
 });

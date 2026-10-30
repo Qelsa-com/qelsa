@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAlert } from "@/components/ui/alert-modal";
 import { useAdminAuth } from "@/contexts/AuthContext";
 import {
+  useDeleteUserMutation,
   useGetUserQuery,
   useGrantManualProMutation,
   useRevokeManualProMutation,
@@ -16,9 +17,9 @@ import {
   useSetUserRoleMutation,
   useUpdateUserMutation,
 } from "@/features/api/adminApi";
-import { ArrowLeft, Crown, ShieldAlert } from "lucide-react";
+import { ArrowLeft, Crown, ShieldAlert, Trash2 } from "lucide-react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -45,6 +46,7 @@ export default function UserDetailPage() {
   const userId = params?.id;
   const { user: adminUser } = useAdminAuth();
   const alert = useAlert();
+  const router = useRouter();
 
   const { data: user, isLoading } = useGetUserQuery(userId);
   const [updateUser, { isLoading: isSaving }] = useUpdateUserMutation();
@@ -52,6 +54,7 @@ export default function UserDetailPage() {
   const [setUserActive, { isLoading: isChangingStatus }] = useSetUserActiveMutation();
   const [grantManualPro, { isLoading: isGrantingPro }] = useGrantManualProMutation();
   const [revokeManualPro, { isLoading: isRevokingPro }] = useRevokeManualProMutation();
+  const [deleteUser, { isLoading: isDeleting }] = useDeleteUserMutation();
 
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [about, setAbout] = useState("");
@@ -146,6 +149,31 @@ export default function UserDetailPage() {
       setNote("");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not change the status.");
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!userId || !user) return;
+    const confirmed = await alert({
+      title: "Delete this user permanently?",
+      description: (
+        <>
+          This removes <span className="font-semibold text-white">{user.email}</span>, their
+          profile, resumes, applications, owned pages and jobs. This cannot be undone.
+        </>
+      ),
+      confirmText: "Delete user",
+      cancelText: "Keep user",
+      tone: "danger",
+      requireText: user.email,
+    });
+    if (!confirmed) return;
+    try {
+      await deleteUser({ userId, note: note.trim() || undefined }).unwrap();
+      toast.success("User deleted.");
+      router.push("/users");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not delete the user.");
     }
   };
 
@@ -447,6 +475,30 @@ export default function UserDetailPage() {
                 </div>
               ))}
             </dl>
+          </section>
+
+          <section className="rounded-2xl border border-rose-400/25 bg-rose-500/[0.04] p-5">
+            <h2 className="flex items-center gap-2 text-sm font-semibold text-rose-200">
+              <Trash2 className="h-4 w-4" />
+              Delete account
+            </h2>
+            <p className="mt-1 text-xs text-white/50">
+              Permanently remove this user, their profile and everything they own.
+            </p>
+            <Button
+              variant="destructive"
+              size="sm"
+              disabled={isSelf || isDeleting}
+              onClick={() => void handleDelete()}
+              className="mt-4 rounded-full"
+            >
+              {isDeleting ? "Deleting…" : "Delete user"}
+            </Button>
+            {isSelf && (
+              <p className="mt-2 text-xs text-amber-400/90">
+                You cannot delete your own account.
+              </p>
+            )}
           </section>
         </div>
       </div>

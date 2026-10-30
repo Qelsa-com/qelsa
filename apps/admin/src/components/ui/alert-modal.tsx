@@ -19,6 +19,8 @@ export type AlertOptions = {
   confirmText?: string;
   cancelText?: string;
   tone?: AlertTone;
+  /** Require the operator to type this exact text (case-insensitive) to confirm. */
+  requireText?: string;
 };
 
 type AlertFn = (options: AlertOptions) => Promise<boolean>;
@@ -33,6 +35,9 @@ function AlertModal({
   onResolve: (confirmed: boolean) => void;
 }) {
   const danger = options.tone === "danger";
+  const [typed, setTyped] = useState("");
+  const requiredText = options.requireText?.trim() ?? "";
+  const canConfirm = !requiredText || typed.trim().toLowerCase() === requiredText.toLowerCase();
   return (
     <AlertDialogPrimitive.Root
       open
@@ -65,13 +70,35 @@ function AlertModal({
             </div>
           </div>
 
+          {requiredText ? (
+            <div className="border-t border-white/[0.07] px-5 py-4 sm:px-6">
+              <label
+                htmlFor="alert-confirm-text"
+                className="text-xs font-medium text-white/55"
+              >
+                Type <span className="font-mono text-white/90">{requiredText}</span> to confirm
+              </label>
+              <input
+                id="alert-confirm-text"
+                value={typed}
+                onChange={(event) => setTyped(event.target.value)}
+                autoFocus
+                autoComplete="off"
+                spellCheck={false}
+                placeholder={requiredText}
+                className="mt-2 h-10 w-full rounded-xl border border-white/12 bg-white/[0.04] px-3 font-mono text-sm text-white outline-none placeholder:text-white/25 focus:border-rose-400/50"
+              />
+            </div>
+          ) : null}
+
           <div className="flex flex-col-reverse gap-2 border-t border-white/[0.07] p-4 sm:flex-row sm:justify-end sm:p-5">
             <AlertDialogPrimitive.Cancel className="inline-flex h-9 items-center justify-center rounded-full border border-white/12 bg-white/[0.04] px-4 text-xs font-semibold text-white/75 transition-colors hover:bg-white/[0.08] hover:text-white">
               {options.cancelText ?? "Cancel"}
             </AlertDialogPrimitive.Cancel>
             <AlertDialogPrimitive.Action
+              disabled={!canConfirm}
               onClick={() => onResolve(true)}
-              className={`inline-flex h-9 items-center justify-center rounded-full px-4 text-xs font-bold text-white transition-opacity hover:opacity-90 ${
+              className={`inline-flex h-9 items-center justify-center rounded-full px-4 text-xs font-bold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40 ${
                 danger ? "bg-rose-500 hover:bg-rose-500" : "bg-sky-500 hover:bg-sky-500"
               }`}
             >

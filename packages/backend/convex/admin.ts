@@ -7,6 +7,7 @@ import { adminMutation, adminQuery } from "./lib/customFunctions";
 import { effectiveSubscriptionPlan, getUserPlan, isSubscriptionEntitled } from "./lib/billingEntitlements";
 import { defaultPlanConfig, getAllPlanConfigs, type PlanAudience, type PlanTier } from "./lib/planConfig";
 import { deleteJobCascade } from "./lib/deleteUserData";
+import { deleteUserAccount } from "./lib/deleteUserAccount";
 import { bumpOpenJobCount, openCountDelta } from "./lib/jobCounts";
 import {
   ADMIN_STAT_KEYS,
@@ -725,8 +726,53 @@ export const setUserActive = adminMutation({
   },
 });
 
-export const grantManualPro = adminMutation({
+export const deleteUser = adminMutation({
   args: {
+    userId: v.id("users"),
+    note: v.optional(v.string()),
+  },
+  returns: v.object({ deleted: v.boolean() }),
+  handler: async (ctx, args) => {
+    if (args.userId === ctx.user._id) {
+      throw new Error("You cannot delete your own account");
+    }
+    const user = await ctx.db.get(args.userId);
+    if (!user) throw new Error("User not found");
+
+    const activeSubscription = (
+      await ctx.db
+        .query("billing_subscriptions")
+        .withIndex("by_user_and_updated_at", (q) => q.eq("user_id", user._id))
+        .order("desc")
+        .take(5)
+    ).some((subscription) => isSubscriptionEntitled(subscription));
+    if (activeSubscription) {
+      throw new Error("Cancel the user's active subscription before deleting the account.");
+    }
+
+    const before = {
+      email: user.email,
+      account_type: user.account_type ?? null,
+      role: user.role,
+      active_page_id: user.active_page_id ?? null,
+    };
+    // Removes the app rows, owned pages/jobs, R2 objects, agent threads and the
+    // Better Auth identity in one place.
+    await deleteUserAccount(ctx, user);
+
+    await ctx.db.insert("admin_audit_log", {
+      admin_user_id: ctx.user._id,
+      action: "user.deleted",
+      target_user_id: args.userId,
+      before,
+      note: args.note,
+      created_at: Date.now(),
+    });
+    return { deleted: true };
+  },
+});
+
+export const grantManualPro = adminMutation({  args: {
     userId: v.id("users"),
     note: v.optional(v.string()),
   },

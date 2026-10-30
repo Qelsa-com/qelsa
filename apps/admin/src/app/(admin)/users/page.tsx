@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useAlert } from "@/components/ui/alert-modal";
 import {
   Table,
   TableBody,
@@ -12,10 +13,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useListUsersQuery } from "@/features/api/adminApi";
-import { ChevronLeft, ChevronRight, Crown, Search, Sparkles } from "lucide-react";
+import { useAdminAuth } from "@/contexts/AuthContext";
+import { useDeleteUserMutation, useListUsersQuery } from "@/features/api/adminApi";
+import { ChevronLeft, ChevronRight, Crown, Loader2, Search, Sparkles, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 
 type RoleFilter = "all" | "user" | "admin";
 type AccountFilter = "all" | "seeker" | "recruiter";
@@ -62,6 +65,36 @@ export default function UsersPage() {
 
   const { data, isLoading } = useListUsersQuery(filters, cursor);
   const rows = data?.page ?? [];
+  const alert = useAlert();
+  const { user: currentAdmin } = useAdminAuth();
+  const [deleteUser] = useDeleteUserMutation();
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const handleDelete = async (user: { id: string; email: string }) => {
+    const confirmed = await alert({
+      title: "Delete this user permanently?",
+      description: (
+        <>
+          This removes <span className="font-semibold text-white">{user.email}</span>, their
+          profile, resumes, applications, owned pages and jobs. This cannot be undone.
+        </>
+      ),
+      confirmText: "Delete user",
+      cancelText: "Keep user",
+      tone: "danger",
+      requireText: user.email,
+    });
+    if (!confirmed) return;
+    setDeletingId(user.id);
+    try {
+      await deleteUser({ userId: user.id }).unwrap();
+      toast.success("User deleted.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not delete the user.");
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   const resetPaging = () => {
     setCursor(undefined);
@@ -203,12 +236,27 @@ export default function UsersPage() {
                     {new Date(user.created_at).toLocaleDateString()}
                   </TableCell>
                   <TableCell className="text-right">
-                    <Link
-                      href={`/users/${user.id}`}
-                      className="inline-flex items-center rounded-full border border-glass-border px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-white/5"
-                    >
-                      Manage
-                    </Link>
+                    <div className="flex items-center justify-end gap-2">
+                      <Link
+                        href={`/users/${user.id}`}
+                        className="inline-flex items-center rounded-full border border-glass-border px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-white/5"
+                      >
+                        Manage
+                      </Link>
+                      <button
+                        type="button"
+                        aria-label={`Delete ${user.email}`}
+                        disabled={deletingId === user.id || user.id === currentAdmin?.id}
+                        onClick={() => void handleDelete(user)}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-rose-400/25 text-rose-300 transition-colors hover:bg-rose-500/10 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        {deletingId === user.id ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-3.5 w-3.5" />
+                        )}
+                      </button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
