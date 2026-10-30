@@ -58,10 +58,11 @@ export const syncIntegration = internalAction({
         clientId: integration.client_id,
         refreshToken: integration.refresh_token,
         region: integration.region,
-        // Workday needs one detail call per posting. Skip the ones we already
-        // have a description for so a re-sync stays small and rate-limit free.
+        // Workday and Oracle need one detail call per posting. Skip the ones we
+        // already have a description for so a re-sync stays small and avoids
+        // rate limits.
         skipExternalIds:
-          integration.provider === "workday"
+          integration.provider === "workday" || integration.provider === "oracle_cloud"
             ? await collectDescribedExternalIds(ctx, args.integrationId)
             : undefined,
       });

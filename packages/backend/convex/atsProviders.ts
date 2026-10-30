@@ -640,9 +640,10 @@ const WORKDAY_DETAIL_LIMIT = MAX_JOBS;
 const EIGHTFOLD_DETAIL_LIMIT = MAX_JOBS;
 const RIPPLING_DETAIL_LIMIT = MAX_JOBS;
 const ZOHO_DETAIL_LIMIT = 250;
-const ORACLE_DETAIL_LIMIT = MAX_JOBS;
-const ORACLE_DETAIL_CONCURRENCY = 2;
-const ORACLE_DETAIL_DELAY_MS = 120;
+const ORACLE_DETAIL_LIMIT = 400;
+const ORACLE_DETAIL_CONCURRENCY = 4;
+const ORACLE_DETAIL_DELAY_MS = 60;
+const ORACLE_PAGE_LIMIT = 60;
 
 async function getText(url: string, accept = "text/plain") {
   const res = await fetch(url, {
@@ -1007,84 +1008,111 @@ async function fetchOraclePageDescription(host: string, site: string, id: string
 }
 
 /** Oracle Cloud HCM candidate-experience search API. */
-export async function fetchOracleCloud(identifier: string): Promise<NormalizedJob[]> {
+export async function fetchOracleCloud(identifier: string, skipExternalIds?: Set<string>): Promise<NormalizedJob[]> {
   const { host, site } = parseOracleIdentifier(identifier);
   const base = `https://${host}/hcmRestApi/resources/latest/recruitingCEJobRequisitions`;
-  const results: ProviderJobs = [];
+  const rows: Array<Record<string, unknown>> = [];
+  const seenIds = new Set<string>();
   let totalJobs: number | null = null;
+  let exhausted = false;
   for (let offset = 0; offset < MAX_JOBS; offset += 25) {
-    const data = (await getJson(`${base}?finder=findReqs;siteNumber=${encodeURIComponent(site)}&limit=25&offset=${offset}&expand=requisitionList`)) as {
+    const data = (await getJsonRetry(`${base}?finder=findReqs;siteNumber=${encodeURIComponent(site)}&limit=25&offset=${offset}&expand=requisitionList`)) as {
       items?: Array<{ requisitionList?: Array<Record<string, unknown>>; TotalJobsCount?: number }>;
     };
     const search = data.items?.[0];
     if (totalJobs == null && typeof search?.TotalJobsCount === "number") totalJobs = search.TotalJobsCount;
-    const rows = search?.requisitionList ?? [];
-    // Some list rows have an empty ShortDescriptionStr even though the job has
-    // text; the detail endpoint (ById) returns ExternalDescriptionStr.
-    const details = new Map<string, Record<string, unknown>>();
-    const failed = new Set<string>();
-    const needsDetail = rows.filter((row) => !oracleDescription(row).trim() && String(row.Id ?? ""));
-    await mapLimit(needsDetail.slice(0, ORACLE_DETAIL_LIMIT), ORACLE_DETAIL_CONCURRENCY, async (row) => {
+    const pageRows = search?.requisitionList ?? [];
+    let added = 0;
+    for (const row of pageRows) {
       const id = String(row.Id ?? "");
-      try {
-        const detail = await fetchOracleDetail(host, site, id);
-        if (detail) details.set(id, detail);
-        else failed.add(id);
-      } catch {
-        failed.add(id);
-      }
-      await sleep(ORACLE_DETAIL_DELAY_MS + Math.floor(Math.random() * 120));
-    });
-    // Second chance one at a time for transient failures.
-    for (const row of needsDetail.filter((candidate) => failed.has(String(candidate.Id ?? ""))).slice(0, 30)) {
-      await sleep(400);
-      const id = String(row.Id ?? "");
-      try {
-        const detail = await fetchOracleDetail(host, site, id);
-        if (detail) {
-          details.set(id, detail);
-          failed.delete(id);
-        }
-      } catch {
-        // Leave it marked incomplete; the next sync retries.
-      }
+      if (!id || seenIds.has(id)) continue;
+      seenIds.add(id);
+      rows.push(row);
+      added += 1;
     }
-    // Last resort for reqs that have no API text at all.
-    const pageDescriptions = new Map<string, string>();
-    for (const row of rows) {
-      const id = String(row.Id ?? "");
-      if (!id || failed.has(id)) continue;
-      if (oracleDescription(row).trim() || oracleDetailDescription(details.get(id))) continue;
-      const pageDescription = await fetchOraclePageDescription(host, site, id);
-      if (pageDescription) pageDescriptions.set(id, pageDescription);
-      await sleep(150);
-    }
-    for (const row of rows) {
-      const id = String(row.Id ?? "");
-      const detail = details.get(id);
-      const description = normalizeAtsHtml(oracleDescription(row) || oracleDetailDescription(detail) || pageDescriptions.get(id));
-      const location = typeof row.PrimaryLocation === "string" ? row.PrimaryLocation : undefined;
-      const legal = typeof row.LegalEmployer === "string" ? row.LegalEmployer : undefined;
-      results.push({
-        external_id: `oracle_${site}_${id}`,
-        title: typeof row.Title === "string" ? row.Title : undefined,
-        description,
-        application_url: `https://${host}/hcmUI/CandidateExperience/en/sites/${encodeURIComponent(site)}/job/${encodeURIComponent(id)}`,
-        company_name: legal || titleCaseCompany(host.split(".")[0] ?? site),
-        company_logo: logoForDomain(companyDomain(undefined, host.split(".")[0])),
-        location,
-        departments: [row.Department, row.Organization, row.JobFamily].filter((value): value is string => typeof value === "string" && value.length > 0),
-        has_remote: /remote/i.test(location ?? "") || /remote/i.test(String(row.WorkplaceType ?? "")),
-        workplace_type: workplaceFromLabel(typeof row.WorkplaceType === "string" ? row.WorkplaceType : location),
-        work_type: workTypeFromLabel(typeof row.JobType === "string" ? row.JobType : typeof row.JobSchedule === "string" ? row.JobSchedule : undefined),
-        published_date: typeof row.PostedDate === "string" ? new Date(row.PostedDate).getTime() : undefined,
-        incomplete: failed.has(id) ? true : undefined,
-      });
-      if (results.length >= MAX_JOBS) break;
-    }
-    if (rows.length < 25 || results.length >= MAX_JOBS || offset + 25 >= (search?.TotalJobsCount ?? 0)) break;
+    // Some Oracle sites ignore `offset` and repeat the first page. Stop as soon
+    // as a page adds nothing new instead of re-pulling it to the reported total.
+    if (pageRows.length < 25 || added === 0) exhausted = true;
+    if (pageRows.length < 25 || added === 0 || rows.length >= MAX_JOBS || offset + 25 >= (search?.TotalJobsCount ?? 0)) break;
   }
-  if (totalJobs != null) results.complete = results.length >= totalJobs;
+
+  // Some list rows have an empty ShortDescriptionStr even though the job has
+  // text; the detail endpoint (ById) returns ExternalDescriptionStr. Skip rows
+  // we already stored text for so repeat syncs make progress on the rest.
+  const details = new Map<string, Record<string, unknown>>();
+  const failed = new Set<string>();
+  const needsDetail = rows.filter((row) => {
+    if (oracleDescription(row).trim()) return false;
+    const id = String(row.Id ?? "");
+    if (!id) return false;
+    return !skipExternalIds?.has(`oracle_${site}_${id}`);
+  });
+  await mapLimit(needsDetail.slice(0, ORACLE_DETAIL_LIMIT), ORACLE_DETAIL_CONCURRENCY, async (row) => {
+    const id = String(row.Id ?? "");
+    try {
+      const detail = await fetchOracleDetail(host, site, id);
+      if (detail) details.set(id, detail);
+      else failed.add(id);
+    } catch {
+      failed.add(id);
+    }
+    await sleep(ORACLE_DETAIL_DELAY_MS + Math.floor(Math.random() * 80));
+  });
+  // Second chance one at a time for transient failures.
+  for (const row of needsDetail.filter((candidate) => failed.has(String(candidate.Id ?? ""))).slice(0, 40)) {
+    await sleep(300);
+    const id = String(row.Id ?? "");
+    try {
+      const detail = await fetchOracleDetail(host, site, id);
+      if (detail) {
+        details.set(id, detail);
+        failed.delete(id);
+      }
+    } catch {
+      // Leave it marked incomplete; the next sync retries.
+    }
+  }
+  // Last resort for reqs that have no API text at all.
+  const pageDescriptions = new Map<string, string>();
+  const stillEmpty = rows.filter((row) => {
+    const id = String(row.Id ?? "");
+    if (!id || failed.has(id)) return false;
+    return !oracleDescription(row).trim() && !oracleDetailDescription(details.get(id));
+  });
+  for (const row of stillEmpty.slice(0, ORACLE_PAGE_LIMIT)) {
+    const id = String(row.Id ?? "");
+    const pageDescription = await fetchOraclePageDescription(host, site, id);
+    if (pageDescription) pageDescriptions.set(id, pageDescription);
+    await sleep(120);
+  }
+
+  const results: ProviderJobs = [];
+  for (const row of rows) {
+    const id = String(row.Id ?? "");
+    if (!id) continue;
+    const detail = details.get(id);
+    const description = normalizeAtsHtml(oracleDescription(row) || oracleDetailDescription(detail) || pageDescriptions.get(id));
+    const location = typeof row.PrimaryLocation === "string" ? row.PrimaryLocation : undefined;
+    const legal = typeof row.LegalEmployer === "string" ? row.LegalEmployer : undefined;
+    results.push({
+      external_id: `oracle_${site}_${id}`,
+      title: typeof row.Title === "string" ? row.Title : undefined,
+      description,
+      application_url: `https://${host}/hcmUI/CandidateExperience/en/sites/${encodeURIComponent(site)}/job/${encodeURIComponent(id)}`,
+      company_name: legal || titleCaseCompany(host.split(".")[0] ?? site),
+      company_logo: logoForDomain(companyDomain(undefined, host.split(".")[0])),
+      location,
+      departments: [row.Department, row.Organization, row.JobFamily].filter((value): value is string => typeof value === "string" && value.length > 0),
+      has_remote: /remote/i.test(location ?? "") || /remote/i.test(String(row.WorkplaceType ?? "")),
+      workplace_type: workplaceFromLabel(typeof row.WorkplaceType === "string" ? row.WorkplaceType : location),
+      work_type: workTypeFromLabel(typeof row.JobType === "string" ? row.JobType : typeof row.JobSchedule === "string" ? row.JobSchedule : undefined),
+      published_date: typeof row.PostedDate === "string" ? new Date(row.PostedDate).getTime() : undefined,
+      incomplete: failed.has(id) ? true : undefined,
+    });
+    if (results.length >= MAX_JOBS) break;
+  }
+  if (totalJobs != null && results.length >= totalJobs) results.complete = true;
+  else if (exhausted && results.length > 0) results.complete = true;
   return results;
 }
 
@@ -1665,7 +1693,7 @@ async function fetchProviderJobs(args: ProviderFetchArgs): Promise<ProviderJobs>
       return await fetchWorkable(args.subdomain);
     case "oracle_cloud":
       if (!args.subdomain) throw new Error("Oracle Cloud HCM board identifier is required");
-      return await fetchOracleCloud(args.subdomain);
+      return await fetchOracleCloud(args.subdomain, args.skipExternalIds);
     case "eightfold":
       if (!args.subdomain) throw new Error("Eightfold board identifier is required");
       return await fetchEightfold(args.subdomain);
