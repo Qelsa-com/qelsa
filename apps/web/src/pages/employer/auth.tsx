@@ -65,6 +65,23 @@ export default function EmployerAuthPage() {
     setOauthPending(false);
   }, []);
 
+  // OAuth callback failures redirect here with `?error=...`.
+  useEffect(() => {
+    if (!router.isReady) return;
+    const rawError = typeof router.query.error === "string" ? router.query.error : null;
+    if (!rawError) return;
+    const description =
+      typeof router.query.error_description === "string" ? router.query.error_description : null;
+    setError(
+      rawError === "state_mismatch"
+        ? "That sign-in was interrupted or already used. Please try again."
+        : description || "Sign-in didn't complete. Please try again.",
+    );
+    clearOauthPending();
+    const { error: _error, error_description: _description, authError: _authError, ...rest } = router.query;
+    void router.replace({ pathname: router.pathname, query: rest }, undefined, { shallow: true });
+  }, [clearOauthPending, router, router.isReady, router.query.error, router.query.error_description]);
+
   useEffect(() => {
     if (typeof window !== "undefined" && sessionStorage.getItem(OAUTH_PENDING_KEY) === "1") {
       setOauthPending(true);

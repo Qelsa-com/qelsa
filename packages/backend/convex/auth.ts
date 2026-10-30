@@ -240,6 +240,11 @@ export const createAuth = (ctx: Parameters<typeof authComponent.adapter>[0]) =>
     baseURL: siteUrl,
     trustedOrigins,
     database: authComponent.adapter(ctx),
+    onAPIError: {
+      // OAuth/state failures otherwise land on Better Auth's default error
+      // page. Send them to the candidate auth screen, which shows a retry.
+      errorURL: `${siteUrl}/auth?authError=1`,
+    },
     emailAndPassword: {
       enabled: true,
       requireEmailVerification: false,

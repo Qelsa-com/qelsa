@@ -50,6 +50,35 @@ export default function AuthPage() {
   const searchParams = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
   const returnUrl = safeReturnUrl(searchParams.get("returnUrl"));
   const isSwitching = searchParams.get("switch") === "true" || searchParams.get("logout") === "true";
+  const authError = searchParams.get("error");
+  const authErrorDescription = searchParams.get("error_description");
+
+  // OAuth callback failures redirect here with `?error=...`. Show a friendly
+  // message, clear the pending flag and strip the query so a refresh does not
+  // replay the error.
+  useEffect(() => {
+    if (!authError) return;
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem(OAUTH_PENDING_KEY);
+      const url = new URL(window.location.href);
+      for (const key of ["error", "error_description", "authError"]) url.searchParams.delete(key);
+      window.history.replaceState({}, "", url.toString());
+    }
+    setOauthPending(false);
+    const employerPolicy = /company email|personal inboxes/i.test(authErrorDescription ?? "");
+    const message = employerPolicy
+      ? "This email is registered as an employer account. Use your work email on the employer sign-in page."
+      : authError === "state_mismatch"
+        ? "That sign-in was interrupted or already used. Please try again."
+        : authErrorDescription || "Sign-in didn't complete. Please try again.";
+    if (employerPolicy) {
+      toast.error(message, {
+        action: { label: "Employer sign in", onClick: () => router.push("/employer/auth") },
+      });
+      return;
+    }
+    toast.error(message);
+  }, [authError, authErrorDescription, router]);
 
   // Resend cooldown ticker.
   useEffect(() => {

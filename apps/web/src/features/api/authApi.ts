@@ -131,6 +131,10 @@ export function useGoogleLoginMutation() {
       .social({
         provider: "google",
         callbackURL: callbackUrl?.toString() ?? "/auth",
+        errorCallbackURL:
+          typeof window !== "undefined"
+            ? new URL("/auth?authError=1", window.location.origin).toString()
+            : "/auth?authError=1",
       })
       .then(({ error }) => {
         if (error) throw { data: { message: error.message } };

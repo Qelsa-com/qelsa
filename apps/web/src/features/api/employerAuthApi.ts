@@ -52,6 +52,7 @@ export function useEmployerGoogleLoginMutation() {
       .social({
         provider: "google",
         callbackURL: callbackUrl.toString(),
+        errorCallbackURL: new URL("/employer/auth?authError=1", window.location.origin).toString(),
       })
       .then(({ error }) => {
         if (error) throw { data: { message: error.message } };
