@@ -8,7 +8,7 @@ import { R2 } from "@convex-dev/r2";
 import { components } from "./_generated/api";
 import { action, internalAction } from "./_generated/server";
 import { AI_AGENT_MODEL, requireOpenRouter } from "./lib/ai";
-import { parsedProfileSchema, parsedProfileValidator, parseJsonObject, repairProfileJson, toParsedProfile } from "./lib/parsedProfile";
+import { parsedProfileValidator, parseJsonObject, repairProfileJson, toParsedProfile } from "./lib/parsedProfile";
 import { clipPlainText } from "./lib/skillMatch";
 
 const r2 = new R2(components.r2);
@@ -27,7 +27,9 @@ const INSTRUCTIONS = `Extract a candidate profile from the resume.
 - is_current must be true or false, never omit it.
 - start_year and end_year must be numbers like 2019, or null — never strings.
 - certifications: certifications, credentials, licenses, or completed courses. Include name (title), issuing_organization (e.g. "AWS", "Google", "ISB", "Coursera", or null), issue_date (e.g. "May 2022", or null), expiration_date (or null), does_not_expire (true if no expiration or lifetime), credential_id (or null), credential_url (if any verification URL, certificate link, or online URL is mentioned or linked for the certification, extract it; otherwise null), and skills ([] if none).
-- Use null for missing strings. Never omit required keys.`;
+- Use null for missing strings. Never omit required keys.
+- Return ONE JSON object only, no markdown or commentary, with this shape:
+  {"name":"","email":"","phone":"","location":"","linkedin_url":"","summary":"","headline":"","experiences":[{"company":"","title":"","start":"","end":"","is_current":false,"description":null,"responsibilities":[],"tools":[]}],"educations":[{"school":"","degree":"","field":"","start_year":2019,"end_year":2022}],"skills":[],"certifications":[{"name":"","issuing_organization":"","issue_date":"","expiration_date":"","does_not_expire":false,"credential_id":"","credential_url":"","skills":[]}]}`;
 
 type ResumeKind = "pdf" | "docx" | "image";
 type UserPart =
@@ -131,7 +133,10 @@ async function readProfile(
         ctx,
         { userId },
         {
-          schema: parsedProfileSchema,
+          // Large nested resume schemas exceed Anthropic/Gemini structured
+          // output grammar limits ("Schema is too complex"). Ask for JSON
+          // without a provider-compiled schema and repair/validate locally.
+          output: "no-schema",
           repairText: async ({ text }) => repairProfileJson(text) ?? text,
           ...input,
         },

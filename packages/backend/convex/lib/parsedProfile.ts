@@ -173,8 +173,8 @@ export function toParsedProfile(raw: unknown): ParsedProfile {
     const company = optionalString(item.company) ?? "";
     const title = optionalString(item.title) ?? "";
     if (!company && !title) continue;
-    const start = optionalString(item.start);
-    const end = optionalString(item.end);
+    const start = optionalString(item.start) ?? optionalString(item.start_date) ?? optionalString(item.start_year);
+    const end = optionalString(item.end) ?? optionalString(item.end_date) ?? optionalString(item.end_year);
     const responsibilities = experienceHighlights(optionalString(item.description), compactStrings(item.responsibilities));
     const tools = compactStrings(item.tools);
     experiences.push({
