@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "(lsof -ti tcp:3000 | xargs kill -9) 2>/dev/null || true; next dev --port=3000",
+    "dev": "ulimit -n 20000 2>/dev/null || true; (lsof -ti tcp:3000 | xargs kill -9) 2>/dev/null || true; next dev --port=3000",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
