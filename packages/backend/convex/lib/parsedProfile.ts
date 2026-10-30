@@ -309,46 +309,65 @@ export function repairProfileJson(text: string) {
   return parsed ? JSON.stringify(toLlmProfile(parsed)) : null;
 }
 
+/**
+ * Google's structured-output validator rejects schemas with more than 16
+ * nullable/union parameters. These fields are optional instead of nullable so
+ * the same schema works on Gemini and Claude; `stripNulls` below still accepts
+ * a model that answers with null.
+ */
 export const parsedExperienceSchema = z.object({
   company: z.string(),
   title: z.string(),
-  start: z.string().nullable(),
-  end: z.string().nullable(),
+  start: z.string().optional(),
+  end: z.string().optional(),
   is_current: z.boolean(),
-  description: z.string().nullable(),
+  description: z.string().optional(),
   responsibilities: z.array(z.string()),
   tools: z.array(z.string()),
 });
 
 export const parsedEducationSchema = z.object({
   school: z.string(),
-  degree: z.string().nullable(),
-  field: z.string().nullable(),
-  start_year: z.number().nullable(),
-  end_year: z.number().nullable(),
+  degree: z.string().optional(),
+  field: z.string().optional(),
+  start_year: z.number().optional(),
+  end_year: z.number().optional(),
 });
 
 export const parsedCertificationSchema = z.object({
   name: z.string(),
-  issuing_organization: z.string().nullable(),
-  issue_date: z.string().nullable(),
-  expiration_date: z.string().nullable(),
+  issuing_organization: z.string().optional(),
+  issue_date: z.string().optional(),
+  expiration_date: z.string().optional(),
   does_not_expire: z.boolean(),
-  credential_id: z.string().nullable(),
-  credential_url: z.string().nullable(),
+  credential_id: z.string().optional(),
+  credential_url: z.string().optional(),
   skills: z.array(z.string()),
 });
 
+function stripNulls(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(stripNulls);
+  if (value && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [key, item] of Object.entries(value)) {
+      if (item === null) continue;
+      out[key] = stripNulls(item);
+    }
+    return out;
+  }
+  return value;
+}
+
 export const parsedProfileSchema = z.preprocess(
-  toLlmProfile,
+  (raw) => stripNulls(toLlmProfile(raw)),
   z.object({
-    name: z.string().nullable(),
-    email: z.string().nullable(),
-    phone: z.string().nullable(),
-    location: z.string().nullable(),
-    linkedin_url: z.string().nullable(),
-    summary: z.string().nullable(),
-    headline: z.string().nullable(),
+    name: z.string().optional(),
+    email: z.string().optional(),
+    phone: z.string().optional(),
+    location: z.string().optional(),
+    linkedin_url: z.string().optional(),
+    summary: z.string().optional(),
+    headline: z.string().optional(),
     experiences: z.array(parsedExperienceSchema),
     educations: z.array(parsedEducationSchema),
     skills: z.array(z.string()),
