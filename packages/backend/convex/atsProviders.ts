@@ -20,6 +20,8 @@ export type NormalizedJob = {
   salary_max?: number;
   salary_currency?: string;
   published_date?: number;
+  /** A transient detail failure left fields missing; retry the enrichment. */
+  incomplete?: boolean;
 };
 
 /** Soft cap on a single board pull. Reconcile skips close if this many jobs are returned. */
@@ -638,6 +640,9 @@ const WORKDAY_DETAIL_LIMIT = MAX_JOBS;
 const EIGHTFOLD_DETAIL_LIMIT = MAX_JOBS;
 const RIPPLING_DETAIL_LIMIT = MAX_JOBS;
 const ZOHO_DETAIL_LIMIT = 250;
+const ORACLE_DETAIL_LIMIT = MAX_JOBS;
+const ORACLE_DETAIL_CONCURRENCY = 2;
+const ORACLE_DETAIL_DELAY_MS = 120;
 
 async function getText(url: string, accept = "text/plain") {
   const res = await fetch(url, {
@@ -811,6 +816,7 @@ export async function fetchWorkdayPostings(identifier: string) {
   const endpoint = `https://${host}${workdaySitePath(tenant, site)}/jobs`;
   const postings: Array<Record<string, unknown>> = [];
   let total = MAX_JOBS;
+  let totalKnown = false;
   for (let offset = 0; offset < MAX_JOBS; offset += 20) {
     const page = (await getJsonRetry(endpoint, {
       method: "POST",
@@ -820,10 +826,13 @@ export async function fetchWorkdayPostings(identifier: string) {
     const rows = page.jobPostings ?? [];
     postings.push(...rows);
     // Workday returns total=0 on later pages; only trust the first page.
-    if (offset === 0 && typeof page.total === "number" && page.total > 0) total = page.total;
+    if (offset === 0 && typeof page.total === "number" && page.total > 0) {
+      total = page.total;
+      totalKnown = true;
+    }
     if (rows.length < 20 || postings.length >= Math.min(MAX_JOBS, total)) break;
   }
-  return { tenant, site, host, postings };
+  return { tenant, site, host, postings, total, totalKnown };
 }
 
 export async function fetchWorkdayDetail(identifier: string, externalPath: string) {
@@ -845,8 +854,9 @@ const WORKDAY_DETAIL_RETRY_CAP = 150;
 
 /** Workday's public careers endpoint. List responses do not include descriptions, so details are bounded. */
 export async function fetchWorkday(identifier: string, skipExternalIds?: Set<string>): Promise<NormalizedJob[]> {
-  const { tenant, site, host, postings } = await fetchWorkdayPostings(identifier);
+  const { tenant, site, host, postings, total, totalKnown } = await fetchWorkdayPostings(identifier);
   const details = new Map<string, Record<string, unknown>>();
+  const detailState = new Map<string, "ok" | "failed" | "gone">();
   const failed: Array<Record<string, unknown>> = [];
 
   const loadDetail = async (posting: Record<string, unknown>) => {
@@ -854,9 +864,22 @@ export async function fetchWorkday(identifier: string, skipExternalIds?: Set<str
     if (!externalPath) return true;
     try {
       const info = await fetchWorkdayDetail(identifier, externalPath);
-      if (info) details.set(externalPath, info);
+      if (info) {
+        details.set(externalPath, info);
+        detailState.set(externalPath, "ok");
+      } else {
+        detailState.set(externalPath, "failed");
+      }
       return true;
-    } catch {
+    } catch (error) {
+      const status = error instanceof AtsHttpError ? error.status : 0;
+      if (status === 404 || status === 410) {
+        // Removed between the list and detail calls: do not ingest it, and let
+        // the reconcile pass close any stored copy.
+        detailState.set(externalPath, "gone");
+        return true;
+      }
+      detailState.set(externalPath, "failed");
       return false;
     }
   };
@@ -878,8 +901,8 @@ export async function fetchWorkday(identifier: string, skipExternalIds?: Set<str
     await loadDetail(posting);
   }
 
-  return postings.slice(0, MAX_JOBS).map((posting) => {
-    const externalPath = typeof posting.externalPath === "string" ? posting.externalPath : "";
+  const jobs: ProviderJobs = postings.slice(0, MAX_JOBS).flatMap((posting) => {    const externalPath = typeof posting.externalPath === "string" ? posting.externalPath : "";
+    if (detailState.get(externalPath) === "gone") return [];
     const info = details.get(externalPath);
     const bulletFields = Array.isArray(posting.bulletFields) ? posting.bulletFields : [];
     const firstBullet = typeof bulletFields[0] === "string" ? bulletFields[0] : undefined;
@@ -887,7 +910,7 @@ export async function fetchWorkday(identifier: string, skipExternalIds?: Set<str
     const location = typeof info?.location === "string" ? info.location : typeof posting.locationsText === "string" ? posting.locationsText : undefined;
     const start = typeof info?.startDate === "string" ? new Date(`${info.startDate}T00:00:00Z`).getTime() : undefined;
     const posted = typeof info?.postedOn === "string" ? info.postedOn : typeof posting.postedOn === "string" ? posting.postedOn : undefined;
-    return {
+    return [{
       external_id: workdayExternalId(tenant, site, jobReqId, externalPath),
       title: typeof posting.title === "string" ? posting.title : typeof info?.title === "string" ? info.title : undefined,
       description: normalizeAtsHtml(typeof info?.jobDescription === "string" ? info.jobDescription : undefined),
@@ -901,8 +924,11 @@ export async function fetchWorkday(identifier: string, skipExternalIds?: Set<str
       workplace_type: workplaceFromLabel(location),
       work_type: typeof info?.timeType === "string" ? workTypeFromLabel(info.timeType) : undefined,
       published_date: start ?? (posted && !Number.isNaN(Date.parse(posted)) ? new Date(posted).getTime() : undefined),
-    } satisfies NormalizedJob;
+      incomplete: detailState.get(externalPath) === "failed" ? true : undefined,
+    } satisfies NormalizedJob];
   });
+  jobs.complete = totalKnown ? postings.length >= Math.min(total, MAX_JOBS) : undefined;
+  return jobs;
 }
 
 /** Workable's widget API includes descriptions with details=true. */
@@ -951,25 +977,97 @@ function oracleDescription(row: Record<string, unknown>) {
     .join("\n");
 }
 
+/** The list row omits the long description for some postings; the detail call has it. */
+async function fetchOracleDetail(host: string, site: string, id: string) {
+  const url = `https://${host}/hcmRestApi/resources/latest/recruitingCEJobRequisitionDetails?finder=ById;Id=${encodeURIComponent(id)},siteNumber=${encodeURIComponent(site)}&onlyData=true`;
+  const data = (await getJsonRetry(url)) as { items?: Array<Record<string, unknown>> };
+  return data.items?.[0];
+}
+
+function oracleDetailDescription(detail: Record<string, unknown> | undefined) {
+  if (!detail) return undefined;
+  const primary = [detail.ExternalDescriptionStr, detail.ShortDescriptionStr].find(
+    (value): value is string => typeof value === "string" && value.trim().length > 0,
+  );
+  const extras = [detail.ExternalQualificationsStr, detail.ExternalResponsibilitiesStr].filter(
+    (value): value is string => typeof value === "string" && value.trim().length > 0,
+  );
+  return [primary, ...extras].filter(Boolean).join("\n");
+}
+
+/** Some requisitions return no text from either API; the public page meta has a summary. */
+async function fetchOraclePageDescription(host: string, site: string, id: string) {
+  const url = `https://${host}/hcmUI/CandidateExperience/en/sites/${encodeURIComponent(site)}/job/${encodeURIComponent(id)}`;
+  const res = await fetch(url, { headers: { "User-Agent": REQUEST_UA } });
+  if (!res.ok) return undefined;
+  const html = await res.text();
+  const match = html.match(/<meta\s+property="og:description"\s+content="([\s\S]*?)"\s*\/?>/i);
+  return match ? normalizeAtsHtml(decodeHtmlEntities(match[1])) : undefined;
+}
+
 /** Oracle Cloud HCM candidate-experience search API. */
 export async function fetchOracleCloud(identifier: string): Promise<NormalizedJob[]> {
   const { host, site } = parseOracleIdentifier(identifier);
   const base = `https://${host}/hcmRestApi/resources/latest/recruitingCEJobRequisitions`;
-  const results: NormalizedJob[] = [];
+  const results: ProviderJobs = [];
+  let totalJobs: number | null = null;
   for (let offset = 0; offset < MAX_JOBS; offset += 25) {
     const data = (await getJson(`${base}?finder=findReqs;siteNumber=${encodeURIComponent(site)}&limit=25&offset=${offset}&expand=requisitionList`)) as {
       items?: Array<{ requisitionList?: Array<Record<string, unknown>>; TotalJobsCount?: number }>;
     };
     const search = data.items?.[0];
+    if (totalJobs == null && typeof search?.TotalJobsCount === "number") totalJobs = search.TotalJobsCount;
     const rows = search?.requisitionList ?? [];
+    // Some list rows have an empty ShortDescriptionStr even though the job has
+    // text; the detail endpoint (ById) returns ExternalDescriptionStr.
+    const details = new Map<string, Record<string, unknown>>();
+    const failed = new Set<string>();
+    const needsDetail = rows.filter((row) => !oracleDescription(row).trim() && String(row.Id ?? ""));
+    await mapLimit(needsDetail.slice(0, ORACLE_DETAIL_LIMIT), ORACLE_DETAIL_CONCURRENCY, async (row) => {
+      const id = String(row.Id ?? "");
+      try {
+        const detail = await fetchOracleDetail(host, site, id);
+        if (detail) details.set(id, detail);
+        else failed.add(id);
+      } catch {
+        failed.add(id);
+      }
+      await sleep(ORACLE_DETAIL_DELAY_MS + Math.floor(Math.random() * 120));
+    });
+    // Second chance one at a time for transient failures.
+    for (const row of needsDetail.filter((candidate) => failed.has(String(candidate.Id ?? ""))).slice(0, 30)) {
+      await sleep(400);
+      const id = String(row.Id ?? "");
+      try {
+        const detail = await fetchOracleDetail(host, site, id);
+        if (detail) {
+          details.set(id, detail);
+          failed.delete(id);
+        }
+      } catch {
+        // Leave it marked incomplete; the next sync retries.
+      }
+    }
+    // Last resort for reqs that have no API text at all.
+    const pageDescriptions = new Map<string, string>();
     for (const row of rows) {
       const id = String(row.Id ?? "");
+      if (!id || failed.has(id)) continue;
+      if (oracleDescription(row).trim() || oracleDetailDescription(details.get(id))) continue;
+      const pageDescription = await fetchOraclePageDescription(host, site, id);
+      if (pageDescription) pageDescriptions.set(id, pageDescription);
+      await sleep(150);
+    }
+    for (const row of rows) {
+      const id = String(row.Id ?? "");
+      const detail = details.get(id);
+      const description = normalizeAtsHtml(oracleDescription(row) || oracleDetailDescription(detail) || pageDescriptions.get(id));
       const location = typeof row.PrimaryLocation === "string" ? row.PrimaryLocation : undefined;
       const legal = typeof row.LegalEmployer === "string" ? row.LegalEmployer : undefined;
       results.push({
         external_id: `oracle_${site}_${id}`,
         title: typeof row.Title === "string" ? row.Title : undefined,
-        description: normalizeAtsHtml(oracleDescription(row)),
+        description,
         application_url: `https://${host}/hcmUI/CandidateExperience/en/sites/${encodeURIComponent(site)}/job/${encodeURIComponent(id)}`,
         company_name: legal || titleCaseCompany(host.split(".")[0] ?? site),
         company_logo: logoForDomain(companyDomain(undefined, host.split(".")[0])),
@@ -979,11 +1077,13 @@ export async function fetchOracleCloud(identifier: string): Promise<NormalizedJo
         workplace_type: workplaceFromLabel(typeof row.WorkplaceType === "string" ? row.WorkplaceType : location),
         work_type: workTypeFromLabel(typeof row.JobType === "string" ? row.JobType : typeof row.JobSchedule === "string" ? row.JobSchedule : undefined),
         published_date: typeof row.PostedDate === "string" ? new Date(row.PostedDate).getTime() : undefined,
+        incomplete: failed.has(id) ? true : undefined,
       });
       if (results.length >= MAX_JOBS) break;
     }
     if (rows.length < 25 || results.length >= MAX_JOBS || offset + 25 >= (search?.TotalJobsCount ?? 0)) break;
   }
+  if (totalJobs != null) results.complete = results.length >= totalJobs;
   return results;
 }
 
@@ -1521,7 +1621,15 @@ export type ProviderFetchArgs = {
   skipExternalIds?: Set<string>;
 };
 
-export async function fetchJobsForProvider(args: ProviderFetchArgs): Promise<NormalizedJob[]> {
+export type ProviderJobs = NormalizedJob[] & { complete?: boolean };
+
+export async function fetchJobsForProvider(args: ProviderFetchArgs): Promise<ProviderJobs> {
+  const jobs = await fetchProviderJobs(args);
+  if (typeof jobs.complete !== "boolean") jobs.complete = jobs.length < ATS_JOB_FETCH_LIMIT;
+  return jobs;
+}
+
+async function fetchProviderJobs(args: ProviderFetchArgs): Promise<ProviderJobs> {
   switch (args.provider) {
     case "greenhouse":
       if (!args.subdomain) throw new Error("Greenhouse board slug is required");

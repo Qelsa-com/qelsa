@@ -65,8 +65,9 @@ export const syncIntegration = internalAction({
             ? await collectDescribedExternalIds(ctx, args.integrationId)
             : undefined,
       });
-      const listComplete = jobs.length < ATS_JOB_FETCH_LIMIT;
+      const listComplete = jobs.complete ?? jobs.length < ATS_JOB_FETCH_LIMIT;
       const canEnrich = Boolean(process.env.OPENROUTER_API_KEY);
+      const hasIncompleteDetails = jobs.some((job) => job.incomplete === true);
 
       let stored = 0;
       const profileSeeds = new Map<string, CompanyProfileSeed>();
@@ -89,6 +90,15 @@ export const syncIntegration = internalAction({
         for (const job of chunk) job.description = undefined;
       }
       jobs.length = 0;
+
+      // Detail calls that failed transiently leave jobs stored without text.
+      // Retry only the missing ones shortly after instead of waiting 5 days.
+      if (hasIncompleteDetails && integration.provider === "workday") {
+        await ctx.scheduler.runAfter(2 * 60 * 1000, internal.atsSync.backfillMissingWorkdayDescriptions, {
+          integrationId: args.integrationId,
+          limit: 200,
+        });
+      }
 
       // Queue company-profile generation outside the sync path. Existing
       // profiles are skipped, so repeat syncs never spend another LLM call.
