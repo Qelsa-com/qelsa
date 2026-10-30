@@ -819,6 +819,17 @@ export default defineSchema({
     ats_sync_enabled: v.boolean(),
   }),
 
+  // Admin-editable legal copy and the home-page jobs stat.
+  site_content: defineTable({
+    key: v.string(),
+    title: v.optional(v.string()),
+    body: v.string(),
+    contact_heading: v.optional(v.string()),
+    contact_email: v.optional(v.string()),
+    updated_at: v.number(),
+    updated_by: v.optional(v.id("users")),
+  }).index("by_key", ["key"]),
+
   // Append-only trail of admin actions. One row per mutation an admin made,
   // so a privileged change is always attributable and revertable.
   admin_audit_log: defineTable({

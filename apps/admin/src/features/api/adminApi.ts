@@ -232,6 +232,29 @@ export function useDeleteUserMutation() {
   );
 }
 
+export type SiteContentKey = "terms" | "privacy" | "cookies" | "home_jobs_stat";
+
+export function useGetSiteContentQuery() {
+  return useConvexQueryHook(api.admin.getSiteContent, {});
+}
+
+export function useUpdateSiteContentMutation() {
+  return useConvexMutationHook(
+    api.admin.updateSiteContent,
+    (input: {
+      key: SiteContentKey;
+      title?: string;
+      body: string;
+      contactHeading?: string;
+      contactEmail?: string;
+      note?: string;
+    }) => ({
+      ...input,
+      key: input.key as never,
+    }),
+  );
+}
+
 export function useGrantManualProMutation() {
   return useConvexMutationHook(
     api.admin.grantManualPro,

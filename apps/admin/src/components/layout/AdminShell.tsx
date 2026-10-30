@@ -3,6 +3,7 @@
 import { useAdminAuth } from "@/contexts/AuthContext";
 import {
   Briefcase,
+  FileText,
   GraduationCap,
   Handshake,
   LayoutDashboard,
@@ -26,6 +27,7 @@ const NAV_ITEMS = [
   { href: "/boards", label: "Job boards", mobileLabel: "Boards", icon: Waypoints },
   { href: "/plans", label: "Plans", icon: SlidersHorizontal },
   { href: "/blog", label: "Blog", icon: Newspaper },
+  { href: "/content", label: "Content", icon: FileText },
   { href: "/interview-prep", label: "Interview prep", icon: GraduationCap },
   { href: "/affiliates", label: "Affiliate courses", icon: Handshake },
   { href: "/audit", label: "Audit log", icon: ScrollText },

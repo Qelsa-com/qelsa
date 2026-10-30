@@ -92,7 +92,7 @@ function FitSkillRow({ skill, yours, target, badge }: { skill: string; yours: st
   );
 }
 
-export function LandingPage() {
+export function LandingPage({ homeJobsStat = "20K+" }: { homeJobsStat?: string }) {
   return (
     <div className="relative isolate min-h-screen overflow-hidden text-white selection:bg-neon-cyan/20 selection:text-neon-cyan font-sans">
       {/* Top glows sit in a fixed layer so they continue behind the
@@ -216,7 +216,7 @@ export function LandingPage() {
                 <Briefcase className="size-4" />
               </span>
               <div>
-                <p className="text-sm font-bold text-white">20K+ live jobs</p>
+                <p className="text-sm font-bold text-white">{homeJobsStat} live jobs</p>
                 <p className="mt-0.5 text-xs text-white/45">Each one scored for you</p>
               </div>
             </div>

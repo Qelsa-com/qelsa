@@ -8,6 +8,12 @@ import { effectiveSubscriptionPlan, getUserPlan, isSubscriptionEntitled } from "
 import { defaultPlanConfig, getAllPlanConfigs, type PlanAudience, type PlanTier } from "./lib/planConfig";
 import { deleteJobCascade } from "./lib/deleteUserData";
 import { deleteUserAccount } from "./lib/deleteUserAccount";
+import {
+  DEFAULT_HOME_JOBS_STAT,
+  DEFAULT_LEGAL_CONTENT,
+  LEGAL_DEFAULT_UPDATED_AT,
+  isLegalKey,
+} from "./lib/siteContent";
 import { bumpOpenJobCount, openCountDelta } from "./lib/jobCounts";
 import {
   ADMIN_STAT_KEYS,
@@ -1229,5 +1235,138 @@ export const rebuildApplicationStatsBatch = internalMutation({
   handler: async (ctx, args) => {
     const result = await rebuildApplicationStats(ctx, args.cursor);
     return { done: result.done };
+  },
+});
+
+const LEGAL_CONTENT_KEYS = ["terms", "privacy", "cookies"] as const;
+const CONTACT_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** Effective legal copy and home stats, including defaults for unsaved pages. */
+export const getSiteContent = adminQuery({
+  args: {},
+  returns: v.any(),
+  handler: async (ctx) => {
+    const rows = await ctx.db.query("site_content").take(20);
+    const byKey = new Map(rows.map((row) => [row.key, row]));
+    const stat = byKey.get("home_jobs_stat");
+    return {
+      legal: LEGAL_CONTENT_KEYS.map((key) => {
+        const row = byKey.get(key);
+        const fallback = DEFAULT_LEGAL_CONTENT[key];
+        return {
+          key,
+          title: row?.title ?? fallback.title,
+          body: row?.body ?? fallback.body,
+          contactHeading: row?.contact_heading ?? fallback.contactHeading,
+          contactEmail: row?.contact_email ?? fallback.contactEmail,
+          updatedAt: row?.updated_at ?? LEGAL_DEFAULT_UPDATED_AT,
+          isDefault: !row,
+        };
+      }),
+      homeJobsStat: {
+        key: "home_jobs_stat" as const,
+        value: stat?.body ?? DEFAULT_HOME_JOBS_STAT,
+        updatedAt: stat?.updated_at ?? 0,
+        isDefault: !stat,
+      },
+    };
+  },
+});
+
+/** Save one legal page or the home jobs stat. Markdown only, no media. */
+export const updateSiteContent = adminMutation({
+  args: {
+    key: v.union(
+      v.literal("terms"),
+      v.literal("privacy"),
+      v.literal("cookies"),
+      v.literal("home_jobs_stat"),
+    ),
+    title: v.optional(v.string()),
+    body: v.string(),
+    contactHeading: v.optional(v.string()),
+    contactEmail: v.optional(v.string()),
+    note: v.optional(v.string()),
+  },
+  returns: v.object({ updatedAt: v.number() }),
+  handler: async (ctx, args) => {
+    const body = args.body.trim();
+    if (!body) throw new Error("Content cannot be empty");
+    if (body.length > 120_000) throw new Error("Content is too long (max 120,000 characters)");
+
+    const legal = isLegalKey(args.key);
+    let title: string | undefined;
+    let contactHeading: string | undefined;
+    let contactEmail: string | undefined;
+
+    if (legal) {
+      title = (args.title ?? "").trim();
+      contactHeading = (args.contactHeading ?? "").trim();
+      contactEmail = (args.contactEmail ?? "").trim();
+      if (!title) throw new Error("Title is required");
+      if (title.length > 160) throw new Error("Title is too long");
+      if (!contactHeading) throw new Error("Contact heading is required");
+      if (contactHeading.length > 160) throw new Error("Contact heading is too long");
+      if (!CONTACT_EMAIL_RE.test(contactEmail)) throw new Error("Enter a valid contact email");
+    } else {
+      if (body.length > 16) throw new Error("Keep the jobs stat short (max 16 characters)");
+      if (/[\n\r<>]/.test(body)) {
+        throw new Error("The jobs stat cannot contain line breaks or angle brackets");
+      }
+    }
+
+    const existing = await ctx.db
+      .query("site_content")
+      .withIndex("by_key", (q) => q.eq("key", args.key))
+      .unique();
+    const updatedAt = Date.now();
+
+    if (legal) {
+      const fields = {
+        title,
+        body,
+        contact_heading: contactHeading,
+        contact_email: contactEmail,
+        updated_at: updatedAt,
+        updated_by: ctx.user._id,
+      };
+      if (existing) await ctx.db.patch(existing._id, fields);
+      else await ctx.db.insert("site_content", { key: args.key, ...fields });
+    } else {
+      const fields = {
+        body,
+        updated_at: updatedAt,
+        updated_by: ctx.user._id,
+      };
+      if (existing) {
+        await ctx.db.patch(existing._id, {
+          ...fields,
+          title: undefined,
+          contact_heading: undefined,
+          contact_email: undefined,
+        });
+      } else {
+        await ctx.db.insert("site_content", { key: args.key, ...fields });
+      }
+    }
+
+    await ctx.db.insert("admin_audit_log", {
+      admin_user_id: ctx.user._id,
+      action: "content.updated",
+      before: existing
+        ? {
+            title: existing.title ?? null,
+            body: existing.body,
+          }
+        : null,
+      after: {
+        title: legal ? (title ?? null) : null,
+        body,
+      },
+      note: args.note,
+      created_at: updatedAt,
+    });
+
+    return { updatedAt };
   },
 });

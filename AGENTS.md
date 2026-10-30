@@ -19,6 +19,7 @@ Make the best decision that will elevate all three: the user experience (UX), de
 - Admin mutations write an `admin_audit_log` row so every privileged action stays attributable.
 - Plan limits and benefit copy are editable at `/plans` and stored in `plan_configs`. Missing rows fall back to `convex/lib/planConfig.ts`; entitlement checks read the row live. Benefit lines support `{{agent_benefit}}`, `{{agent_limit}}`, `{{application_benefit}}`, and `{{application_limit}}` tokens so copy stays in sync with the configured limits.
 - Suspended app users are rejected by `getAppUser()` and are treated as signed out by optional auth reads. Do not add a new `authed*` path that bypasses that check.
+- Legal pages (terms, privacy, cookies) and the home-page jobs stat live in `site_content`. Defaults are in `convex/lib/siteContent.ts`; public reads go through `content.getPublic` from `getServerSideProps`, so the copy is in the server-rendered HTML. The admin editor at `/content` accepts Markdown only — the renderer strips raw HTML and images and allows only http(s)/mailto links.
 
 ## Public job boards
 
