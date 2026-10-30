@@ -163,7 +163,7 @@ export default function ContentPage() {
         description="Terms, privacy, cookies, and the home-page jobs stat. Edited content is live immediately."
       />
 
-      <div className="px-5 py-6 md:px-8">
+      <div className="px-5 py-6 pb-[calc(10rem+env(safe-area-inset-bottom))] md:px-8 lg:pb-28">
         <div className="flex flex-wrap gap-2">
           {TABS.map((tab) => (
             <button
@@ -197,9 +197,6 @@ export default function ContentPage() {
                     Markdown only — images and embedded media are not supported.
                   </p>
                 </div>
-                <span className="rounded-md bg-white/[0.06] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white/50">
-                  {isDefault ? "Default" : "Edited"}
-                </span>
               </div>
 
               {legal ? (
@@ -325,22 +322,6 @@ export default function ContentPage() {
                   placeholder="Why is this changing?"
                 />
               </div>
-
-              <div className="mt-4 flex flex-wrap items-center gap-3">
-                <Button
-                  onClick={() => void handleSave()}
-                  disabled={isSaving}
-                  className="rounded-full bg-gradient-to-r from-neon-purple to-neon-pink text-white hover:opacity-90"
-                >
-                  <Save className="mr-1.5 h-4 w-4" />
-                  {isSaving ? "Saving…" : "Save"}
-                </Button>
-                {lastUpdated ? (
-                  <span className="text-xs text-muted-foreground">
-                    Last updated {new Date(lastUpdated).toLocaleString()}
-                  </span>
-                ) : null}
-              </div>
             </section>
 
             <section className="rounded-2xl border border-glass-border glass p-5">
@@ -363,6 +344,32 @@ export default function ContentPage() {
           </div>
         )}
       </div>
+
+      {draft ? (
+        <div className="fixed inset-x-0 bottom-[calc(4.25rem+env(safe-area-inset-bottom))] z-30 border-t border-glass-border bg-[#08080f]/95 px-4 py-3 backdrop-blur-md lg:bottom-0 lg:left-64">
+          <div className="mx-auto flex max-w-[1600px] flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-white/80">
+                {TABS.find((tab) => tab.key === active)?.label}
+                <span className="ml-2 rounded-md bg-white/[0.06] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white/45">
+                  {isDefault ? "Default" : "Edited"}
+                </span>
+              </p>
+              <p className="mt-0.5 text-[11px] text-muted-foreground">
+                {lastUpdated ? `Last updated ${new Date(lastUpdated).toLocaleString()}` : "Not saved yet"}
+              </p>
+            </div>
+            <Button
+              onClick={() => void handleSave()}
+              disabled={isSaving}
+              className="rounded-full bg-gradient-to-r from-neon-purple to-neon-pink text-white hover:opacity-90"
+            >
+              <Save className="mr-1.5 h-4 w-4" />
+              {isSaving ? "Saving…" : "Save"}
+            </Button>
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }
