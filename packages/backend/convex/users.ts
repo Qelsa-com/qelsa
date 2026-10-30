@@ -2,7 +2,7 @@ import { R2 } from "@convex-dev/r2";
 import { v } from "convex/values";
 import { components } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import { query, type MutationCtx } from "./_generated/server";
+import { internalMutation, query, type MutationCtx } from "./_generated/server";
 import { authedMutation, optionalAuthQuery } from "./lib/customFunctions";
 import { deleteAppUserData } from "./lib/deleteUserData";
 import { applyUserStatDeltas } from "./lib/adminStats";
@@ -437,3 +437,35 @@ async function deleteBetterAuthUser(ctx: MutationCtx, authId: string) {
     },
   });
 }
+
+/**
+ * Support-only deletion for accounts that cannot sign in themselves (for
+ * example a legacy recruiter blocked by the work-email policy). Mirrors
+ * `deleteAccount`: app rows, owned pages/jobs, R2 objects, agent threads and
+ * the Better Auth identity.
+ */
+export const internalDeleteUserByEmail = internalMutation({
+  args: { email: v.string() },
+  returns: v.object({
+    deleted: v.boolean(),
+    email: v.string(),
+    userId: v.optional(v.id("users")),
+    authId: v.optional(v.string()),
+  }),
+  handler: async (ctx, args) => {
+    const email = args.email.trim().toLowerCase();
+    if (!email) return { deleted: false, email };
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q) => q.eq("email", email))
+      .unique();
+    if (!user) return { deleted: false, email };
+
+    const authId = user.authId;
+    await ctx.runMutation(components.agent.users.deleteAllForUserIdAsync, { userId: authId });
+    const r2Keys = await deleteAppUserData(ctx, user);
+    await deleteR2Keys(r2, ctx, r2Keys);
+    await deleteBetterAuthUser(ctx, authId);
+    return { deleted: true, email, userId: user._id, authId };
+  },
+});
