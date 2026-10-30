@@ -65,7 +65,9 @@ export const syncIntegration = internalAction({
             ? await collectDescribedExternalIds(ctx, args.integrationId)
             : undefined,
       });
-      const listComplete = jobs.complete ?? jobs.length < ATS_JOB_FETCH_LIMIT;
+      // An empty pull is usually a bad response, not an empty board; do not
+      // mass-close jobs on it.
+      const listComplete = jobs.length > 0 && (jobs.complete ?? jobs.length < ATS_JOB_FETCH_LIMIT);
       const canEnrich = Boolean(process.env.OPENROUTER_API_KEY);
       const hasIncompleteDetails = jobs.some((job) => job.incomplete === true);
 

@@ -901,7 +901,8 @@ export async function fetchWorkday(identifier: string, skipExternalIds?: Set<str
     await loadDetail(posting);
   }
 
-  const jobs: ProviderJobs = postings.slice(0, MAX_JOBS).flatMap((posting) => {    const externalPath = typeof posting.externalPath === "string" ? posting.externalPath : "";
+  const jobs: ProviderJobs = postings.slice(0, MAX_JOBS).flatMap((posting) => {
+    const externalPath = typeof posting.externalPath === "string" ? posting.externalPath : "";
     if (detailState.get(externalPath) === "gone") return [];
     const info = details.get(externalPath);
     const bulletFields = Array.isArray(posting.bulletFields) ? posting.bulletFields : [];
