@@ -2,7 +2,7 @@ import { R2 } from "@convex-dev/r2";
 import { v } from "convex/values";
 import { components } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import { internalMutation, query, type MutationCtx } from "./_generated/server";
+import { internalMutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { authedMutation, optionalAuthQuery } from "./lib/customFunctions";
 import { applyUserStatDeltas } from "./lib/adminStats";
 import { isSubscriptionEntitled } from "./lib/billingEntitlements";
@@ -94,30 +94,37 @@ export const me = optionalAuthQuery({
   },
 });
 
+/** Resolve a username, custom URL, or id to a public, active user. */
+async function findPublicUser(ctx: QueryCtx, username: string) {
+  let user =
+    (await ctx.db
+      .query("users")
+      .withIndex("by_username", (q) => q.eq("username", username))
+      .unique()) ??
+    (await ctx.db
+      .query("users")
+      .withIndex("by_custom_profile_url", (q) => q.eq("custom_profile_url", username))
+      .unique());
+
+  if (!user) {
+    try {
+      const byId = await ctx.db.get(username as Id<"users">);
+      if (byId) user = byId;
+    } catch {
+      // Not a valid Convex Id
+    }
+  }
+
+  if (!user || !user.isActive || user.profile_visibility === "private") return null;
+  return user;
+}
+
 export const publicProfile = query({
   args: { username: v.string() },
   returns: v.any(),
   handler: async (ctx, args) => {
-    let user =
-      (await ctx.db
-        .query("users")
-        .withIndex("by_username", (q) => q.eq("username", args.username))
-        .unique()) ??
-      (await ctx.db
-        .query("users")
-        .withIndex("by_custom_profile_url", (q) => q.eq("custom_profile_url", args.username))
-        .unique());
-
-    if (!user) {
-      try {
-        const byId = await ctx.db.get(args.username as Id<"users">);
-        if (byId) user = byId;
-      } catch {
-        // Not a valid Convex Id
-      }
-    }
-
-    if (!user || !user.isActive || user.profile_visibility === "private") return null;
+    const user = await findPublicUser(ctx, args.username);
+    if (!user) return null;
 
     const [experiences, educations, certifications, skills] = await Promise.all([
       ctx.db
@@ -240,6 +247,24 @@ export const publicProfile = query({
       educations: hydratedEducations.sort((a, b) => (Number(a.position) || 0) - (Number(b.position) || 0)),
       certifications: hydratedCertifications,
       skills: hydratedSkills,
+    };
+  },
+});
+
+/** Lightweight metadata read; avoids hydrating the full public profile for SEO tags. */
+export const publicProfileMeta = query({
+  args: { username: v.string() },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    const user = await findPublicUser(ctx, args.username);
+    if (!user) return null;
+    return {
+      name: user.name,
+      username: user.username ?? null,
+      headline: user.headline ?? null,
+      professional_summary: user.professional_summary ?? null,
+      about: user.about ?? null,
+      profile_image: user.profile_image ?? null,
     };
   },
 });

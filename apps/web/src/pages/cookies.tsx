@@ -21,6 +21,7 @@ const Cookies = ({ content }: { content: LegalPageContent }) => {
         body={content.body}
         contactHeading={content.contactHeading}
         contactEmail={content.contactEmail}
+        path="/cookies"
       />
     </Layout>
   );

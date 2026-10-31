@@ -33,7 +33,7 @@ function isCandidateOnlyPath(path: string) {
   return CANDIDATE_ONLY_PREFIXES.some((prefix) => path === prefix || path.startsWith(prefix));
 }
 
-const isPublicPath = (path: string) => {
+export const isPublicPath = (path: string) => {
   if (PUBLIC_ROUTES.includes(path)) return true;
 
   const jobId = PUBLIC_JOB.exec(path)?.[1];

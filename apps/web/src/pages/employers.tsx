@@ -1,3 +1,4 @@
+import { Seo } from "@/components/Seo";
 import { ArrowRight, Check, ChevronRight, CircleArrowUp, CircleCheck, TriangleAlert } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -109,6 +110,11 @@ function AtsPill({ name }: { name: string }) {
 export default function Employers() {
   return (
     <Layout activeSection="employers">
+      <Seo
+        title="Hire role-ready talent"
+        description="Define the skills a role needs and see which candidates fit before you interview."
+        path="/employers"
+      />
       {/* Hero */}
       <section className="bg-[linear-gradient(180deg,#06060F_0%,#0B1020_100%)] py-20 lg:py-23">
         <div className={`${CONTAINER} grid items-center gap-14 lg:grid-cols-[1fr_520px]`}>

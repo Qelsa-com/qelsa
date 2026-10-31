@@ -1479,6 +1479,42 @@ export const getById = optionalAuthQuery({
   },
 });
 
+/**
+ * Sitemap feed: open jobs only, in bounded pages. Descriptions are large, so
+ * keep the page small enough to stay under the per-query read budget.
+ */
+export const sitemapPage = optionalAuthQuery({
+  args: { cursor: v.union(v.string(), v.null()), limit: v.optional(v.number()) },
+  returns: v.object({
+    jobs: v.array(
+      v.object({
+        id: v.id("jobs"),
+        published: v.union(v.number(), v.null()),
+      }),
+    ),
+    cursor: v.union(v.string(), v.null()),
+    isDone: v.boolean(),
+  }),
+  handler: async (ctx, args) => {
+    const page = await ctx.db
+      .query("jobs")
+      .withIndex("by_status", (q) => q.eq("status", "open"))
+      .order("desc")
+      .paginate({
+        numItems: Math.max(1, Math.min(args.limit ?? 200, 200)),
+        cursor: args.cursor,
+      });
+    return {
+      jobs: page.page.map((job) => ({
+        id: job._id,
+        published: job.published_date ?? null,
+      })),
+      cursor: page.continueCursor,
+      isDone: page.isDone,
+    };
+  },
+});
+
 export const listSimilar = optionalAuthQuery({
   args: { id: v.id("jobs") },
   returns: v.any(),

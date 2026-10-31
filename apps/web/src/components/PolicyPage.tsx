@@ -6,8 +6,8 @@
  * and a tail spacer. The body is Markdown authored in the admin panel.
  */
 
-import Head from "next/head";
 import { Mail } from "lucide-react";
+import { Seo } from "./Seo";
 import { LegalMarkdown, markdownSummary } from "./LegalMarkdown";
 
 interface PolicyPageProps {
@@ -16,6 +16,8 @@ interface PolicyPageProps {
   body: string;
   contactHeading: string;
   contactEmail: string;
+  /** Canonical path, e.g. "/terms". */
+  path: string;
 }
 
 export function PolicyPage({
@@ -24,13 +26,11 @@ export function PolicyPage({
   body,
   contactHeading,
   contactEmail,
+  path,
 }: PolicyPageProps) {
   return (
     <>
-      <Head>
-        <title>{`${title} | Qelsa`}</title>
-        <meta name="description" content={markdownSummary(body)} />
-      </Head>
+      <Seo title={title} description={markdownSummary(body)} path={path} />
 
       {/* top-accent */}
       <div className="h-1 w-full bg-neon-cyan" />

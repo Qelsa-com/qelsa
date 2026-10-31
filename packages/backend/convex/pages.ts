@@ -143,6 +143,60 @@ export const getById = optionalAuthQuery({
   },
 });
 
+/** Lightweight page metadata for SSR/SEO without hydrating jobs or followers. */
+export const getMetaById = optionalAuthQuery({
+  args: { id: v.id("pages") },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    const page = await ctx.db.get(args.id);
+    if (!page) return null;
+    return {
+      id: page._id,
+      name: page.name,
+      tagline: page.tagline ?? null,
+      description: page.description ?? null,
+      logo: page.logo ?? null,
+      website: page.website ?? null,
+      industry: page.industry ?? null,
+    };
+  },
+});
+
+/**
+ * Public company pages for the sitemap. Pages have no visibility field today,
+ * so every row is publicly reachable by id. Paginated to keep reads bounded as
+ * the number of company pages grows.
+ */
+export const sitemap = optionalAuthQuery({
+  args: { cursor: v.union(v.string(), v.null()), limit: v.optional(v.number()) },
+  returns: v.object({
+    pages: v.array(
+      v.object({
+        id: v.id("pages"),
+        name: v.string(),
+        createdAt: v.number(),
+      }),
+    ),
+    cursor: v.union(v.string(), v.null()),
+    isDone: v.boolean(),
+  }),
+  handler: async (ctx, args) => {
+    const page = await ctx.db.query("pages").order("desc").paginate({
+      numItems: Math.max(1, Math.min(args.limit ?? 200, 200)),
+      cursor: args.cursor,
+    });
+    return {
+      pages: page.page.map((company) => ({
+        id: company._id,
+        name: company.name,
+        createdAt: company._creationTime,
+      })),
+      cursor: page.continueCursor,
+      isDone: page.isDone,
+    };
+  },
+});
+
 export const toggleFollow = authedMutation({
   args: { pageId: v.id("pages") },
   returns: v.any(),

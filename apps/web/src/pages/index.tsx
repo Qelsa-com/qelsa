@@ -1,4 +1,5 @@
 import { LandingPage } from "@/components/LandingPage";
+import { DEFAULT_DESCRIPTION, DEFAULT_TITLE, JsonLd, Seo, SITE_URL } from "@/components/Seo";
 import { MySpaceDashboard } from "@/components/space/MySpaceDashboard";
 import { useAuth } from "@/contexts/AuthContext";
 import { api } from "@/lib/convexApi";
@@ -12,6 +13,41 @@ type HomeProps = {
   /** Admin-editable "20K+" shown in the home jobs stat. */
   homeJobsStat: string;
 };
+
+const HOME_STRUCTURED_DATA = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": `${SITE_URL}/#organization`,
+      name: "Qelsa",
+      url: SITE_URL,
+      logo: `${SITE_URL}/qelsa-logo.svg`,
+    },
+    {
+      "@type": "WebSite",
+      "@id": `${SITE_URL}/#website`,
+      name: "Qelsa",
+      url: SITE_URL,
+      publisher: { "@id": `${SITE_URL}/#organization` },
+      potentialAction: {
+        "@type": "SearchAction",
+        target: {
+          "@type": "EntryPoint",
+          urlTemplate: `${SITE_URL}/jobs/all?q={search_term_string}`,
+        },
+        "query-input": "required name=search_term_string",
+      },
+    },
+  ],
+};
+
+const HOME_SEO = (
+  <>
+    <Seo title={DEFAULT_TITLE} absoluteTitle description={DEFAULT_DESCRIPTION} path="/" />
+    <JsonLd data={HOME_STRUCTURED_DATA} />
+  </>
+);
 
 /**
  * Server-render the marketing page (and the editable jobs stat) so crawlers see
@@ -41,25 +77,23 @@ export default function App({ homeJobsStat }: HomeProps) {
     }
   }, [isLoading, router, user]);
 
-  if (isLoading) {
+  if (isLoading || !isAuthenticated || !user) {
     return (
-      <Layout activeSection="home">
-        <LandingPage homeJobsStat={homeJobsStat} />
-      </Layout>
-    );
-  }
-
-  if (!isAuthenticated || !user) {
-    return (
-      <Layout activeSection="home">
-        <LandingPage homeJobsStat={homeJobsStat} />
-      </Layout>
+      <>
+        {HOME_SEO}
+        <Layout activeSection="home">
+          <LandingPage homeJobsStat={homeJobsStat} />
+        </Layout>
+      </>
     );
   }
 
   return (
-    <Layout activeSection={"space"}>
-      <MySpaceDashboard />
-    </Layout>
+    <>
+      {HOME_SEO}
+      <Layout activeSection={"space"}>
+        <MySpaceDashboard />
+      </Layout>
+    </>
   );
 }
