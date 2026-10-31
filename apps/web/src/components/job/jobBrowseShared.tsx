@@ -369,11 +369,13 @@ export function useJobBrowseFilters(
   }));
   const wasSearching = useRef(false);
   const previousDefaultSort = useRef(defaultSort);
+  const sortTouched = useRef(false);
 
   // URL is the source of truth so a filtered list survives refresh, sharing,
   // and browser back/forward from a job-detail page.
   useEffect(() => {
     if (!router.isReady || hydrated) return;
+    if (router.query.sort) sortTouched.current = true;
     const parsed = filtersFromUrl(router.query as FilterQuery, tier, defaultSort);
     if (parsed) {
       setSearchInput(parsed.search);
@@ -398,9 +400,10 @@ export function useJobBrowseFilters(
 
   // All Jobs opens as a raw newest-first listing. Once the candidate starts
   // searching, switch the default sort to Best match so readiness ranks the
-  // results; lower-readiness matches remain in the list.
+  // results; lower-readiness matches remain in the list. Never override a sort
+  // the candidate picked explicitly.
   useEffect(() => {
-    if (!hydrated || tier || defaultSort !== "date" || !autoSearchSort) return;
+    if (!hydrated || tier || defaultSort !== "date" || !autoSearchSort || sortTouched.current) return;
     const searching = Boolean(query.trim());
     if (searching === wasSearching.current) return;
     wasSearching.current = searching;
@@ -430,6 +433,7 @@ export function useJobBrowseFilters(
 
   const discoverArgs = useMemo(() => toDiscoverArgs(filters, query), [filters, query]);
   const applyFilters = (partial: Partial<SearchFilters>) => {
+    if (partial.sort_by !== undefined) sortTouched.current = true;
     setFilters((prev) => ({ ...prev, ...partial }));
   };
 
