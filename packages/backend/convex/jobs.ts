@@ -691,6 +691,36 @@ export const listPaginated = optionalAuthQuery({
         };
       }
 
+      // Date-ranked search. The search index paginates by relevance, so sorting
+      // only the current page made "Newest" wrong across pages. Rank the
+      // bounded result set by published date, then paginate that order.
+      if (sortBy === "date") {
+        const hits = await ctx.db
+          .query("jobs")
+          .withSearchIndex("search_all", (q) => q.search("search_text", search).eq("status", "open"))
+          .take(SEARCH_CANDIDATE_CAP);
+        if (needsCity) await prefetchCities(ctx, hits, cache);
+        const matched = hits.filter(passesListing);
+        matched.sort((a, b) => publishedMs(b) - publishedMs(a));
+
+        const afterId = decodeRankCursor(paginationOpts.cursor);
+        const afterIndex = afterId ? matched.findIndex((job) => job._id === afterId) : -1;
+        if (afterId && afterIndex < 0) {
+          return { page: [], isDone: true, continueCursor: paginationOpts.cursor ?? "" };
+        }
+        const start = afterId ? afterIndex + 1 : 0;
+        const slice = matched.slice(start, start + target);
+        const last = slice[slice.length - 1];
+        const pageCandidates = await withPageReadiness(
+          slice.map((job) => ({ job, readiness: null })),
+        );
+        return {
+          page: await slimListJobs(ctx, pageCandidates, hydration, cache),
+          isDone: start + slice.length >= matched.length,
+          continueCursor: last ? encodeRankCursor(last._id) : (paginationOpts.cursor ?? ""),
+        };
+      }
+
       // Salary-ranked search. Sorting only the current page made "Highest
       // salary" mean "highest paid within search hits 1–N"; rank the bounded
       // result set instead, in a single currency.
@@ -761,13 +791,8 @@ export const listPaginated = optionalAuthQuery({
         candidates = await withPageReadiness(matched.map((job) => ({ job, readiness: null })));
       }
 
-      // Search relevance is the index order. Only reorder the current page for
-      // explicit date/salary choices; readiness is shown, never a filter.
-      if (sortBy === "date") {
-        candidates.sort((a, b) => publishedMs(b.job) - publishedMs(a.job));
-      } else if (sortBy === "salary") {
-        candidates.sort((a, b) => salaryValue(b.job) - salaryValue(a.job));
-      }
+      // Search relevance is the index order. Date and salary ordering are
+      // handled above against the bounded result set, not per page.
 
       return {
         page: await slimListJobs(ctx, candidates, hydration, cache),
