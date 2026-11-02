@@ -115,6 +115,15 @@ function stringList(value: unknown, limit = 12) {
   ].slice(0, limit);
 }
 
+/** Preserve order and repeats; used for paragraphs and bullets. */
+function textList(value: unknown, limit = 20) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => cleanText(item))
+    .filter((item) => item.length > 0)
+    .slice(0, limit);
+}
+
 function asNumber(value: unknown, fallback = 0) {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
@@ -381,7 +390,22 @@ function normalizeGenerated(raw: Record<string, unknown>, titleHint: string): Ge
   };
 }
 
-function scoreBlog(post: GeneratedBlog, coverReady: boolean) {
+function scoreBlog(
+  post: Pick<
+    GeneratedBlog,
+    | "title"
+    | "metaDescription"
+    | "metaTitle"
+    | "primaryKeyword"
+    | "intro"
+    | "sections"
+    | "faq"
+    | "wordCount"
+    | "keyTakeaways"
+    | "relatedLinks"
+  >,
+  coverReady: boolean,
+) {
   let score = 0;
   const titleLength = post.title.length;
   if (titleLength >= 40 && titleLength <= 65) score += 20;
@@ -736,6 +760,168 @@ export const setStatus = adminMutation({
       before: { status: row.status, published_at: row.published_at ?? null },
       after: { status: args.status, published_at: publishedAt ?? null },
       note: row.title,
+      created_at: now,
+    });
+    return null;
+  },
+});
+
+export const update = adminMutation({
+  args: {
+    blogId: v.id("blog_posts"),
+    title: v.string(),
+    slug: v.string(),
+    excerpt: v.string(),
+    metaTitle: v.string(),
+    metaDescription: v.string(),
+    primaryKeyword: v.string(),
+    searchIntent: v.string(),
+    category: v.string(),
+    tags: v.array(v.string()),
+    intro: v.string(),
+    keyTakeaways: v.array(v.string()),
+    sections: v.array(
+      v.object({
+        heading: v.string(),
+        paragraphs: v.array(v.string()),
+        bullets: v.array(v.string()),
+      }),
+    ),
+    faq: v.array(
+      v.object({
+        question: v.string(),
+        answer: v.string(),
+      }),
+    ),
+    relatedLinks: v.array(
+      v.object({
+        label: v.string(),
+        href: v.string(),
+      }),
+    ),
+    coverImageAlt: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const row = await ctx.db.get(args.blogId);
+    if (!row) throw new Error("Post not found.");
+
+    const title = cleanText(args.title).slice(0, 160);
+    if (!title) throw new Error("Title is required.");
+    const slug = slugify(args.slug || title);
+    if (!slug) throw new Error("Slug is required.");
+    const slugOwner = await ctx.db
+      .query("blog_posts")
+      .withIndex("by_slug", (q) => q.eq("slug", slug))
+      .first();
+    if (slugOwner && slugOwner._id !== row._id) {
+      throw new Error("Another post already uses this slug.");
+    }
+
+    const intro = cleanText(args.intro).slice(0, 10_000);
+    const excerpt = cleanText(args.excerpt).slice(0, 300);
+    const metaTitle = cleanText(args.metaTitle).slice(0, 80) || title;
+    const metaDescription = cleanText(args.metaDescription).slice(0, 180) || excerpt;
+    const primaryKeyword = cleanText(args.primaryKeyword).slice(0, 120);
+    const sections = args.sections
+      .map((section) => ({
+        heading: cleanText(section.heading).slice(0, 160),
+        paragraphs: textList(section.paragraphs, 12).map((paragraph) => paragraph.slice(0, 8_000)),
+        bullets: textList(section.bullets, 12).map((bullet) => bullet.slice(0, 600)),
+      }))
+      .filter((section) => section.heading || section.paragraphs.length > 0 || section.bullets.length > 0)
+      .slice(0, 16);
+    const keyTakeaways = stringList(args.keyTakeaways, 6).map((item) => item.slice(0, 400));
+    const faq = args.faq
+      .map((item) => ({
+        question: cleanText(item.question).slice(0, 240),
+        answer: cleanText(item.answer).slice(0, 8_000),
+      }))
+      .filter((item) => item.question || item.answer)
+      .slice(0, 12);
+    const relatedLinks = args.relatedLinks
+      .map((link) => ({
+        label: cleanText(link.label).slice(0, 80),
+        href: cleanText(link.href).replace(/\/$/, ""),
+      }))
+      .filter(
+        (link) =>
+          link.label &&
+          link.href &&
+          (link.href.startsWith("/") || /^https?:\/\//i.test(link.href)),
+      )
+      .slice(0, 6);
+
+    const wordCount = countWords({ title, intro, keyTakeaways, sections, faq });
+    const readingMinutes = Math.max(1, Math.round(wordCount / 220));
+    const contentHashValue = contentHash(
+      [
+        title,
+        intro,
+        ...sections.map((section) => `${section.heading} ${section.paragraphs.join(" ")}`),
+        ...faq.map((item) => `${item.question} ${item.answer}`),
+      ].join(" "),
+    );
+    const seoScore = scoreBlog(
+      {
+        title,
+        metaDescription,
+        metaTitle,
+        primaryKeyword,
+        intro,
+        sections,
+        faq,
+        wordCount,
+        keyTakeaways,
+        relatedLinks,
+      },
+      row.cover_status === "ready",
+    );
+    const now = Date.now();
+    const coverImageAlt =
+      cleanText(args.coverImageAlt, row.cover_image_alt).slice(0, 180) || title;
+
+    await ctx.db.patch(row._id, {
+      title,
+      slug,
+      excerpt,
+      meta_title: metaTitle,
+      meta_description: metaDescription,
+      primary_keyword: primaryKeyword,
+      search_intent: cleanText(args.searchIntent).slice(0, 80),
+      category: cleanText(args.category).slice(0, 80),
+      tags: stringList(args.tags, 8).map((tag) => tag.slice(0, 60)),
+      intro,
+      key_takeaways: keyTakeaways,
+      sections,
+      faq,
+      related_links: relatedLinks,
+      cover_image_alt: coverImageAlt,
+      word_count: wordCount,
+      reading_minutes: readingMinutes,
+      content_hash: contentHashValue,
+      seo_score: seoScore,
+      updated_at: now,
+    });
+
+    await ctx.db.insert("admin_audit_log", {
+      admin_user_id: ctx.user._id,
+      action: "blog.updated",
+      before: {
+        title: row.title,
+        slug: row.slug,
+        status: row.status,
+        word_count: row.word_count,
+        seo_score: row.seo_score,
+      },
+      after: {
+        title,
+        slug,
+        status: row.status,
+        word_count: wordCount,
+        seo_score: seoScore,
+      },
+      note: title,
       created_at: now,
     });
     return null;

@@ -1,5 +1,6 @@
 "use client";
 
+import { BlogEditor } from "@/components/blog/BlogEditor";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { useAlert } from "@/components/ui/alert-modal";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,7 @@ import {
   Eye,
   ImageOff,
   Loader2,
+  Pencil,
   RotateCcw,
   Sparkles,
   Trash2,
@@ -166,7 +168,7 @@ function PreviewPanel({ blogId, onClose }: { blogId: string; onClose: () => void
                 <span className="text-white/35">Keyword:</span> {post.primary_keyword}
               </p>
               <p className="mt-1 text-white/55">
-                <span className="text-white/35">Slug:</span> /blogs/{post.slug}
+                <span className="text-white/35">Slug:</span> /blog/{post.slug}
               </p>
             </div>
 
@@ -238,6 +240,7 @@ export default function BlogPage() {
   const [retryCover] = useRetryBlogCoverMutation();
   const [title, setTitle] = useState("");
   const [previewId, setPreviewId] = useState<string | null>(null);
+  const [editId, setEditId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [coverBusyId, setCoverBusyId] = useState<string | null>(null);
 
@@ -314,7 +317,7 @@ export default function BlogPage() {
     <div className="min-h-full">
       <PageHeader
         title="Blog"
-        description="Run as many as you need. Each agent finds a gap, writes a long guide in a natural human voice for search and AI answers, and makes a cover."
+        description="Generate, edit, preview, and publish. Each agent finds a gap, writes a long guide, and makes a cover."
       />
 
       <div className="space-y-6 p-5 md:p-8">
@@ -472,6 +475,16 @@ export default function BlogPage() {
                         variant="outline"
                         size="sm"
                         className="h-11 rounded-lg border-glass-border bg-white/[0.03] px-3 text-[11px] sm:h-9"
+                        onClick={() => setEditId(post.id)}
+                      >
+                        <Pencil className="size-3.5" />
+                        Edit
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-11 rounded-lg border-glass-border bg-white/[0.03] px-3 text-[11px] sm:h-9"
                         onClick={() => setPreviewId(post.id)}
                       >
                         <Eye className="size-3.5" />
@@ -528,6 +541,7 @@ export default function BlogPage() {
       </div>
 
       {previewId ? <PreviewPanel blogId={previewId} onClose={() => setPreviewId(null)} /> : null}
+      {editId ? <BlogEditor blogId={editId} onClose={() => setEditId(null)} /> : null}
     </div>
   );
 }

@@ -99,6 +99,10 @@ export function useSetBlogStatusMutation() {
   return useConvexMutationHook(api.blog.setStatus);
 }
 
+export function useUpdateBlogMutation() {
+  return useConvexMutationHook(api.blog.update);
+}
+
 export function useDeleteBlogMutation() {
   return useConvexMutationHook(api.blog.remove);
 }
