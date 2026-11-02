@@ -2,6 +2,7 @@
 
 import type { BlogFaq, BlogSection, BlogStatus } from "@/features/api/blogApi";
 import { BookOpen } from "lucide-react";
+import { BlogInlineText } from "./BlogInlineText";
 
 export type BlogPreviewData = {
   title: string;
@@ -92,7 +93,9 @@ export function BlogPreview({ post }: { post: BlogPreviewData }) {
         </p>
       </div>
 
-      <p className="text-sm leading-7 text-white/70">{post.intro || "The intro will appear here."}</p>
+      <p className="text-sm leading-7 text-white/70">
+        <BlogInlineText text={post.intro || "The intro will appear here."} />
+      </p>
 
       {post.key_takeaways.length ? (
         <div className="rounded-xl border border-glass-border bg-white/[0.025] p-4">
@@ -106,7 +109,7 @@ export function BlogPreview({ post }: { post: BlogPreviewData }) {
                 className="flex gap-2 text-xs leading-relaxed text-white/60"
               >
                 <span className="text-neon-cyan">•</span>
-                {item}
+                <BlogInlineText text={item} />
               </li>
             ))}
           </ul>
@@ -115,14 +118,16 @@ export function BlogPreview({ post }: { post: BlogPreviewData }) {
 
       {post.sections.map((section, index) => (
         <section key={`${section.heading}-${index}`}>
-          <h2 className="text-lg font-bold text-white">{section.heading || "Untitled section"}</h2>
+          <h2 className="text-lg font-bold text-white">
+            <BlogInlineText text={section.heading || "Untitled section"} />
+          </h2>
           <div className="mt-2 space-y-3">
             {section.paragraphs.map((paragraph, paragraphIndex) => (
               <p
                 key={`${paragraph.slice(0, 40)}-${paragraphIndex}`}
                 className="text-sm leading-7 text-white/65"
               >
-                {paragraph}
+                <BlogInlineText text={paragraph} />
               </p>
             ))}
           </div>
@@ -134,7 +139,7 @@ export function BlogPreview({ post }: { post: BlogPreviewData }) {
                   className="flex gap-2 text-sm leading-6 text-white/60"
                 >
                   <span className="text-neon-purple">•</span>
-                  {bullet}
+                  <BlogInlineText text={bullet} />
                 </li>
               ))}
             </ul>
@@ -152,9 +157,11 @@ export function BlogPreview({ post }: { post: BlogPreviewData }) {
                 className="rounded-xl border border-glass-border bg-white/[0.025] p-4"
               >
                 <p className="text-sm font-semibold text-white">
-                  {item.question || "Untitled question"}
+                  <BlogInlineText text={item.question || "Untitled question"} />
                 </p>
-                <p className="mt-1.5 text-xs leading-6 text-white/55">{item.answer}</p>
+                <p className="mt-1.5 text-xs leading-6 text-white/55">
+                  <BlogInlineText text={item.answer} />
+                </p>
               </div>
             ))}
           </div>

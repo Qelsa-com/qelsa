@@ -1,5 +1,6 @@
 import { ArrowLeft, BookOpen, Check, Clock3 } from "lucide-react";
 import { BlogCtas } from "./BlogCtas";
+import { BlogInlineText } from "./BlogInlineText";
 import Image from "next/image";
 import Link from "next/link";
 import type { PublicBlog } from "@/types/blog";
@@ -71,7 +72,9 @@ export function BlogArticle({ post }: { post: PublicBlog }) {
         </article>
 
         <div className="mx-auto mt-10 max-w-3xl">
-          <p className="text-[17px] leading-8 text-white/75">{post.intro}</p>
+          <p className="text-[17px] leading-8 text-white/75">
+            <BlogInlineText text={post.intro} />
+          </p>
 
           {post.key_takeaways.length ? (
             <div className="mt-7 rounded-2xl border border-neon-cyan/20 bg-gradient-to-r from-neon-cyan/[0.06] to-transparent p-5 sm:p-6">
@@ -80,7 +83,7 @@ export function BlogArticle({ post }: { post: PublicBlog }) {
                 {post.key_takeaways.map((item) => (
                   <li key={item} className="flex items-start gap-2.5 text-sm leading-6 text-white/65">
                     <Check className="mt-1 size-4 shrink-0 text-neon-cyan" />
-                    {item}
+                    <BlogInlineText text={item} />
                   </li>
                 ))}
               </ul>
@@ -90,11 +93,13 @@ export function BlogArticle({ post }: { post: PublicBlog }) {
           <div className="mt-9 space-y-9">
             {post.sections.map((section) => (
               <section key={section.heading}>
-                <h2 className="text-2xl font-bold leading-tight tracking-[-0.02em] text-white">{section.heading}</h2>
+                <h2 className="text-2xl font-bold leading-tight tracking-[-0.02em] text-white">
+                  <BlogInlineText text={section.heading} />
+                </h2>
                 <div className="mt-3 space-y-4">
                   {section.paragraphs.map((paragraph) => (
                     <p key={paragraph} className="text-[15px] leading-8 text-white/65">
-                      {paragraph}
+                      <BlogInlineText text={paragraph} />
                     </p>
                   ))}
                 </div>
@@ -103,7 +108,7 @@ export function BlogArticle({ post }: { post: PublicBlog }) {
                     {section.bullets.map((bullet) => (
                       <li key={bullet} className="flex items-start gap-2.5 text-sm leading-7 text-white/60">
                         <span className="mt-2 size-1.5 shrink-0 rounded-full bg-neon-purple" />
-                        {bullet}
+                        <BlogInlineText text={bullet} />
                       </li>
                     ))}
                   </ul>
@@ -120,11 +125,13 @@ export function BlogArticle({ post }: { post: PublicBlog }) {
                   <details key={item.question} className="group rounded-2xl border border-white/[0.08] bg-white/[0.025] px-4 py-3.5">
                     <summary className="cursor-pointer list-none text-sm font-semibold leading-6 text-white/80 [&::-webkit-details-marker]:hidden">
                       <span className="flex items-start justify-between gap-3">
-                        {item.question}
+                        <BlogInlineText text={item.question} />
                         <span className="mt-1 text-white/30 transition-transform group-open:rotate-45">+</span>
                       </span>
                     </summary>
-                    <p className="mt-3 text-sm leading-7 text-white/55">{item.answer}</p>
+                    <p className="mt-3 text-sm leading-7 text-white/55">
+                      <BlogInlineText text={item.answer} />
+                    </p>
                   </details>
                 ))}
               </div>

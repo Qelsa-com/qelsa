@@ -1,6 +1,7 @@
 "use client";
 
 import { BlogEditor } from "@/components/blog/BlogEditor";
+import { BlogInlineText } from "@/components/blog/BlogInlineText";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { useAlert } from "@/components/ui/alert-modal";
 import { Button } from "@/components/ui/button";
@@ -172,7 +173,9 @@ function PreviewPanel({ blogId, onClose }: { blogId: string; onClose: () => void
               </p>
             </div>
 
-            <p className="text-sm leading-7 text-white/70">{post.intro}</p>
+            <p className="text-sm leading-7 text-white/70">
+              <BlogInlineText text={post.intro} />
+            </p>
 
             {post.key_takeaways.length ? (
               <div className="rounded-xl border border-glass-border bg-white/[0.025] p-4">
@@ -181,7 +184,7 @@ function PreviewPanel({ blogId, onClose }: { blogId: string; onClose: () => void
                   {post.key_takeaways.map((item) => (
                     <li key={item} className="flex gap-2 text-xs leading-relaxed text-white/60">
                       <span className="text-neon-cyan">•</span>
-                      {item}
+                      <BlogInlineText text={item} />
                     </li>
                   ))}
                 </ul>
@@ -190,10 +193,14 @@ function PreviewPanel({ blogId, onClose }: { blogId: string; onClose: () => void
 
             {post.sections.map((section) => (
               <section key={section.heading}>
-                <h3 className="text-lg font-bold">{section.heading}</h3>
+                <h3 className="text-lg font-bold">
+                  <BlogInlineText text={section.heading} />
+                </h3>
                 <div className="mt-2 space-y-3">
                   {section.paragraphs.map((paragraph) => (
-                    <p key={paragraph} className="text-sm leading-7 text-white/65">{paragraph}</p>
+                    <p key={paragraph} className="text-sm leading-7 text-white/65">
+                      <BlogInlineText text={paragraph} />
+                    </p>
                   ))}
                 </div>
                 {section.bullets.length ? (
@@ -201,7 +208,7 @@ function PreviewPanel({ blogId, onClose }: { blogId: string; onClose: () => void
                     {section.bullets.map((bullet) => (
                       <li key={bullet} className="flex gap-2 text-sm leading-6 text-white/60">
                         <span className="text-neon-purple">•</span>
-                        {bullet}
+                        <BlogInlineText text={bullet} />
                       </li>
                     ))}
                   </ul>
@@ -215,8 +222,12 @@ function PreviewPanel({ blogId, onClose }: { blogId: string; onClose: () => void
                 <div className="mt-3 space-y-3">
                   {post.faq.map((item) => (
                     <div key={item.question} className="rounded-xl border border-glass-border bg-white/[0.025] p-4">
-                      <p className="text-sm font-semibold">{item.question}</p>
-                      <p className="mt-1.5 text-xs leading-6 text-white/55">{item.answer}</p>
+                      <p className="text-sm font-semibold">
+                        <BlogInlineText text={item.question} />
+                      </p>
+                      <p className="mt-1.5 text-xs leading-6 text-white/55">
+                        <BlogInlineText text={item.answer} />
+                      </p>
                     </div>
                   ))}
                 </div>

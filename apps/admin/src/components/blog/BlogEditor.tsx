@@ -461,6 +461,12 @@ export function BlogEditor({
 
             <section className="rounded-2xl border border-glass-border bg-white/[0.025] p-4 sm:p-5">
               <h3 className="text-sm font-bold">Content</h3>
+              <div className="mt-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-[11px] leading-relaxed text-white/50">
+                Inline links work anywhere in the intro, takeaways, headings, paragraphs, bullets, and FAQ:
+                <code className="ml-1 rounded bg-white/[0.07] px-1 py-0.5 text-white/75">[Qelsa jobs](/jobs)</code>
+                or
+                <code className="ml-1 rounded bg-white/[0.07] px-1 py-0.5 text-white/75">[source](https://example.com)</code>.
+              </div>
               <div className="mt-4 space-y-4">
                 <Field label="Intro">
                   <Textarea
