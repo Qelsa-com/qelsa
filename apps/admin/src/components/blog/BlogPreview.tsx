@@ -1,6 +1,6 @@
 "use client";
 
-import type { AdminBlog, BlogFaq, BlogSection, BlogStatus } from "@/features/api/blogApi";
+import type { BlogFaq, BlogSection, BlogStatus } from "@/features/api/blogApi";
 import { BookOpen } from "lucide-react";
 
 export type BlogPreviewData = {
@@ -21,33 +21,7 @@ export type BlogPreviewData = {
   word_count: number;
   reading_minutes: number;
   status: BlogStatus;
-  published_at?: number | null;
-  created_at?: number;
 };
-
-export function toPreviewData(post: AdminBlog): BlogPreviewData {
-  return {
-    title: post.title,
-    slug: post.slug,
-    excerpt: post.excerpt,
-    category: post.category,
-    tags: post.tags,
-    cover_image_url: post.cover_image_url,
-    cover_image_alt: post.cover_image_alt,
-    meta_title: post.meta_title,
-    meta_description: post.meta_description,
-    primary_keyword: post.primary_keyword,
-    intro: post.intro,
-    key_takeaways: post.key_takeaways,
-    sections: post.sections,
-    faq: post.faq,
-    word_count: post.word_count,
-    reading_minutes: post.reading_minutes,
-    status: post.status,
-    published_at: post.published_at,
-    created_at: post.created_at,
-  };
-}
 
 export function BlogPreview({ post }: { post: BlogPreviewData }) {
   return (

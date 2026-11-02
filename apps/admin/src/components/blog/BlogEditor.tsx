@@ -140,7 +140,6 @@ function toPreview(draft: Draft): BlogPreviewData {
     word_count: words,
     reading_minutes: Math.max(1, Math.round(words / 220)),
     status: draft.status,
-    published_at: draft.publishedAt,
   };
 }
 
@@ -340,7 +339,7 @@ export function BlogEditor({
       aria-modal="true"
       aria-label="Edit blog post"
     >
-      <header className="flex shrink-0 flex-wrap items-center gap-3 border-b border-glass-border bg-[#08080f] px-4 py-3 sm:px-6">
+      <header className="flex shrink-0 flex-wrap items-center gap-3 border-b border-glass-border bg-[#08080f] px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))] sm:px-6">
         <button
           type="button"
           onClick={() => void requestClose()}
