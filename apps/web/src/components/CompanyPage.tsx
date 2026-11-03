@@ -669,7 +669,7 @@ export function CompanyPage() {
                     return (
                       <div
                         key={job.id}
-                        onClick={() => router.push(`/jobs/${job.id}`)}
+                        onClick={() => router.push(`/jobs/${job.slug ?? job.id}`)}
                         className="group cursor-pointer rounded-2xl border border-white/[0.08] bg-white/[0.02] p-5 transition-all hover:border-neon-cyan/40 hover:bg-white/[0.04]"
                       >
                         <div className="flex flex-col gap-3">

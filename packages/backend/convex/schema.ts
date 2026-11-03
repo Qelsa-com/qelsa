@@ -168,6 +168,8 @@ export default defineSchema({
 
   jobs: defineTable({
     external_id: v.optional(v.string()),
+    /** Keyword-rich public URL slug; id remains the stable internal key. */
+    slug: v.optional(v.string()),
     description: v.optional(v.string()),
     application_url: v.optional(v.string()),
     experience_level: v.optional(v.string()),
@@ -217,6 +219,7 @@ export default defineSchema({
     ),
   })
     .index("by_status", ["status"])
+    .index("by_slug", ["slug"])
     .index("by_owner", ["owner_id"])
     .index("by_page", ["page_id"])
     .index("by_job_title", ["job_title_id"])

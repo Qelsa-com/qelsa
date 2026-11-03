@@ -2,7 +2,7 @@ import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import { internalMutation, internalQuery, type MutationCtx, type QueryCtx } from "./_generated/server";
+import { internalAction, internalMutation, internalQuery, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { adminMutation, authedMutation, authedQuery, optionalAuthQuery } from "./lib/customFunctions";
 import { deleteJobCascade } from "./lib/deleteUserData";
 import { iso, withId } from "./lib/helpers";
@@ -30,6 +30,7 @@ import { bumpJobCount, bumpOpenJobCount, ensureJobStats, ensureOpenJobCount, get
 import { ADMIN_STAT_KEYS, bumpAdminStat } from "./lib/adminStats";
 import { isWithdrawn } from "./lib/applications";
 import { resolveJobSalary } from "./lib/jobSalary";
+import { jobSlug } from "./lib/jobSlug";
 import { composeJobSearchText, refreshJobSearchText } from "./lib/jobSearchText";
 import { canExtractSkills, jobNeedsSkillEnrichment, markSkillsExtracted, skillContentHash } from "./lib/jobSkillExtraction";
 import {
@@ -1442,10 +1443,17 @@ export const matchCount = authedQuery({
 });
 
 export const getById = optionalAuthQuery({
-  args: { id: v.id("jobs") },
+  args: { id: v.string() },
   returns: v.any(),
   handler: async (ctx, args) => {
-    const job = await ctx.db.get(args.id);
+    // Accept the stable id or the public slug so clean URLs can hydrate the
+    // same client component without a second lookup path.
+    const job = looksLikeConvexId(args.id)
+      ? await ctx.db.get(args.id as Id<"jobs">)
+      : await ctx.db
+          .query("jobs")
+          .withIndex("by_slug", (q) => q.eq("slug", args.id))
+          .first();
     if (!job) return null;
     const base = await enrichJob(ctx, job, ctx.user, undefined, false);
     const sets = await ctx.db
@@ -1533,6 +1541,79 @@ export const sitemapPage = optionalAuthQuery({
       jobs: page.page.map((job) => ({
         id: job._id,
         published: job.published_date ?? null,
+      })),
+      cursor: page.continueCursor,
+      isDone: page.isDone,
+    };
+  },
+});
+
+/** Oldest/newest open posting dates, used to build monthly sitemap files. */
+export const sitemapBounds = optionalAuthQuery({
+  args: {},
+  returns: v.object({ min: v.union(v.number(), v.null()), max: v.union(v.number(), v.null()) }),
+  handler: async (ctx) => {
+    const oldest = await ctx.db
+      .query("jobs")
+      .withIndex("by_status_and_published", (q) => q.eq("status", "open"))
+      .order("asc")
+      .first();
+    const newest = await ctx.db
+      .query("jobs")
+      .withIndex("by_status_and_published", (q) => q.eq("status", "open"))
+      .order("desc")
+      .first();
+    return {
+      min: oldest?.published_date ?? null,
+      max: newest?.published_date ?? null,
+    };
+  },
+});
+
+/** Bounded monthly sitemap feed; avoids the 50k single-file limit. */
+export const sitemapMonthPage = optionalAuthQuery({
+  args: {
+    year: v.number(),
+    month: v.number(),
+    cursor: v.union(v.string(), v.null()),
+    limit: v.optional(v.number()),
+  },
+  returns: v.object({
+    jobs: v.array(
+      v.object({
+        id: v.id("jobs"),
+        slug: v.union(v.string(), v.null()),
+        published: v.union(v.number(), v.null()),
+        hasDescription: v.boolean(),
+      }),
+    ),
+    cursor: v.union(v.string(), v.null()),
+    isDone: v.boolean(),
+  }),
+  handler: async (ctx, args) => {
+    const year = Math.floor(args.year);
+    const month = Math.floor(args.month);
+    if (year < 2000 || year > 2100 || month < 1 || month > 12) {
+      return { jobs: [], cursor: null, isDone: true };
+    }
+    const start = Date.UTC(year, month - 1, 1);
+    const end = Date.UTC(year, month, 1);
+    const page = await ctx.db
+      .query("jobs")
+      .withIndex("by_status_and_published", (q) =>
+        q.eq("status", "open").gte("published_date", start).lt("published_date", end),
+      )
+      .order("desc")
+      .paginate({
+        numItems: Math.max(1, Math.min(args.limit ?? 200, 200)),
+        cursor: args.cursor,
+      });
+    return {
+      jobs: page.page.map((job) => ({
+        id: job._id,
+        slug: job.slug ?? null,
+        published: job.published_date ?? null,
+        hasDescription: Boolean((job.description ?? "").trim()),
       })),
       cursor: page.continueCursor,
       isDone: page.isDone,
@@ -1893,6 +1974,13 @@ export const duplicate = authedMutation({
       view_count: 0,
       application_count: 0,
     });
+    await ctx.db.patch(newJobId, {
+      slug: jobSlug({
+        title: `${job.title} (Copy)`,
+        companyName: job.company_name,
+        identity: String(newJobId),
+      }),
+    });
     await bumpAdminStat(ctx, ADMIN_STAT_KEYS.jobs, 1);
     await bumpAdminStat(ctx, ADMIN_STAT_KEYS.openJobs, 1);
 
@@ -2078,6 +2166,13 @@ export const createWithQuestions = authedMutation({
       published_date: Date.now(),
       view_count: 0,
       application_count: 0,
+    });
+    await ctx.db.patch(jobId, {
+      slug: jobSlug({
+        title: identity.title,
+        companyName: identity.company_name,
+        identity: String(jobId),
+      }),
     });
     await ensureJobStats(ctx, jobId);
     await bumpOpenJobCount(ctx, 1);
@@ -2279,8 +2374,19 @@ export const storeAtsJobs = internalMutation({
         typeof job.description === "string" && job.description.trim() ? job.description : undefined;
       const description = incomingDescription ?? existing?.description;
       const title = (job.title as string | undefined) ?? existing?.title;
+      const companyName = (job.company_name as string | undefined) ?? existing?.company_name;
+      const existingLocation =
+        typeof existing?.other_info?.location === "string" ? existing.other_info.location : undefined;
       const publishedDate =
         (job.published_date as number | undefined) ?? existing?.published_date ?? Date.now();
+      const slug =
+        existing?.slug ??
+        jobSlug({
+          title,
+          companyName,
+          location: location || existingLocation,
+          identity: external_id,
+        });
       const search_text = composeJobSearchText({
         title: job.title as string | undefined,
         companyName: job.company_name as string | undefined,
@@ -2293,6 +2399,7 @@ export const storeAtsJobs = internalMutation({
       });
       const payload = {
         external_id,
+        slug,
         title,
         search_text,
         description,
@@ -2351,6 +2458,58 @@ export const storeAtsJobs = internalMutation({
     await bumpAdminStat(ctx, ADMIN_STAT_KEYS.jobs, inserted);
     await bumpAdminStat(ctx, ADMIN_STAT_KEYS.openJobs, openDelta);
     return { stored, needsSkills, companySeeds: [...companySeeds.values()] };
+  },
+});
+
+/** One bounded batch for the public-slug migration. */
+export const backfillSlugPage = internalMutation({
+  args: { cursor: v.union(v.string(), v.null()) },
+  returns: v.object({
+    cursor: v.union(v.string(), v.null()),
+    isDone: v.boolean(),
+    patched: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const page = await ctx.db.query("jobs").paginate({ numItems: 200, cursor: args.cursor });
+    let patched = 0;
+    for (const job of page.page) {
+      if (job.slug) continue;
+      const location =
+        typeof job.other_info === "object" && job.other_info && typeof job.other_info.location === "string"
+          ? job.other_info.location
+          : undefined;
+      await ctx.db.patch(job._id, {
+        slug: jobSlug({
+          title: job.title,
+          companyName: job.company_name,
+          location,
+          identity: String(job._id),
+        }),
+      });
+      patched += 1;
+    }
+    return { cursor: page.continueCursor, isDone: page.isDone, patched };
+  },
+});
+
+/** Run once after deploying the slug index/schema. */
+export const backfillJobSlugs = internalAction({
+  args: {},
+  returns: v.object({ patched: v.number(), pages: v.number() }),
+  handler: async (ctx) => {
+    let cursor: string | null = null;
+    let patched = 0;
+    let pages = 0;
+    for (;;) {
+      const result: { cursor: string | null; isDone: boolean; patched: number } =
+        await ctx.runMutation(internal.jobs.backfillSlugPage, { cursor });
+      patched += result.patched;
+      pages += 1;
+      if (result.isDone || !result.cursor) break;
+      cursor = result.cursor;
+      if (pages > 400) break;
+    }
+    return { patched, pages };
   },
 });
 

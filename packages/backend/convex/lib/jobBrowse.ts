@@ -395,6 +395,7 @@ export async function slimListJob(ctx: QueryCtx, candidate: BrowseCandidate, hyd
   return {
     _id: job._id,
     id: job._id,
+    slug: job.slug ?? null,
     _creationTime: job._creationTime,
     title: job.title ?? job_title?.name ?? "",
     company_name: job.company_name ?? page?.name ?? null,

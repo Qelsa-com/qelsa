@@ -6,6 +6,7 @@ import { Page } from "./page";
 
 export type Job = {
   id: string | number;
+  slug?: string | null;
   external_id?: string | null;
   description?: string | null;
   application_url?: string | null;

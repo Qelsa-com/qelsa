@@ -235,7 +235,7 @@ function JobRailCard({ job, onToggleCompare, isCompared, onToggleBookmark, is_bo
   return (
     <Card
       className="glass hover:glass-strong border-glass-border hover:border-neon-cyan/30 transition-all cursor-pointer flex-shrink-0 w-[340px] snap-start group"
-      onClick={() => router.push(`/jobs/${job.id}`)}
+      onClick={() => router.push(`/jobs/${job.slug ?? job.id}`)}
     >
       <div className="p-5 space-y-4">
         {/* Header */}

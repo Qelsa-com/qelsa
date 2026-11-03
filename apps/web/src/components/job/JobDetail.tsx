@@ -115,12 +115,18 @@ const interviewQuestions = [
 ];
 */
 
-export function JobDetail() {
+export function JobDetail({
+  initialJob = null,
+  initialDescriptionHtml,
+}: {
+  initialJob?: Job | null;
+  initialDescriptionHtml?: string;
+}) {
   const { user, isAuthenticated } = useAuth();
   const router = useRouter();
   const params = useParams<{ id: string }>();
-  const id = params?.id;
-  const isReserved = Boolean(id && RESERVED_JOB_SLUGS.has(id));
+  const routeKey = params?.id;
+  const isReserved = Boolean(routeKey && RESERVED_JOB_SLUGS.has(routeKey));
 
   const [showQuickApplyModal, setShowQuickApplyModal] = useState(false);
   const [showExternalConfirmModal, setShowExternalConfirmModal] = useState(false);
@@ -128,7 +134,12 @@ export function JobDetail() {
   const [justApplied, setJustApplied] = useState(false);
   const [createJobApplication, { isLoading: isApplyingExternal }] = useCreateJobApplicationMutation();
 
-  const { data: job, error, isLoading } = useGetJobByIdQuery(isReserved ? undefined : id!, { skip: !id || isReserved });
+  const { data: queryJob, error, isLoading } = useGetJobByIdQuery(
+    isReserved ? undefined : routeKey,
+    { skip: !routeKey || isReserved },
+  );
+  const job = queryJob ?? initialJob;
+  const id = job?.id ? String(job.id) : routeKey;
   const isOwner = Boolean(
     job?.is_owner ||
     (user?.id && job?.owner_id && String(job.owner_id) === String(user.id)) ||
@@ -136,14 +147,21 @@ export function JobDetail() {
     (user?.account_type === "recruiter" && job?.owner_id && String(job.owner_id) === String(user.id)),
   );
 
-  const { data: similarJobs, isLoading: isSimilarLoading } = useGetSimilarJobsQuery(isReserved ? undefined : id!, { skip: !id || isReserved || isOwner });
+  const { data: similarJobs, isLoading: isSimilarLoading } = useGetSimilarJobsQuery(
+    job?.id ? String(job.id) : undefined,
+    { skip: !job || isOwner },
+  );
   const { data: myResumes } = useGetMyResumesQuery(undefined, { skip: !isAuthenticated || isOwner });
   const { data: experiences } = useGetExperiencesQuery(undefined, { skip: !isAuthenticated || isOwner });
   const { data: educations } = useGetEducationsQuery(undefined, { skip: !isAuthenticated || isOwner });
-  const { data: matchSession } = useGetMatchByJobQuery(isReserved ? undefined : id, { skip: !isAuthenticated || !id || isReserved || isOwner });
+  const { data: matchSession } = useGetMatchByJobQuery(job?.id ? String(job.id) : undefined, {
+    skip: !isAuthenticated || !job || isOwner,
+  });
 
   const [toggleSaveJob] = useToggleSaveJobMutation();
-  const { data: savedFromServer } = useIsJobSavedQuery(isReserved ? undefined : id, { skip: !isAuthenticated || !id || isReserved || isOwner });
+  const { data: savedFromServer } = useIsJobSavedQuery(job?.id ? String(job.id) : undefined, {
+    skip: !isAuthenticated || !job || isOwner,
+  });
   const [optimisticSaved, setOptimisticSaved] = useState<boolean | null>(null);
   const saved = optimisticSaved ?? savedFromServer ?? false;
 
@@ -274,8 +292,8 @@ export function JobDetail() {
     window.setTimeout(unlock, 900);
   };
 
-  if (!id || isLoading) return <JobDetailSkeleton />;
-  if (error) return <p className="p-6 text-white/70 lg:p-8">Error loading job.</p>;
+  if (!routeKey || (isLoading && !job)) return <JobDetailSkeleton />;
+  if (error && !job) return <p className="p-6 text-white/70 lg:p-8">Error loading job.</p>;
   if (!job) return <p className="p-6 text-white/70 lg:p-8">No job found.</p>;
 
   const companyName = displayCompanyName(job.page?.name || job.company_name);
@@ -283,9 +301,12 @@ export function JobDetail() {
   const title = job.job_title?.name ?? job.title;
   // ATS descriptions often carry their own light-theme inline colors and
   // backgrounds. Strip those so the job copy inherits Qelsa's dark theme.
-  const description = DOMPurify.sanitize(jobDescriptionToHtml(job.description || ""), {
-    FORBID_ATTR: ["style"],
-  });
+  const description =
+    initialDescriptionHtml !== undefined
+      ? initialDescriptionHtml
+      : DOMPurify.sanitize(jobDescriptionToHtml(job.description || ""), {
+          FORBID_ATTR: ["style"],
+        });
   const applied = Boolean(job.has_applied || (user?.id && job.applications?.some((a) => a.user_id === user.id)) || justApplied);
   const competency = job.competency;
 
@@ -776,7 +797,7 @@ export function JobDetail() {
                       const salary = salaryText(j);
                       const match = similarMatch(j);
                       return (
-                        <div key={j.id} onClick={() => router.push(`/jobs/${j.id}`)} className="flex cursor-pointer items-center gap-3 rounded-2xl border border-glass-border bg-white/[0.03] p-4 transition-colors hover:border-neon-cyan/30">
+                        <div key={j.id} onClick={() => router.push(`/jobs/${j.slug ?? j.id}`)} className="flex cursor-pointer items-center gap-3 rounded-2xl border border-glass-border bg-white/[0.03] p-4 transition-colors hover:border-neon-cyan/30">
                           <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white/[0.04]">
                             {j.company_logo ? (
                               // eslint-disable-next-line @next/next/no-img-element

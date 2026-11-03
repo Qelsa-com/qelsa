@@ -1,4 +1,7 @@
 import JobDetail from "@/components/job/JobDetail";
+import { jobDescriptionToHtml } from "@/lib/jobDescription";
+import type { Job } from "@/types/job";
+import sanitizeHtml from "sanitize-html";
 import { RESERVED_JOB_SLUGS } from "@/features/api/jobsApi";
 import { api } from "@/lib/convexApi";
 import { ConvexHttpClient } from "convex/browser";
@@ -21,6 +24,10 @@ export interface JobDetailsPageProps {
   meta?: JobMeta;
   /** JobPosting + BreadcrumbList JSON-LD, built on the server. */
   structuredData?: Record<string, unknown> | null;
+  /** First-paint job data, so crawlers see the actual page body. */
+  initialJob?: Job | null;
+  /** Server-sanitized HTML; avoids running DOMPurify during SSR. */
+  descriptionHtml?: string;
 }
 
 const PREVIEW_MIN = 120;
@@ -140,16 +147,28 @@ export const getServerSideProps: GetServerSideProps<JobDetailsPageProps> = async
   const host = (ctx.req.headers["x-forwarded-host"] || ctx.req.headers.host) as string | undefined;
   const proto = (ctx.req.headers["x-forwarded-proto"] || "https") as string;
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || (host ? `${proto}://${host}` : "https://qelsa.com");
-  const canonicalUrl = `${siteUrl.replace(/\/$/, "")}/jobs/${id}`;
   const defaultImage = `${siteUrl.replace(/\/$/, "")}/qelsa-og.png`;
+  const fallbackCanonicalUrl = `${siteUrl.replace(/\/$/, "")}/jobs/${id}`;
 
   try {
     const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL || "http://127.0.0.1:3210";
     const client = new ConvexHttpClient(convexUrl);
-    const job = await client.query(api.jobs.getById, { id: id as never });
+    const job = (await client.query(api.jobs.getById, { id })) as unknown as Job | null;
 
     if (!job) return { notFound: true };
 
+    // Old id URLs permanently move to the keyword-rich slug.
+    if (job.slug && job.slug !== id) {
+      return {
+        redirect: {
+          destination: `/jobs/${job.slug}`,
+          permanent: true,
+        },
+      };
+    }
+
+    const canonicalKey = job.slug ?? id;
+    const canonicalUrl = `${siteUrl.replace(/\/$/, "")}/jobs/${canonicalKey}`;
     const title = job.title || "Job Details";
     const companyName = job.company_name || job.page?.name || "Qelsa";
     const location = job.city?.name
@@ -163,6 +182,23 @@ export const getServerSideProps: GetServerSideProps<JobDetailsPageProps> = async
     const jd = stripHtml(job.description || job.ai_summary?.role_overview || "");
     const fallback = `${companyName} is hiring a ${title}${location ? ` in ${location}` : ""}. Apply on Qelsa.`;
     const description = clipPreview(facts ? `${facts}. ${jd || fallback}` : jd || fallback);
+    const indexable = job.status === "open" && Boolean((job.description ?? "").trim());
+    const descriptionHtml = sanitizeHtml(jobDescriptionToHtml(job.description || ""), {
+      allowedTags: ["p", "br", "ul", "ol", "li", "strong", "em", "b", "i", "a", "h1", "h2", "h3", "h4", "blockquote"],
+      allowedAttributes: { a: ["href", "target", "rel"] },
+      allowedSchemes: ["http", "https", "mailto"],
+      transformTags: {
+        a: (tagName, attribs) => ({
+          tagName,
+          attribs: {
+            href: attribs.href ?? "",
+            ...(attribs.href && /^https?:\/\//i.test(attribs.href)
+              ? { target: "_blank", rel: "noopener noreferrer" }
+              : {}),
+          },
+        }),
+      },
+    });
 
     const logo = job.company_logo || job.page?.logo;
     const absoluteLogo = logo ? absoluteUrl(logo, siteUrl.replace(/\/$/, "")) : undefined;
@@ -227,7 +263,7 @@ export const getServerSideProps: GetServerSideProps<JobDetailsPageProps> = async
         ...(absoluteLogo ? { logo: absoluteLogo } : {}),
         ...(job.company_website_url ? { sameAs: job.company_website_url } : {}),
       },
-      identifier: { "@type": "PropertyValue", name: "Qelsa", value: id },
+      identifier: { "@type": "PropertyValue", name: "Qelsa", value: String(job.id) },
       url: canonicalUrl,
       ...(employmentType(job.work_type) ? { employmentType: employmentType(job.work_type) } : {}),
       ...(job.page?.industry ? { industry: job.page.industry } : {}),
@@ -269,11 +305,13 @@ export const getServerSideProps: GetServerSideProps<JobDetailsPageProps> = async
           companyName,
           location: location || null,
           workType: workType ?? null,
-          noindex: job.status !== "open",
+          noindex: !indexable,
         },
+        initialJob: job,
+        descriptionHtml,
         structuredData: {
           "@context": "https://schema.org",
-          "@graph": job.status === "open" ? [jobPosting, breadcrumb] : [breadcrumb],
+          "@graph": indexable ? [jobPosting, breadcrumb] : [breadcrumb],
         },
       },
     };
@@ -286,7 +324,7 @@ export const getServerSideProps: GetServerSideProps<JobDetailsPageProps> = async
       meta: {
         title: "Job Details | Qelsa",
         description: "Discover opportunities, analyze skill match, and apply on Qelsa.",
-        canonicalUrl,
+        canonicalUrl: fallbackCanonicalUrl,
         imageUrl: defaultImage,
         companyName: "Qelsa",
         noindex: true,
@@ -295,7 +333,7 @@ export const getServerSideProps: GetServerSideProps<JobDetailsPageProps> = async
   };
 };
 
-export default function JobDetails({ meta, structuredData }: JobDetailsPageProps) {
+export default function JobDetails({ meta, structuredData, initialJob, descriptionHtml }: JobDetailsPageProps) {
   const pageTitle = meta?.title || "Job Details | Qelsa";
   const ogTitle = meta?.title ? meta.title.replace(/ \| Qelsa$/, "") : "Job Opportunity on Qelsa";
   const ogDescription = meta?.description || "Explore and apply for this job on Qelsa.";
@@ -341,7 +379,7 @@ export default function JobDetails({ meta, structuredData }: JobDetailsPageProps
         ) : null}
       </Head>
       <Layout activeSection="jobs" hideMobileTabBar>
-        <JobDetail />
+        <JobDetail initialJob={initialJob ?? null} initialDescriptionHtml={descriptionHtml} />
       </Layout>
     </>
   );

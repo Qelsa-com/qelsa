@@ -157,7 +157,7 @@ export function MySpaceDashboard() {
   const askPrompt = targetRole ? `Review my profile and career goal for ${targetRole} roles. What are the three highest-impact things I should improve?` : "Review my profile and help me choose a career goal. What should I focus on next?";
 
   const goToAgent = (prompt: string) => router.push(`/agent?prompt=${encodeURIComponent(prompt)}`);
-  const openJob = (job: Job) => router.push(`/jobs/${job.id}`);
+  const openJob = (job: Job) => router.push(`/jobs/${job.slug ?? job.id}`);
 
   const hero: HeroContent =
     heroState === "goal"

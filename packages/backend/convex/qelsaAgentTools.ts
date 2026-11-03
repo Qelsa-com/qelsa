@@ -73,7 +73,8 @@ function jobSummary(job: Doc<"jobs">, listing: { company?: string | null; locati
     salary: salaryOf(job),
     posted_at: job.published_date ?? null,
     applies_on_external_site: Boolean(job.application_url),
-    url_path: `/jobs/${job._id}`,
+    slug: job.slug ?? null,
+    url_path: `/jobs/${job.slug ?? job._id}`,
   };
 }
 

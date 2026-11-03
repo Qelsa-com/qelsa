@@ -6,14 +6,85 @@ import { SetupBanner } from "@/components/SetupBanner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCountJobsQuery, useEnsureRankingRecompute, usePaginatedJobsQuery } from "@/features/api/jobsApi";
 import { useGetMyResumesQuery } from "@/features/api/resumeApi";
+import { api } from "@/lib/convexApi";
 import { Job } from "@/types/job";
+import { ConvexHttpClient } from "convex/browser";
+import type { GetServerSideProps } from "next";
+import Link from "next/link";
 import { Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Layout from "../../layout";
 
+type AllJobsProps = {
+  initialJobs?: Job[];
+  nextCursor?: string | null;
+  serverPage?: boolean;
+  indexable?: boolean;
+  canonicalPath?: string;
+};
+
+const FILTER_KEYS = new Set([
+  "q",
+  "sort",
+  "posted",
+  "workplace",
+  "type",
+  "city",
+  "salary_min",
+  "salary_max",
+  "page",
+  "min_readiness",
+  "max_readiness",
+]);
+
+/**
+ * Server-render the first few job links so crawlers do not depend on JavaScript.
+ * The interactive list still takes over after hydration; page 2+ uses a real
+ * cursor link and is rendered as a simple server list.
+ */
+export const getServerSideProps: GetServerSideProps<AllJobsProps> = async (ctx) => {
+  const query = ctx.query;
+  const after = typeof query.after === "string" ? query.after : null;
+  const hasFilters = Object.keys(query).some((key) => FILTER_KEYS.has(key));
+  if (hasFilters) {
+    return { props: { indexable: false, canonicalPath: "/jobs/all" } };
+  }
+
+  try {
+    const client = new ConvexHttpClient(
+      process.env.NEXT_PUBLIC_CONVEX_URL || "http://127.0.0.1:3210",
+    );
+    const result = (await client.query(api.jobs.listPaginated, {
+      paginationOpts: { numItems: 24, cursor: after },
+      sort_by: "date",
+    })) as {
+      page: Job[];
+      continueCursor: string;
+      isDone: boolean;
+    };
+    if (!after) {
+      ctx.res.setHeader("Cache-Control", "public, s-maxage=60, stale-while-revalidate=300");
+    }
+    return {
+      props: {
+        initialJobs: result.page,
+        nextCursor: result.isDone ? null : result.continueCursor,
+        serverPage: Boolean(after),
+        // Paginated cursor pages are crawlable but not competing with the
+        // canonical first page in the index.
+        indexable: !after,
+        canonicalPath: after ? `/jobs/all?after=${encodeURIComponent(after)}` : "/jobs/all",
+      },
+    };
+  } catch (error) {
+    console.error("[JobsAll SSR] Could not load initial jobs", error);
+    return { props: { indexable: !after, canonicalPath: "/jobs/all" } };
+  }
+};
+
 /* --------------------------------- page ----------------------------------- */
 
-function AllJobsContent() {
+function AllJobsContent({ initialJobs = [] }: { initialJobs?: Job[] }) {
   const router = useRouter();
   const { user, isAuthenticated } = useAuth();
   const defaultSort = isAuthenticated ? "relevance" : "date";
@@ -27,7 +98,18 @@ function AllJobsContent() {
   const hasProfile = Boolean(user?.has_profile || user?.headline?.trim() || user?.professional_summary?.trim() || user?.about?.trim());
   const showResumeBanner = isAuthenticated && myResumes !== undefined && !hasResume;
 
-  const jobs = (results as Job[]) ?? [];
+  const hasFilters = Boolean(
+    searchInput.trim() ||
+      cityFilter ||
+      filters.workplace_types.length ||
+      filters.job_types.length ||
+      filters.date_posted ||
+      filters.salary_min != null ||
+      filters.salary_max != null,
+  );
+  const clientJobs = (results as Job[]) ?? [];
+  const fallbackJobs = !hasFilters && clientJobs.length === 0 ? initialJobs : [];
+  const jobs = clientJobs.length ? clientJobs : fallbackJobs;
   const loaded = jobs.length;
   const total = typeof filteredTotal === "number" ? filteredTotal : undefined;
   const isInitialLoading = isLoading && loaded === 0;
@@ -66,7 +148,7 @@ function AllJobsContent() {
             <AllJobsGridSkeleton />
           ) : loaded > 0 ? (
             <>
-              <JobGrid jobs={jobs} onOpen={(id) => router.push(`/jobs/${id}`)} variant="all" />
+              <JobGrid jobs={jobs} variant="all" />
             </>
           ) : status === "Exhausted" ? (
             <div className="flex flex-col items-center gap-4 py-12 text-center sm:py-16">
@@ -84,16 +166,77 @@ function AllJobsContent() {
   );
 }
 
-const All = () => {
+function ServerJobsPage({
+  jobs,
+  nextCursor,
+}: {
+  jobs: Job[];
+  nextCursor: string | null;
+}) {
+  return (
+    <div className="mx-auto w-full max-w-[1400px] px-4 py-6 text-white sm:px-6 sm:py-8 md:px-12">
+      <Link href="/jobs/all" className="text-xs font-semibold text-white/45 hover:text-white">
+        ← All jobs
+      </Link>
+      <h1 className="mt-4 text-3xl font-extrabold text-white sm:text-4xl md:text-5xl">
+        Job opportunities.
+      </h1>
+      <p className="mt-2 max-w-2xl text-sm text-white/60">
+        Browse open roles and see what each one needs before you apply.
+      </p>
+      <div className="mt-6">
+        <JobGrid jobs={jobs} variant="all" />
+      </div>
+      {nextCursor ? (
+        <div className="mt-8 flex justify-center pb-16">
+          <Link
+            href={`/jobs/all?after=${encodeURIComponent(nextCursor)}`}
+            className="rounded-full border border-white/15 bg-white/[0.04] px-5 py-3 text-sm font-semibold text-white/75 transition-colors hover:border-white/30 hover:text-white"
+          >
+            Next page →
+          </Link>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+const All = ({
+  initialJobs = [],
+  nextCursor = null,
+  serverPage = false,
+  indexable = true,
+  canonicalPath = "/jobs/all",
+}: AllJobsProps) => {
   const { isAuthenticated } = useAuth();
   return (
     <Layout activeSection="jobs">
       <Seo
         title="Browse open jobs"
         description="Find roles that match your skills, see what each one needs, and apply when you're ready."
-        path="/jobs/all"
+        path={canonicalPath}
+        noindex={!indexable}
       />
-      <AllJobsContent key={isAuthenticated ? "signed-in" : "guest"} />
+      {serverPage ? (
+        <ServerJobsPage jobs={initialJobs} nextCursor={nextCursor} />
+      ) : (
+        <>
+          <AllJobsContent
+            key={isAuthenticated ? "signed-in" : "guest"}
+            initialJobs={initialJobs}
+          />
+          {nextCursor ? (
+            <div className="mx-auto w-full max-w-[1400px] px-4 pb-16 sm:px-6 md:px-12">
+              <Link
+                href={`/jobs/all?after=${encodeURIComponent(nextCursor)}`}
+                className="text-xs font-semibold text-white/40 hover:text-white"
+              >
+                More jobs →
+              </Link>
+            </div>
+          ) : null}
+        </>
+      )}
     </Layout>
   );
 };

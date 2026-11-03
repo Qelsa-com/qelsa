@@ -195,7 +195,7 @@ export function PageView() {
               {/* Jobs Tab */}
               <TabsContent value="jobs" className="space-y-4">
                 {pageJobs?.map((job) => (
-                  <Card onClick={() => router.push(`/jobs/${job.id}`)} key={job.id} className="p-6 glass border-glass-border hover:border-neon-cyan/50 transition-all cursor-pointer">
+                  <Card onClick={() => router.push(`/jobs/${job.slug ?? job.id}`)} key={job.id} className="p-6 glass border-glass-border hover:border-neon-cyan/50 transition-all cursor-pointer">
                     <div className="flex items-start justify-between mb-3">
                       <div>
                         <h3 className="font-semibold mb-1">{job.title}</h3>
