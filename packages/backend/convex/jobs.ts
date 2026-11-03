@@ -2470,7 +2470,7 @@ export const backfillSlugPage = internalMutation({
     patched: v.number(),
   }),
   handler: async (ctx, args) => {
-    const page = await ctx.db.query("jobs").paginate({ numItems: 200, cursor: args.cursor });
+    const page = await ctx.db.query("jobs").paginate({ numItems: 100, cursor: args.cursor });
     let patched = 0;
     for (const job of page.page) {
       if (job.slug) continue;
@@ -2507,7 +2507,9 @@ export const backfillJobSlugs = internalAction({
       pages += 1;
       if (result.isDone || !result.cursor) break;
       cursor = result.cursor;
-      if (pages > 400) break;
+      if (pages > 800) break;
+      // Stay below the deployment write-rate ceiling.
+      await new Promise((resolve) => setTimeout(resolve, 300));
     }
     return { patched, pages };
   },
