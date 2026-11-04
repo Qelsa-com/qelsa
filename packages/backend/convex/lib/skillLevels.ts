@@ -58,7 +58,6 @@ function levelFromYears(years: number): Level {
 
 const rank = (level: Level) => PROFICIENCY_ORDER.indexOf(level);
 const atLeast = (level: Level, floor: Level) => (rank(level) >= rank(floor) ? level : floor);
-const atMost = (level: Level, cap: Level) => (rank(level) <= rank(cap) ? level : cap);
 const bump = (level: Level) => PROFICIENCY_ORDER[Math.min(rank(level) + 1, PROFICIENCY_ORDER.length - 1)]!;
 
 /**
@@ -72,10 +71,11 @@ export function inferSkillLevel(skill: SkillRef, evidence: Evidence): Level {
   let level: Level;
   if (usedIn.length > 0) {
     level = levelFromYears(Math.min(mergedYears(usedIn), evidence.careerYears));
-  } else if (mentions(evidence.profileText, skill)) {
-    level = atMost(levelFromYears(evidence.careerYears * 0.6), "advance");
   } else {
-    level = evidence.careerYears >= 1 ? "intermediate" : "beginner";
+    // A skill that only appears in the skills list, headline, or summary is not
+    // evidence of skill depth. Do not promote it just because the candidate has
+    // unrelated work experience elsewhere.
+    level = "beginner";
   }
 
   if (evidence.certifications.some((cert) => linked(cert, skill) || mentions(cert.text, skill))) {
