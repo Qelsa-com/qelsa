@@ -104,6 +104,7 @@ import type * as resumeParse from "../resumeParse.js";
 import type * as resumes from "../resumes.js";
 import type * as seed from "../seed.js";
 import type * as seedCatalogData from "../seedCatalogData.js";
+import type * as skillAssessments from "../skillAssessments.js";
 import type * as skillBackfills from "../skillBackfills.js";
 import type * as userSkills from "../userSkills.js";
 import type * as users from "../users.js";
@@ -211,6 +212,7 @@ declare const fullApi: ApiFromModules<{
   resumes: typeof resumes;
   seed: typeof seed;
   seedCatalogData: typeof seedCatalogData;
+  skillAssessments: typeof skillAssessments;
   skillBackfills: typeof skillBackfills;
   userSkills: typeof userSkills;
   users: typeof users;

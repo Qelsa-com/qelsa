@@ -58,8 +58,15 @@ export function SkillsCard({ skills, isOwner, onAdd, onEdit }: SkillsCardProps) 
                   {topSkills.map((skill) => (
                     <div key={skill.id} className="flex items-center justify-between gap-3 rounded-[12px] border border-white/8 bg-white/2 p-3">
                       <p className="min-w-0 text-sm font-medium text-white">{skill.skill?.name}</p>
-                      <span className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-semibold uppercase ${proficiencyClass(skill.proficiency)}`}>
-                        {proficiencyLabel(skill.proficiency)}
+                      <span className="flex shrink-0 items-center gap-1.5">
+                        <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold uppercase ${proficiencyClass(skill.proficiency)}`}>
+                          {proficiencyLabel(skill.proficiency)}
+                        </span>
+                        {skill.proficiency_source === "assessment" ? (
+                          <span className="rounded-full border border-neon-cyan/25 bg-neon-cyan/[0.06] px-2 py-1 text-[9px] font-semibold uppercase tracking-wide text-neon-cyan">
+                            Verified
+                          </span>
+                        ) : null}
                       </span>
                     </div>
                   ))}

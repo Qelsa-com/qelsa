@@ -1,5 +1,5 @@
 import type { Doc, Id } from "../_generated/dataModel";
-import type { MutationCtx } from "../_generated/server";
+import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { MAX_USER_SKILLS } from "./skillLimits";
 import { normalizeSkillName, PROFICIENCY_ORDER, skillMatchKey, skillMentionPhrases } from "./skillMatch";
 
@@ -14,7 +14,7 @@ const CERT_SKILL_TAKE = 20;
 
 type Interval = { start: number; end: number };
 
-type Evidence = {
+export type Evidence = {
   experiences: Array<Interval & { skillIds: Set<string>; skillKeys: Set<string>; text: string }>;
   certifications: Array<{ skillIds: Set<string>; skillKeys: Set<string>; text: string }>;
   profileText: string;
@@ -87,7 +87,7 @@ export function inferSkillLevel(skill: SkillRef, evidence: Evidence): Level {
   return level;
 }
 
-async function loadEvidence(ctx: MutationCtx, user: Doc<"users">, now: number): Promise<Evidence> {
+export async function loadEvidence(ctx: MutationCtx | QueryCtx, user: Doc<"users">, now: number): Promise<Evidence> {
   const skillKeyCache = new Map<Id<"skills">, Promise<string | null>>();
   const skillKey = (id: Id<"skills">) => {
     let key = skillKeyCache.get(id);
@@ -160,11 +160,11 @@ async function loadEvidence(ctx: MutationCtx, user: Doc<"users">, now: number): 
 }
 
 /**
- * Recompute every skill level from the current profile. Candidates cannot pin
- * a level, so a later edit to experience, education, certifications, or the
- * headline and summary replaces the previous estimate. Idempotent: a row is
- * patched only when the estimate changes. Returns immediately when the user
- * has no skills, before any evidence is loaded.
+ * Recompute inferred skill levels from the current profile. A later edit to
+ * experience, education, certifications, or profile text replaces the previous
+ * estimate. Levels verified by a completed assessment are preserved until the
+ * user retakes the assessment. Idempotent: a row is patched only when the
+ * estimate changes. Returns immediately when the user has no skills.
  */
 export async function refreshInferredSkillLevels(ctx: MutationCtx, userId: Id<"users">, now = Date.now()) {
   const rows = await ctx.db
@@ -179,11 +179,18 @@ export async function refreshInferredSkillLevels(ctx: MutationCtx, userId: Id<"u
 
   let changed = 0;
   for (const row of rows) {
+    // A completed assessment is a stronger signal than profile inference.
+    // Keep it until the user retakes the assessment.
+    if (row.proficiency_source === "assessment") continue;
     const skill = await ctx.db.get(row.skill_id);
     if (!skill) continue;
     const level = inferSkillLevel({ id: row.skill_id, name: skill.name }, evidence);
-    if (row.proficiency === level && row.proficiency_inferred) continue;
-    await ctx.db.patch(row._id, { proficiency: level, proficiency_inferred: true });
+    if (row.proficiency === level && row.proficiency_inferred && row.proficiency_source === "inferred") continue;
+    await ctx.db.patch(row._id, {
+      proficiency: level,
+      proficiency_inferred: true,
+      proficiency_source: "inferred",
+    });
     changed += 1;
   }
   return changed;

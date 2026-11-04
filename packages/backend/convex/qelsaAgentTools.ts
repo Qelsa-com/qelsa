@@ -21,6 +21,7 @@ import { recommendCourses } from "./lib/courseCatalog";
 import { ADMIN_STAT_KEYS, bumpAdminStat } from "./lib/adminStats";
 import { bumpJobCount } from "./lib/jobCounts";
 import { clipPlainText, skillMatchKey } from "./lib/skillMatch";
+import { refreshInferredSkillLevels } from "./lib/skillLevels";
 
 const SEARCH_LIMIT_DEFAULT = 8;
 const LIST_LIMIT_DEFAULT = 12;
@@ -854,15 +855,12 @@ export const updateProfileInternal = internalMutation({
   },
 });
 
-const SKILL_PROFICIENCIES = ["beginner", "intermediate", "advance", "expert"] as const;
-
 export const addProfileSkillsInternal = internalMutation({
   args: {
     authId: v.string(),
     skills: v.array(
       v.object({
         name: v.string(),
-        proficiency: v.optional(v.string()),
         is_top_skill: v.optional(v.boolean()),
       }),
     ),
@@ -874,6 +872,7 @@ export const addProfileSkillsInternal = internalMutation({
     const alreadyPresent = [];
     const unmatched: string[] = [];
     const seen = new Set<string>();
+    const touched: Id<"skills">[] = [];
     for (const raw of args.skills.slice(0, 12)) {
       const name = raw.name.trim().slice(0, 80);
       if (!name) continue;
@@ -894,32 +893,43 @@ export const addProfileSkillsInternal = internalMutation({
         unmatched.push(name);
         continue;
       }
+      touched.push(skill._id);
       const existing = await ctx.db
         .query("user_skills")
         .withIndex("by_user_and_skill", (q) => q.eq("user_id", user._id).eq("skill_id", skill!._id))
         .unique();
-      const normalizedProficiency = raw.proficiency === "advanced" ? "advance" : raw.proficiency;
-      const proficiency = normalizedProficiency && (SKILL_PROFICIENCIES as readonly string[]).includes(normalizedProficiency)
-        ? (normalizedProficiency as (typeof SKILL_PROFICIENCIES)[number])
-        : undefined;
       if (existing) {
-        const patch: Record<string, unknown> = {};
-        if (proficiency) {
-          patch.proficiency = proficiency;
-          patch.proficiency_inferred = false;
+        if (raw.is_top_skill !== undefined) {
+          await ctx.db.patch(existing._id, { is_top_skill: raw.is_top_skill });
         }
-        if (raw.is_top_skill !== undefined) patch.is_top_skill = raw.is_top_skill;
-        if (Object.keys(patch).length) await ctx.db.patch(existing._id, patch);
         alreadyPresent.push(skill.name);
       } else {
         await ctx.db.insert("user_skills", {
           user_id: user._id,
           skill_id: skill._id,
           category_id: skill.category_id,
-          ...(proficiency ? { proficiency, proficiency_inferred: false } : {}),
           ...(raw.is_top_skill !== undefined ? { is_top_skill: raw.is_top_skill } : {}),
         });
         added.push(skill.name);
+      }
+    }
+
+    // Levels are never accepted from the caller. Recompute from experience,
+    // certifications, education, and profile text.
+    const changed = await refreshInferredSkillLevels(ctx, user._id);
+    const levels = [];
+    for (const skillId of touched) {
+      const skill = await ctx.db.get(skillId);
+      const row = await ctx.db
+        .query("user_skills")
+        .withIndex("by_user_and_skill", (q) => q.eq("user_id", user._id).eq("skill_id", skillId))
+        .unique();
+      if (skill && row) {
+        levels.push({
+          name: skill.name,
+          proficiency: row.proficiency ?? null,
+          source: row.proficiency_source ?? "inferred",
+        });
       }
     }
     return {
@@ -927,9 +937,11 @@ export const addProfileSkillsInternal = internalMutation({
       added,
       already_present: alreadyPresent,
       unmatched,
+      levels,
+      inferred_changes: changed,
       message: unmatched.length
         ? `Some skills were not in the Qelsa catalog: ${unmatched.join(", ")}.`
-        : undefined,
+        : "Skill levels are inferred from your profile. Use an assessment if you want to verify a higher level.",
     };
   },
 });
@@ -1799,13 +1811,12 @@ export const updateProfileTool = createTool({
 
 export const addProfileSkillsTool = createTool({
   description:
-    "Add skills to the user's Qelsa profile from the existing skill catalog. Requires human approval. Use only skills the user explicitly says they have. Returns any names that were not in the catalog.",
+    "Add skills to the user's Qelsa profile from the existing skill catalog. Requires human approval. Use only skills the user explicitly says they have. This never sets a proficiency level: levels are inferred from profile evidence, or verified through start_skill_assessment. Returns the inferred levels so you can explain them honestly.",
   inputSchema: z.object({
     skills: z
       .array(
         z.object({
           name: z.string().describe("Skill name, e.g. TypeScript."),
-          proficiency: z.enum(["beginner", "intermediate", "advance", "advanced", "expert"]).optional(),
           is_top_skill: z.boolean().optional(),
         }),
       )
@@ -1816,7 +1827,62 @@ export const addProfileSkillsTool = createTool({
   execute: async (ctx, args): Promise<any> =>
     ctx.runMutation(internal.qelsaAgentTools.addProfileSkillsInternal, {
       authId: authIdOf(ctx),
-      skills: args.skills as Array<{ name: string; proficiency?: string; is_top_skill?: boolean }>,
+      skills: args.skills,
+    }),
+});
+
+export const getSkillEvidenceTool = createTool({
+  description:
+    "Read the profile evidence behind a skill level: current level/source, inferred level, matching experiences, certifications, and whether the profile merely mentions the skill. Call this before accepting a requested skill-level change. Do not treat a user's claim alone as evidence.",
+  inputSchema: z.object({
+    skill_name: z.string().describe("Skill name, e.g. Python or Product Management."),
+  }),
+  execute: async (ctx, args): Promise<any> =>
+    ctx.runQuery(internal.skillAssessments.evidenceForSkill, {
+      authId: authIdOf(ctx),
+      skillName: args.skill_name,
+    }),
+});
+
+export const startSkillAssessmentTool = createTool({
+  description:
+    "Start a short, skill-specific assessment when the user wants to verify or raise a skill level but their profile evidence is insufficient. Returns 3-5 questions. Ask them one at a time, wait for each answer, then call submit_skill_assessment. Do not claim a level before the result is returned.",
+  inputSchema: z.object({
+    skill_name: z.string().describe("Skill to assess, e.g. Python."),
+    requested_level: z
+      .enum(["beginner", "intermediate", "advance", "expert"])
+      .optional()
+      .describe("The level the user wants to verify, if stated."),
+  }),
+  execute: async (ctx, args): Promise<any> =>
+    ctx.runAction(internal.skillAssessments.startAssessment, {
+      authId: authIdOf(ctx),
+      skillName: args.skill_name,
+      requestedLevel: args.requested_level,
+    }),
+});
+
+export const submitSkillAssessmentTool = createTool({
+  description:
+    "Grade a completed short skill assessment and apply the verified level to the profile. Requires human approval. Pass the exact question texts and the user's answers from the assessment. Never answer on the user's behalf.",
+  inputSchema: z.object({
+    assessment_id: z.string().describe("The assessment_id returned by start_skill_assessment."),
+    answers: z
+      .array(
+        z.object({
+          question: z.string().describe("The exact question text."),
+          answer: z.string().describe("The user's answer."),
+        }),
+      )
+      .min(1)
+      .max(5),
+  }),
+  needsApproval: true,
+  execute: async (ctx, args): Promise<any> =>
+    ctx.runAction(internal.skillAssessments.gradeAssessment, {
+      authId: authIdOf(ctx),
+      assessmentId: args.assessment_id as Id<"skill_assessments">,
+      answers: args.answers,
     }),
 });
 
@@ -1990,6 +2056,9 @@ export const qelsaAgentTools = {
   record_external_application: recordExternalApplicationTool,
   update_profile: updateProfileTool,
   add_profile_skills: addProfileSkillsTool,
+  get_skill_evidence: getSkillEvidenceTool,
+  start_skill_assessment: startSkillAssessmentTool,
+  submit_skill_assessment: submitSkillAssessmentTool,
   update_career_goal: updateCareerGoalTool,
   save_job_search: saveJobSearchTool,
   list_saved_searches: listJobSearchesTool,

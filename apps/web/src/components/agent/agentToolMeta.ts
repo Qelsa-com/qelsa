@@ -281,6 +281,24 @@ export const TOOL_META: Record<
     failed: "Couldn't add profile skills",
     icon: Settings,
   },
+  get_skill_evidence: {
+    done: "Checked skill evidence",
+    running: "Checking skill evidence",
+    failed: "Couldn't check skill evidence",
+    icon: FileSearch,
+  },
+  start_skill_assessment: {
+    done: "Prepared a skill assessment",
+    running: "Preparing a skill assessment",
+    failed: "Couldn't prepare a skill assessment",
+    icon: ListChecks,
+  },
+  submit_skill_assessment: {
+    done: "Verified the skill level",
+    running: "Verifying the skill level",
+    failed: "Couldn't verify the skill level",
+    icon: CheckCircle2,
+  },
   save_job_search: {
     done: "Saved the job search",
     running: "Saving the job search",

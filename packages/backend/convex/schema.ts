@@ -3,6 +3,12 @@ import { v } from "convex/values";
 
 const proficiency = v.union(v.literal("beginner"), v.literal("intermediate"), v.literal("advance"), v.literal("expert"));
 
+const skillProficiencySource = v.union(
+  v.literal("inferred"),
+  v.literal("self_reported"),
+  v.literal("assessment"),
+);
+
 const jobStatus = v.union(v.literal("draft"), v.literal("open"), v.literal("closed"), v.literal("paused"));
 
 const workplaceType = v.union(v.literal("on-site"), v.literal("hybrid"), v.literal("remote"));
@@ -509,7 +515,49 @@ export default defineSchema({
     // True while `proficiency` is estimated from experience, certifications,
     // education, and profile text. Estimates are rewritten when that evidence changes.
     proficiency_inferred: v.optional(v.boolean()),
+    // Where the current level came from. Assessment levels survive profile refreshes.
+    proficiency_source: v.optional(skillProficiencySource),
+    assessment_id: v.optional(v.id("skill_assessments")),
+    assessed_at: v.optional(v.number()),
     is_top_skill: v.optional(v.boolean()),
+  })
+    .index("by_user", ["user_id"])
+    .index("by_user_and_skill", ["user_id", "skill_id"]),
+
+  // Short, skill-specific assessments used instead of accepting a claimed
+  // proficiency. Questions and answers stay with the user's record so a level
+  // can be audited or retaken later.
+  skill_assessments: defineTable({
+    user_id: v.id("users"),
+    skill_id: v.id("skills"),
+    skill_name: v.string(),
+    requested_level: v.optional(proficiency),
+    status: v.union(
+      v.literal("in_progress"),
+      v.literal("completed"),
+      v.literal("failed"),
+      v.literal("expired"),
+    ),
+    questions: v.array(
+      v.object({
+        question: v.string(),
+        focus: v.string(),
+        difficulty: v.string(),
+      }),
+    ),
+    answers: v.array(
+      v.object({
+        question: v.string(),
+        answer: v.string(),
+      }),
+    ),
+    score: v.optional(v.number()),
+    result_level: v.optional(proficiency),
+    summary: v.optional(v.string()),
+    created_at: v.number(),
+    updated_at: v.number(),
+    completed_at: v.optional(v.number()),
+    expires_at: v.number(),
   })
     .index("by_user", ["user_id"])
     .index("by_user_and_skill", ["user_id", "skill_id"]),

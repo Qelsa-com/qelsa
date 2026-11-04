@@ -18,6 +18,9 @@ export type UserSkill = {
   category: SkillCategory | null;
   // Proficiency is now an enum string and may be blank/unset.
   proficiency: ProficiencyLevel | "" | null;
+  /** inferred from profile evidence, or verified by assessment. */
+  proficiency_source?: "inferred" | "self_reported" | "assessment" | null;
+  assessed_at?: number | null;
   experience_level?: string;
   is_top_skill: boolean;
 };

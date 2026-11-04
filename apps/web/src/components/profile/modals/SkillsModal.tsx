@@ -14,6 +14,7 @@ type SkillDraft = {
   skill: PickedSkill;
   /** Stored estimate. Display only — the editor never writes this field. */
   proficiency?: ProficiencyLevel | "" | null;
+  proficiency_source?: "inferred" | "self_reported" | "assessment" | null;
   is_top_skill: boolean;
 };
 
@@ -69,6 +70,7 @@ export function SkillsModal({ open, onClose, initialSkills, onCustomSave }: Skil
         id: row.id,
         skill: { id: row.skill?.id ?? "", name: row.skill?.name ?? "Skill" },
         proficiency: row.proficiency,
+        proficiency_source: row.proficiency_source,
         is_top_skill: Boolean(row.is_top_skill),
       })),
     );
@@ -161,6 +163,11 @@ export function SkillsModal({ open, onClose, initialSkills, onCustomSave }: Skil
                 {draft.proficiency ? (
                   <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${proficiencyClass(draft.proficiency)}`}>
                     {proficiencyBadgeLabel(draft.proficiency)}
+                  </span>
+                ) : null}
+                {draft.proficiency_source === "assessment" ? (
+                  <span className="shrink-0 rounded-full border border-neon-cyan/25 bg-neon-cyan/[0.06] px-2 py-1 text-[9px] font-semibold uppercase tracking-wide text-neon-cyan">
+                    Verified
                   </span>
                 ) : null}
 
