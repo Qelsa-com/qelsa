@@ -6,7 +6,8 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { internalMutation, internalQuery } from "./_generated/server";
 import { authedQuery } from "./lib/customFunctions";
 import { withSkillAliases } from "./lib/skillCatalog";
-import { clipPlainText, buildCompetencyFramework, computeYearsExperience, extractJdListItems } from "./lib/skillMatch";
+import { clipPlainText, buildCompetencyFramework, extractJdListItems } from "./lib/skillMatch";
+import { jobFunctionForJob, loadExperienceProfile, relatedExperienceScore } from "./lib/experienceMatch";
 import { buildProfileFingerprint } from "./lib/profileFingerprint";
 
 export const skillRefValidator = v.object({
@@ -254,7 +255,7 @@ export const loadJobSnapshot = internalQuery({
       job.page_id ? ctx.db.get(job.page_id) : null,
       job.city_id ? ctx.db.get(job.city_id) : null,
       job.job_title_id ? ctx.db.get(job.job_title_id) : null,
-      ctx.db.query("job_skills").withIndex("by_job", (q) => q.eq("job_id", job._id)).collect(),
+      ctx.db.query("job_skills").withIndex("by_job", (q) => q.eq("job_id", job._id)).take(60),
     ]);
     const state = city ? await ctx.db.get(city.state_id) : null;
     const skills = [];
@@ -269,13 +270,12 @@ export const loadJobSnapshot = internalQuery({
         weight: row.weight,
       });
     }
-    const [userSkillRows, expRows, eduRows] = await Promise.all([
-      ctx.db.query("user_skills").withIndex("by_user", (q) => q.eq("user_id", args.userId)).collect(),
-      ctx.db.query("experiences").withIndex("by_user", (q) => q.eq("user_id", args.userId)).collect(),
-      ctx.db.query("educations").withIndex("by_user", (q) => q.eq("user_id", args.userId)).collect(),
+    const [userSkillRows, expRows] = await Promise.all([
+      ctx.db.query("user_skills").withIndex("by_user", (q) => q.eq("user_id", args.userId)).take(20),
+      ctx.db.query("experiences").withIndex("by_user", (q) => q.eq("user_id", args.userId)).take(100),
     ]);
-    // Same profile inputs as `jobs.getJobById`, so this readiness is identical to
-    // the ring on the job page rather than a skills-only variant.
+    const experienceProfile = await loadExperienceProfile(ctx, expRows);
+    // Same formula inputs as the job page, the ranking and the employer views.
     const competency = buildCompetencyFramework(
       skills.map((s) => ({
         skill_id: s.skill_id,
@@ -286,9 +286,12 @@ export const loadJobSnapshot = internalQuery({
       })),
       await withSkillAliases(ctx, userSkillRows),
       {
-        candidateYearsExperience: computeYearsExperience(expRows),
+        experienceScore: relatedExperienceScore(
+          experienceProfile,
+          jobFunctionForJob(job.title, jobTitle?.name),
+          job.experience,
+        ),
         requiredExperienceYears: job.experience ?? null,
-        candidateEducationCount: eduRows.length,
       },
     );
     return {

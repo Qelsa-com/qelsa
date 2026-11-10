@@ -12,12 +12,12 @@ function range(count: number) {
 }
 
 /** Mirrors `JobCard` on Smart Matches / All Jobs. */
-export function JobCardSkeleton() {
+export function JobCardSkeleton({ showScore = true }: { showScore?: boolean }) {
   return (
     <div className="flex flex-col gap-4 rounded-2xl border border-glass-border bg-white/[0.04] p-4 sm:rounded-[20px] sm:p-5">
-      <div className="flex items-center justify-between">
+      <div className={`flex items-center justify-between ${showScore ? "min-h-12 sm:min-h-14" : ""}`}>
         <Bone className="size-9 rounded-lg" />
-        <Bone className="size-11 rounded-full sm:size-12" />
+        {showScore ? <Bone className="size-12 rounded-full sm:size-14" /> : null}
       </div>
       <div className="flex flex-col gap-2">
         <Bone className="h-4 w-4/5" />
@@ -37,7 +37,15 @@ export function JobCardSkeleton() {
   );
 }
 
-export function JobCardGridSkeleton({ count = 8, columns = 4 }: { count?: number; columns?: 3 | 4 }) {
+export function JobCardGridSkeleton({
+  count = 8,
+  columns = 4,
+  showScore = true,
+}: {
+  count?: number;
+  columns?: 3 | 4;
+  showScore?: boolean;
+}) {
   const grid =
     columns === 3
       ? "grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3"
@@ -45,7 +53,7 @@ export function JobCardGridSkeleton({ count = 8, columns = 4 }: { count?: number
   return (
     <div className={grid}>
       {range(count).map((i) => (
-        <JobCardSkeleton key={i} />
+        <JobCardSkeleton key={i} showScore={showScore} />
       ))}
     </div>
   );
@@ -75,12 +83,13 @@ export function SmartMatchesSkeleton() {
   );
 }
 
-export function AllJobsGridSkeleton() {
+export function AllJobsGridSkeleton({ showScore = false }: { showScore?: boolean }) {
   return (
     <div className="flex flex-col gap-4 sm:gap-6" role="status" aria-label="Loading jobs">
       <span className="sr-only">Loading jobs</span>
       <Bone className="h-4 w-40" />
-      <JobCardGridSkeleton count={20} columns={4} />
+      {/* The signed-in relevance feed is scored; the guest/date feed is not. */}
+      <JobCardGridSkeleton count={20} columns={4} showScore={showScore} />
     </div>
   );
 }

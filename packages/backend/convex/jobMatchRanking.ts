@@ -10,10 +10,11 @@ import {
 } from "./_generated/server";
 import { authedMutation, authedQuery } from "./lib/customFunctions";
 import { scoreJobForUser, type ScoringCareerGoal } from "./lib/jobMatchScoring";
-import { buildProfileFingerprint } from "./lib/profileFingerprint";
+import { buildReadinessFingerprint } from "./lib/profileFingerprint";
 import { SMART_ALMOST_MIN, SMART_READY_MIN } from "./lib/smartMatchTiers";
 import { jobSalaryUsd } from "./lib/salary";
-import { computeYearsExperience } from "./lib/skillMatch";
+import { READINESS_FORMULA_VERSION } from "./lib/skillMatch";
+import { loadExperienceProfile } from "./lib/experienceMatch";
 import { withSkillAliases } from "./lib/skillCatalog";
 
 /** How many ranked jobs a cached ranking keeps. */
@@ -30,7 +31,7 @@ const BACKFILL_PAGE = 10;
  * never the whole catalog: postings for the user's skills, plus career-goal
  * title matches. These caps keep one pass inside Convex's per-transaction limits.
  */
-const SKILL_CHUNK = 8;
+const SKILL_CHUNK = 3;
 const POSTINGS_PER_SKILL = 300;
 const MAX_CANDIDATES = 2000;
 const VECTOR_BATCH = 200;
@@ -44,8 +45,6 @@ const COMPUTE_STALE_MS = 10 * 60 * 1000;
  */
 const PROFILE_SKILL_LIMIT = 20;
 const PROFILE_EXPERIENCE_LIMIT = 100;
-const PROFILE_EDUCATION_LIMIT = 50;
-const PROFILE_RESUME_LIMIT = 50;
 const VECTOR_SKILL_LIMIT = 60;
 
 type RankingEntry = {
@@ -65,9 +64,8 @@ type VectorSkill = {
 };
 
 async function profileInputsFor(ctx: QueryCtx, userId: Id<"users">) {
-  const user = await ctx.db.get(userId);
-  if (!user) return null;
-  const [skillRows, expRows, eduRows, resumeRows, careerGoal] = await Promise.all([
+  if (!(await ctx.db.get(userId))) return null;
+  const [skillRows, expRows, careerGoal] = await Promise.all([
     ctx.db
       .query("user_skills")
       .withIndex("by_user", (q) => q.eq("user_id", userId))
@@ -77,35 +75,22 @@ async function profileInputsFor(ctx: QueryCtx, userId: Id<"users">) {
       .withIndex("by_user", (q) => q.eq("user_id", userId))
       .take(PROFILE_EXPERIENCE_LIMIT),
     ctx.db
-      .query("educations")
-      .withIndex("by_user", (q) => q.eq("user_id", userId))
-      .take(PROFILE_EDUCATION_LIMIT),
-    ctx.db
-      .query("resumes")
-      .withIndex("by_user", (q) => q.eq("user_id", userId))
-      .take(PROFILE_RESUME_LIMIT),
-    ctx.db
       .query("career_goals")
       .withIndex("by_user", (q) => q.eq("user_id", userId))
       .unique(),
   ]);
 
+  const experienceProfile = await loadExperienceProfile(ctx, expRows);
+
   return {
     userSkills: await withSkillAliases(ctx, skillRows),
-    profile: {
-      yearsExperience: computeYearsExperience(expRows),
-      educationCount: eduRows.length,
-    },
+    profile: { experienceProfile },
     careerGoal: (careerGoal ?? null) as unknown as ScoringCareerGoal,
-    fingerprint: `${buildProfileFingerprint({
+    fingerprint: `${buildReadinessFingerprint({
       skills: skillRows,
       experiences: expRows,
-      educations: eduRows,
-      resumes: resumeRows,
-      professionalSummary: user.professional_summary,
-      about: user.about,
       careerGoal,
-    })}|smart-tiers:${SMART_READY_MIN}-${SMART_ALMOST_MIN}`,
+    })}|formula:${READINESS_FORMULA_VERSION}|smart-tiers:${SMART_READY_MIN}-${SMART_ALMOST_MIN}`,
   };
 }
 
@@ -512,9 +497,6 @@ export const recompute = internalAction({
       .slice(0, MAX_CANDIDATES)
       .map(([jobId]) => jobId);
     let scanned = 0;
-    let readyTotal = 0;
-    let almostTotal = 0;
-    let growthTotal = 0;
     const scored: RankingEntry[] = [];
 
     for (let i = 0; i < ids.length; i += VECTOR_BATCH) {
@@ -539,9 +521,6 @@ export const recompute = internalAction({
         );
         scanned += 1;
         if (result.readiness == null || result.smartMatch == null) continue;
-        if (result.smartMatch >= SMART_READY_MIN) readyTotal += 1;
-        else if (result.smartMatch >= SMART_ALMOST_MIN) almostTotal += 1;
-        else growthTotal += 1;
         scored.push({
           job_id: vector.job_id,
           readiness: result.readiness,
@@ -553,6 +532,14 @@ export const recompute = internalAction({
 
     scored.sort((a, b) => b.smart_match - a.smart_match);
     const entries = scored.slice(0, TOP_K);
+    // Counts must describe the retained entries: a tier page cannot list a job
+    // outside TOP_K, so counting all 2,000 scored candidates made the badge and
+    // the list disagree.
+    const readyTotal = entries.filter((entry) => entry.smart_match >= SMART_READY_MIN).length;
+    const almostTotal = entries.filter(
+      (entry) => entry.smart_match >= SMART_ALMOST_MIN && entry.smart_match < SMART_READY_MIN,
+    ).length;
+    const growthTotal = entries.length - readyTotal - almostTotal;
     await ctx.runMutation(internal.jobMatchRanking.saveRanking, {
       userId: args.userId,
       fingerprint: context.fingerprint,

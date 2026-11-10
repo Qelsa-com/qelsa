@@ -11,12 +11,16 @@ export type CompetencyItem = {
   weight: number;
   status: string; // "match" | "exceeds" | "gap"
   matched: boolean;
+  /** Fraction of the weight earned (1 met, partial below the bar, 0 missing). */
+  credit?: number;
+  /** True for the employer's core/required skills. */
+  required?: boolean;
 };
 
 export type MatchGap = {
   skills: string[];
   reachesReady: boolean;
-  blocker: "skills" | "experience" | "education" | "profile";
+  blocker: "skills" | "experience" | "profile";
 };
 
 export type Competency = {
@@ -27,6 +31,9 @@ export type Competency = {
   career_alignment?: number | null;
   smart_match?: number | null;
   gap?: MatchGap | null;
+  skillReadiness?: number | null;
   experienceScore?: number | null;
-  educationScore?: number | null;
+  /** Set when a missing core skill capped the total. */
+  missingRequired?: number;
+  requiredCapApplied?: boolean;
 };

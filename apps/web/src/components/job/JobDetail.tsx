@@ -10,7 +10,7 @@
  *  - RTK Query: useGetJobByIdQuery / useGetSimilarJobsQuery / useToggleSaveJobMutation
  *
  * The "How you fit this role" section reuses the existing, data-wired
- * CompetencyTable (job.competency). The Figma's Experience/Education match bars
+ * CompetencyTable (job.competency). The skills and relevant-experience bars
  * have no backing data in the model and were intentionally dropped.
  */
 
@@ -315,7 +315,6 @@ export function JobDetail({
 
   const userYears = (experiences ?? []).reduce((sum, exp) => sum + experienceMonths(exp), 0) / 12;
   const experienceMatch = job.experience != null ? (userYears >= job.experience ? Math.min(100, 75 + Math.round((userYears - job.experience) * 4)) : Math.round((userYears / Math.max(job.experience, 0.5)) * 100)) : userYears > 0 ? 72 : null;
-  const educationMatch = (educations?.length ?? 0) > 0 ? 68 : null;
 
   const companyMeta = [job.page?.industry || job.page?.primaryIndustry, job.page?.company_size?.label, job.page?.founded_year ? `Founded ${job.page.founded_year}` : job.page?.foundedYear ? `Founded ${job.page.foundedYear}` : null]
     .filter(Boolean)
@@ -347,6 +346,13 @@ export function JobDetail({
     : [];
 
   const isExternalApply = Boolean(job.application_url);
+
+  const handleCheckReadiness = () => {
+    if (!id) return;
+    // Guests need an account and a profile before readiness can be computed.
+    // `actionType=profile` sends them into setup and returns to this job.
+    router.push(`/auth?actionType=profile&returnUrl=${encodeURIComponent(`/jobs/${id}`)}`);
+  };
 
   const handleApply = () => {
     if (!isAuthenticated) {
@@ -462,7 +468,7 @@ export function JobDetail({
 
       {/* Content. Tighter padding on a phone; the lg values are the desktop
           layout unchanged. Extra bottom padding on mobile keeps the content clear of the fixed bottom bar. */}
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 pb-28 pt-4 sm:px-6 lg:gap-6 lg:px-8 lg:pb-12 lg:pt-8">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 pb-44 pt-4 sm:px-6 lg:gap-6 lg:px-8 lg:pb-12 lg:pt-8">
         {/* Breadcrumb + share sit on one row above the card. Desktop only —
             the mobile frame uses the header bar above instead. */}
         <div className="hidden w-full items-center justify-between lg:flex">
@@ -568,6 +574,17 @@ export function JobDetail({
                     >
                       <Sparkles className="size-4 text-neon-cyan" />
                       <span className="hidden xl:inline">Ask Qelsa Agent</span>
+                    </Button>
+                  )}
+                  {!isAuthenticated && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleCheckReadiness}
+                      className="h-auto flex-1 rounded-full border-[1.5px] border-white/20 bg-transparent px-4 py-3 text-sm text-white hover:bg-white/5 lg:flex-none lg:px-5 lg:py-3.5"
+                    >
+                      <Sparkles className="mr-2 size-4 text-neon-cyan" />
+                      Check readiness
                     </Button>
                   )}
                   {applied ? (
@@ -676,7 +693,7 @@ export function JobDetail({
             {/* How you fit this role. The ring is the Readiness score. */}
             {!isOwner && competency && (
               <div id="how-you-fit" className="scroll-mt-36">
-                <CompetencyTable competency={competency} experienceMatch={matchSession?.analysis?.experience_match ?? experienceMatch} educationMatch={matchSession?.analysis?.education_match ?? educationMatch} onAskQelsa={handleAskWhy} />
+                <CompetencyTable competency={competency} onAskQelsa={handleAskWhy} />
               </div>
             )}
 
@@ -828,9 +845,9 @@ export function JobDetail({
 
         {/* Mobile fixed floating bottom actions bar */}
         <div className="fixed inset-x-0 bottom-0 z-40 border-t border-glass-border bg-[#06060f]/90 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-lg lg:hidden">
-          <div className="mx-auto flex max-w-lg items-center gap-3">
+          <div className="mx-auto flex w-full max-w-lg flex-col gap-2">
             {isOwner ? (
-              <>
+              <div className="flex items-center gap-2">
                 <Button
                   type="button"
                   variant="outline"
@@ -844,36 +861,51 @@ export function JobDetail({
                   <Users className="mr-2 size-4" />
                   Applications ({job.application_count ?? job.applications?.length ?? 0})
                 </Button>
-              </>
+              </div>
             ) : (
               <>
-                {isAuthenticated && !applied && (
-                  <Button type="button" variant="outline" onClick={handleSave} className="h-auto flex-1 rounded-full border-[1.5px] border-white/20 bg-transparent px-5 py-3.5 text-sm font-semibold text-white hover:bg-white/5">
-                    {saved ? "Saved" : "Save job"}
-                  </Button>
-                )}
-                {isAuthenticated && (
+                {/* On a phone the full "Check readiness" label does not fit
+                    beside Apply at 320px, so the guest CTAs stack. */}
+                {!isAuthenticated && (
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={handleAskAgent}
-                    aria-label="Ask Qelsa Agent about this job"
-                    className="size-[46px] shrink-0 rounded-full border-[1.5px] border-white/20 bg-transparent p-0 text-neon-cyan hover:bg-white/5"
+                    onClick={handleCheckReadiness}
+                    className="h-auto w-full rounded-full border-[1.5px] border-white/20 bg-transparent px-4 py-3.5 text-sm font-semibold text-white hover:bg-white/5"
                   >
-                    <Sparkles className="size-5" />
+                    <Sparkles className="mr-2 size-4 shrink-0 text-neon-cyan" />
+                    Check readiness
                   </Button>
                 )}
-                {applied ? (
-                  <span className="flex-1 rounded-full border border-neon-green/30 bg-neon-green/10 px-5 py-3.5 text-center text-sm font-semibold text-neon-green">Applied</span>
-                ) : (
-                  <Button
-                    onClick={handleApply}
-                    aria-label={isExternalApply ? "Apply now (opens in a new tab)" : undefined}
-                    className={`h-auto flex-1 rounded-full px-5 py-3.5 text-base font-semibold text-white ${GRADIENT} hover:opacity-90 shadow-lg shadow-purple-500/20`}
-                  >
-                    <ApplyNowLabel external={isExternalApply} />
-                  </Button>
-                )}
+                <div className="flex items-center gap-2">
+                  {isAuthenticated && !applied && (
+                    <Button type="button" variant="outline" onClick={handleSave} className="h-auto flex-1 rounded-full border-[1.5px] border-white/20 bg-transparent px-3 py-3.5 text-[13px] font-semibold text-white hover:bg-white/5">
+                      {saved ? "Saved" : "Save"}
+                    </Button>
+                  )}
+                  {isAuthenticated && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleAskAgent}
+                      aria-label="Ask Qelsa Agent about this job"
+                      className="size-[46px] shrink-0 rounded-full border-[1.5px] border-white/20 bg-transparent p-0 text-neon-cyan hover:bg-white/5"
+                    >
+                      <Sparkles className="size-5" />
+                    </Button>
+                  )}
+                  {applied ? (
+                    <span className="flex-1 rounded-full border border-neon-green/30 bg-neon-green/10 px-5 py-3.5 text-center text-sm font-semibold text-neon-green">Applied</span>
+                  ) : (
+                    <Button
+                      onClick={handleApply}
+                      aria-label={isExternalApply ? "Apply now (opens in a new tab)" : undefined}
+                      className={`h-auto flex-1 rounded-full px-5 py-3.5 text-base font-semibold text-white ${GRADIENT} hover:opacity-90 shadow-lg shadow-purple-500/20`}
+                    >
+                      <ApplyNowLabel external={isExternalApply} />
+                    </Button>
+                  )}
+                </div>
               </>
             )}
           </div>

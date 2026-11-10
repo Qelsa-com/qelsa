@@ -49,6 +49,7 @@ import { rankingForUser } from "./jobMatchRanking";
 import { companyProfileKey, companyProfileSeed, type CompanyProfileSeed } from "./lib/companyProfile";
 import { withSkillAliases } from "./lib/skillCatalog";
 import { buildCompetencyFramework, clipPlainText, computeYearsExperience } from "./lib/skillMatch";
+import { jobFunctionForJob, loadExperienceProfile, relatedExperienceScore, type ExperienceProfile } from "./lib/experienceMatch";
 import { scoreJobForUser } from "./lib/jobMatchScoring";
 import { calculateCareerAlignment, calculateSmartMatch } from "./lib/careerAlignment";
 import { canonicalizeCatalogName, catalogKey, looksLikeConvexId, resolveCityRef, resolveNamedRef, type CityRefInput } from "./lib/resolve";
@@ -62,17 +63,19 @@ type ListHydration = {
   appliedJobIds: Set<string>;
   skillCache: SkillCache;
   yearsExperience: number | null;
-  educationCount: number;
+  experienceProfile: ExperienceProfile | null;
   careerGoal?: Doc<"career_goals"> | null;
   hasProfile: boolean;
   hasWorkExperience: boolean;
 };
 
+const JOB_SKILL_READ_LIMIT = 60;
+
 async function jobSkillsFor(ctx: QueryCtx, jobId: Id<"jobs">, cache?: SkillCache) {
   const rows = await ctx.db
     .query("job_skills")
     .withIndex("by_job", (q) => q.eq("job_id", jobId))
-    .collect();
+    .take(JOB_SKILL_READ_LIMIT);
   const skillCache = cache ?? new Map();
   const missing = rows.filter((row) => !skillCache.has(row.skill_id));
   await Promise.all(
@@ -94,17 +97,17 @@ async function listHydration(ctx: QueryCtx, user: Doc<"users"> | null, loadSaved
       appliedJobIds: new Set(),
       skillCache: new Map(),
       yearsExperience: null,
-      educationCount: 0,
+      experienceProfile: null,
       careerGoal: null,
       hasProfile: false,
       hasWorkExperience: false,
     };
   }
-  const [skillRows, saved, expRows, eduRows, appRows, careerGoal] = await Promise.all([
+  const [skillRows, saved, expRows, appRows, careerGoal] = await Promise.all([
     ctx.db
       .query("user_skills")
       .withIndex("by_user", (q) => q.eq("user_id", user._id))
-      .collect(),
+      .take(20),
     loadSaved
       ? ctx.db
           .query("saved_jobs")
@@ -114,11 +117,7 @@ async function listHydration(ctx: QueryCtx, user: Doc<"users"> | null, loadSaved
     ctx.db
       .query("experiences")
       .withIndex("by_user", (q) => q.eq("user_id", user._id))
-      .collect(),
-    ctx.db
-      .query("educations")
-      .withIndex("by_user", (q) => q.eq("user_id", user._id))
-      .collect(),
+      .take(100),
     ctx.db
       .query("job_applications")
       .withIndex("by_user", (q) => q.eq("user_id", user._id))
@@ -135,16 +134,20 @@ async function listHydration(ctx: QueryCtx, user: Doc<"users"> | null, loadSaved
       .map((row) => String(row.job_id)),
   );
 
+  const [userSkills, experienceProfile] = await Promise.all([
+    withSkillAliases(ctx, skillRows),
+    loadExperienceProfile(ctx, expRows),
+  ]);
   const yearsExperience = computeYearsExperience(expRows);
-  const hasProfile = skillRows.length > 0 || expRows.length > 0 || eduRows.length > 0;
+  const hasProfile = skillRows.length > 0 || expRows.length > 0;
 
   return {
-    userSkills: await withSkillAliases(ctx, skillRows),
+    userSkills,
     savedJobIds: new Set(saved.map((row) => String(row.job_id))),
     appliedJobIds,
     skillCache: new Map(),
     yearsExperience,
-    educationCount: eduRows.length,
+    experienceProfile,
     careerGoal,
     hasProfile,
     hasWorkExperience: expRows.length > 0,
@@ -181,20 +184,23 @@ async function enrichJob(ctx: QueryCtx, job: Doc<"jobs">, user: Doc<"users"> | n
           await ctx.db
             .query("user_skills")
             .withIndex("by_user", (q) => q.eq("user_id", user._id))
-            .collect(),
+            .take(20),
         );
-    let yearsExp = list?.yearsExperience;
-    let eduCount = list?.educationCount;
+    let experienceProfile = list?.experienceProfile ?? null;
     if (!list) {
-      const [expRows, eduRows] = await Promise.all([
-        ctx.db.query("experiences").withIndex("by_user", (q) => q.eq("user_id", user._id)).collect(),
-        ctx.db.query("educations").withIndex("by_user", (q) => q.eq("user_id", user._id)).collect(),
-      ]);
-      yearsExp = computeYearsExperience(expRows);
-      eduCount = eduRows.length;
+      const expRows = await ctx.db
+        .query("experiences")
+        .withIndex("by_user", (q) => q.eq("user_id", user._id))
+        .take(100);
+      experienceProfile = await loadExperienceProfile(ctx, expRows);
     }
-    const hasProfile = list ? list.hasProfile : (userSkills.length > 0 || yearsExp != null || (eduCount != null && eduCount > 0));
+    const hasProfile = list ? list.hasProfile : userSkills.length > 0 || (experienceProfile?.totalYears ?? 0) > 0;
     if (hasProfile) {
+      const experienceScore = relatedExperienceScore(
+        experienceProfile,
+        jobFunctionForJob(job.title, job_title?.name),
+        job.experience,
+      );
       competency = buildCompetencyFramework(
         job_skills.map((js) => ({
           skill_id: js.skill_id,
@@ -204,11 +210,7 @@ async function enrichJob(ctx: QueryCtx, job: Doc<"jobs">, user: Doc<"users"> | n
           skill: js.skill,
         })),
         userSkills,
-        {
-          candidateYearsExperience: yearsExp ?? null,
-          requiredExperienceYears: job.experience ?? null,
-          candidateEducationCount: eduCount ?? null,
-        },
+        { experienceScore, requiredExperienceYears: job.experience ?? null },
       );
     }
     if (!list) {
@@ -549,11 +551,12 @@ export const listPaginated = optionalAuthQuery({
     const canScore = Boolean(ctx.user && hydration.hasProfile);
     // Readiness ranks search results and the explicit match-tier pages. It is
     // never a listing filter, and it must not cap how many jobs are browsable.
-    const shouldScore = canScore && (scoreFilter || Boolean(search && sortBy !== "date" && sortBy !== "salary"));
+    // The signed-in All Jobs feed defaults to "relevance", so it must actually
+    // compute readiness; previously it rendered the newest-first, unscored list.
+    const shouldScore = canScore && (scoreFilter || sortBy === "relevance" || Boolean(search && sortBy !== "date" && sortBy !== "salary"));
     const newestFirst = sortBy === "date" || (!shouldScore && sortBy !== "salary");
     const profileContext = {
-      yearsExperience: hydration.yearsExperience,
-      educationCount: hydration.educationCount,
+      experienceProfile: hydration.experienceProfile,
     };
     const withPageReadiness = async (candidates: BrowseCandidate[]) => {
       if (!canScore || candidates.length === 0) return candidates;
@@ -1349,8 +1352,7 @@ export const listMatchTiers = authedQuery({
       matched,
       hydration.userSkills,
       {
-        yearsExperience: hydration.yearsExperience,
-        educationCount: hydration.educationCount,
+        experienceProfile: hydration.experienceProfile,
       },
       careerGoal,
       {
@@ -1637,8 +1639,7 @@ export const listSimilar = optionalAuthQuery({
           similar.map((item) => item.job),
           hydration.userSkills,
           {
-            yearsExperience: hydration.yearsExperience,
-            educationCount: hydration.educationCount,
+            experienceProfile: hydration.experienceProfile,
           },
           hydration.careerGoal ?? null,
           {

@@ -151,15 +151,9 @@ function GroupHeader({ dotClass, label }: { dotClass: string; label: string }) {
 /** Full seeker-side "How you fit this role" panel for the job detail page. Renders nothing when competency is absent. */
 export function CompetencyTable({
   competency,
-  overallMatch,
-  experienceMatch,
-  educationMatch,
   onAskQelsa,
 }: {
   competency?: Competency | null;
-  overallMatch?: number | null;
-  experienceMatch?: number | null;
-  educationMatch?: number | null;
   onAskQelsa?: () => void;
 }) {
   if (!competency) return null;
@@ -170,9 +164,13 @@ export function CompetencyTable({
   const gaps = withCandidate.filter((c) => statusOf(c) === "gap");
   const strong = withCandidate.filter((c) => statusOf(c) !== "gap");
 
-  const skillsMatch = totalCount > 0 ? Math.round((matchedCount / totalCount) * 100) : 0;
-  const resolvedExpMatch = experienceMatch != null ? Math.round(experienceMatch) : competency.experienceScore != null ? Math.round(competency.experienceScore) : 0;
-  const resolvedEduMatch = educationMatch != null ? Math.round(educationMatch) : competency.educationScore != null ? Math.round(competency.educationScore) : 0;
+  const skillsMatch =
+    competency.skillReadiness != null
+      ? Math.round(competency.skillReadiness)
+      : totalCount > 0
+        ? Math.round((matchedCount / totalCount) * 100)
+        : 0;
+  const resolvedExpMatch = competency.experienceScore != null ? Math.round(competency.experienceScore) : 0;
 
   return (
     <div className="glass border border-glass-border rounded-2xl p-4 sm:p-6 lg:p-7 space-y-6">
@@ -184,9 +182,13 @@ export function CompetencyTable({
       <div className="flex flex-col sm:flex-row items-center gap-6 sm:gap-8">
         <FitRing value={readiness} label="Ready" />
         <div className="flex-1 w-full space-y-3.5">
-          <MatchBar label="Skills Match" value={skillsMatch} />
-          <MatchBar label="Experience Match" value={resolvedExpMatch} />
-          <MatchBar label="Education Match" value={resolvedEduMatch} />
+          <MatchBar label="Skills (70%)" value={skillsMatch} />
+          <MatchBar label="Relevant experience (30%)" value={resolvedExpMatch} />
+          {competency.requiredCapApplied ? (
+            <p className="text-[11px] leading-relaxed text-amber-400">
+              A required skill is missing, so readiness is capped.
+            </p>
+          ) : null}
         </div>
       </div>
 

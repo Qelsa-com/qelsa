@@ -16,6 +16,12 @@ import {
   type ApplicantSearchDoc,
 } from "./lib/applicantSearch";
 import { buildCompetencyFramework, clipPlainText } from "./lib/skillMatch";
+import {
+  computeExperienceProfile,
+  jobFunctionForJob,
+  relatedExperienceScore,
+} from "./lib/experienceMatch";
+import { skillsFromVector } from "./lib/scoringVector";
 import { isWithdrawn } from "./lib/applications";
 
 const MAX_APPS = 80;
@@ -29,23 +35,40 @@ async function requireOwnedJob(ctx: QueryCtx & { user: { _id: Id<"users"> } }, j
 export async function loadJobSearchContext(ctx: QueryCtx, jobId: Id<"jobs">) {
   const job = await ctx.db.get(jobId);
   if (!job) throw new Error("Job not found");
-  const [page, city, jobTitle, skillRows] = await Promise.all([
+  const [page, city, jobTitle, vector] = await Promise.all([
     job.page_id ? ctx.db.get(job.page_id) : null,
     job.city_id ? ctx.db.get(job.city_id) : null,
     job.job_title_id ? ctx.db.get(job.job_title_id) : null,
-    ctx.db.query("job_skills").withIndex("by_job", (q) => q.eq("job_id", jobId)).take(40),
+    ctx.db.query("job_match_vectors").withIndex("by_job", (q) => q.eq("job_id", jobId)).first(),
   ]);
-  const skills = [];
-  for (const row of skillRows) {
-    const skill = await ctx.db.get(row.skill_id);
-    if (!skill) continue;
-    skills.push({
-      skill_id: row.skill_id,
-      name: skill.name,
-      type: row.type,
-      proficiency: row.proficiency,
-      weight: row.weight,
-    });
+  let skills: Array<{
+    skill_id: Id<"skills">;
+    name: string;
+    type?: string | null;
+    proficiency?: string | null;
+    weight?: number | null;
+  }> = [];
+  if (vector) {
+    skills = vector.skills.map((skill) => ({
+      skill_id: skill.skill_id,
+      name: skill.name ?? "",
+      type: skill.type,
+      proficiency: skill.proficiency,
+      weight: skill.weight,
+    }));
+  } else {
+    const skillRows = await ctx.db.query("job_skills").withIndex("by_job", (q) => q.eq("job_id", jobId)).take(60);
+    for (const row of skillRows) {
+      const skill = await ctx.db.get(row.skill_id);
+      if (!skill) continue;
+      skills.push({
+        skill_id: row.skill_id,
+        name: skill.name,
+        type: row.type,
+        proficiency: row.proficiency,
+        weight: row.weight,
+      });
+    }
   }
   return {
     job,
@@ -99,6 +122,7 @@ export async function loadApplicantSearchDocs(
       const companies: string[] = [];
       const titles: string[] = [];
       const experienceBits: string[] = [];
+      const experienceTitles = new Map<string, string | null>();
       for (const row of experienceRows) {
         const [company, title] = await Promise.all([
           row.company_id ? ctx.db.get(row.company_id) : null,
@@ -106,8 +130,10 @@ export async function loadApplicantSearchDocs(
         ]);
         if (company?.name) companies.push(company.name);
         if (title?.name) titles.push(title.name);
+        if (row.job_title_id) experienceTitles.set(String(row.job_title_id), title?.name ?? null);
         experienceBits.push([title?.name, company?.name, includeText ? clipPlainText(row.description, 280) : ""].filter(Boolean).join(" "));
       }
+      const experienceProfile = computeExperienceProfile(experienceRows, experienceTitles, app.applied_at);
 
       const education: string[] = [];
       for (const row of educationRows) {
@@ -122,16 +148,19 @@ export async function loadApplicantSearchDocs(
       const competency = buildCompetencyFramework(
         jobContext.skills.map((skill) => ({
           skill_id: skill.skill_id,
-          type: skill.type,
-          proficiency: skill.proficiency,
-          weight: skill.weight,
+          type: skill.type ?? undefined,
+          proficiency: skill.proficiency ?? undefined,
+          weight: skill.weight ?? undefined,
           skill: { name: skill.name },
         })),
         skills.map((s) => ({ skill_id: s.id, proficiency: s.proficiency, name: s.name })),
         {
-          candidateYearsExperience: yearsFromExperiences(experienceRows, app.applied_at),
+          experienceScore: relatedExperienceScore(
+            experienceProfile,
+            jobFunctionForJob(jobContext.job.title, jobContext.title),
+            jobContext.experience,
+          ),
           requiredExperienceYears: jobContext.experience,
-          candidateEducationCount: educationRows.length,
         },
       );
 

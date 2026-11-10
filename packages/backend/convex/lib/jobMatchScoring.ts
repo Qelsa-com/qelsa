@@ -1,4 +1,10 @@
 import { calculateCareerAlignment, calculateSmartMatch } from "./careerAlignment";
+import {
+  asJobFunction,
+  jobFunctionForJob,
+  relatedExperienceScore,
+  type ExperienceProfile,
+} from "./experienceMatch";
 import { isAlmostThere, roundedReadiness } from "./jobProfileMatch";
 import { buildCompetencyFramework, closingGap, type ClosingGap } from "./skillMatch";
 
@@ -24,13 +30,15 @@ export type ScoringJob = {
   industry?: string | null;
   /** Resolved job-title name, used when the job has no free-text title. */
   job_title_name?: string | null;
+  /** Denormalized function when the scoring vector carries one. */
+  job_function?: string | null;
 };
 
 export type ScoringUserSkill = { skill_id: string; proficiency?: string; name?: string };
 
 export type ScoringProfile = {
-  yearsExperience?: number | null;
-  educationCount?: number | null;
+  /** Weighted years by job function, built once per candidate. */
+  experienceProfile?: ExperienceProfile | null;
 };
 
 export type ScoringCareerGoal = {
@@ -55,13 +63,12 @@ export function scoreJobForUser(
   profileContext: ScoringProfile | undefined,
   careerGoal: ScoringCareerGoal,
 ): JobScore {
-  const profile = profileContext
-    ? {
-        candidateYearsExperience: profileContext.yearsExperience ?? null,
-        candidateEducationCount: profileContext.educationCount ?? null,
-        requiredExperienceYears: job.experience ?? null,
-      }
-    : undefined;
+  const jobFunction = asJobFunction(job.job_function) ?? jobFunctionForJob(job.title, job.job_title_name);
+  const experienceScore = relatedExperienceScore(
+    profileContext?.experienceProfile,
+    jobFunction,
+    job.experience,
+  );
 
   const framework = buildCompetencyFramework(
     skills.map((skill) => ({
@@ -72,7 +79,7 @@ export function scoreJobForUser(
       skill: { name: skill.name ?? undefined },
     })),
     userSkills,
-    profile,
+    { experienceScore, requiredExperienceYears: job.experience ?? null },
   );
 
   const readiness = roundedReadiness(framework.readiness);

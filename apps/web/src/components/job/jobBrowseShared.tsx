@@ -252,9 +252,8 @@ export function gapLine(job: Job): string | null {
   const score = matchScore(job) ?? readinessScore(job);
   const gap = job.competency?.gap;
   if (score == null || score < ALMOST_MIN || score > ALMOST_MAX || !gap) return null;
-  if (gap.blocker === "experience") return "You're close — experience is what keeps this below Ready Now.";
-  if (gap.blocker === "education") return "You're close — education is what keeps this below Ready Now.";
-  if (gap.blocker === "profile") return "You're close — experience and education keep this below Ready Now.";
+  if (gap.blocker === "experience") return "You're close — relevant experience is what keeps this below Ready Now.";
+  if (gap.blocker === "profile") return "You're close — keep building the evidence.";
   if (gap.skills.length === 0) return null;
   const names = gap.skills.join(", ");
   return gap.reachesReady ? `You're close — missing: ${names} to reach Ready Now.` : `You're close — missing: ${names}.`;
@@ -448,7 +447,16 @@ export function useJobBrowseFilters(
 
 /* ------------------------------ job card ---------------------------------- */
 
-export function JobCard({ job, variant = "all" }: { job: Job; variant?: "all" | "smart" | "goal" }) {
+export function JobCard({
+  job,
+  variant = "all",
+  reserveScore = true,
+}: {
+  job: Job;
+  variant?: "all" | "smart" | "goal";
+  /** Reserve the ring footprint only when a readiness score is expected. */
+  reserveScore?: boolean;
+}) {
   const pagesRouter = usePagesRouter();
   const href = jobPath(job);
   // Warm the dynamic route on intent. Without this a card click downloads the
@@ -480,11 +488,21 @@ export function JobCard({ job, variant = "all" }: { job: Job; variant?: "all" | 
       onTouchStart={prefetch}
       className="flex flex-col gap-4 rounded-2xl border border-glass-border bg-white/[0.04] p-4 text-left transition-all hover:-translate-y-0.5 hover:border-neon-cyan/30 hover:bg-white/[0.06] sm:rounded-[20px] sm:p-5"
     >
-      <div className="flex items-center justify-between">
+      <div
+        className={`flex items-center justify-between ${
+          reserveScore || score != null ? "min-h-12 sm:min-h-14" : ""
+        }`}
+      >
         <div className="flex size-9 items-center justify-center overflow-hidden rounded-lg" style={hasLogo ? undefined : { backgroundColor: `${tint}22`, border: `1px solid ${tint}55` }}>
           <CompanyLogo job={job} name={company} fallback={<Building2 className="size-4" style={{ color: tint }} />} />
         </div>
-        {score != null && <MatchRing value={score} tone={score} color={variant === "goal" ? GOAL_MATCH.color : variant === "smart" ? smartMatchRingColor(score) : undefined} label={ringLabel} />}
+        {/* Always reserve the same 48/56px slot. A score that lands after the
+            card must not grow the card or shift the grid. */}
+        {score != null ? (
+          <MatchRing value={score} tone={score} color={variant === "goal" ? GOAL_MATCH.color : variant === "smart" ? smartMatchRingColor(score) : undefined} label={ringLabel} />
+        ) : reserveScore ? (
+          <span className="size-12 shrink-0 sm:size-14" aria-hidden="true" />
+        ) : null}
       </div>
 
       <div className="flex flex-col gap-1">
@@ -546,10 +564,21 @@ export function MatchRing({
   const offset = circumference * (1 - Math.min(100, Math.max(0, value)) / 100);
   const ringStroke = color ?? ringColor(tone ?? value);
   return (
-    <div className="relative size-12 shrink-0 sm:size-14">
+    <div className="relative size-12 shrink-0 sm:size-14" role="img" aria-label={`${label}: ${value}%`}>
       <svg className="absolute inset-0 size-full -rotate-90" viewBox="0 0 40 40">
         <circle cx="20" cy="20" r={r} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="3" />
-        <circle cx="20" cy="20" r={r} fill="none" stroke={ringStroke} strokeWidth="3" strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={offset} />
+        <circle
+          cx="20"
+          cy="20"
+          r={r}
+          fill="none"
+          stroke={ringStroke}
+          strokeWidth="3"
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          className="transition-[stroke-dashoffset] duration-500 ease-out motion-reduce:transition-none"
+        />
       </svg>
       {/* `100%` is four glyphs wide; at 44px it ran into the ring stroke. The
           larger circle plus a slightly smaller number keeps clear of the border. */}
@@ -1110,7 +1139,15 @@ export function MatchEmptyState({ tier = "strong", title, subtitle, actionLabel,
   );
 }
 
-export function JobGrid({ jobs, variant = "all" }: { jobs: Job[]; variant?: "all" | "smart" | "goal" }) {
+export function JobGrid({
+  jobs,
+  variant = "all",
+  reserveScore = true,
+}: {
+  jobs: Job[];
+  variant?: "all" | "smart" | "goal";
+  reserveScore?: boolean;
+}) {
   const pagesRouter = usePagesRouter();
   // Every job detail page shares one route chunk, so warming a single entry
   // makes the first card click instant rather than waiting for a download.
@@ -1123,7 +1160,7 @@ export function JobGrid({ jobs, variant = "all" }: { jobs: Job[]; variant?: "all
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
       {jobs.map((job) => (
-        <JobCard key={job.id} job={job} variant={variant} />
+        <JobCard key={job.id} job={job} variant={variant} reserveScore={reserveScore} />
       ))}
     </div>
   );

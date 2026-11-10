@@ -56,3 +56,56 @@ export function buildProfileFingerprint(input: {
     input.careerGoal ? `${input.careerGoal.target_role ?? ""}:${input.careerGoal.updated_at ?? ""}` : "",
   ].join("|");
 }
+
+/**
+ * Narrow cache key for the cached job ranking.
+ *
+ * Readiness now depends on skills and related experience only (education is
+ * not an input). Including education, resumes, or free-text profile copy in
+ * this key caused a 2,000-candidate recompute for edits that cannot move the
+ * score. Job titles/companies are included because they decide relatedness.
+ */
+export function buildReadinessFingerprint(input: {
+  skills: Array<{ skill_id: string; proficiency?: string | null }>;
+  experiences: Array<{
+    job_title_id?: string | null;
+    company_id?: string | null;
+    start_date?: number | null;
+    end_date?: number | null;
+    is_current?: boolean | null;
+  }>;
+  careerGoal?: {
+    target_role?: string | null;
+    target_roles?: string[] | null;
+    skills?: string[] | null;
+    industries?: string[] | null;
+    experience_level?: string | null;
+    updated_at?: number | null;
+  } | null;
+}): string {
+  return [
+    input.skills
+      .map((skill) => `${skill.skill_id}:${skill.proficiency ?? ""}`)
+      .sort()
+      .join(","),
+    input.experiences
+      .map(
+        (e) =>
+          `${e.job_title_id ?? ""}:${e.company_id ?? ""}:${e.start_date ?? ""}:${e.end_date ?? ""}:${
+            e.is_current ? 1 : 0
+          }`,
+      )
+      .sort()
+      .join(","),
+    input.careerGoal
+      ? [
+          input.careerGoal.target_role ?? "",
+          ...(input.careerGoal.target_roles ?? []),
+          ...(input.careerGoal.skills ?? []),
+          ...(input.careerGoal.industries ?? []),
+          input.careerGoal.experience_level ?? "",
+          input.careerGoal.updated_at ?? "",
+        ].join(":")
+      : "",
+  ].join("|");
+}

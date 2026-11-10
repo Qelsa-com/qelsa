@@ -333,7 +333,7 @@ export default defineSchema({
     ),
     /** How many catalog jobs the pass considered. */
     scanned: v.number(),
-    /** Tier totals across the whole catalog, so counts never depend on TOP_K. */
+    /** Tier totals for the retained entries, so badges match the list. */
     ready_total: v.number(),
     almost_total: v.number(),
     growth_total: v.number(),

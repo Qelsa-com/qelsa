@@ -3,8 +3,15 @@ import type { QueryCtx } from "../_generated/server";
 import { iso, withId } from "./helpers";
 import { calculateCareerAlignment, calculateSmartMatch } from "./careerAlignment";
 import { isAlmostThere, roundedReadiness, titleSimilarity, titleTokens, type UserRoleProfile } from "./jobProfileMatch";
+import {
+  jobFunctionForJob,
+  relatedExperienceScore,
+  type ExperienceProfile,
+} from "./experienceMatch";
 import { jobSalaryUsd } from "./salary";
 import { buildCompetencyFramework, closingGap, type ClosingGap } from "./skillMatch";
+import { scoreJobForUser } from "./jobMatchScoring";
+import { jobFromVector, skillsFromVector } from "./scoringVector";
 
 /** Newest-open scan for ranked browse. Indexed `take`, not `.collect()`. */
 export const BROWSE_SCAN = 160;
@@ -135,39 +142,51 @@ export function sortEnrichedJobs(
   });
 }
 
-/** Parallel indexed `job_skills` reads — Convex joins should not be sequential. */
+/** Parallel indexed reads; jobs with a scoring vector need no skill joins. */
 export async function scoreReadiness(
   ctx: QueryCtx,
   jobs: Doc<"jobs">[],
   userSkills: Array<{ skill_id: string; proficiency?: string; name?: string }>,
-  profileContext?: { yearsExperience?: number | null; educationCount?: number | null },
+  profileContext?: { experienceProfile?: ExperienceProfile | null },
   skillCache: Map<Id<"skills">, Doc<"skills"> | null> = new Map(),
 ): Promise<Map<Id<"jobs">, number | null>> {
-  const hasData = userSkills.length > 0 || profileContext?.yearsExperience != null || (profileContext?.educationCount != null && profileContext.educationCount > 0);
+  const hasData = userSkills.length > 0 || (profileContext?.experienceProfile?.totalYears ?? 0) > 0;
   if (!hasData) {
     return new Map(jobs.map((job) => [job._id, null]));
   }
 
-  const rowsByJob = await Promise.all(
-    jobs.map(async (job) => {
-      const rows = await ctx.db
-        .query("job_skills")
+  const vectors = await Promise.all(
+    jobs.map((job) =>
+      ctx.db
+        .query("job_match_vectors")
         .withIndex("by_job", (q) => q.eq("job_id", job._id))
-        .collect();
-      return [job._id, rows] as const;
-    }),
+        .first(),
+    ),
   );
+  const vectorById = new Map(jobs.map((job, index) => [job._id, vectors[index] ?? null]));
+  const missing = jobs.filter((job) => !vectorById.get(job._id));
 
-  const missingSkillIds = new Set<Id<"skills">>();
-  for (const [, rows] of rowsByJob) {
-    for (const row of rows) {
-      if (!skillCache.has(row.skill_id)) {
-        missingSkillIds.add(row.skill_id);
+  // Fallback for a job whose vector has not been written yet. New and edited
+  // jobs get one from `jobMatchRanking.upsertVector`; this keeps the card
+  // scored in the gap instead of silently dropping readiness.
+  const rowsByJob = new Map<Id<"jobs">, Array<{ skill_id: Id<"skills">; type?: string; proficiency?: string; weight?: number }>>();
+  if (missing.length > 0) {
+    const rows = await Promise.all(
+      missing.map(async (job) => {
+        const jobRows = await ctx.db
+          .query("job_skills")
+          .withIndex("by_job", (q) => q.eq("job_id", job._id))
+          .take(SCORE_SKILL_TAKE);
+        return [job._id, jobRows] as const;
+      }),
+    );
+    for (const [jobId, jobRows] of rows) rowsByJob.set(jobId, jobRows);
+    const missingSkillIds = new Set<Id<"skills">>();
+    for (const jobRows of rowsByJob.values()) {
+      for (const row of jobRows) {
+        if (!skillCache.has(row.skill_id)) missingSkillIds.add(row.skill_id);
       }
     }
-  }
-
-  if (missingSkillIds.size > 0) {
     await Promise.all(
       [...missingSkillIds].map(async (id) => {
         skillCache.set(id, await ctx.db.get(id));
@@ -175,10 +194,26 @@ export async function scoreReadiness(
     );
   }
 
-  const entries = rowsByJob.map(([jobId, rows]) => {
-    const job = jobs.find((item) => item._id === jobId);
+  const entries = jobs.map((job) => {
+    const vector = vectorById.get(job._id);
+    if (vector) {
+      const score = scoreJobForUser(
+        jobFromVector(vector),
+        skillsFromVector(vector),
+        userSkills,
+        profileContext,
+        null,
+      );
+      return [job._id, score.readiness] as const;
+    }
+    const rows = rowsByJob.get(job._id) ?? [];
+    const experienceScore = relatedExperienceScore(
+      profileContext?.experienceProfile,
+      jobFunctionForJob(job.title),
+      job.experience,
+    );
     return [
-      jobId,
+      job._id,
       roundedReadiness(
         buildCompetencyFramework(
           rows.map((row) => ({
@@ -189,13 +224,7 @@ export async function scoreReadiness(
             skill: { name: skillCache.get(row.skill_id)?.name },
           })),
           userSkills,
-          profileContext && job
-            ? {
-                candidateYearsExperience: profileContext.yearsExperience,
-                requiredExperienceYears: job.experience,
-                candidateEducationCount: profileContext.educationCount,
-              }
-            : undefined,
+          { experienceScore, requiredExperienceYears: job.experience },
         ).readiness,
       ),
     ] as const;
@@ -203,7 +232,7 @@ export async function scoreReadiness(
   return new Map(entries);
 }
 
-type ScoreProfile = { yearsExperience?: number | null; educationCount?: number | null };
+type ScoreProfile = { experienceProfile?: ExperienceProfile | null };
 
 type TierScoreCaches = {
   skills: Map<Id<"skills">, Doc<"skills"> | null>;
@@ -234,126 +263,70 @@ export async function scoreTierMatches(
     industries?: string[];
     experience_level?: string;
   } | null,
-  caches: TierScoreCaches,
+  _caches: TierScoreCaches,
 ): Promise<Map<Id<"jobs">, TierScore>> {
-  const rowsByJob = await Promise.all(
-    jobs.map(async (job) => {
-      const rows = await ctx.db
-        .query("job_skills")
+  const hasData = userSkills.length > 0 || (profileContext?.experienceProfile?.totalYears ?? 0) > 0;
+
+  const vectors = await Promise.all(
+    jobs.map((job) =>
+      ctx.db
+        .query("job_match_vectors")
         .withIndex("by_job", (q) => q.eq("job_id", job._id))
-        .collect();
-      return [job._id, rows] as const;
-    }),
+        .first(),
+    ),
   );
 
-  const skillIds = new Set<Id<"skills">>();
-  const pageIds: Id<"pages">[] = [];
-  const titleIds: Id<"job_titles">[] = [];
-  const seenPages = new Set<Id<"pages">>();
-  const seenTitles = new Set<Id<"job_titles">>();
-  for (const job of jobs) {
-    if (careerGoal && job.page_id && !caches.pages.has(job.page_id) && !seenPages.has(job.page_id)) {
-      seenPages.add(job.page_id);
-      pageIds.push(job.page_id);
-    }
-    if (careerGoal && !job.title && job.job_title_id && !caches.titles.has(job.job_title_id) && !seenTitles.has(job.job_title_id)) {
-      seenTitles.add(job.job_title_id);
-      titleIds.push(job.job_title_id);
-    }
-  }
-  for (const [, rows] of rowsByJob) {
-    for (const row of rows) {
-      if (!caches.skills.has(row.skill_id)) skillIds.add(row.skill_id);
-    }
-  }
-
-  await Promise.all([
-    ...[...skillIds].map(async (id) => {
-      caches.skills.set(id, await ctx.db.get(id));
-    }),
-    ...pageIds.map((id) => getCached(ctx, caches.pages, id)),
-    ...titleIds.map((id) => getCached(ctx, caches.titles, id)),
-  ]);
-
-  const profile = profileContext
-    ? {
-        candidateYearsExperience: profileContext.yearsExperience,
-        candidateEducationCount: profileContext.educationCount,
-      }
-    : undefined;
-
-  const hasData = userSkills.length > 0 || profileContext?.yearsExperience != null || (profileContext?.educationCount != null && profileContext.educationCount > 0);
-  if (!hasData) {
-    const rowsById = new Map(rowsByJob);
-    return new Map(
-      jobs.map((job) => {
-        const page = job.page_id ? (caches.pages.get(job.page_id) ?? null) : null;
-        const titled = !job.title && job.job_title_id ? (caches.titles.get(job.job_title_id) ?? null) : null;
-        // Goal skills still matter when there is no readiness profile.
-        const jobSkillNames = (rowsById.get(job._id) ?? [])
-          .map((row) => caches.skills.get(row.skill_id)?.name ?? "")
-          .filter(Boolean);
-        const careerAlignment = careerGoal
-          ? calculateCareerAlignment(
-              careerGoal,
-              {
-                title: job.title ?? titled?.name,
-                industry: page?.industry,
-                company_name: job.company_name ?? page?.name,
-              },
-              jobSkillNames,
-            )
-          : null;
-        return [
-          job._id,
-          {
-            readiness: null,
-            careerAlignment,
-            smartMatch: null,
-            gap: null,
-          },
-        ];
-      }),
-    );
-  }
-
   const scores = new Map<Id<"jobs">, TierScore>();
-  for (const [jobId, rows] of rowsByJob) {
-    const job = jobs.find((item) => item._id === jobId);
-    if (!job) continue;
-    const framework = buildCompetencyFramework(
-      rows.map((row) => ({
-        skill_id: row.skill_id,
-        type: row.type,
-        proficiency: row.proficiency,
-        weight: row.weight,
-        skill: { name: caches.skills.get(row.skill_id)?.name },
-      })),
+  for (let index = 0; index < jobs.length; index++) {
+    const job = jobs[index]!;
+    const vector = vectors[index];
+    if (!vector) {
+      // Career alignment still works without a vector; readiness stays unknown
+      // until the vector write lands.
+      const careerAlignment = careerGoal
+        ? calculateCareerAlignment(
+            careerGoal,
+            {
+              title: job.title,
+              industry: vector?.industry,
+              company_name: job.company_name,
+            },
+            [],
+          )
+        : null;
+      scores.set(job._id, { readiness: null, careerAlignment, smartMatch: null, gap: null });
+      continue;
+    }
+
+    if (!hasData) {
+      const careerAlignment = careerGoal
+        ? calculateCareerAlignment(
+            careerGoal,
+            {
+              title: vector.title ?? job.title,
+              industry: vector.industry,
+              company_name: vector.company_name ?? job.company_name,
+            },
+            vector.skills.map((skill) => skill.name ?? "").filter(Boolean),
+          )
+        : null;
+      scores.set(job._id, { readiness: null, careerAlignment, smartMatch: null, gap: null });
+      continue;
+    }
+
+    const result = scoreJobForUser(
+      jobFromVector(vector),
+      skillsFromVector(vector),
       userSkills,
-      profile
-        ? {
-            ...profile,
-            requiredExperienceYears: job.experience,
-          }
-        : undefined,
+      profileContext,
+      careerGoal,
     );
-    const readiness = roundedReadiness(framework.readiness);
-    const page = job.page_id ? (caches.pages.get(job.page_id) ?? null) : null;
-    const titled = !job.title && job.job_title_id ? (caches.titles.get(job.job_title_id) ?? null) : null;
-    const careerAlignment = careerGoal
-      ? calculateCareerAlignment(
-          careerGoal,
-          {
-            title: job.title ?? titled?.name,
-            industry: page?.industry,
-            company_name: job.company_name ?? page?.name,
-          },
-          rows.map((row) => caches.skills.get(row.skill_id)?.name ?? "").filter(Boolean),
-        )
-      : null;
-    const smartMatch = readiness == null ? null : calculateSmartMatch(readiness, careerAlignment);
-    const gap = readiness != null && isAlmostThere(readiness) ? closingGap(framework) : null;
-    scores.set(jobId, { readiness, careerAlignment, smartMatch, gap });
+    scores.set(job._id, {
+      readiness: result.readiness,
+      careerAlignment: result.careerAlignment,
+      smartMatch: result.smartMatch,
+      gap: result.gap,
+    });
   }
   return scores;
 }

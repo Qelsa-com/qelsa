@@ -112,7 +112,6 @@ export function MatchExperience({ session }: { session: MatchSession }) {
 
           <div className="grid grid-cols-2 gap-3">
             <Dimension label="Experience" value={analysis.experience_match} />
-            <Dimension label="Education" value={analysis.education_match} />
             <Dimension label="Domain" value={analysis.domain_match} />
             <Dimension label="Responsibilities" value={analysis.responsibilities_match} />
           </div>

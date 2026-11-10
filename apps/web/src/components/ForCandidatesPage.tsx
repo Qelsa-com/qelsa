@@ -36,9 +36,8 @@ const FIT = {
 };
 
 const BREAKDOWN = [
-  { label: "Skills match", value: 84 },
-  { label: "Experience match", value: 72 },
-  { label: "Education match", value: 68 },
+  { label: "Skills match · 70%", value: 84 },
+  { label: "Relevant experience · 30%", value: 72 },
 ];
 
 const GAP_GROUPS = [
@@ -218,9 +217,10 @@ function ScoreCard() {
         ))}
       </div>
 
-      <p className="mt-6 border-t border-white/[0.08] pt-4 text-[12px] text-white/50">
-        Compared with 24 requirements across the role.
-      </p>
+      <div className="mt-6 flex items-center justify-between gap-4 border-t border-white/[0.08] pt-4">
+        <p className="text-[12px] text-white/50">Required skills</p>
+        <p className="text-[12px] font-medium text-[#40D480]">5 of 5 met</p>
+      </div>
     </div>
   );
 }
@@ -349,7 +349,7 @@ export function ForCandidatesPage() {
         <SectionIntro
           id="score-heading"
           title="One score, built from evidence"
-          lead="Skills, experience and education — compared with what the job asks for."
+          lead="Skills and relevant experience — compared with what the job asks for."
         />
 
         <div className="mt-10 grid gap-6 lg:mt-14 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">

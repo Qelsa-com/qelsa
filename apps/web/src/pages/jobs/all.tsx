@@ -86,13 +86,15 @@ export const getServerSideProps: GetServerSideProps<AllJobsProps> = async (ctx) 
 
 function AllJobsContent({ initialJobs = [] }: { initialJobs?: Job[] }) {
   const router = useRouter();
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const defaultSort = isAuthenticated ? "relevance" : "date";
   const { searchInput, setSearchInput, filters, applyFilters, discoverArgs, cityFilter, setCityFilter, commitSearch, hydrated } = useJobBrowseFilters(undefined, defaultSort, isAuthenticated);
-  const { results, status, isLoading, loadMore } = usePaginatedJobsQuery(discoverArgs, JOBS_PAGE_SIZE, { skip: !hydrated });
+  const { results, status, isLoading, loadMore } = usePaginatedJobsQuery(discoverArgs, JOBS_PAGE_SIZE, {
+    skip: !hydrated || authLoading,
+  });
   // "Best match" reads a whole-catalog cached ranking; make sure one exists.
-  useEnsureRankingRecompute(hydrated && isAuthenticated);
-  const { data: filteredTotal } = useCountJobsQuery(discoverArgs, { skip: !hydrated });
+  useEnsureRankingRecompute(hydrated && isAuthenticated && !authLoading);
+  const { data: filteredTotal } = useCountJobsQuery(discoverArgs, { skip: !hydrated || authLoading });
   const { data: myResumes } = useGetMyResumesQuery(undefined, { skip: !isAuthenticated });
   const hasResume = Boolean(myResumes && myResumes.length > 0);
   const hasProfile = Boolean(user?.has_profile || user?.headline?.trim() || user?.professional_summary?.trim() || user?.about?.trim());
@@ -108,11 +110,15 @@ function AllJobsContent({ initialJobs = [] }: { initialJobs?: Job[] }) {
       filters.salary_max != null,
   );
   const clientJobs = (results as Job[]) ?? [];
-  const fallbackJobs = !hasFilters && clientJobs.length === 0 ? initialJobs : [];
+  // The server-rendered page has no user, so its cards cannot carry readiness.
+  // Only use it as the guest fallback; showing it while auth resolves is what
+  // made the score appear (and the card grow) a beat after paint.
+  const fallbackJobs =
+    !hasFilters && clientJobs.length === 0 && !authLoading && !isAuthenticated ? initialJobs : [];
   const jobs = clientJobs.length ? clientJobs : fallbackJobs;
   const loaded = jobs.length;
   const total = typeof filteredTotal === "number" ? filteredTotal : undefined;
-  const isInitialLoading = isLoading && loaded === 0;
+  const isInitialLoading = authLoading || (isLoading && loaded === 0);
 
   return (
     <div className="mx-auto w-full max-w-[1400px] px-4 py-6 text-white sm:px-6 sm:py-8 md:px-12">
@@ -145,10 +151,14 @@ function AllJobsContent({ initialJobs = [] }: { initialJobs?: Job[] }) {
             />
           )}
           {isInitialLoading ? (
-            <AllJobsGridSkeleton />
+            <AllJobsGridSkeleton showScore={isAuthenticated && (hasProfile || hasResume)} />
           ) : loaded > 0 ? (
             <>
-              <JobGrid jobs={jobs} variant="all" />
+              <JobGrid
+                jobs={jobs}
+                variant="all"
+                reserveScore={isAuthenticated && (hasProfile || hasResume)}
+              />
             </>
           ) : status === "Exhausted" ? (
             <div className="flex flex-col items-center gap-4 py-12 text-center sm:py-16">

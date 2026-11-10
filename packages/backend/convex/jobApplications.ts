@@ -10,6 +10,12 @@ import { yearsFromExperiences } from "./lib/applicantSearch";
 import { isWithdrawn, WITHDRAWN_STATUS } from "./lib/applications";
 import { assertCanApply, getApplicationUsage } from "./lib/billingEntitlements";
 import { buildCompetencyFramework } from "./lib/skillMatch";
+import {
+  jobFunctionForJob,
+  loadExperienceProfileCached,
+  relatedExperienceScore,
+} from "./lib/experienceMatch";
+import { skillsFromVector } from "./lib/scoringVector";
 import { signedFileUrl } from "./lib/r2";
 
 const r2 = new R2(components.r2);
@@ -59,46 +65,63 @@ export const listForJob = authedQuery({
       return p;
     };
 
-    const skillRows = await ctx.db.query("job_skills").withIndex("by_job", (q) => q.eq("job_id", args.jobId)).take(40);
-    const jobSkills = (
-      await Promise.all(
-        skillRows.map(async (row) => {
-          const skill = await getSkill(row.skill_id);
-          if (!skill) return null;
-          return {
-            skill_id: row.skill_id,
-            type: row.type,
-            proficiency: row.proficiency,
-            weight: row.weight,
-            skill: { name: skill.name },
-          };
-        }),
-      )
-    ).filter((s): s is NonNullable<typeof s> => s !== null);
+    const jobTitleCache = new Map<Id<"job_titles">, Promise<Doc<"job_titles"> | null>>();
+    const jobVector = await ctx.db
+      .query("job_match_vectors")
+      .withIndex("by_job", (q) => q.eq("job_id", args.jobId))
+      .first();
+    const jobFunction = jobFunctionForJob(job.title, jobVector?.job_title_name);
+    const jobSkills = jobVector
+      ? skillsFromVector(jobVector).map((skill) => ({
+          skill_id: skill.skill_id,
+          type: skill.type,
+          proficiency: skill.proficiency,
+          weight: skill.weight,
+          skill: { name: skill.name },
+        }))
+      : (
+          await Promise.all(
+            (await ctx.db.query("job_skills").withIndex("by_job", (q) => q.eq("job_id", args.jobId)).take(60)).map(async (row) => {
+              const skill = await getSkill(row.skill_id);
+              if (!skill) return null;
+              return {
+                skill_id: row.skill_id,
+                type: row.type,
+                proficiency: row.proficiency,
+                weight: row.weight,
+                skill: { name: skill.name },
+              };
+            }),
+          )
+        ).filter((s): s is NonNullable<typeof s> => s !== null);
 
     const out = (
       await Promise.all(
         filtered.map(async (app) => {
           const user = await ctx.db.get(app.user_id);
           if (!user) return null;
-          const [city, userSkills, experienceRows, educationRows] = await Promise.all([
+          const [city, userSkills, experienceRows] = await Promise.all([
             user.city_id ? getCity(user.city_id) : null,
             ctx.db.query("user_skills").withIndex("by_user", (q) => q.eq("user_id", user._id)).take(24),
             ctx.db.query("experiences").withIndex("by_user", (q) => q.eq("user_id", user._id)).take(8),
-            ctx.db.query("educations").withIndex("by_user", (q) => q.eq("user_id", user._id)).take(4),
           ]);
           const skills: { id: Id<"skills">; name: string; proficiency?: string }[] = [];
           for (const row of userSkills) {
             const skill = await getSkill(row.skill_id);
             if (skill) skills.push({ id: row.skill_id, name: skill.name, proficiency: row.proficiency });
           }
+          const experienceProfile = await loadExperienceProfileCached(
+            ctx,
+            experienceRows,
+            jobTitleCache,
+            app.applied_at,
+          );
           const competency = buildCompetencyFramework(
             jobSkills,
             skills.map((s) => ({ skill_id: s.id, proficiency: s.proficiency, name: s.name })),
             {
-              candidateYearsExperience: yearsFromExperiences(experienceRows, app.applied_at),
+              experienceScore: relatedExperienceScore(experienceProfile, jobFunction, job.experience),
               requiredExperienceYears: job.experience,
-              candidateEducationCount: educationRows.length,
             },
           );
           return {
@@ -159,6 +182,7 @@ export const getDetail = authedQuery({
       return p;
     };
 
+    const jobTitleCache = new Map<Id<"job_titles">, Promise<Doc<"job_titles"> | null>>();
     const enrichedUserSkills = await Promise.all(
       userSkills.map(async (row) => {
         const s = await getSkill(row.skill_id);
@@ -170,24 +194,50 @@ export const getDetail = authedQuery({
       }),
     );
 
-    const jobSkills = (
-      await Promise.all(
-        jobSkillRows.map(async (row) => {
-          const s = await getSkill(row.skill_id);
-          return {
-            skill_id: row.skill_id,
-            type: row.type,
-            proficiency: row.proficiency,
-            weight: row.weight,
-            skill: { name: s?.name },
-          };
-        }),
-      )
-    );
+    const jobVector = await ctx.db
+      .query("job_match_vectors")
+      .withIndex("by_job", (q) => q.eq("job_id", args.jobId))
+      .first();
+    const jobSkills = jobVector
+      ? skillsFromVector(jobVector).map((s) => ({
+          skill_id: s.skill_id,
+          type: s.type,
+          proficiency: s.proficiency,
+          weight: s.weight,
+          skill: { name: s.name },
+        }))
+      : await Promise.all(
+          jobSkillRows.map(async (row) => {
+            const s = await getSkill(row.skill_id);
+            return {
+              skill_id: row.skill_id,
+              type: row.type,
+              proficiency: row.proficiency,
+              weight: row.weight,
+              skill: { name: s?.name },
+            };
+          }),
+        );
 
+    // The list route scores the first 8 experiences to bound 80 applicants per
+    // page; use the same slice here so the card and detail agree.
+    const experienceProfile = await loadExperienceProfileCached(
+      ctx,
+      experienceRows.slice(0, 8),
+      jobTitleCache,
+      app.applied_at,
+    );
     const competency = buildCompetencyFramework(
       jobSkills,
       enrichedUserSkills.map((s) => ({ skill_id: s.id, proficiency: s.proficiency, name: s.skill.name || undefined })),
+      {
+        experienceScore: relatedExperienceScore(
+          experienceProfile,
+          jobFunctionForJob(job.title, jobVector?.job_title_name),
+          job.experience,
+        ),
+        requiredExperienceYears: job.experience,
+      },
     );
 
     const enrichedExperiences = await Promise.all(

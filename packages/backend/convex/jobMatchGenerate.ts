@@ -8,6 +8,12 @@ import { AI_AGENT_MODEL, requireOpenRouter } from "./lib/ai";
 import { sessionPublicValidator } from "./jobMatch";
 import { parseJsonObject } from "./lib/parsedProfile";
 import { buildCompetencyFramework, clipPlainText, extractJdListItems, normalizeSkillName } from "./lib/skillMatch";
+import {
+  computeExperienceProfile,
+  jobFunctionForJob,
+  relatedExperienceScore,
+  type ExperienceRow,
+} from "./lib/experienceMatch";
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -744,6 +750,7 @@ async function runExternalForUser(
       Boolean(skill?.name && skill?.type),
   );
   const skills = await mapSkillsToCatalog(ctx, catalogSkills);
+  const experienceProfile = computeExperienceProfile((user.experiences ?? []) as ExperienceRow[]);
   const competency = skills.some((s) => s.skill_id)
     ? buildCompetencyFramework(
         skills
@@ -755,6 +762,14 @@ async function runExternalForUser(
             skill: { name: s.name },
           })),
         user.skills.map((s) => ({ skill_id: s.skill_id, proficiency: s.proficiency ?? undefined, name: s.name })),
+        {
+          experienceScore: relatedExperienceScore(
+            experienceProfile,
+            jobFunctionForJob(jobDoc.title),
+            jobDoc.experience_years,
+          ),
+          requiredExperienceYears: jobDoc.experience_years ?? null,
+        },
       )
     : null;
 
