@@ -1,11 +1,138 @@
 "use client";
 
 import { QelsaLogo } from "@/components/QelsaLogo";
-import { ArrowRight, ArrowUpRight, Briefcase, Check, ChevronRight, Sparkles, Zap } from "lucide-react";
+import { ArrowRight, Briefcase, Check, ChevronDown } from "lucide-react";
+import Head from "next/head";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 
-const AGENT_HIGHLIGHTS = ["Builds your profile", "Explains your score", "Finds jobs that fit", "Plans your career path", "Checks and tailors resumes", "Writes cover letters"];
+/* -------------------------------------------------------------------------- */
+/*  Links + content                                                            */
+/* -------------------------------------------------------------------------- */
+
+const JOIN_HREF = "/auth?returnUrl=/profile";
+const AGENT_HREF = "/auth?returnUrl=/agent";
+
+type Audience = {
+  key: string;
+  label: string;
+  who: string;
+  role: string;
+  score: number;
+  status: "Ready" | "Almost there";
+  next: string;
+  skills: Array<{ name: string; level: string; tone: "good" | "warm" }>;
+};
+
+const AUDIENCES: Audience[] = [
+  {
+    key: "students",
+    label: "Students",
+    who: "A fresher, BCom, aiming for",
+    role: "Data Analyst",
+    score: 78,
+    status: "Ready",
+    next: "Add one dashboard project to show Power BI.",
+    skills: [
+      { name: "Excel", level: "Advanced", tone: "good" },
+      { name: "SQL", level: "Intermediate", tone: "good" },
+      { name: "Power BI", level: "Beginner", tone: "warm" },
+    ],
+  },
+  {
+    key: "early",
+    label: "Early Professionals",
+    who: "A sales executive, 2 years, aiming for",
+    role: "Business Analyst",
+    score: 64,
+    status: "Almost there",
+    next: "Close SQL — it's asked for in most analyst roles.",
+    skills: [
+      { name: "Excel", level: "Advanced", tone: "good" },
+      { name: "Stakeholder management", level: "Advanced", tone: "good" },
+      { name: "SQL", level: "Missing", tone: "warm" },
+    ],
+  },
+  {
+    key: "experienced",
+    label: "Experienced",
+    who: "A developer, 4 years, aiming for",
+    role: "Senior Frontend Engineer",
+    score: 86,
+    status: "Ready",
+    next: "Add system-design evidence from your last role.",
+    skills: [
+      { name: "React", level: "Expert", tone: "good" },
+      { name: "TypeScript", level: "Advanced", tone: "good" },
+      { name: "System design", level: "Intermediate", tone: "good" },
+    ],
+  },
+];
+
+const WORK_ITEMS = [
+  { title: "Internship · 6 months", detail: "Excel, SQL" },
+  { title: "College project", detail: "Power BI" },
+  { title: "Sales executive · 2 years", detail: "Stakeholder management" },
+];
+
+const FIT_JOBS = [
+  { title: "Business Analyst", ready: true },
+  { title: "Data Analyst", ready: true },
+  { title: "MIS Executive", ready: true },
+  { title: "Sales Ops Analyst", ready: false },
+];
+
+const STEPS = [
+  "Add your skills and where you used them",
+  "Qelsa rates each skill",
+  "Get a readiness for every job",
+  "See what's holding you back",
+];
+
+const AGENT_POINTS = [
+  "Explains your score",
+  "Finds jobs that fit",
+  "Plans your next skills",
+  "Tailors your resume",
+  "Prepares applications",
+];
+
+const FAQS = [
+  {
+    q: "How much does Qelsa cost?",
+    a: (
+      <>
+        Start on the Free plan. Upgrade to Plus or Pro when you need more Agent time and applications.{" "}
+        <Link href="/pricing" className="text-[#00D4FF] underline-offset-2 hover:underline">
+          See plans
+        </Link>
+      </>
+    ),
+  },
+  {
+    q: "How is my readiness worked out?",
+    a: "Qelsa checks how you've used each skill in your work and projects, rates it from Beginner to Expert, and compares that with what the job needs.",
+  },
+  {
+    q: "I'm a fresher. Will this work for me?",
+    a: "Yes. Projects and internships count as evidence, and strong work can earn an Advanced or Expert rating.",
+  },
+  {
+    q: "Is my data safe?",
+    a: (
+      <>
+        Your profile is used to score jobs and match you with roles.{" "}
+        <Link href="/privacy" className="text-[#00D4FF] underline-offset-2 hover:underline">
+          Read the Privacy Policy
+        </Link>
+      </>
+    ),
+  },
+];
+
+/* -------------------------------------------------------------------------- */
+/*  Company catalog (kept from the existing jobs section)                      */
+/* -------------------------------------------------------------------------- */
 
 type Company = {
   name: string;
@@ -44,15 +171,25 @@ const COMPANY_LOGOS_BOTTOM: Company[] = [
 function CompanyMark({ company }: { company: Company }) {
   const [stage, setStage] = useState<"icon" | "favicon" | "text">("icon");
   if (stage === "text") {
-    return <span className="flex size-5 items-center justify-center rounded border border-white/15 text-[9px] font-bold text-white/45">{company.name.slice(0, 1)}</span>;
+    return (
+      <span className="flex size-5 items-center justify-center rounded border border-white/15 text-[9px] font-bold text-white/45">
+        {company.name.slice(0, 1)}
+      </span>
+    );
   }
   return (
+    // eslint-disable-next-line @next/next/no-img-element
     <img
-      src={stage === "icon" ? (company.icon ?? `https://cdn.simpleicons.org/${company.slug}/white`) : `https://www.google.com/s2/favicons?sz=128&domain=${company.domain}`}
+      src={
+        stage === "icon"
+          ? (company.icon ?? `https://cdn.simpleicons.org/${company.slug}/white`)
+          : `https://www.google.com/s2/favicons?sz=128&domain=${company.domain}`
+      }
       alt=""
       aria-hidden="true"
       width={24}
       height={24}
+      loading="lazy"
       decoding="async"
       draggable={false}
       onError={() => setStage((current) => (current === "icon" ? "favicon" : "text"))}
@@ -67,7 +204,10 @@ function CompanyMarqueeRow({ companies, direction }: { companies: Company[]; dir
       {[0, 1].map((copy) => (
         <div key={copy} className="flex shrink-0 items-center gap-2 pr-2" aria-hidden={copy === 1}>
           {companies.map((company) => (
-            <div key={`${copy}-${company.name}`} className="flex h-14 w-[145px] shrink-0 items-center gap-2.5 rounded-xl border border-white/[0.06] bg-white/[0.025] px-3 sm:w-[164px]">
+            <div
+              key={`${copy}-${company.name}`}
+              className="flex h-14 w-[145px] shrink-0 items-center gap-2.5 rounded-xl border border-white/[0.06] bg-white/[0.025] px-3 sm:w-[164px]"
+            >
               <CompanyMark company={company} />
               <span className="truncate text-[11px] font-semibold uppercase tracking-[0.06em] text-white/45">{company.name}</span>
             </div>
@@ -78,532 +218,495 @@ function CompanyMarqueeRow({ companies, direction }: { companies: Company[]; dir
   );
 }
 
-function FitSkillRow({ skill, yours, target, badge }: { skill: string; yours: string; target: string; badge: "core" | "preferred" | "nice" }) {
-  const badgeClass = badge === "core" ? "border-amber-400 bg-amber-400 text-[#2a1700]" : badge === "preferred" ? "border-amber-400/40 text-amber-300" : "border-white/15 text-white/55";
+/* -------------------------------------------------------------------------- */
+/*  Hero — audience tabs + readiness card                                      */
+/* -------------------------------------------------------------------------- */
+
+const FOCUS_RING =
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00D4FF] focus-visible:ring-offset-2 focus-visible:ring-offset-[#06060f]";
+
+function HeroReadiness() {
+  const [active, setActive] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const [userPicked, setUserPicked] = useState(false);
+  const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
+
+  useEffect(() => {
+    if (paused || userPicked) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const id = window.setInterval(() => setActive((current) => (current + 1) % AUDIENCES.length), 6500);
+    return () => window.clearInterval(id);
+  }, [paused, userPicked]);
+
+  const select = (index: number) => {
+    setActive(index);
+    setUserPicked(true);
+  };
+
+  const handleTabKey = (event: KeyboardEvent<HTMLDivElement>) => {
+    const last = AUDIENCES.length - 1;
+    let next: number | null = null;
+    if (event.key === "ArrowRight") next = active === last ? 0 : active + 1;
+    else if (event.key === "ArrowLeft") next = active === 0 ? last : active - 1;
+    else if (event.key === "Home") next = 0;
+    else if (event.key === "End") next = last;
+    if (next === null) return;
+    event.preventDefault();
+    select(next);
+    tabRefs.current[next]?.focus();
+  };
+
+  const current = AUDIENCES[active];
+
   return (
-    <div className="flex items-center justify-between gap-2 py-1.5 text-[10px]">
-      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-        <span className="w-20 shrink-0 font-medium text-white/85 sm:w-24">{skill}</span>
-        <span className={`rounded-full border px-2 py-0.5 text-[10px] ${yours === "Not listed" ? "border-white/[0.08] text-white/40" : "border-cyan-400/25 bg-cyan-400/[0.03] text-[#5ee3f2]"}`}>{yours}</span>
-        <span className="rounded-full border border-white/[0.08] px-2 py-0.5 text-[10px] text-white/40">{target}</span>
+    <div
+      className="w-full max-w-[480px] lg:mx-0"
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      onFocusCapture={() => setPaused(true)}
+      onBlurCapture={() => setPaused(false)}
+    >
+      <div role="tablist" aria-label="Readiness examples" onKeyDown={handleTabKey} className="flex flex-wrap gap-1 sm:gap-2">
+        {AUDIENCES.map((audience, index) => {
+          const selected = index === active;
+          return (
+            <button
+              key={audience.key}
+              ref={(element) => {
+                tabRefs.current[index] = element;
+              }}
+              id={`readiness-tab-${audience.key}`}
+              type="button"
+              role="tab"
+              aria-selected={selected}
+              aria-controls="readiness-panel"
+              tabIndex={selected ? 0 : -1}
+              onClick={() => select(index)}
+              className={`min-h-11 rounded-full border px-2.5 py-2 text-[13px] font-medium transition-colors sm:min-h-9 sm:px-3.5 ${FOCUS_RING} ${
+                selected
+                  ? "border-[#7c2ff3]/80 bg-[#7c2ff3]/[0.18] text-white"
+                  : "border-white/[0.12] text-white/45 hover:border-white/25 hover:text-white/80"
+              }`}
+            >
+              {audience.label}
+            </button>
+          );
+        })}
       </div>
-      <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${badgeClass}`}>{badge === "core" ? "Core" : badge === "preferred" ? "Preferred" : "Nice to have"}</span>
+
+      <div className="relative mt-5">
+        <div
+          aria-hidden="true"
+          className="absolute inset-x-3 bottom-[-10px] top-3 rotate-3 rounded-3xl border border-white/[0.08] bg-white/[0.02]"
+        />
+        <div
+          aria-hidden="true"
+          className="absolute inset-x-1.5 bottom-[-6px] top-1.5 rotate-[1.5deg] rounded-3xl border border-white/[0.1] bg-white/[0.03]"
+        />
+
+        <div
+          id="readiness-panel"
+          role="tabpanel"
+          aria-labelledby={`readiness-tab-${current.key}`}
+          tabIndex={0}
+          className={`landing-card-border relative flex min-h-[400px] flex-col overflow-hidden rounded-3xl p-7 shadow-[0_40px_100px_-30px_rgba(124,47,243,0.55)] ${FOCUS_RING}`}
+        >
+          <span className="absolute right-6 top-6 text-[10px] font-medium text-white/50">Example</span>
+
+          <div key={current.key} className="qelsa-card-in flex flex-1 flex-col gap-5">
+          <div className="flex flex-col gap-1.5 pr-14">
+            <span className="text-[14px] text-white/60">{current.who}</span>
+            <span className="text-[24px] font-semibold leading-tight tracking-[-0.2px]">{current.role}</span>
+          </div>
+
+          <div className="flex items-baseline gap-3">
+            <span className="text-[56px] font-bold leading-none tracking-[-0.5px]">{current.score}%</span>
+            <span
+              className={`text-[15px] font-semibold ${
+                current.status === "Ready" ? "text-[#40D480]" : "text-[#FFC740]"
+              }`}
+            >
+              {current.status}
+            </span>
+          </div>
+
+          <div className="relative pt-5">
+            <span
+              className="absolute left-[70%] top-0 -translate-x-1/2 text-[10px] font-semibold uppercase tracking-[0.08em] text-white/50"
+              aria-hidden="true"
+            >
+              Ready
+            </span>
+            <div className="h-2 overflow-hidden rounded-full bg-white/[0.08]">
+              <div
+                className="qelsa-bar-fill h-full rounded-full bg-[linear-gradient(90deg,#7C2FF3,#D73E9D)]"
+                style={{ width: `${current.score}%` }}
+              />
+            </div>
+            <span
+              aria-hidden="true"
+              className="absolute left-[70%] top-[18px] h-4 w-0.5 -translate-x-1/2 rounded-sm bg-white"
+            />
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {current.skills.map((skill) => (
+              <span
+                key={skill.name}
+                className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.12] bg-white/[0.04] px-2.5 py-1.5 text-[13px] text-white"
+              >
+                {skill.name}
+                <span className={skill.tone === "good" ? "text-[#40D480]" : "text-[#FFC740]"}>{skill.level}</span>
+              </span>
+            ))}
+          </div>
+
+          <div className="mt-auto border-t border-white/[0.08] pt-4">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-white/45">Next step</p>
+            <p className="mt-1 text-[12px] leading-snug text-white/70">{current.next}</p>
+          </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
 
+/* -------------------------------------------------------------------------- */
+/*  Page                                                                       */
+/* -------------------------------------------------------------------------- */
+
 export function LandingPage({ homeJobsStat = "20K+" }: { homeJobsStat?: string }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      videoRef.current?.pause();
+    }
+  }, []);
+
   return (
-    <div className="relative isolate min-h-screen overflow-hidden text-white selection:bg-neon-cyan/20 selection:text-neon-cyan font-sans">
-      {/* Top glows sit in a fixed layer so they continue behind the
-          transparent header instead of starting below it. */}
-      <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-10">
-        <div className="absolute -left-40 -top-40 size-[500px] rounded-full bg-cyan-500/[0.07] blur-[150px]" />
-        <div className="absolute -right-40 top-32 size-[600px] rounded-full bg-purple-600/[0.09] blur-[160px]" />
-      </div>
-      <div aria-hidden="true" className="pointer-events-none absolute left-1/3 top-[2200px] size-[700px] rounded-full bg-indigo-600/[0.06] blur-[180px]" />
+    <div className="font-landing relative isolate overflow-x-clip text-white antialiased selection:bg-[#00D4FF]/20 selection:text-[#00D4FF]">
+      <Head>
+        <link rel="preload" href="/fonts/inter-latin-var.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
+        <link rel="preload" href="/fonts/instrument-serif-regular.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
+        <link rel="preload" href="/fonts/instrument-serif-italic.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
+      </Head>
 
-      {/* ------------------------------ Hero ---------------------------------- */}
-      <section className="relative mx-auto w-full max-w-7xl px-6 pt-12 pb-20 sm:pt-16 sm:pb-28 lg:pt-16 lg:pb-16">
-        <div className="grid grid-cols-1 items-start gap-12 lg:grid-cols-12 lg:gap-8">
-          {/* Left Text */}
-          <div className="flex flex-col lg:col-span-6 xl:col-span-6">
-            <p className="text-[11px] font-mono font-semibold uppercase tracking-[0.2em] text-[#5ee3f2] sm:text-xs">SKILL CLARITY FOR BOTH SIDES</p>
+      <div aria-hidden="true" className="landing-aurora pointer-events-none absolute inset-x-0 top-0 -z-10 h-[900px]" />
 
-            <h1 className="mt-6 text-4xl font-extrabold tracking-[-0.03em] leading-[1.02] sm:text-5xl lg:text-[68px] xl:text-[76px]">
-              <span className="block text-white">Know where you fit.</span>
-              <span className="mt-1 block text-white/45">Know who fits the role.</span>
-            </h1>
-
-            <p className="mt-6 max-w-xl text-base leading-relaxed text-white/60 sm:text-lg">Get a job readiness score and skills gap analysis for every job. Candidates know what to focus on next. Hiring teams know who to talk to first.</p>
-
-            <div className="mt-8 flex flex-wrap items-center gap-4 sm:mt-10">
-              <Link
-                href="/auth?returnUrl=/profile"
-                className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#623dd6] via-[#8433ae] to-[#be2680] px-7 py-3.5 text-sm font-semibold text-white shadow-xl shadow-purple-950/40 transition-all hover:opacity-95 sm:text-base"
-              >
-                <span>Check my readiness</span>
-                <ArrowRight className="size-4" />
-              </Link>
-
-              <Link
-                href="/employer/auth?returnUrl=/jobs/posted"
-                className="rounded-full border border-white/20 bg-white/[0.04] px-7 py-3.5 text-sm font-semibold text-white transition-colors hover:border-white/35 hover:bg-white/[0.08] sm:text-base"
-              >
-                Hire talent
-              </Link>
-            </div>
-          </div>
-
-          {/* Right live readiness card */}
-          <div className="lg:col-span-6 lg:mt-10 xl:col-span-6">
-            <div className="rounded-[28px] border border-white/[0.08] bg-[#111327]/90 p-4 shadow-2xl backdrop-blur-xl sm:p-5">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex min-w-0 items-center gap-3">
-                  <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-[#c026d3] text-sm font-bold text-[#1c0720]">KM</div>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-bold text-white">Karthik Menon</p>
-                    <p className="truncate text-[11px] text-white/45">Software Engineer · 4 yrs</p>
-                  </div>
-                </div>
-                <div className="hidden shrink-0 text-right sm:block">
-                  <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-white/35">Goal</p>
-                  <p className="mt-0.5 whitespace-nowrap text-[11px] font-semibold text-white/80">AI Engineer</p>
-                </div>
-              </div>
-
-              <div className="mt-4 grid gap-2.5 sm:grid-cols-[1.3fr_1fr]">
-                <div className="rounded-xl border border-white/[0.08] bg-white/[0.025] p-3.5">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/40">You have</p>
-                  <div className="mt-2.5 flex flex-wrap gap-1.5">
-                    {["Python", "API design", "AWS", "SQL"].map((skill) => (
-                      <span key={skill} className="rounded-full border border-white/[0.1] bg-white/[0.04] px-2.5 py-1 text-[11px] text-white/75">
-                        {skill}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-                <div className="rounded-xl border border-amber-500/30 bg-amber-950/25 p-3.5">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-300/80">Missing</p>
-                  <div className="mt-2.5 flex flex-wrap gap-1.5">
-                    {["LLM apps", "RAG"].map((skill) => (
-                      <span key={skill} className="rounded-full border border-amber-500/30 bg-amber-500/[0.08] px-2.5 py-1 text-[11px] text-amber-200/90">
-                        {skill}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-2.5 rounded-xl border border-white/[0.08] bg-[#090d20] p-3.5">
-                <div className="flex items-end justify-between gap-3">
-                  <span className="text-xs font-medium text-white/65">Readiness for AI Engineer jobs</span>
-                  <span className="text-2xl font-extrabold text-emerald-400">79%</span>
-                </div>
-                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/[0.08]">
-                  <div className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-[#5ee3f2]" style={{ width: "79%" }} />
-                </div>
-              </div>
-
-              <div className="mt-2.5 flex items-start gap-2 rounded-xl border border-emerald-500/20 bg-emerald-950/20 px-3.5 py-3">
-                <ArrowUpRight className="mt-0.5 size-3.5 shrink-0 text-emerald-300" />
-                <p className="text-[10px] leading-relaxed text-white/55 sm:text-[11px]">
-                  <span className="font-semibold text-white/80">Next step:</span> build one LLM app. It&apos;s asked for in 9 of your 12 closest jobs.
+      <main>
+        {/* ------------------------------ Hero ---------------------------------- */}
+        <section className="mx-auto w-full max-w-[1240px] px-4 pb-12 pt-14 sm:px-6 sm:pb-16 lg:pb-16 lg:pt-24">
+          <div className="grid gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,460px)] lg:items-center lg:gap-14">
+            <div className="min-w-0">
+              <h1 className="font-editorial max-w-[720px] text-balance text-[44px] leading-[0.98] tracking-[-0.02em] sm:text-[60px] lg:text-[78px] xl:text-[84px]">
+                Are you <em className="text-[#C4B5FD]">ready</em> for the job you want?
+              </h1>
+              <div className="mt-7 flex max-w-[500px] gap-4">
+                <span
+                  aria-hidden="true"
+                  className="w-0.5 shrink-0 rounded-full bg-[linear-gradient(180deg,#A78BFA,#F472B6)]"
+                />
+                <p className="text-pretty text-[19px] leading-relaxed text-white/65 sm:text-[21px]">
+                  A readiness score for every job —{" "}
+                  <span className="text-white">and the skills to close the gap.</span>
                 </p>
               </div>
+              <div className="mt-8">
+                <Link
+                  href={JOIN_HREF}
+                  className={`gradient-landing group inline-flex h-12 items-center justify-center gap-2 rounded-full px-6 text-[16px] font-medium text-white transition-opacity hover:opacity-95 ${FOCUS_RING}`}
+                >
+                  Check my readiness
+                  <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+                </Link>
+              </div>
+              <p className="mt-5 flex items-center gap-2 text-[13px] text-white/50">
+                <span aria-hidden="true" className="size-1.5 rounded-full bg-[#40D480]" />
+                Free to start · No credit card
+              </p>
             </div>
-          </div>
-        </div>
-      </section>
 
-      {/* ------------------------- Company catalog --------------------------- */}
-      <section className="border-t border-white/[0.06] bg-[#090a13]/60 py-20 lg:py-28">
-        <div className="mx-auto w-full max-w-7xl px-6">
-          <div className="text-center">
-            <h2 className="mx-auto max-w-3xl text-3xl font-bold tracking-[-0.02em] text-white sm:text-4xl lg:text-5xl">Jobs from the world&apos;s top companies, in one place.</h2>
+            <HeroReadiness />
           </div>
+        </section>
 
-          <div className="mt-10 rounded-[28px] border border-white/[0.07] bg-white/[0.015] py-3 sm:mt-14 sm:py-5">
+        {/* --------------------------- Jobs proof ------------------------------- */}
+        <section aria-labelledby="jobs-heading" className="mx-auto w-full max-w-[1240px] px-4 py-14 sm:px-6 lg:py-20">
+          <h2
+            id="jobs-heading"
+            className="font-editorial mx-auto max-w-[820px] text-balance text-center text-[34px] leading-[1.02] tracking-[-0.02em] sm:text-[48px] lg:text-[60px]"
+          >
+            Jobs from the world&apos;s top companies, in one place.
+          </h2>
+
+          <div className="mt-10 rounded-[28px] border border-white/[0.07] bg-white/[0.015] py-3 sm:mt-12 sm:py-5">
             <div role="region" className="company-marquee-mask space-y-2.5 py-1" aria-label="Popular companies hiring on Qelsa">
               <CompanyMarqueeRow companies={COMPANY_LOGOS_TOP} direction="right" />
               <CompanyMarqueeRow companies={COMPANY_LOGOS_BOTTOM} direction="left" />
             </div>
           </div>
 
-          <div className="mx-auto mt-7 flex max-w-2xl flex-col gap-4 rounded-2xl border border-white/[0.08] bg-[#0b0d18]/75 p-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">
+          <div className="mx-auto mt-7 flex max-w-2xl flex-col gap-4 rounded-2xl border border-white/[0.08] bg-[#0F0F23] p-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">
             <div className="flex items-center gap-3">
-              <span className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-[#5ee3f2]/25 bg-[#5ee3f2]/[0.07] text-[#5ee3f2]">
-                <Briefcase className="size-4" />
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-[#00D4FF]/25 bg-[#00D4FF]/[0.07] text-[#00D4FF]">
+                <Briefcase className="size-4" aria-hidden="true" />
               </span>
               <div>
-                <p className="text-sm font-bold text-white">{homeJobsStat} live jobs</p>
-                <p className="mt-0.5 text-xs text-white/45">Each one scored for you</p>
+                <p className="text-[14px] font-bold text-white">{homeJobsStat} live jobs</p>
+                <p className="mt-0.5 text-[12px] text-white/55">Each one scored for you</p>
               </div>
             </div>
-            <Link href="/jobs/all" className="gradient-primary inline-flex h-11 items-center justify-center gap-1.5 rounded-full px-5 text-xs font-bold text-white transition-opacity hover:opacity-90">
+            <Link
+              href="/jobs/all"
+              className={`gradient-landing inline-flex h-11 items-center justify-center gap-1.5 rounded-full px-5 text-[13px] font-semibold text-white transition-opacity hover:opacity-90 ${FOCUS_RING}`}
+            >
               Browse all jobs
-              <ArrowRight className="size-3.5" />
+              <ArrowRight className="size-3.5" aria-hidden="true" />
             </Link>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* ----------------------- One Platform, Two Paths ---------------------- */}
-      <section className="border-t border-white/[0.06] py-20 lg:py-28">
-        <div className="mx-auto w-full max-w-7xl px-6">
-          <div className="text-center">
-            <p className="text-[11px] font-mono font-semibold uppercase tracking-[0.2em] text-[#5ee3f2] sm:text-xs">ONE PLATFORM, TWO PATHS</p>
-            <h2 className="mx-auto mt-4 max-w-4xl text-3xl font-bold tracking-[-0.02em] text-white sm:text-4xl lg:text-[40px]">AI job matching for candidates and hiring teams.</h2>
-          </div>
+        {/* ------------------------- Readiness flow ----------------------------- */}
+        <section aria-labelledby="how-heading" className="mx-auto w-full max-w-[1240px] px-4 py-14 sm:px-6 sm:py-20 lg:py-[120px]">
+          <h2
+            id="how-heading"
+            className="font-editorial mx-auto max-w-[760px] text-balance text-center text-[38px] leading-[1.02] tracking-[-0.02em] sm:text-[50px] lg:text-[62px]"
+          >
+            Know your readiness for every job
+          </h2>
+          <span
+            aria-hidden="true"
+            className="mx-auto mt-6 block h-px w-12 bg-[linear-gradient(90deg,transparent,#7C2FF3,#D73E9D,transparent)]"
+          />
+          <p className="mx-auto mt-5 max-w-[720px] text-balance text-center text-[20px] leading-[1.35] tracking-[-0.2px] text-white/70 sm:text-[24px]">
+            Scored against <span className="text-white">every live job</span>, based on the evidence.
+          </p>
 
-          <div className="mt-12 grid grid-cols-1 gap-8 lg:mt-16 lg:grid-cols-2">
-            {/* Card 1: For Candidates */}
-            <div className="flex flex-col justify-between rounded-[28px] border border-white/[0.08] bg-[#0d1020]/60 p-6 sm:p-9 backdrop-blur">
-              <div>
-                <p className="text-[11px] font-mono font-semibold uppercase tracking-wider text-[#5ee3f2]">FOR CANDIDATES</p>
-                <h3 className="mt-3 text-2xl font-bold text-white lg:text-[28px]">Know exactly where you stand</h3>
-                <p className="mt-2 text-sm leading-relaxed text-white/60">A readiness score for every job you look at, the one skill between you and it, and how to close the gap.</p>
-
-                {/* Candidate visual block */}
-                <div className="mt-8 rounded-2xl border border-white/[0.06] bg-[#070913] p-5 sm:p-6">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <p className="text-[10px] font-mono font-semibold uppercase tracking-wider text-white/40">TARGET ROLE</p>
-                      <p className="mt-1 text-base font-bold text-white sm:text-lg">Associate Business Analyst</p>
-                    </div>
-                    <span className="text-2xl font-extrabold text-emerald-400 font-mono sm:text-3xl">74%</span>
-                  </div>
-
-                  <div className="mt-3.5 h-2 w-full overflow-hidden rounded-full bg-white/10">
-                    <div className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-[#5ee3f2]" style={{ width: "74%" }} />
-                  </div>
-
-                  <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
-                      <p className="text-[10px] font-mono font-semibold uppercase tracking-wider text-emerald-400">MATCHING SKILLS</p>
-                      <div className="mt-3 flex flex-wrap gap-1.5">
-                        <span className="rounded-full border border-white/12 bg-white/[0.04] px-2.5 py-1 text-xs text-white/80">Excel</span>
-                        <span className="rounded-full border border-white/12 bg-white/[0.04] px-2.5 py-1 text-xs text-white/80">Communication</span>
-                        <span className="rounded-full border border-white/12 bg-white/[0.04] px-2.5 py-1 text-xs text-white/80">Presentations</span>
-                      </div>
-                    </div>
-
-                    <div className="rounded-xl border border-amber-500/25 bg-amber-500/[0.04] p-4">
-                      <p className="text-[10px] font-mono font-semibold uppercase tracking-wider text-amber-400">FOCUS NEXT</p>
-                      <p className="mt-1.5 text-xs font-bold text-white sm:text-sm">SQL basics</p>
-                      <p className="mt-1 text-[10px] leading-snug text-white/50 sm:whitespace-nowrap">Recommended: SQL for beginners · 6h</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-6">
-                <Link href="/candidates" className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#5ee3f2] transition-colors hover:text-white">
-                  <span>See how it works for candidates</span>
-                  <ArrowRight className="size-4" />
-                </Link>
-              </div>
-            </div>
-
-            {/* Card 2: For Employers */}
-            <div className="flex flex-col justify-between rounded-[28px] border border-white/[0.08] bg-[#0d1020]/60 p-6 sm:p-9 backdrop-blur">
-              <div>
-                <p className="text-[11px] font-mono font-semibold uppercase tracking-wider text-[#d73e9d]">FOR EMPLOYERS</p>
-                <h3 className="mt-3 text-2xl font-bold text-white lg:text-[28px]">A ranked shortlist, not a crowded inbox</h3>
-                <p className="mt-2 text-sm leading-relaxed text-white/60">Share your job description. Every candidate arrives with a readiness score and a named gap.</p>
-
-                {/* Employers visual block */}
-                <div className="mt-8 rounded-2xl border border-white/[0.06] bg-[#070913] p-5 sm:p-6">
-                  <div className="flex flex-col gap-2 border-b border-white/[0.06] pb-3 sm:flex-row sm:items-end sm:justify-between">
-                    <div>
-                      <p className="text-[10px] font-mono font-semibold uppercase tracking-wider text-white/40">RANKED SHORTLIST</p>
-                      <p className="mt-1 text-base font-bold text-white sm:text-lg">Associate Business Analyst</p>
-                    </div>
-                    <span className="text-xs font-medium text-white/50">3 candidates above 70%</span>
-                  </div>
-
-                  <div className="mt-4 space-y-2.5">
-                    {/* Candidate 1 */}
-                    <div className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 sm:p-3.5">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-emerald-500/30 bg-emerald-950/70 text-xs font-bold text-emerald-400">PS</div>
-                        <div className="min-w-0">
-                          <p className="text-xs font-semibold leading-tight text-white sm:text-sm">Priya Sharma</p>
-                          <p className="text-[10px] leading-snug text-white/50 sm:text-[11px]">
-                            <span className="hidden sm:inline">5 yrs in operations · </span>Gap: SQL basics
-                          </p>
-                        </div>
-                      </div>
-                      <span className="font-mono text-sm font-bold text-emerald-400 sm:text-base">81%</span>
-                    </div>
-
-                    {/* Candidate 2 */}
-                    <div className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 sm:p-3.5">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-teal-500/30 bg-teal-950/70 text-xs font-bold text-teal-400">DO</div>
-                        <div className="min-w-0">
-                          <p className="text-xs font-semibold leading-tight text-white sm:text-sm">Daniel Okafor</p>
-                          <p className="text-[10px] leading-snug text-white/50 sm:text-[11px]">
-                            <span className="hidden sm:inline">Switching from sales · </span>Gap: Power BI
-                          </p>
-                        </div>
-                      </div>
-                      <span className="font-mono text-sm font-bold text-emerald-400 sm:text-base">77%</span>
-                    </div>
-
-                    {/* Candidate 3 */}
-                    <div className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 sm:p-3.5">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-amber-500/30 bg-amber-950/70 text-xs font-bold text-amber-400">SM</div>
-                        <div className="min-w-0">
-                          <p className="text-xs font-semibold leading-tight text-white sm:text-sm">Sofia Martinez</p>
-                          <p className="text-[10px] leading-snug text-white/50 sm:text-[11px]">
-                            <span className="hidden sm:inline">Recent graduate · </span>Gaps: SQL, Power BI
-                          </p>
-                        </div>
-                      </div>
-                      <span className="font-mono text-sm font-bold text-amber-400 sm:text-base">72%</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-6">
-                <Link href="/employers" className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#5ee3f2] transition-colors hover:text-white">
-                  <span>See how it works for hiring teams</span>
-                  <ArrowRight className="size-4" />
-                </Link>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ---------------------------- Readiness score ------------------------- */}
-      <section className="border-t border-white/[0.06] bg-[#080a14]/60 py-20 lg:py-28">
-        <div className="mx-auto w-full max-w-7xl px-6">
-          <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-2 lg:gap-16">
+          <div className="mt-10 grid gap-10 lg:mt-14 lg:grid-cols-[0.65fr_1.35fr] lg:items-center lg:gap-14">
             <div className="min-w-0">
-              <p className="text-[11px] font-mono font-semibold uppercase tracking-[0.2em] text-[#5ee3f2] sm:text-xs">THE READINESS SCORE</p>
-              <h2 className="mt-4 max-w-lg text-3xl font-bold leading-tight tracking-[-0.02em] text-white sm:text-4xl lg:text-5xl">Your job readiness score, broken down skill by skill.</h2>
-              <p className="mt-5 max-w-xl text-sm leading-relaxed text-white/55 sm:text-base">For every job, Qelsa shows how your skills, experience and education compare with what the role asks for, skill by skill.</p>
-              <ul className="mt-8 space-y-5">
-                <li className="flex items-start gap-3 text-sm leading-relaxed text-white/60">
-                  <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-emerald-400" />
-                  <span>
-                    <span className="font-semibold text-white/80">Where you&apos;re already strong.</span> Skills where you meet or beat the target level.
-                  </span>
-                </li>
-                <li className="flex items-start gap-3 text-sm leading-relaxed text-white/60">
-                  <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-amber-400" />
-                  <span>
-                    <span className="font-semibold text-white/80">Skills to close the gap.</span> Your level against the target, marked core or preferred.
-                  </span>
-                </li>
-                <li className="flex items-start gap-3 text-sm leading-relaxed text-white/60">
-                  <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-white/30" />
-                  <span>
-                    <span className="font-semibold text-white/80">Not on your resume yet.</span> What the job wants that you haven&apos;t shown.
-                  </span>
-                </li>
-              </ul>
-              <Link href="/auth?returnUrl=/profile" className="gradient-primary mt-8 inline-flex h-11 items-center justify-center gap-2 rounded-full px-6 text-sm font-semibold text-white transition-opacity hover:opacity-90">
-                See my readiness
-                <ArrowRight className="size-4" />
+              <div>
+                <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-white/50">How it works</p>
+                <ol className="mt-2">
+                  {STEPS.map((step, index) => (
+                    <li key={step} className="flex items-center gap-3.5 py-2 text-[16px] text-white">
+                      <span className="grid size-7 shrink-0 place-items-center rounded-full bg-[linear-gradient(135deg,#7C2FF3,#D73E9D)] text-[13px] font-bold text-white">
+                        {index + 1}
+                      </span>
+                      {step}
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            </div>
+
+            <div
+              className="qelsa-reveal landing-diagram-border rounded-[20px] p-6 shadow-[0_30px_80px_-30px_rgba(124,47,243,0.45)] sm:p-8"
+              role="img"
+              aria-label="Your work goes into Qelsa AI, which rates each skill and shows the jobs you fit"
+            >
+              <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:gap-0">
+                <div className="min-w-0 lg:w-[220px] lg:shrink-0">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-white/50">Your work</p>
+                  <div className="mt-2.5 space-y-2.5">
+                    {WORK_ITEMS.map((item, index) => (
+                      <div
+                        key={item.title}
+                        className="qelsa-flow-in rounded-xl border border-white/[0.12] bg-white/[0.04] px-3.5 py-3"
+                        style={{ animationDelay: `${index * 0.15}s` }}
+                      >
+                        <p className="text-[14px] font-semibold text-white">{item.title}</p>
+                        <p className="mt-0.5 text-[13px] text-white/60">{item.detail}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="qelsa-flow-v lg:hidden">
+                  <i />
+                </div>
+                <div className="qelsa-flow-h mx-3.5 hidden lg:block">
+                  <i />
+                </div>
+
+                <div className="flex shrink-0 flex-col items-center gap-3 text-center">
+                  <div className="qelsa-flow-node grid size-24 place-items-center rounded-full bg-[radial-gradient(circle_at_30%_30%,#9B5CFF,#7C2FF3_45%,#D73E9D)] text-[15px] font-bold tracking-[0.02em] text-white">
+                    Qelsa AI
+                  </div>
+                  <p className="max-w-[130px] text-[13px] leading-snug text-white/70">
+                    Rates each skill
+                    <br />
+                    <span className="text-white/50">Beginner → Expert</span>
+                  </p>
+                </div>
+
+                <div className="qelsa-flow-v lg:hidden">
+                  <i style={{ animationDelay: "1.1s" }} />
+                </div>
+                <div className="qelsa-flow-h mx-3.5 hidden lg:block">
+                  <i style={{ animationDelay: "1.1s" }} />
+                </div>
+
+                <div className="min-w-0 lg:w-[200px] lg:shrink-0">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-white/50">Jobs you fit</p>
+                  <div className="mt-2.5 space-y-2.5">
+                    {FIT_JOBS.map((job, index) => (
+                      <div
+                        key={job.title}
+                        className="qelsa-flow-in flex items-center gap-2.5 rounded-full border border-white/[0.12] bg-white/[0.04] px-3.5 py-2.5 text-[14px] text-white"
+                        style={{ animationDelay: `${0.9 + index * 0.15}s` }}
+                      >
+                        <span
+                          className={`size-2 shrink-0 rounded-full ${job.ready ? "bg-[#40D480]" : "bg-[#FFC740]"}`}
+                        />
+                        {job.title}
+                      </div>
+                    ))}
+                    <p className="qelsa-flow-in pl-1 text-[13px] text-white/50" style={{ animationDelay: "1.5s" }}>
+                      + every other job you open
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-6 flex flex-wrap justify-center gap-x-5 gap-y-2 border-t border-white/[0.12] pt-4 text-[13px] text-white/60">
+                <span className="inline-flex items-center gap-2">
+                  <span className="size-2 rounded-full bg-[#40D480]" /> Ready
+                </span>
+                <span className="inline-flex items-center gap-2">
+                  <span className="size-2 rounded-full bg-[#FFC740]" /> Almost there
+                </span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ------------------------------- Agent -------------------------------- */}
+        <section aria-labelledby="agent-heading" className="mx-auto w-full max-w-[1240px] px-4 py-14 sm:px-6 sm:py-20 lg:py-[120px]">
+          <h2
+            id="agent-heading"
+            className="font-editorial mx-auto max-w-[760px] text-balance text-center text-[38px] leading-[1.02] tracking-[-0.02em] sm:text-[50px] lg:text-[62px]"
+          >
+            Meet Qelsa Agent, your AI career guide
+          </h2>
+          <span
+            aria-hidden="true"
+            className="mx-auto mt-6 block h-px w-12 bg-[linear-gradient(90deg,transparent,#7C2FF3,#D73E9D,transparent)]"
+          />
+          <p className="mx-auto mt-5 max-w-[680px] text-balance text-center text-[20px] leading-[1.35] tracking-[-0.2px] text-white/70 sm:text-[24px]">
+            Ask anything about <span className="text-white">jobs, skills or your next move.</span>
+          </p>
+
+          <div className="mt-10 grid gap-10 lg:mt-14 lg:grid-cols-[1.25fr_0.75fr] lg:items-center lg:gap-16">
+            <div className="qelsa-reveal landing-card-border rounded-[20px] p-2 shadow-[0_30px_80px_-30px_rgba(124,47,243,0.45)]">
+              <video
+                ref={videoRef}
+                src="/qelsa-agent-demo.mp4"
+                poster="/qelsa-agent-poster.jpg"
+                autoPlay
+                muted
+                loop
+                playsInline
+                preload="metadata"
+                aria-label="Qelsa Agent checking a candidate's fit for a job and preparing their application"
+                className="block h-auto w-full rounded-[10px]"
+              />
+            </div>
+
+            <div className="min-w-0">
+              <div>
+                <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-white/50">What it does</p>
+                <ul className="mt-2">
+                  {AGENT_POINTS.map((point) => (
+                    <li key={point} className="flex items-center gap-3 py-2 text-[16px] text-white">
+                      <Check className="size-[18px] shrink-0 text-[#00D4FF]" strokeWidth={2.5} aria-hidden="true" />
+                      {point}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <Link
+                href={AGENT_HREF}
+                className={`group mt-6 inline-flex min-h-11 items-center gap-2 text-[16px] font-medium text-[#00D4FF] transition-colors hover:text-white ${FOCUS_RING}`}
+              >
+                Try Qelsa Agent
+                <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" aria-hidden="true" />
               </Link>
             </div>
-
-            <div className="min-w-0 rounded-[28px] border border-white/[0.08] bg-[#0b0d1b]/90 p-5 shadow-2xl backdrop-blur sm:p-7">
-              <div className="flex items-center gap-2">
-                <Zap className="size-4 text-white/80" />
-                <p className="text-sm font-bold text-white">How you fit this role</p>
-              </div>
-
-              <div className="mt-6 grid gap-5 sm:grid-cols-[104px_1fr] sm:items-center">
-                <div className="relative mx-auto flex size-24 items-center justify-center rounded-full" style={{ background: "conic-gradient(#f97316 0 76%, rgba(255,255,255,0.08) 76% 100%)" }}>
-                  <div className="flex size-[76px] flex-col items-center justify-center rounded-full bg-[#0b0d1b]">
-                    <span className="text-xl font-extrabold text-white">76%</span>
-                    <span className="mt-0.5 text-[9px] font-medium text-white/40">Ready</span>
-                  </div>
-                </div>
-                <div className="space-y-3">
-                  {[
-                    ["Skills match", "84%", "84%"],
-                    ["Experience match", "72%", "72%"],
-                    ["Education match", "68%", "68%"],
-                  ].map(([label, value, width]) => (
-                    <div key={label}>
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-white/55">{label}</span>
-                        <span className="font-semibold text-[#5ee3f2]">{value}</span>
-                      </div>
-                      <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/[0.08]">
-                        <div className="h-full rounded-full bg-[#5ee3f2]" style={{ width }} />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="mt-7 space-y-5 border-t border-white/[0.07] pt-5">
-                <div>
-                  <p className="flex items-center gap-2 text-[11px] font-semibold text-white/80">
-                    <span className="size-1.5 rounded-full bg-emerald-400" /> Where you&apos;re already strong
-                  </p>
-                  <div className="mt-1.5">
-                    <FitSkillRow skill="TypeScript" yours="You: Advanced" target="Target: Advanced" badge="core" />
-                    <FitSkillRow skill="REST APIs" yours="You: Expert" target="Target: Advanced" badge="preferred" />
-                  </div>
-                </div>
-
-                <div>
-                  <p className="flex items-center gap-2 text-[11px] font-semibold text-white/80">
-                    <span className="size-1.5 rounded-full bg-amber-400" /> 3 skills to close the gap
-                  </p>
-                  <div className="mt-1.5">
-                    <FitSkillRow skill="React" yours="You: Advanced" target="Target: Expert" badge="core" />
-                    <FitSkillRow skill="Accessibility" yours="You: Intermediate" target="Target: Advanced" badge="core" />
-                    <FitSkillRow skill="GraphQL" yours="You: Beginner" target="Target: Intermediate" badge="preferred" />
-                  </div>
-                </div>
-
-                <div>
-                  <p className="flex items-center gap-2 text-[11px] font-semibold text-white/80">
-                    <span className="size-1.5 rounded-full bg-white/30" /> Not on your resume yet
-                  </p>
-                  <div className="mt-1.5">
-                    <FitSkillRow skill="Docker" yours="Not listed" target="Target: Beginner" badge="nice" />
-                    <FitSkillRow skill="AWS" yours="Not listed" target="Target: Intermediate" badge="nice" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-5 flex items-center justify-between gap-3 rounded-xl border border-purple-500/25 bg-gradient-to-r from-purple-600/[0.18] via-purple-600/[0.08] to-transparent px-3.5 py-3">
-                <div className="flex min-w-0 items-center gap-2.5">
-                  <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-purple-500/15 text-purple-300">
-                    <Sparkles className="size-4" />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-xs font-semibold text-white/80">Ask Qelsa why</p>
-                    <p className="mt-0.5 text-[10px] leading-snug text-white/40">Explains each target level and how to reach it</p>
-                  </div>
-                </div>
-                <ChevronRight className="size-4 shrink-0 text-white/35" />
-              </div>
-            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* ------------------------------ Qelsa Agent ---------------------------- */}
-      <section className="relative overflow-hidden border-t border-white/[0.06] py-20 lg:py-28">
-        <div aria-hidden="true" className="pointer-events-none absolute inset-0">
-          <div className="absolute left-1/2 top-0 h-[420px] w-[720px] -translate-x-1/2 rounded-full bg-[#5ee3f2]/[0.05] blur-[140px]" />
-        </div>
+        {/* -------------------------------- FAQ --------------------------------- */}
+        <section aria-labelledby="faq-heading" className="mx-auto w-full max-w-[1240px] px-4 py-14 sm:px-6 sm:py-20 lg:py-[120px]">
+          <h2
+            id="faq-heading"
+            className="font-editorial mx-auto max-w-[760px] text-center text-[38px] leading-[1.02] tracking-[-0.02em] sm:text-[50px] lg:text-[62px]"
+          >
+            Questions
+          </h2>
 
-        <div className="relative mx-auto w-full max-w-7xl px-6">
-          <div className="text-center">
-            <p className="text-[11px] font-mono font-semibold uppercase tracking-[0.2em] text-[#5ee3f2] sm:text-xs">MEET QELSA AGENT</p>
-            <h2 className="mx-auto mt-4 max-w-2xl text-3xl font-bold tracking-[-0.02em] text-white sm:text-4xl lg:text-5xl">Your AI career agent. Ask anything, apply ready.</h2>
-          </div>
-          <div className="mt-6 grid grid-cols-1 items-start gap-12 lg:mt-16 lg:grid-cols-12 lg:gap-12">
-            {/* Left copy */}
-            <div className="lg:col-span-6">
-              <p className="mt-4 max-w-xl text-sm leading-relaxed text-white/55 sm:text-base">It knows your profile and your goal, and answers like a senior mentor.</p>
-
-              <ul className="mt-6 grid grid-cols-1 gap-x-5 gap-y-3 sm:grid-cols-2">
-                {AGENT_HIGHLIGHTS.map((highlight) => (
-                  <li key={highlight} className="flex items-start gap-2 text-sm leading-relaxed text-white/70">
-                    <Check className="mt-1 size-3 shrink-0 text-[#5ee3f2]" />
-                    <span>{highlight}</span>
-                  </li>
-                ))}
-              </ul>
-
-              <div className="mt-8">
-                <Link
-                  href="/auth?returnUrl=/agent"
-                  className="inline-flex items-center whitespace-nowrap rounded-full bg-gradient-to-r from-[#623dd6] via-[#8433ae] to-[#be2680] px-7 py-3.5 text-sm font-semibold text-white shadow-xl shadow-purple-950/40 transition-opacity hover:opacity-95 sm:text-base"
+          <div className="mx-auto mt-10 flex max-w-[820px] flex-col gap-3 lg:mt-14">
+            {FAQS.map((faq) => (
+              <details
+                key={faq.q}
+                className="group rounded-2xl border border-white/[0.12] bg-white/[0.04] px-6 py-5 transition-colors open:bg-white/[0.05]"
+              >
+                <summary
+                  className={`flex min-h-11 cursor-pointer list-none items-center justify-between gap-4 text-[18px] tracking-[-0.2px] [&::-webkit-details-marker]:hidden ${FOCUS_RING}`}
                 >
-                  Try Qelsa Agent
-                </Link>
-              </div>
-            </div>
-
-            {/* Right agent preview */}
-            <div className="lg:col-span-6">
-              <div className="relative overflow-hidden rounded-[24px] border border-white/[0.08] bg-[#10152d]/95 shadow-2xl backdrop-blur-xl">
-                <div className="flex items-center justify-between border-b border-white/[0.06] px-5 py-4">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-[#4f46e5]">
-                      <Sparkles className="size-4 text-white" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-white">Qelsa Agent</p>
-                      <p className="mt-0.5 flex items-center gap-1.5 text-[11px] text-emerald-300">
-                        <span className="size-1.5 rounded-full bg-emerald-400" />
-                        Online
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-3 p-5 sm:p-6">
-                  <div className="ml-auto max-w-[88%] rounded-lg bg-[#29305a] px-3.5 py-2.5 text-[12px] leading-relaxed text-white/75">I&apos;m a BCom graduate looking for my first job. Where do I fit?</div>
-
-                  <div className="max-w-[92%] rounded-lg bg-[#171d3a] px-3.5 py-3 text-[12px] leading-relaxed text-white/60">
-                    You&apos;re closest to <span className="font-semibold text-white">Accounts Executive (82)</span>, <span className="font-semibold text-white">Junior Financial Analyst (76)</span> and{" "}
-                    <span className="font-semibold text-white">Business Analyst (74)</span>. Advanced Excel would lift all three.
-                  </div>
-
-                  <div className="ml-auto w-fit rounded-lg bg-[#29305a] px-3.5 py-2.5 text-[11px] text-white/70">Prepare applications for the top 3.</div>
-
-                  <div className="rounded-lg bg-[#171d3a] p-3.5 text-[12px] leading-relaxed text-white/60">
-                    Done. Each has a tailored resume and cover letter. Apply on the company site when you&apos;re ready.
-                    <div className="mt-3 space-y-1.5">
-                      {["Accounts Executive", "Junior Financial Analyst", "Business Analyst"].map((role) => (
-                        <div key={role} className="flex items-center justify-between gap-3 rounded-md border border-white/[0.08] bg-[#10152c] px-3 py-2 text-[11px] text-white/75">
-                          <span className="truncate">{role}</span>
-                          <span className="inline-flex shrink-0 items-center gap-1 font-semibold text-[#5ee3f2]">
-                            Apply <ArrowUpRight className="size-3" />
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+                  {faq.q}
+                  <ChevronDown className="faq-chevron size-5 shrink-0 text-white/50 transition-transform" aria-hidden="true" />
+                </summary>
+                <p className="mt-3 text-[16px] leading-relaxed text-white/70">{faq.a}</p>
+              </details>
+            ))}
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* -------------------------- Bottom CTA Box --------------------------- */}
-      <section className="py-16 sm:py-24">
-        <div className="mx-auto w-full max-w-5xl px-6">
-          <div className="rounded-[32px] border border-white/[0.08] bg-[#0d1020]/70 p-8 text-center shadow-2xl backdrop-blur sm:p-14 lg:p-16">
-            <h2 className="mx-auto max-w-2xl text-3xl font-extrabold tracking-[-0.02em] leading-tight text-white sm:text-4xl lg:text-5xl">See where you stand, or who's ready now.</h2>
-            <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-white/60 sm:text-base">Build your profile in minutes, or share a job description and get a ranked shortlist. Free to start.</p>
-
-            <div className="mt-8 flex flex-wrap items-center justify-center gap-4 sm:mt-10">
+        {/* ------------------------------ Closing ------------------------------- */}
+        <section aria-label="Get started" className="mx-auto w-full max-w-[1100px] px-4 pb-20 pt-6 sm:px-6 sm:pb-24 lg:pb-[120px]">
+          <div className="landing-cta-card rounded-[32px] px-5 py-14 text-center sm:px-12 sm:py-16 lg:py-24">
+            <h2 className="font-editorial text-balance text-[44px] leading-[1.02] tracking-[-0.02em] sm:text-[58px] lg:text-[72px]">
+              <span className="block">Be ready before you apply.</span>
+              <span className="block italic bg-[linear-gradient(90deg,#A78BFA,#F472B6)] bg-clip-text text-transparent">
+                Know your readiness.
+              </span>
+            </h2>
+            <div className="mt-8 flex justify-center">
               <Link
-                href="/auth?returnUrl=/profile"
-                className="rounded-full bg-gradient-to-r from-[#623dd6] via-[#8433ae] to-[#be2680] px-7 py-3.5 text-sm font-semibold text-white shadow-xl shadow-purple-950/40 transition-opacity hover:opacity-95 sm:text-base"
+                href={JOIN_HREF}
+                className={`gradient-landing inline-flex h-12 items-center justify-center rounded-full px-6 text-[16px] font-medium text-white transition-opacity hover:opacity-95 ${FOCUS_RING}`}
               >
                 Check my readiness
               </Link>
-              <Link
-                href="/employer/auth?returnUrl=/jobs/posted"
-                className="rounded-full border border-white/20 bg-white/[0.04] px-7 py-3.5 text-sm font-semibold text-white transition-colors hover:border-white/35 hover:bg-white/[0.08] sm:text-base"
-              >
-                Hire talent
-              </Link>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      </main>
 
-      {/* ------------------------------ Footer -------------------------------- */}
+      {/* ------------------------------- Footer -------------------------------- */}
       <footer className="border-t border-white/[0.06] bg-[#070913] py-12">
-        <div className="mx-auto flex w-full max-w-7xl flex-col items-center justify-between gap-6 px-6 sm:flex-row">
+        <div className="mx-auto flex w-full max-w-[1240px] flex-col items-center gap-6 px-4 sm:flex-row sm:px-6 sm:items-center sm:justify-between">
           <div className="flex flex-col items-center sm:items-start">
-            <Link href="/" className="flex items-center">
-              <QelsaLogo priority className="h-6 w-auto" />
+            <Link href="/" aria-label="Qelsa home" className={`inline-flex min-h-11 items-center ${FOCUS_RING}`}>
+              <QelsaLogo className="h-6 w-auto" />
             </Link>
-            <p className="mt-2 text-xs text-white/40">Copyright © 2026 Qelsa</p>
+            <p className="text-[12px] text-white/50">Copyright © 2026 Qelsa</p>
           </div>
 
-          <div className="flex flex-wrap items-center justify-center gap-6 text-xs text-white/60 sm:gap-8">
-            <Link href="/privacy" className="transition-colors hover:text-white">
+          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-1 text-[12px] text-white/60">
+            <Link href="/privacy" className={`inline-flex min-h-11 items-center transition-colors hover:text-white ${FOCUS_RING}`}>
               Privacy
             </Link>
-            <Link href="/terms" className="transition-colors hover:text-white">
+            <Link href="/terms" className={`inline-flex min-h-11 items-center transition-colors hover:text-white ${FOCUS_RING}`}>
               Terms
             </Link>
-            <Link href="/cookies" className="transition-colors hover:text-white">
+            <Link href="/cookies" className={`inline-flex min-h-11 items-center transition-colors hover:text-white ${FOCUS_RING}`}>
               Cookies
             </Link>
-            <a href="mailto:support@qelsa.com" className="transition-colors hover:text-white">
+            <a href="mailto:support@qelsa.com" className={`inline-flex min-h-11 items-center transition-colors hover:text-white ${FOCUS_RING}`}>
               Contact
             </a>
           </div>

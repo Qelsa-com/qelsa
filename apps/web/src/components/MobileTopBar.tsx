@@ -8,7 +8,7 @@
 import { QelsaLogo } from "@/components/QelsaLogo";
 import { useAuth } from "@/contexts/AuthContext";
 import { Menu } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 export function MobileTopBar({
   onMenuClick,
@@ -22,19 +22,23 @@ export function MobileTopBar({
   scrolled?: boolean;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { user, isAuthenticated, isLoading } = useAuth();
   const authBootstrapping = isLoading && !user;
+  // Guests need a visible way in on mobile; match the audience of the page.
+  const employerEntry = pathname === "/employers" || Boolean(pathname?.startsWith("/employer/"));
+  const guestHref = employerEntry ? "/employer/auth?returnUrl=/jobs/posted" : "/auth?returnUrl=/profile";
 
   return (
     <header
-      className={`sticky top-0 z-40 flex items-center justify-between border-b px-4 py-3 backdrop-blur-xl transition-colors duration-300 lg:hidden ${
+      className={`font-landing sticky top-0 z-40 flex items-center justify-between border-b px-4 py-2 backdrop-blur-xl transition-colors duration-300 lg:hidden ${
         scrolled ? "border-white/[0.12] bg-[#06060f]/80" : "border-transparent bg-transparent"
       }`}
     >
       <button
         type="button"
         onClick={() => router.push("/")}
-        className="flex items-center"
+        className="flex min-h-11 items-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00D4FF] focus-visible:ring-offset-2 focus-visible:ring-offset-[#06060f]"
         aria-label="Qelsa home"
       >
         <QelsaLogo className="h-[22px] w-auto" />
@@ -42,7 +46,15 @@ export function MobileTopBar({
 
       <div className="flex items-center gap-2" aria-busy={authBootstrapping}>
         {authBootstrapping ? (
-          <span aria-hidden className="h-8 w-20 animate-pulse rounded-full bg-white/[0.06]" />
+          <span aria-hidden className="h-9 w-24 animate-pulse rounded-full bg-white/[0.06]" />
+        ) : !isAuthenticated ? (
+          <button
+            type="button"
+            onClick={() => router.push(guestHref)}
+            className="gradient-landing flex min-h-11 items-center rounded-full px-4 text-[13px] font-semibold text-white shadow-lg shadow-purple-900/30 transition-opacity hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00D4FF] focus-visible:ring-offset-2 focus-visible:ring-offset-[#06060f]"
+          >
+            {employerEntry ? "Hire talent" : "Get started"}
+          </button>
         ) : isAuthenticated && user?.account_type !== "recruiter" && !premiumLoading && !isPro ? (
           <button
             type="button"
@@ -56,7 +68,7 @@ export function MobileTopBar({
           type="button"
           aria-label="Open menu"
           onClick={onMenuClick}
-          className="flex size-9 shrink-0 items-center justify-center rounded-full border border-white/[0.12] bg-white/[0.04] text-white/80 transition-colors hover:bg-white/[0.08] hover:text-white"
+          className="flex size-11 shrink-0 items-center justify-center rounded-full border border-white/[0.12] bg-white/[0.04] text-white/80 transition-colors hover:bg-white/[0.08] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00D4FF] focus-visible:ring-offset-2 focus-visible:ring-offset-[#06060f]"
         >
           <Menu className="size-5" />
         </button>

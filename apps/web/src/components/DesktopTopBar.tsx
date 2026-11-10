@@ -54,7 +54,7 @@ export function DesktopTopBar({
   const links = isAuthenticated ? AUTHED_NAV_LINKS : GUEST_NAV_LINKS;
 
   return (
-    <header className={`sticky top-0 z-50 hidden border-b backdrop-blur-xl transition-colors duration-300 lg:block ${scrolled ? "border-white/[0.08] bg-[#06060f]/80" : "border-transparent bg-transparent"}`}>
+    <header className={`font-landing sticky top-0 z-50 hidden border-b backdrop-blur-xl transition-colors duration-300 lg:block ${scrolled ? "border-white/[0.08] bg-[#06060f]/80" : "border-transparent bg-transparent"}`}>
       <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-6 py-4">
         <button type="button" onClick={() => router.push("/")} className="flex items-center">
           <QelsaLogo priority className="h-[26px] w-auto" />
@@ -90,15 +90,15 @@ export function DesktopTopBar({
           <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={() => router.push("/auth?returnUrl=/profile")}
-              className="rounded-full border border-white/20 bg-white/[0.04] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/35 hover:bg-white/[0.08]"
+              onClick={() => router.push("/jobs/all")}
+              className="rounded-full border border-white/20 bg-white/[0.04] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/35 hover:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00D4FF] focus-visible:ring-offset-2 focus-visible:ring-offset-[#06060f]"
             >
-              Get a Job
+              Find jobs
             </button>
             <button
               type="button"
               onClick={() => router.push("/employer/auth?returnUrl=/jobs/posted")}
-              className="rounded-full bg-gradient-to-r from-[#623dd6] via-[#8433ae] to-[#be2680] px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-purple-900/30 transition-opacity hover:opacity-95"
+              className="gradient-landing rounded-full px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-purple-900/30 transition-opacity hover:opacity-95"
             >
               Hire talent
             </button>
