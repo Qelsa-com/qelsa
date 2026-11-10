@@ -416,13 +416,17 @@ export const deleteAccount = authedMutation({
   args: {},
   returns: v.null(),
   handler: async (ctx) => {
+    // A subscription already scheduled to cancel at period end has no future
+    // charge, so account deletion can proceed. A still-renewing subscription
+    // must be canceled first (the settings confirmation does this before it
+    // calls deleteAccount).
     const activeSubscription = (
       await ctx.db
         .query("billing_subscriptions")
         .withIndex("by_user_and_updated_at", (q) => q.eq("user_id", ctx.user._id))
         .order("desc")
         .take(5)
-    ).some((subscription) => isSubscriptionEntitled(subscription));
+    ).some((subscription) => isSubscriptionEntitled(subscription) && !subscription.cancel_at_period_end);
     if (activeSubscription) {
       throw new Error("Cancel your active subscription before deleting your account.");
     }

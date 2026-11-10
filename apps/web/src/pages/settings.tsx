@@ -5,6 +5,7 @@ import { BillingSettings } from "@/components/settings/BillingSettings";
 import { ADMIN_APP_URL } from "@/constants/admin";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDeleteAccountMutation } from "@/features/api/authApi";
+import { useCancelSubscriptionAction, useGetMyBillingQuery } from "@/features/api/billingApi";
 import { authClient } from "@/lib/auth-client";
 import { toastUnknownError } from "@/lib/errors";
 import { clearResumeDraft } from "@/lib/resumeDraft";
@@ -12,6 +13,7 @@ import { AlertTriangle, ChevronRight, Plug, Settings as SettingsIcon, ShieldChec
 import Link from "next/link";
 import { useState } from "react";
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../components/ui/alert-dialog";
+import type { MyBilling } from "@/types/billing";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
@@ -22,11 +24,26 @@ const DELETE_CONFIRMATION = "DELETE";
 const Settings = () => {
   const { user } = useAuth();
   const [deleteAccount, { isLoading }] = useDeleteAccountMutation();
+  const [cancelSubscription, { isLoading: isCancellingSubscription }] = useCancelSubscriptionAction();
+  const { data: billingData, isLoading: isBillingLoading } = useGetMyBillingQuery();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmText, setConfirmText] = useState("");
+  const billing = billingData as MyBilling | undefined;
+  const subscription = billing?.subscription ?? null;
+  const needsSubscriptionCancellation =
+    subscription?.status === "active" && !subscription.cancel_at_period_end;
+  const busy = isLoading || isCancellingSubscription || isBillingLoading;
 
   const handleDelete = async () => {
-    if (confirmText !== DELETE_CONFIRMATION || isLoading) return;
+    if (confirmText !== DELETE_CONFIRMATION || busy) return;
+    if (needsSubscriptionCancellation) {
+      try {
+        await cancelSubscription({ cancel: true }).unwrap();
+      } catch (err) {
+        toastUnknownError(err, "Could not cancel your subscription. Please cancel it in Billing, then try again.");
+        return;
+      }
+    }
     try {
       await deleteAccount({}).unwrap();
       clearResumeDraft();
@@ -174,7 +191,7 @@ const Settings = () => {
       <AlertDialog
         open={confirmOpen}
         onOpenChange={(open) => {
-          if (isLoading) return;
+          if (busy) return;
           setConfirmOpen(open);
           if (!open) setConfirmText("");
         }}
@@ -184,14 +201,25 @@ const Settings = () => {
             <AlertDialogTitle>Delete your account?</AlertDialogTitle>
             <AlertDialogDescription>This cannot be undone. Type {DELETE_CONFIRMATION} to confirm.</AlertDialogDescription>
           </AlertDialogHeader>
+          {subscription ? (
+            <div className="rounded-xl border border-amber-400/20 bg-amber-400/[0.06] p-3 text-xs leading-relaxed text-amber-100/85">
+              {subscription.cancel_at_period_end ? (
+                <>Your subscription is already scheduled to cancel at the end of the current billing period. No further charges will be made.</>
+              ) : subscription.status === "active" ? (
+                <>We’ll cancel your subscription before deleting your account. It will not renew, so there will be no further charges. Deleting your account ends access immediately.</>
+              ) : null}
+            </div>
+          ) : isBillingLoading ? (
+            <p className="text-xs text-white/45">Checking your subscription…</p>
+          ) : null}
           <div className="space-y-2">
             <Label htmlFor="delete-account-confirm">Confirmation</Label>
-            <Input id="delete-account-confirm" value={confirmText} onChange={(event) => setConfirmText(event.target.value)} placeholder={DELETE_CONFIRMATION} autoComplete="off" disabled={isLoading} />
+            <Input id="delete-account-confirm" value={confirmText} onChange={(event) => setConfirmText(event.target.value)} placeholder={DELETE_CONFIRMATION} autoComplete="off" disabled={busy} />
           </div>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isLoading}>Cancel</AlertDialogCancel>
-            <Button variant="destructive" disabled={confirmText !== DELETE_CONFIRMATION || isLoading} onClick={() => void handleDelete()}>
-              {isLoading ? "Deleting…" : "Delete account"}
+            <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
+            <Button variant="destructive" disabled={confirmText !== DELETE_CONFIRMATION || busy} onClick={() => void handleDelete()}>
+              {isCancellingSubscription ? "Canceling subscription…" : isLoading ? "Deleting…" : "Delete account"}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
