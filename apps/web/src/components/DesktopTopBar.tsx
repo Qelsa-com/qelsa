@@ -90,7 +90,7 @@ export function DesktopTopBar({
           <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={() => router.push("/jobs/all")}
+              onClick={() => router.push(`/auth?returnUrl=${encodeURIComponent("/jobs/all")}`)}
               className="rounded-full border border-white/20 bg-white/[0.04] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/35 hover:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00D4FF] focus-visible:ring-offset-2 focus-visible:ring-offset-[#06060f]"
             >
               Find jobs
