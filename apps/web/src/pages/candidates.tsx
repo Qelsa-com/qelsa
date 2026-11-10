@@ -24,8 +24,8 @@ const Candidates = () => {
   return (
     <Layout activeSection="candidates">
       <Seo
-        title="Know if you're ready before you apply"
-        description="See how your skills match a role, the gaps to close, and what to learn next."
+        title="Know where you fit before you apply"
+        description="A readiness score for every job, the gaps to close, and the next step. Free to start."
         path="/candidates"
       />
       <ForCandidatesPage />
