@@ -13,6 +13,7 @@ import {
   ScrollText,
   ShieldCheck,
   SlidersHorizontal,
+  ToggleLeft,
   Users,
   Waypoints,
 } from "lucide-react";
@@ -26,6 +27,7 @@ const NAV_ITEMS = [
   { href: "/jobs", label: "Jobs", icon: Briefcase },
   { href: "/boards", label: "Job boards", mobileLabel: "Boards", icon: Waypoints },
   { href: "/plans", label: "Plans", icon: SlidersHorizontal },
+  { href: "/features", label: "Feature flags", icon: ToggleLeft },
   { href: "/blog", label: "Blog", icon: Newspaper },
   { href: "/content", label: "Content", icon: FileText },
   { href: "/interview-prep", label: "Interview prep", icon: GraduationCap },

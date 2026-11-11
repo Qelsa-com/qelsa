@@ -14,6 +14,7 @@ import { SkillOverflowTags } from "@/components/skills/SkillOverflowTags";
 import { formatCity } from "@/constants/city";
 import { MAX_VISIBLE_SKILLS, skillRoleSubtitle } from "@/constants/skills";
 import { useAuth } from "@/contexts/AuthContext";
+import { useFeatureFlagsQuery } from "@/features/api/featuresApi";
 import { useGetAppliedJobsQuery, useGetInProgressJobsQuery, useGetSavedJobsQuery } from "@/features/api/jobsApi";
 import { Job } from "@/types/job";
 import { JobApplication, JobApplicationStatus } from "@/types/jobApplication";
@@ -134,7 +135,7 @@ export function MyJobsHeader({
       {/* Primary tabs row: All Jobs | Smart Matches | My Jobs */}
       <div className="flex items-center gap-2 sm:gap-0">
         <TabButton active={false} label="All Jobs" onClick={() => router.push("/jobs/all")} />
-        <TabButton active={false} label="Smart Matches" onClick={() => router.push("/jobs/smart-matches")} />
+        <SmartMatchesTabButton />
         <TabButton active={true} label="My Jobs" onClick={() => router.push("/jobs/my-jobs/saved")} />
       </div>
 
@@ -290,5 +291,15 @@ export function TrackedJobCard({ job, actionLabel, onAction, menu }: { job: Job;
         </div>
       </div>
     </JobCardShell>
+  );
+}
+
+
+function SmartMatchesTabButton() {
+  const { data: featureFlags } = useFeatureFlagsQuery();
+  const router = useRouter();
+  if (featureFlags?.smart_matches !== true) return null;
+  return (
+    <TabButton active={false} label="Smart Matches" onClick={() => router.push("/jobs/smart-matches")} />
   );
 }

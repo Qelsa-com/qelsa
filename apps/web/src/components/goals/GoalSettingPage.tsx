@@ -1,6 +1,7 @@
 "use client";
 
 import { useAuth } from "@/contexts/AuthContext";
+import { useFeatureFlagsQuery } from "@/features/api/featuresApi";
 import { useExtractCareerGoalAction, useGetMyCareerGoalQuery, useLazySearchIndustriesQuery, useUpsertCareerGoalMutation } from "@/features/api/careerGoalsApi";
 import { useGetExperiencesQuery } from "@/features/api/experiencesApi";
 import { useLazySearchJobTitlesQuery } from "@/features/api/jobTitlesApi";
@@ -45,6 +46,9 @@ function formFromSaved(goal: CareerGoal | null | undefined): GoalForm {
 
 export function GoalSettingPage() {
   const router = useRouter();
+  const { data: featureFlags } = useFeatureFlagsQuery();
+  const smartMatchesEnabled = featureFlags?.smart_matches === true;
+  const matchesHref = smartMatchesEnabled ? "/jobs/smart-matches" : "/jobs/all";
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const { data: savedGoal, isLoading: goalLoading } = useGetMyCareerGoalQuery({
     skip: !isAuthenticated,
@@ -179,7 +183,7 @@ export function GoalSettingPage() {
     if (typeof window !== "undefined" && window.history.length > 1) {
       router.back();
     } else {
-      router.push("/jobs/smart-matches");
+      router.push(matchesHref);
     }
   };
 
@@ -217,7 +221,7 @@ export function GoalSettingPage() {
         } catch {}
       }
       toast.success(savedGoal ? "Career goal updated" : "Career goal created");
-      router.push("/jobs/smart-matches");
+      router.push(matchesHref);
     } catch (error) {
       toastUnknownError(error, "Could not save your career goal. Please try again.");
     }

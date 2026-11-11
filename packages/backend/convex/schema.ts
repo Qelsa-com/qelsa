@@ -898,6 +898,17 @@ export default defineSchema({
 
   // Append-only trail of admin actions. One row per mutation an admin made,
   // so a privileged change is always attributable and revertable.
+  /**
+   * Admin-controlled product switches. Missing rows fall back to the default
+   * in the query (currently off).
+   */
+  feature_flags: defineTable({
+    key: v.string(),
+    enabled: v.boolean(),
+    updated_at: v.number(),
+    updated_by: v.optional(v.id("users")),
+  }).index("by_key", ["key"]),
+
   admin_audit_log: defineTable({
     admin_user_id: v.id("users"),
     // Coarse action verb, e.g. "user.role_changed" / "user.suspended".

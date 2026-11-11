@@ -40,6 +40,7 @@ import type * as dodo from "../dodo.js";
 import type * as educations from "../educations.js";
 import type * as employerAuth from "../employerAuth.js";
 import type * as experiences from "../experiences.js";
+import type * as features from "../features.js";
 import type * as files from "../files.js";
 import type * as http from "../http.js";
 import type * as interviewPrep from "../interviewPrep.js";
@@ -150,6 +151,7 @@ declare const fullApi: ApiFromModules<{
   educations: typeof educations;
   employerAuth: typeof employerAuth;
   experiences: typeof experiences;
+  features: typeof features;
   files: typeof files;
   http: typeof http;
   interviewPrep: typeof interviewPrep;

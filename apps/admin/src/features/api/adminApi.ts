@@ -330,6 +330,24 @@ export function useListPublicBoardsQuery() {
   return useConvexQueryHook(api.atsIntegrations.listPublicBoards, {}, { skip: false });
 }
 
+export type AdminFeatureFlag = {
+  key: string;
+  enabled: boolean;
+  updated_at: number;
+  updated_by: string | null;
+};
+
+export function useGetFeatureFlagsQuery() {
+  return useConvexQueryHook(api.admin.getFeatureFlags, {}, { skip: false });
+}
+
+export function useUpdateFeatureFlagMutation() {
+  return useConvexMutationHook(
+    api.admin.updateFeatureFlag,
+    (input: { key: string; enabled: boolean }) => input,
+  );
+}
+
 export function useGetPlanConfigsQuery() {
   return useConvexQueryHook(api.admin.getPlanConfigs, {}, { skip: false });
 }

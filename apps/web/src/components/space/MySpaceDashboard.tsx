@@ -4,6 +4,7 @@ import { CompanyLogo, MatchRing, displayCompanyName, displayLocation, goalMatchS
 import { cn } from "@/components/ui/utils";
 import { formatCity } from "@/constants/city";
 import { useAuth } from "@/contexts/AuthContext";
+import { useFeatureFlagsQuery } from "@/features/api/featuresApi";
 import { useGetDashboardSummaryQuery, type DashboardSummary } from "@/features/api/dashboardApi";
 import { useGetExperiencesQuery } from "@/features/api/experiencesApi";
 import { useMatchTiersQuery } from "@/features/api/jobsApi";
@@ -46,6 +47,9 @@ function statusMeta(status: string) {
 
 export function MySpaceDashboard() {
   const router = useRouter();
+  const { data: featureFlags } = useFeatureFlagsQuery();
+  const smartMatchesEnabled = featureFlags?.smart_matches === true;
+  const matchesHref = smartMatchesEnabled ? "/jobs/smart-matches" : "/jobs/all";
   const { user, isAuthenticated } = useAuth();
 
   const { data: experiences } = useGetExperiencesQuery(undefined, { skip: !isAuthenticated });
@@ -184,7 +188,7 @@ export function MySpaceDashboard() {
             title: matchesLoading ? "Finding roles for your goal." : `${goalTotal} ${goalTotal === 1 ? "role matches" : "roles match"} your goal.`,
             body: "Ranked by your target role, skills, and industries. You don't need experience to see matches — add it later to unlock readiness scores.",
             primaryLabel: "See goal matches",
-            primaryHref: "/jobs/smart-matches",
+            primaryHref: matchesHref,
             secondary: { label: profileStarted ? "View profile" : "Build profile", href: "/profile" },
           }
         : heroState === "no-matches"
@@ -207,7 +211,7 @@ export function MySpaceDashboard() {
                     : `${rankedMatches.length} ${rankedMatches.length === 1 ? "role fits" : "roles fit"} your goal.`,
               body: matchesLoading ? "Matching your profile and goal against open roles. This only takes a moment." : "Matched to your profile and career goal. Open a role to see your fit and next steps.",
               primaryLabel: "See matches",
-              primaryHref: "/jobs/smart-matches",
+              primaryHref: matchesHref,
               secondary: { label: "Ask Qelsa", prompt: askPrompt },
             };
 
@@ -333,7 +337,7 @@ export function MySpaceDashboard() {
                 mode={goalFirst ? "goal" : "profile"}
                 goalReady={goalReady}
                 onOpenJob={openJob}
-                onSeeAll={() => router.push("/jobs/smart-matches")}
+                onSeeAll={() => router.push(matchesHref)}
                 onSetGoal={() => router.push("/goals")}
                 onBrowseJobs={() => router.push("/jobs/all")}
               />
@@ -350,7 +354,7 @@ export function MySpaceDashboard() {
 
           {!setupVisible ? (
             <div className="flex flex-col gap-5">
-              <GoalCard goal={goal} targetRoles={targetRoles} onEdit={() => router.push("/goals")} onExplore={() => router.push("/jobs/smart-matches")} />
+              <GoalCard goal={goal} targetRoles={targetRoles} onEdit={() => router.push("/goals")} onExplore={() => router.push(matchesHref)} />
               {!profileComplete ? (
                 <ProfileStrengthCard
                   percent={profilePercent}

@@ -557,6 +557,69 @@ export const updatePlanConfig = adminMutation({
   },
 });
 
+const FEATURE_FLAG_KEYS = ["smart_matches"] as const;
+type FeatureFlagKey = (typeof FEATURE_FLAG_KEYS)[number];
+
+const featureFlagValidator = v.object({
+  key: v.string(),
+  enabled: v.boolean(),
+  updated_at: v.number(),
+  updated_by: v.union(v.id("users"), v.null()),
+});
+
+export const getFeatureFlags = adminQuery({
+  args: {},
+  returns: v.object({ flags: v.array(featureFlagValidator) }),
+  handler: async (ctx) => {
+    const rows = await Promise.all(
+      FEATURE_FLAG_KEYS.map((key) =>
+        ctx.db.query("feature_flags").withIndex("by_key", (q) => q.eq("key", key)).unique(),
+      ),
+    );
+    return {
+      flags: FEATURE_FLAG_KEYS.map((key, index) => ({
+        key,
+        enabled: rows[index]?.enabled === true,
+        updated_at: rows[index]?.updated_at ?? 0,
+        updated_by: rows[index]?.updated_by ?? null,
+      })),
+    };
+  },
+});
+
+export const updateFeatureFlag = adminMutation({
+  args: {
+    key: v.string(),
+    enabled: v.boolean(),
+    note: v.optional(v.string()),
+  },
+  returns: v.object({ ok: v.boolean() }),
+  handler: async (ctx, args) => {
+    if (!(FEATURE_FLAG_KEYS as readonly string[]).includes(args.key)) {
+      throw new Error("Unknown feature flag.");
+    }
+    const key = args.key as FeatureFlagKey;
+    const existing = await ctx.db
+      .query("feature_flags")
+      .withIndex("by_key", (q) => q.eq("key", key))
+      .unique();
+    const before = existing?.enabled === true;
+    const now = Date.now();
+    const row = { key, enabled: args.enabled, updated_at: now, updated_by: ctx.user._id };
+    if (existing) await ctx.db.patch(existing._id, row);
+    else await ctx.db.insert("feature_flags", row);
+    await ctx.db.insert("admin_audit_log", {
+      admin_user_id: ctx.user._id,
+      action: "feature_flag.updated",
+      before: { key, enabled: before },
+      after: { key, enabled: args.enabled },
+      note: args.note?.trim() || undefined,
+      created_at: now,
+    });
+    return { ok: true };
+  },
+});
+
 /**
  * Edits a user's profile fields.
  *

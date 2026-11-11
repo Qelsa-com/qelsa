@@ -19,6 +19,7 @@ import { cn } from "@/components/ui/utils";
 import { formatCity } from "@/constants/city";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLazySearchJobLocationsQuery } from "@/features/api/seedApi";
+import { useFeatureFlagsQuery } from "@/features/api/featuresApi";
 import { hasCareerGoal } from "@/lib/careerGoal";
 import { ALMOST_MAX, ALMOST_MIN, GOAL_MATCH, MATCH_TIER, matchRingColor, smartMatchRingColor, type MatchTierId } from "@/lib/matchTiers";
 import { City } from "@/types/city";
@@ -855,6 +856,8 @@ interface JobsBrowseHeaderProps {
 export function JobsBrowseHeader({ activeTab, query, setQuery, onSearch, filters, onApplyFilters, cityFilter, setCityFilter, resultsCount, suppressGoalBanner = false, defaultSort = "relevance" }: JobsBrowseHeaderProps) {
   const router = useRouter();
   const { user, isAuthenticated } = useAuth();
+  const { data: featureFlags } = useFeatureFlagsQuery();
+  const smartMatchesEnabled = featureFlags?.smart_matches === true;
   const showGoalBanner = !suppressGoalBanner && isAuthenticated && Boolean(user) && !hasCareerGoal(user?.career_goal);
   const [searchJobLocations, { data: cityResults = [] }] = useLazySearchJobLocationsQuery();
   const isMobile = useIsMobile();
@@ -960,7 +963,9 @@ export function JobsBrowseHeader({ activeTab, query, setQuery, onSearch, filters
       {isAuthenticated && (
         <div className="flex items-center gap-2 sm:gap-0">
           <TabButton active={activeTab === "all"} label="All Jobs" onClick={() => router.push(withCurrentFilters("/jobs/all"))} />
-          <TabButton active={activeTab === "smart-matches"} label="Smart Matches" onClick={() => router.push(withCurrentFilters("/jobs/smart-matches"))} />
+          {smartMatchesEnabled && (
+            <TabButton active={activeTab === "smart-matches"} label="Smart Matches" onClick={() => router.push(withCurrentFilters("/jobs/smart-matches"))} />
+          )}
           <TabButton active={activeTab === "my-jobs"} label="My Jobs" onClick={() => router.push("/jobs/my-jobs/saved")} />
         </div>
       )}
