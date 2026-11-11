@@ -132,11 +132,14 @@ export function computeYearsExperience(
  */
 export function composeReadiness(skillReadiness: number, experienceScore: number | null | undefined) {
   const skills = Math.max(0, Math.min(100, skillReadiness));
+  // A missing/unknown experience score is shown as 0% on the bar, so the 70/30
+  // total must include that 0. Hiding the bar or silently dropping the 30%
+  // makes the number disagree with what the candidate sees.
   const experience = Math.max(0, Math.min(100, experienceScore ?? 0));
   return Math.round(0.7 * skills + 0.3 * experience);
 }
 
-export const READINESS_FORMULA_VERSION = "skills70-exp30-required-cap-v1";
+export const READINESS_FORMULA_VERSION = "skills70-exp30-required-cap-v5-role-domain-exp";
 /** A missing core skill keeps the role out of the Almost There tier. */
 export const REQUIRED_SKILL_CAP = 49;
 
@@ -207,7 +210,10 @@ export function buildCompetencyFramework(
         ? Math.round((competencies.reduce((sum, c) => sum + c.credit, 0) / totalCount) * 100)
         : 0;
 
-  const experienceScore = Math.max(0, Math.min(100, profileContext?.experienceScore ?? 0));
+  const experienceScore =
+    profileContext?.experienceScore != null
+      ? Math.max(0, Math.min(100, profileContext.experienceScore))
+      : null;
   const missingRequired = competencies.filter((c) => c.required && !c.matched).length;
   const rawReadiness = composeReadiness(skillReadiness, experienceScore);
   // A missing required skill caps the role below the Almost There tier.

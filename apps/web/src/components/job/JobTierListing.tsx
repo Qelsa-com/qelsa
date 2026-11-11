@@ -12,19 +12,20 @@ import Layout from "@/layout";
 
 export function JobTierListing({ tier }: { tier: MatchTierId }) {
   const router = useRouter();
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+  const isRecruiter = isAuthenticated && user?.account_type === "recruiter";
   const meta = MATCH_TIER[tier];
   const { searchInput, setSearchInput, filters, applyFilters, discoverArgs, cityFilter, setCityFilter, commitSearch, hydrated } = useJobBrowseFilters(tier);
-  const skip = !hydrated || authLoading || !isAuthenticated;
+  const skip = !hydrated || authLoading || !isAuthenticated || isRecruiter;
   const { results, status, isLoading, loadMore } = usePaginatedJobsQuery(discoverArgs, JOBS_PAGE_SIZE, { skip });
   const { data: filteredTotal } = useCountJobsQuery(discoverArgs, { skip });
 
   // Keep the cached tier counts fresh when a tier page is opened directly.
-  useEnsureRankingRecompute(hydrated && isAuthenticated);
+  useEnsureRankingRecompute(hydrated && isAuthenticated && !isRecruiter);
 
   useEffect(() => {
-    if (!authLoading && !isAuthenticated) router.replace("/jobs/all");
-  }, [authLoading, isAuthenticated, router]);
+    if (!authLoading && (!isAuthenticated || isRecruiter)) router.replace("/jobs/all");
+  }, [authLoading, isAuthenticated, isRecruiter, router]);
 
   const jobs = (results as Job[]) ?? [];
   const loaded = jobs.length;

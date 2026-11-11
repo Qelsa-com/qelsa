@@ -28,6 +28,8 @@ export interface JobDetailsPageProps {
   initialJob?: Job | null;
   /** Server-sanitized HTML; avoids running DOMPurify during SSR. */
   descriptionHtml?: string;
+  /** Server clock so relative "Posted ..." labels are stable through hydration. */
+  serverNow: number;
 }
 
 const PREVIEW_MIN = 120;
@@ -309,6 +311,7 @@ export const getServerSideProps: GetServerSideProps<JobDetailsPageProps> = async
         },
         initialJob: job,
         descriptionHtml,
+        serverNow: Date.now(),
         structuredData: {
           "@context": "https://schema.org",
           "@graph": indexable ? [jobPosting, breadcrumb] : [breadcrumb],
@@ -329,11 +332,12 @@ export const getServerSideProps: GetServerSideProps<JobDetailsPageProps> = async
         companyName: "Qelsa",
         noindex: true,
       },
+      serverNow: Date.now(),
     },
   };
 };
 
-export default function JobDetails({ meta, structuredData, initialJob, descriptionHtml }: JobDetailsPageProps) {
+export default function JobDetails({ meta, structuredData, initialJob, descriptionHtml, serverNow }: JobDetailsPageProps) {
   const pageTitle = meta?.title || "Job Details | Qelsa";
   const ogTitle = meta?.title ? meta.title.replace(/ \| Qelsa$/, "") : "Job Opportunity on Qelsa";
   const ogDescription = meta?.description || "Explore and apply for this job on Qelsa.";
@@ -379,7 +383,7 @@ export default function JobDetails({ meta, structuredData, initialJob, descripti
         ) : null}
       </Head>
       <Layout activeSection="jobs" hideMobileTabBar>
-        <JobDetail initialJob={initialJob ?? null} initialDescriptionHtml={descriptionHtml} />
+        <JobDetail initialJob={initialJob ?? null} initialDescriptionHtml={descriptionHtml} initialNow={serverNow} />
       </Layout>
     </>
   );

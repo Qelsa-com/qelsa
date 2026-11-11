@@ -211,6 +211,7 @@ export async function scoreReadiness(
       profileContext?.experienceProfile,
       jobFunctionForJob(job.title),
       job.experience,
+      { jobTitle: job.title },
     );
     return [
       job._id,
@@ -288,7 +289,7 @@ export async function scoreTierMatches(
             careerGoal,
             {
               title: job.title,
-              industry: vector?.industry,
+              industry: undefined,
               company_name: job.company_name,
             },
             [],

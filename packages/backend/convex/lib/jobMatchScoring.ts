@@ -68,6 +68,7 @@ export function scoreJobForUser(
     profileContext?.experienceProfile,
     jobFunction,
     job.experience,
+    { jobTitle: job.title ?? job.job_title_name },
   );
 
   const framework = buildCompetencyFramework(

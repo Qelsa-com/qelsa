@@ -159,6 +159,7 @@ export async function loadApplicantSearchDocs(
             experienceProfile,
             jobFunctionForJob(jobContext.job.title, jobContext.title),
             jobContext.experience,
+            { jobTitle: jobContext.job.title ?? jobContext.title },
           ),
           requiredExperienceYears: jobContext.experience,
         },

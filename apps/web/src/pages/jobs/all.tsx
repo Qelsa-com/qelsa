@@ -4,7 +4,7 @@ import { AllJobsGridSkeleton } from "@/components/job/jobSkeletons";
 import { Seo } from "@/components/Seo";
 import { SetupBanner } from "@/components/SetupBanner";
 import { useAuth } from "@/contexts/AuthContext";
-import { useCountJobsQuery, useEnsureRankingRecompute, usePaginatedJobsQuery } from "@/features/api/jobsApi";
+import { useCountJobsQuery, useEnsureRankingRecompute, usePaginatedJobsQuery, useReadinessContextQuery } from "@/features/api/jobsApi";
 import { useGetMyResumesQuery } from "@/features/api/resumeApi";
 import { api } from "@/lib/convexApi";
 import { Job } from "@/types/job";
@@ -96,9 +96,14 @@ function AllJobsContent({ initialJobs = [] }: { initialJobs?: Job[] }) {
   useEnsureRankingRecompute(hydrated && isAuthenticated && !authLoading);
   const { data: filteredTotal } = useCountJobsQuery(discoverArgs, { skip: !hydrated || authLoading });
   const { data: myResumes } = useGetMyResumesQuery(undefined, { skip: !isAuthenticated });
+  const { data: readinessContext } = useReadinessContextQuery({ skip: !hydrated || authLoading });
+  const canScore = Boolean(readinessContext?.can_score);
+  const isRecruiter = Boolean(readinessContext?.is_recruiter);
   const hasResume = Boolean(myResumes && myResumes.length > 0);
   const hasProfile = Boolean(user?.has_profile || user?.headline?.trim() || user?.professional_summary?.trim() || user?.about?.trim());
-  const showResumeBanner = isAuthenticated && myResumes !== undefined && !hasResume;
+  const showReadinessBanner = !isRecruiter && readinessContext !== undefined && !canScore;
+  const showResumeBanner =
+    isAuthenticated && !isRecruiter && canScore && myResumes !== undefined && !hasResume;
 
   const hasFilters = Boolean(
     searchInput.trim() ||
@@ -118,7 +123,14 @@ function AllJobsContent({ initialJobs = [] }: { initialJobs?: Job[] }) {
   const jobs = clientJobs.length ? clientJobs : fallbackJobs;
   const loaded = jobs.length;
   const total = typeof filteredTotal === "number" ? filteredTotal : undefined;
-  const isInitialLoading = authLoading || (isLoading && loaded === 0);
+  // The server scores the page for every sort (date/salary via
+  // withPageReadiness), so reserve the ring slot whenever the candidate can be
+  // scored. Previously date/salary showed a ring in unreserved space.
+  const shouldScore = canScore;
+  const isInitialLoading =
+    authLoading ||
+    readinessContext === undefined ||
+    (isLoading && loaded === 0);
 
   return (
     <div className="mx-auto w-full max-w-[1400px] px-4 py-6 text-white sm:px-6 sm:py-8 md:px-12">
@@ -138,7 +150,25 @@ function AllJobsContent({ initialJobs = [] }: { initialJobs?: Job[] }) {
 
         {/* ----------------------------- All jobs ------------------------------ */}
         <div className="mt-6 flex flex-col gap-4 pb-16 sm:mt-10 sm:gap-6 sm:pb-24">
-          {showResumeBanner && (
+          {showReadinessBanner && (
+            <SetupBanner
+              title={isAuthenticated ? "Set up your profile to see readiness" : "See your readiness for every role"}
+              description={
+                isAuthenticated
+                  ? "Add your skills and experience so Qelsa can score how ready you are for each role before you apply."
+                  : "Sign in and add your skills and experience to see how ready you are for each role before you apply."
+              }
+              actionLabel={isAuthenticated ? "Set up profile" : "Sign in"}
+              onAction={() =>
+                router.push(
+                  isAuthenticated
+                    ? "/profile"
+                    : `/auth?returnUrl=${encodeURIComponent("/jobs/all")}`,
+                )
+              }
+            />
+          )}
+          {showResumeBanner && !showReadinessBanner && (
             <SetupBanner
               title={hasProfile ? "Upload your resume" : "Discover your readiness for every role"}
               description={
@@ -151,14 +181,10 @@ function AllJobsContent({ initialJobs = [] }: { initialJobs?: Job[] }) {
             />
           )}
           {isInitialLoading ? (
-            <AllJobsGridSkeleton showScore={isAuthenticated && (hasProfile || hasResume)} />
+            <AllJobsGridSkeleton showScore={shouldScore} />
           ) : loaded > 0 ? (
             <>
-              <JobGrid
-                jobs={jobs}
-                variant="all"
-                reserveScore={isAuthenticated && (hasProfile || hasResume)}
-              />
+              <JobGrid jobs={jobs} variant="all" reserveScore={shouldScore} />
             </>
           ) : status === "Exhausted" ? (
             <div className="flex flex-col items-center gap-4 py-12 text-center sm:py-16">

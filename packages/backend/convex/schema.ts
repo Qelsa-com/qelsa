@@ -331,6 +331,21 @@ export default defineSchema({
         career_alignment: v.optional(v.number()),
       }),
     ),
+    /**
+     * Top readiness rows for All Jobs. `entries` stays the smart-match top 400
+     * for the Match tiers; this set exists so the readiness surface is not
+     * constrained to jobs that won the smart-match ordering.
+     */
+    readiness_entries: v.optional(
+      v.array(
+        v.object({
+          job_id: v.id("jobs"),
+          readiness: v.number(),
+          smart_match: v.number(),
+          career_alignment: v.optional(v.number()),
+        }),
+      ),
+    ),
     /** How many catalog jobs the pass considered. */
     scanned: v.number(),
     /** Tier totals for the retained entries, so badges match the list. */

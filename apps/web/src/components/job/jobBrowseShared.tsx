@@ -233,9 +233,9 @@ export function readinessScore(job: Job): number | null {
 }
 
 export function matchScore(job: Job): number | null {
-  // Readiness is what the ring is labelled with ("Ready"), so it must be what
-  // the ring shows. Smart match (readiness blended with career alignment) used
-  // to win here, which made the label describe a different number.
+  // The "all" surface shows readiness; the smart tier shows the smart match.
+  // Keep this helper on readiness so saved/applied cards do not silently use
+  // the blended score.
   if (job.competency?.readiness != null) return Math.round(job.competency.readiness);
   if (job.competency?.smart_match != null) return Math.round(job.competency.smart_match);
   if (typeof job.fitScore === "number") return Math.round(job.fitScore);
@@ -472,7 +472,7 @@ export function JobCard({
   const goalFit = alignment != null ? Math.round(alignment) : null;
   const smartMatch = job.competency?.smart_match != null ? Math.round(job.competency.smart_match) : null;
   const score = variant === "goal" ? goalFit : variant === "smart" ? (smartMatch ?? readiness) : readiness;
-  const ringLabel = variant === "goal" ? "Goal" : variant === "smart" ? "Match" : "Ready";
+  const ringLabel = variant === "goal" ? "Goal" : variant === "smart" ? "Match" : "Readiness";
   const chips = [experienceChip(job), workTypeChip(job), workplaceChip(job)].filter(Boolean) as string[];
   const salary = salaryText(job);
   const posted = postedAgo(job);
@@ -527,7 +527,7 @@ export function JobCard({
 
       {variant === "smart" && readiness != null && (
         <div className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1 text-xs text-white/70 w-fit">
-          <span className="font-semibold text-white">Ready</span>
+          <span className="font-semibold text-white">Readiness</span>
           <span className="text-white">{readiness}%</span>
           {alignment != null && (
             <>
@@ -550,7 +550,7 @@ export function JobCard({
 export function MatchRing({
   value,
   tone,
-  label = "Ready",
+  label = "Readiness",
   color,
 }: {
   value: number;

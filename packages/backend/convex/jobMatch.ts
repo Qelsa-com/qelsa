@@ -290,6 +290,7 @@ export const loadJobSnapshot = internalQuery({
           experienceProfile,
           jobFunctionForJob(job.title, jobTitle?.name),
           job.experience,
+          { jobTitle: job.title ?? jobTitle?.name },
         ),
         requiredExperienceYears: job.experience ?? null,
       },

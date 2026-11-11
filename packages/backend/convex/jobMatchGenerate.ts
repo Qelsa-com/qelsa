@@ -767,6 +767,7 @@ async function runExternalForUser(
             experienceProfile,
             jobFunctionForJob(jobDoc.title),
             jobDoc.experience_years,
+            { jobTitle: jobDoc.title },
           ),
           requiredExperienceYears: jobDoc.experience_years ?? null,
         },

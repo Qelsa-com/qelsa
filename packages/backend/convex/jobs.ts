@@ -19,6 +19,7 @@ import {
   SEARCH_CANDIDATE_CAP,
   scoreReadiness,
   scoreTierMatches,
+  SCORE_SKILL_TAKE,
   slimListJobs,
   sortEnrichedJobs,
   findSimilarOpenJobs,
@@ -49,7 +50,8 @@ import { rankingForUser } from "./jobMatchRanking";
 import { companyProfileKey, companyProfileSeed, type CompanyProfileSeed } from "./lib/companyProfile";
 import { withSkillAliases } from "./lib/skillCatalog";
 import { buildCompetencyFramework, clipPlainText, computeYearsExperience } from "./lib/skillMatch";
-import { jobFunctionForJob, loadExperienceProfile, relatedExperienceScore, type ExperienceProfile } from "./lib/experienceMatch";
+import { jobFunctionForJob, loadExperienceProfile, parseRequiredExperienceYears, relatedExperienceScore, type ExperienceProfile } from "./lib/experienceMatch";
+import { skillsFromVector } from "./lib/scoringVector";
 import { scoreJobForUser } from "./lib/jobMatchScoring";
 import { calculateCareerAlignment, calculateSmartMatch } from "./lib/careerAlignment";
 import { canonicalizeCatalogName, catalogKey, looksLikeConvexId, resolveCityRef, resolveNamedRef, type CityRefInput } from "./lib/resolve";
@@ -103,25 +105,32 @@ async function listHydration(ctx: QueryCtx, user: Doc<"users"> | null, loadSaved
       hasWorkExperience: false,
     };
   }
+  // Readiness is a candidate feature. A recruiter must never be scored against
+  // their own candidate-style profile on a job card or job detail.
+  const readinessEligible = user.account_type !== "recruiter";
   const [skillRows, saved, expRows, appRows, careerGoal] = await Promise.all([
-    ctx.db
-      .query("user_skills")
-      .withIndex("by_user", (q) => q.eq("user_id", user._id))
-      .take(20),
+    readinessEligible
+      ? ctx.db
+          .query("user_skills")
+          .withIndex("by_user", (q) => q.eq("user_id", user._id))
+          .take(20)
+      : Promise.resolve([] as Doc<"user_skills">[]),
     loadSaved
       ? ctx.db
           .query("saved_jobs")
           .withIndex("by_user", (q) => q.eq("user_id", user._id))
-          .collect()
+          .take(200)
       : Promise.resolve([]),
-    ctx.db
-      .query("experiences")
-      .withIndex("by_user", (q) => q.eq("user_id", user._id))
-      .take(100),
+    readinessEligible
+      ? ctx.db
+          .query("experiences")
+          .withIndex("by_user", (q) => q.eq("user_id", user._id))
+          .take(100)
+      : Promise.resolve([] as Doc<"experiences">[]),
     ctx.db
       .query("job_applications")
       .withIndex("by_user", (q) => q.eq("user_id", user._id))
-      .collect(),
+      .take(200),
     ctx.db
       .query("career_goals")
       .withIndex("by_user", (q) => q.eq("user_id", user._id))
@@ -135,11 +144,11 @@ async function listHydration(ctx: QueryCtx, user: Doc<"users"> | null, loadSaved
   );
 
   const [userSkills, experienceProfile] = await Promise.all([
-    withSkillAliases(ctx, skillRows),
-    loadExperienceProfile(ctx, expRows),
+    readinessEligible ? withSkillAliases(ctx, skillRows) : Promise.resolve([]),
+    readinessEligible ? loadExperienceProfile(ctx, expRows) : Promise.resolve(null),
   ]);
-  const yearsExperience = computeYearsExperience(expRows);
-  const hasProfile = skillRows.length > 0 || expRows.length > 0;
+  const yearsExperience = readinessEligible ? computeYearsExperience(expRows) : null;
+  const hasProfile = readinessEligible && (skillRows.length > 0 || expRows.length > 0);
 
   return {
     userSkills,
@@ -150,16 +159,63 @@ async function listHydration(ctx: QueryCtx, user: Doc<"users"> | null, loadSaved
     experienceProfile,
     careerGoal,
     hasProfile,
-    hasWorkExperience: expRows.length > 0,
+    hasWorkExperience: readinessEligible && expRows.length > 0,
   };
 }
 
+/**
+ * Server truth for the personalized readiness layer. The jobs surfaces use this
+ * to decide whether to reserve a ring, show the "Set up profile" CTA, or keep a
+ * recruiter on the plain job feed.
+ */
+export const readinessContext = optionalAuthQuery({
+  args: {},
+  returns: v.object({
+    can_score: v.boolean(),
+    is_recruiter: v.boolean(),
+    has_skills: v.boolean(),
+    has_experience: v.boolean(),
+  }),
+  handler: async (ctx) => {
+    if (!ctx.user) {
+      return { can_score: false, is_recruiter: false, has_skills: false, has_experience: false };
+    }
+    if (ctx.user.account_type === "recruiter") {
+      return { can_score: false, is_recruiter: true, has_skills: false, has_experience: false };
+    }
+    const [skills, experiences] = await Promise.all([
+      ctx.db
+        .query("user_skills")
+        .withIndex("by_user", (q) => q.eq("user_id", ctx.user!._id))
+        .take(1),
+      ctx.db
+        .query("experiences")
+        .withIndex("by_user", (q) => q.eq("user_id", ctx.user!._id))
+        .take(1),
+    ]);
+    const hasSkills = skills.length > 0;
+    const hasExperience = experiences.length > 0;
+    return {
+      can_score: hasSkills || hasExperience,
+      is_recruiter: false,
+      has_skills: hasSkills,
+      has_experience: hasExperience,
+    };
+  },
+});
+
 async function enrichJob(ctx: QueryCtx, job: Doc<"jobs">, user: Doc<"users"> | null, list?: ListHydration, includeSaved = true) {
-  const [page, city, job_title, job_skills] = await Promise.all([
+  const [page, city, job_title, job_skills, jobVector] = await Promise.all([
     job.page_id ? ctx.db.get(job.page_id) : null,
     job.city_id ? ctx.db.get(job.city_id) : null,
     job.job_title_id ? ctx.db.get(job.job_title_id) : null,
     jobSkillsFor(ctx, job._id, list?.skillCache),
+    user && user.account_type !== "recruiter"
+      ? ctx.db
+          .query("job_match_vectors")
+          .withIndex("by_job", (q) => q.eq("job_id", job._id))
+          .first()
+      : Promise.resolve(null),
   ]);
   const state = city ? await ctx.db.get(city.state_id) : null;
 
@@ -177,60 +233,79 @@ async function enrichJob(ctx: QueryCtx, job: Doc<"jobs">, user: Doc<"users"> | n
               .unique(),
           )
       : false;
-    const userSkills = list
-      ? list.userSkills
-      : await withSkillAliases(
-          ctx,
-          await ctx.db
-            .query("user_skills")
-            .withIndex("by_user", (q) => q.eq("user_id", user._id))
-            .take(20),
-        );
-    let experienceProfile = list?.experienceProfile ?? null;
-    if (!list) {
+    const readinessEligible = user.account_type !== "recruiter";
+    const userSkills = !readinessEligible
+      ? []
+      : list
+        ? list.userSkills
+        : await withSkillAliases(
+            ctx,
+            await ctx.db
+              .query("user_skills")
+              .withIndex("by_user", (q) => q.eq("user_id", user._id))
+              .take(20),
+          );
+    let experienceProfile = readinessEligible ? (list?.experienceProfile ?? null) : null;
+    if (readinessEligible && !list) {
       const expRows = await ctx.db
         .query("experiences")
         .withIndex("by_user", (q) => q.eq("user_id", user._id))
         .take(100);
       experienceProfile = await loadExperienceProfile(ctx, expRows);
     }
-    const hasProfile = list ? list.hasProfile : userSkills.length > 0 || (experienceProfile?.totalYears ?? 0) > 0;
+    const hasProfile = readinessEligible && (list ? list.hasProfile : userSkills.length > 0 || (experienceProfile?.totalYears ?? 0) > 0);
     if (hasProfile) {
+      // Same scoring snapshot as All Jobs and the live tier path: the vector
+      // when present, otherwise the same 20-row fallback the card uses.
+      const readinessSkills =
+        jobVector && jobVector.skills.length > 0
+          ? skillsFromVector(jobVector).map((skill) => ({
+              skill_id: skill.skill_id,
+              type: skill.type,
+              proficiency: skill.proficiency,
+              weight: skill.weight,
+              skill: { name: skill.name },
+            }))
+          : job_skills.slice(0, SCORE_SKILL_TAKE).map((js) => ({
+              skill_id: js.skill_id,
+              type: js.type,
+              proficiency: js.proficiency,
+              weight: js.weight,
+              skill: js.skill,
+            }));
+      const requiredExperienceYears =
+        jobVector?.experience ?? job.experience ?? parseRequiredExperienceYears(job.description) ?? null;
       const experienceScore = relatedExperienceScore(
         experienceProfile,
-        jobFunctionForJob(job.title, job_title?.name),
-        job.experience,
+        jobFunctionForJob(jobVector?.title ?? job.title, jobVector?.job_title_name ?? job_title?.name),
+        requiredExperienceYears,
+        { jobTitle: jobVector?.title ?? job.title ?? job_title?.name },
       );
-      competency = buildCompetencyFramework(
-        job_skills.map((js) => ({
-          skill_id: js.skill_id,
-          type: js.type,
-          proficiency: js.proficiency,
-          weight: js.weight,
-          skill: js.skill,
-        })),
-        userSkills,
-        { experienceScore, requiredExperienceYears: job.experience ?? null },
-      );
+      competency = buildCompetencyFramework(readinessSkills, userSkills, {
+        experienceScore,
+        requiredExperienceYears,
+      });
     }
     if (!list) {
       const mine = await ctx.db
         .query("job_applications")
         .withIndex("by_job_and_user", (q) => q.eq("job_id", job._id).eq("user_id", user._id))
-        .collect();
+        .take(50);
       has_applied = mine.some((row) => row.status !== "rejected" && row.status !== "cancelled");
     } else {
       has_applied = list.appliedJobIds.has(String(job._id));
     }
 
-    const careerGoal = list?.careerGoal !== undefined
-      ? list.careerGoal
-      : await ctx.db
-          .query("career_goals")
-          .withIndex("by_user", (q) => q.eq("user_id", user._id))
-          .unique();
+    const careerGoal = !readinessEligible
+      ? null
+      : list?.careerGoal !== undefined
+        ? list.careerGoal
+        : await ctx.db
+            .query("career_goals")
+            .withIndex("by_user", (q) => q.eq("user_id", user._id))
+            .unique();
 
-    const career_alignment = careerGoal
+    const career_alignment = readinessEligible && careerGoal
       ? calculateCareerAlignment(
           careerGoal,
           {
@@ -815,9 +890,10 @@ export const listPaginated = optionalAuthQuery({
         const isRestCursor = Boolean(decodeBestRestCursor(paginationOpts.cursor));
         const hasRestPrefix = Boolean(paginationOpts.cursor?.startsWith(BEST_REST_CURSOR_PREFIX));
         if (!hasRestPrefix && !isRestCursor) {
-          // Order by readiness, matching the ring on the card. Older cached rows
-          // were stored in smart-match order, so sort here as well.
-          const entries = cached.entries
+          // Order by readiness, matching the ring on the card. The readiness
+          // top-400 is distinct from the smart-match top-400.
+          const readinessEntries = cached.readinessEntries ?? cached.entries;
+          const entries = readinessEntries
             .slice()
             .sort((a, b) => b.readiness - a.readiness);
           const afterId = decodeBestCursor(paginationOpts.cursor);
@@ -850,11 +926,24 @@ export const listPaginated = optionalAuthQuery({
             index += chunk.length;
           }
 
-          const atEnd = index >= cached.entries.length;
+          const atEnd = index >= readinessEntries.length;
           const last = ranked[ranked.length - 1];
           if (last) {
+            // The cached order/candidate set is still the ranking snapshot, but
+            // the displayed readiness must be current after a job edit.
+            const liveScores = await scoreReadiness(
+              ctx,
+              ranked.map((candidate) => candidate.job),
+              hydration.userSkills,
+              profileContext,
+              hydration.skillCache,
+            );
+            const liveRanked = ranked.map((candidate) => ({
+              ...candidate,
+              readiness: liveScores.get(candidate.job._id) ?? candidate.readiness,
+            }));
             return {
-              page: await slimListJobs(ctx, ranked, hydration, cache),
+              page: await slimListJobs(ctx, liveRanked, hydration, cache),
               isDone: false,
               continueCursor: atEnd
                 ? encodeBestRestCursor(null)
@@ -874,7 +963,9 @@ export const listPaginated = optionalAuthQuery({
       const topIds = new Set<Id<"jobs">>(filteredCandidates.map((job) => job._id));
       // The cached ranking can hold jobs outside the keyword candidate set. They
       // were already served, so the recency pass must not repeat them.
-      if (cached) for (const entry of cached.entries) topIds.add(entry.job_id);
+      if (cached) {
+        for (const entry of cached.readinessEntries ?? cached.entries) topIds.add(entry.job_id);
+      }
       const isRestCursor = Boolean(decodeBestRestCursor(paginationOpts.cursor));
       const hasRestPrefix = Boolean(paginationOpts.cursor?.startsWith(BEST_REST_CURSOR_PREFIX));
 
@@ -983,15 +1074,30 @@ export const listPaginated = optionalAuthQuery({
             doc ? [{ job: doc, entry: chunk[i] }] : [],
           );
           if (needsCity) await prefetchCities(ctx, pairs.map((pair) => pair.job), cache);
+          // The cached ranking decides the candidate pool and page order, but
+          // the displayed scores come from the current vectors. A job edit or a
+          // changed profile can therefore never show a stale card score.
+          const liveScores = await scoreTierMatches(
+            ctx,
+            pairs.map((pair) => pair.job),
+            hydration.userSkills,
+            profileContext,
+            hydration.careerGoal ?? null,
+            { skills: hydration.skillCache, pages: cache.pages, titles: cache.titles },
+          );
           for (const pair of pairs) {
             if (ranked.length >= target) break;
             if (!passesListing(pair.job)) continue;
+            const live = liveScores.get(pair.job._id);
+            if (!live || live.readiness == null) continue;
+            const primaryScore = live.smartMatch ?? live.readiness;
+            if (!scoreInRange(primaryScore, minReadiness, maxReadiness)) continue;
             ranked.push({
               job: pair.job,
-              readiness: pair.entry.readiness,
-              careerAlignment: pair.entry.career_alignment ?? null,
-              smartMatch: pair.entry.smart_match,
-              gap: null,
+              readiness: live.readiness,
+              careerAlignment: live.careerAlignment,
+              smartMatch: live.smartMatch,
+              gap: live.gap,
             });
           }
           index += chunk.length;
@@ -1239,22 +1345,34 @@ export const listMatchTiers = authedQuery({
         const byId = new Map<Id<"jobs">, Doc<"jobs">>();
         for (const doc of docs) if (doc) byId.set(doc._id, doc);
 
+        // The cached tier membership/top-4 is from the ranking snapshot, but the
+        // displayed scores should reflect current job vectors.
+        const tierCache = emptyRelationCache();
+        const liveScores = await scoreTierMatches(
+          ctx,
+          [...byId.values()],
+          hydration.userSkills,
+          { experienceProfile: hydration.experienceProfile },
+          hydration.careerGoal ?? null,
+          { skills: hydration.skillCache, pages: tierCache.pages, titles: tierCache.titles },
+        );
+
         const toCandidates = (entries: typeof readyEntries): BrowseCandidate[] =>
           entries.flatMap((entry) => {
             const job = byId.get(entry.job_id);
             if (!job) return [];
+            const live = liveScores.get(entry.job_id);
             return [
               {
                 job,
-                readiness: entry.readiness,
-                careerAlignment: entry.career_alignment ?? null,
-                smartMatch: entry.smart_match,
-                gap: null,
+                readiness: live?.readiness ?? entry.readiness,
+                careerAlignment: live?.careerAlignment ?? entry.career_alignment ?? null,
+                smartMatch: live?.smartMatch ?? entry.smart_match,
+                gap: live?.gap ?? null,
               },
             ];
           });
 
-        const tierCache = emptyRelationCache();
         const [ready, almost, growth] = await Promise.all([
           slimListJobs(ctx, toCandidates(readyEntries), hydration, tierCache),
           slimListJobs(ctx, toCandidates(almostEntries), hydration, tierCache),

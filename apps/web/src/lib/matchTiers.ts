@@ -53,7 +53,7 @@ export const GOAL_MATCH = {
   color: "#22d3ee",
 } as const;
 
-/** Readiness palette — used wherever a score is labelled "Ready". */
+/** Readiness palette — used wherever a score is labelled "Readiness". */
 export function matchRingColor(score: number): string {
   if (score >= READY_MIN) return "#10b981";
   if (score >= ALMOST_MIN) return "#f59e0b";

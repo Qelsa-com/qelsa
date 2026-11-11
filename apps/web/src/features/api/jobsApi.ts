@@ -75,6 +75,14 @@ export function useCountJobsQuery(filters?: JobFilters | Record<string, string> 
   return useConvexQueryHook(api.jobs.countFiltered, jobListArgs(filters), options);
 }
 
+/** Stable empty args: a fresh object here causes the Convex query to resubscribe on every render. */
+const READINESS_CONTEXT_ARGS = {} as Record<string, never>;
+
+/** Server truth for the personalized readiness layer (candidate, recruiter, or guest). */
+export function useReadinessContextQuery(options?: { skip?: boolean }) {
+  return useConvexQueryHook(api.jobs.readinessContext, READINESS_CONTEXT_ARGS, options);
+}
+
 export type MatchTiersResult = {
   ready: Job[];
   almost: Job[];

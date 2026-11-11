@@ -33,6 +33,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { SubscriptionUpgradeModal, type UpgradeReason } from "../billing/SubscriptionUpgradeModal";
 import { QuickApplyModal } from "../QuickApplyModal";
+import { useReadinessContextQuery } from "@/features/api/jobsApi";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
 import { CompetencyTable } from "./CompetencyMatch";
@@ -89,20 +90,34 @@ function ApplyNowLabel({ external }: { external: boolean }) {
   );
 }
 
-function formatPosted(job: Job): string | null {
+const JOB_DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+  timeZone: "UTC",
+});
+
+function formatJobDate(value: string | number | Date): string {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "" : JOB_DATE_FORMATTER.format(date);
+}
+
+function formatPosted(job: Job, now: number): string | null {
   const raw = job.published_date ?? job.createdAt;
   if (!raw) return null;
   const date = new Date(raw);
   if (Number.isNaN(date.getTime())) return null;
-  const days = Math.floor((Date.now() - date.getTime()) / 86_400_000);
+  // `now` comes from the server for the first render, so relative labels and
+  // the absolute fallback are stable through hydration.
+  const days = Math.floor((now - date.getTime()) / 86_400_000);
   if (days <= 0) return "Posted today";
   if (days === 1) return "Posted yesterday";
   if (days < 30) return `Posted ${days} days ago`;
-  return `Posted ${date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}`;
+  return `Posted ${formatJobDate(raw)}`;
 }
 
-function heroBadgesFor(job: Job): string[] {
-  return [experienceLabel(job), jobTypeLabel(job), salaryText(job), workplaceLabel(job), formatPosted(job)].filter((b): b is string => Boolean(b));
+function heroBadgesFor(job: Job, now: number): string[] {
+  return [experienceLabel(job), jobTypeLabel(job), salaryText(job), workplaceLabel(job), formatPosted(job, now)].filter((b): b is string => Boolean(b));
 }
 
 /* TODO: restore AI-Generated Interview Questions once the feature is wired.
@@ -118,12 +133,16 @@ const interviewQuestions = [
 export function JobDetail({
   initialJob = null,
   initialDescriptionHtml,
+  initialNow,
 }: {
   initialJob?: Job | null;
   initialDescriptionHtml?: string;
+  initialNow?: number;
 }) {
+  const now = initialNow ?? Date.now();
   const { user, isAuthenticated } = useAuth();
   const router = useRouter();
+  const { data: readinessContext } = useReadinessContextQuery({ skip: !isAuthenticated });
   const params = useParams<{ id: string }>();
   const routeKey = params?.id;
   const isReserved = Boolean(routeKey && RESERVED_JOB_SLUGS.has(routeKey));
@@ -206,6 +225,10 @@ export function JobDetail({
   }, [id, isAuthenticated, job, recordJobView]);
 
   const isRecruiter = isAuthenticated && user?.account_type === "recruiter";
+  // The SSR job has no personal readiness. Reserve the same space while the
+  // authenticated query lands so the header/tab/panel do not shift.
+  const readinessPending =
+    isAuthenticated && !isOwner && !isRecruiter && !job?.competency && isLoading;
   const { data: applicationUsage } = useGetApplicationUsageQuery({
     skip: !isAuthenticated || isOwner || isRecruiter,
   });
@@ -219,10 +242,12 @@ export function JobDetail({
     if ((job?.job_skills ?? []).some((skill) => skill.skill?.name || skill.title)) {
       items.push({ id: "job-skills", label: "Skills" });
     }
-    if (job && !isOwner && job.competency) items.push({ id: "how-you-fit", label: "Readiness score" });
+    if (job && !isOwner && !isRecruiter && (job.competency || readinessPending)) {
+      items.push({ id: "how-you-fit", label: "Readiness score" });
+    }
     items.push({ id: "job-company", label: "About company" });
     return items;
-  }, [job, isOwner]);
+  }, [job, isOwner, isRecruiter, readinessPending]);
 
   useEffect(() => {
     const applyStickyTop = () => {
@@ -309,9 +334,18 @@ export function JobDetail({
         });
   const applied = Boolean(job.has_applied || (user?.id && job.applications?.some((a) => a.user_id === user.id)) || justApplied);
   const competency = job.competency;
+  const showReadinessCta =
+    !isOwner &&
+    !isRecruiter &&
+    !competency &&
+    (!isAuthenticated || readinessContext?.can_score === false);
 
   const dailySkills = (job.job_skills ?? []).map((s) => s.skill?.name ?? s.title).filter(Boolean);
-  const skillsSubtitle = isOwner ? "The skills this role uses day to day." : competency ? `You match ${competency.matchedCount} of ${competency.totalCount} skills listed here.` : "The skills this role uses day to day.";
+  const skillsSubtitle = isOwner
+    ? "The skills this role uses day to day."
+    : competency
+      ? `You've fully met ${competency.matchedCount} of ${competency.totalCount} skills listed here.`
+      : "The skills this role uses day to day.";
 
   const userYears = (experiences ?? []).reduce((sum, exp) => sum + experienceMonths(exp), 0) / 12;
   const experienceMatch = job.experience != null ? (userYears >= job.experience ? Math.min(100, 75 + Math.round((userYears - job.experience) * 4)) : Math.round((userYears / Math.max(job.experience, 0.5)) * 100)) : userYears > 0 ? 72 : null;
@@ -349,9 +383,13 @@ export function JobDetail({
 
   const handleCheckReadiness = () => {
     if (!id) return;
-    // Guests need an account and a profile before readiness can be computed.
-    // `actionType=profile` sends them into setup and returns to this job.
-    router.push(`/auth?actionType=profile&returnUrl=${encodeURIComponent(`/jobs/${id}`)}`);
+    // Guests need an account; signed-in users without a profile go straight to
+    // the profile setup that unlocks readiness.
+    router.push(
+      isAuthenticated
+        ? "/profile"
+        : `/auth?actionType=profile&returnUrl=${encodeURIComponent(`/jobs/${id}`)}`,
+    );
   };
 
   const handleApply = () => {
@@ -576,7 +614,7 @@ export function JobDetail({
                       <span className="hidden xl:inline">Ask Qelsa Agent</span>
                     </Button>
                   )}
-                  {!isAuthenticated && (
+                  {showReadinessCta && (
                     <Button
                       type="button"
                       variant="outline"
@@ -584,7 +622,7 @@ export function JobDetail({
                       className="h-auto flex-1 rounded-full border-[1.5px] border-white/20 bg-transparent px-4 py-3 text-sm text-white hover:bg-white/5 lg:flex-none lg:px-5 lg:py-3.5"
                     >
                       <Sparkles className="mr-2 size-4 text-neon-cyan" />
-                      Check readiness
+                      {isAuthenticated ? "Set up profile to see readiness" : "Check readiness"}
                     </Button>
                   )}
                   {applied ? (
@@ -605,9 +643,9 @@ export function JobDetail({
 
           <h1 className="text-2xl font-bold leading-8 text-white lg:text-[32px] lg:leading-10">{title}</h1>
 
-          {heroBadgesFor(job).length > 0 && (
+          {heroBadgesFor(job, now).length > 0 && (
             <div className="flex flex-wrap gap-2">
-              {heroBadgesFor(job).map((b) => (
+              {heroBadgesFor(job, now).map((b) => (
                 <span key={b} className={`${CHIP} px-2.5 py-1.5 text-xs font-semibold text-white/70`}>
                   {b}
                 </span>
@@ -615,7 +653,7 @@ export function JobDetail({
             </div>
           )}
 
-          {!isOwner && competency && competency.readiness != null ? (
+          {!isOwner && !isRecruiter && competency && competency.readiness != null ? (
             <div className="flex flex-col gap-4 rounded-2xl border border-neon-cyan/20 bg-gradient-to-r from-neon-cyan/[0.07] via-white/[0.03] to-transparent p-4 sm:p-5 lg:flex-row lg:items-center lg:justify-between">
               <div className="min-w-0 flex-1">
                 <div className="flex items-baseline gap-2">
@@ -623,7 +661,7 @@ export function JobDetail({
                   <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-neon-cyan">Readiness</span>
                 </div>
                 <p className="mt-1 text-xs text-white/45">
-                  You match {competency.matchedCount} of {competency.totalCount} skills listed.
+                  You've fully met {competency.matchedCount} of {competency.totalCount} skills listed.
                 </p>
                 <div className="mt-3 h-1.5 w-full max-w-sm overflow-hidden rounded-full bg-white/10">
                   <div className="h-full rounded-full bg-gradient-to-r from-neon-cyan to-neon-purple" style={{ width: `${Math.min(100, Math.max(0, competency.readiness))}%` }} />
@@ -637,6 +675,17 @@ export function JobDetail({
                 See how you fit
                 <ArrowRight className="size-4" />
               </button>
+            </div>
+          ) : readinessPending ? (
+            <div className="animate-pulse rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4 sm:p-5">
+              <div className="flex items-center gap-3">
+                <div className="size-10 rounded-full bg-white/10" />
+                <div className="space-y-2">
+                  <div className="h-4 w-36 rounded bg-white/10" />
+                  <div className="h-3 w-52 max-w-full rounded bg-white/5" />
+                </div>
+              </div>
+              <div className="mt-4 h-1.5 w-full max-w-sm rounded-full bg-white/10" />
             </div>
           ) : metrics.length > 0 ? (
             <div className={`grid gap-3 lg:gap-4 ${metrics.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
@@ -691,9 +740,24 @@ export function JobDetail({
             )}
 
             {/* How you fit this role. The ring is the Readiness score. */}
-            {!isOwner && competency && (
+            {!isOwner && !isRecruiter && (competency || readinessPending) && (
               <div id="how-you-fit" className="scroll-mt-36">
-                <CompetencyTable competency={competency} onAskQelsa={handleAskWhy} />
+                {competency ? (
+                  <CompetencyTable competency={competency} onAskQelsa={handleAskWhy} />
+                ) : (
+                  <div className="animate-pulse rounded-2xl border border-glass-border bg-white/[0.02] p-4 sm:p-6">
+                    <div className="h-5 w-52 rounded bg-white/10" />
+                    <div className="mt-5 flex items-center gap-6">
+                      <div className="size-28 shrink-0 rounded-full bg-white/[0.06] sm:size-32" />
+                      <div className="flex-1 space-y-4">
+                        <div className="h-3 w-full rounded bg-white/10" />
+                        <div className="h-1.5 w-full rounded bg-white/10" />
+                        <div className="h-3 w-4/5 rounded bg-white/5" />
+                        <div className="h-1.5 w-full rounded bg-white/10" />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -786,11 +850,7 @@ export function JobDetail({
                       <div className="flex items-center justify-between">
                         <span className="text-xs text-white/45">Posted On</span>
                         <span className="text-xs text-white/70">
-                          {new Date(job.published_date).toLocaleDateString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                          })}
+                          {formatJobDate(job.published_date)}
                         </span>
                       </div>
                     )}
@@ -866,7 +926,7 @@ export function JobDetail({
               <>
                 {/* On a phone the full "Check readiness" label does not fit
                     beside Apply at 320px, so the guest CTAs stack. */}
-                {!isAuthenticated && (
+                {showReadinessCta && (
                   <Button
                     type="button"
                     variant="outline"
@@ -874,7 +934,7 @@ export function JobDetail({
                     className="h-auto w-full rounded-full border-[1.5px] border-white/20 bg-transparent px-4 py-3.5 text-sm font-semibold text-white hover:bg-white/5"
                   >
                     <Sparkles className="mr-2 size-4 shrink-0 text-neon-cyan" />
-                    Check readiness
+                    {isAuthenticated ? "Set up profile" : "Check readiness"}
                   </Button>
                 )}
                 <div className="flex items-center gap-2">

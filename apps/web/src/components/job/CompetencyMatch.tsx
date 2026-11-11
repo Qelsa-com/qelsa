@@ -48,7 +48,7 @@ export function CompetencySummary({ competency, className = "" }: { competency?:
   );
 }
 
-function FitRing({ value, label = "Ready" }: { value: number; label?: string }) {
+function FitRing({ value, label = "Readiness" }: { value: number; label?: string }) {
   const pct = Math.max(0, Math.min(100, Math.round(value)));
   const r = 50;
   const c = 2 * Math.PI * r;
@@ -170,7 +170,11 @@ export function CompetencyTable({
       : totalCount > 0
         ? Math.round((matchedCount / totalCount) * 100)
         : 0;
-  const resolvedExpMatch = competency.experienceScore != null ? Math.round(competency.experienceScore) : 0;
+  const hasExperienceRequirement = competency.experienceScore != null;
+  // Always show the 30% line. An unknown requirement reads as 0% and is called
+  // out below, so the bar and the 70/30 total never disagree.
+  const resolvedExpMatch = hasExperienceRequirement ? Math.round(competency.experienceScore!) : 0;
+  const missingRequired = competencies.filter((c) => c.required && !c.matched);
 
   return (
     <div className="glass border border-glass-border rounded-2xl p-4 sm:p-6 lg:p-7 space-y-6">
@@ -180,13 +184,20 @@ export function CompetencyTable({
       </div>
 
       <div className="flex flex-col sm:flex-row items-center gap-6 sm:gap-8">
-        <FitRing value={readiness} label="Ready" />
+        <FitRing value={readiness} label="Readiness" />
         <div className="flex-1 w-full space-y-3.5">
           <MatchBar label="Skills (70%)" value={skillsMatch} />
           <MatchBar label="Relevant experience (30%)" value={resolvedExpMatch} />
+          {!hasExperienceRequirement ? (
+            <p className="text-[11px] leading-relaxed text-white/45">
+              Experience requirement not specified; shown as 0%.
+            </p>
+          ) : null}
           {competency.requiredCapApplied ? (
             <p className="text-[11px] leading-relaxed text-amber-400">
-              A required skill is missing, so readiness is capped.
+              {missingRequired.length > 0
+                ? `${missingRequired.length} required core ${missingRequired.length === 1 ? "skill is" : "skills are"} missing (marked Core below). Readiness can't exceed 49% until ${missingRequired.length === 1 ? "it's" : "they're"} added.`
+                : "Required core skills are missing; readiness can't exceed 49% until they're added."}
             </p>
           ) : null}
         </div>

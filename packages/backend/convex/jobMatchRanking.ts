@@ -14,6 +14,7 @@ import { buildReadinessFingerprint } from "./lib/profileFingerprint";
 import { SMART_ALMOST_MIN, SMART_READY_MIN } from "./lib/smartMatchTiers";
 import { jobSalaryUsd } from "./lib/salary";
 import { READINESS_FORMULA_VERSION } from "./lib/skillMatch";
+import { parseRequiredExperienceYears } from "./lib/experienceMatch";
 import { loadExperienceProfile } from "./lib/experienceMatch";
 import { withSkillAliases } from "./lib/skillCatalog";
 
@@ -123,11 +124,18 @@ async function writeVector(ctx: MutationCtx, jobId: Id<"jobs">) {
     job.job_title_id ? ctx.db.get(job.job_title_id) : null,
   ]);
 
+  // Public ATS boards frequently leave the structured experience empty while
+  // the description states it. Parse once here and write it back so every
+  // surface (vector, detail, list) sees the same requirement.
+  const parsedExperience =
+    job.experience == null ? parseRequiredExperienceYears(job.description) : null;
+  const experience = job.experience ?? parsedExperience ?? undefined;
+
   const patch = {
     job_id: job._id,
     status: job.status,
     published_date: job.published_date,
-    experience: job.experience,
+    experience,
     title: job.title,
     company_name: job.company_name ?? page?.name,
     industry: page?.industry,
@@ -144,6 +152,9 @@ async function writeVector(ctx: MutationCtx, jobId: Id<"jobs">) {
     .first();
   if (existing) await ctx.db.patch(existing._id, patch);
   else await ctx.db.insert("job_match_vectors", patch);
+  if (job.experience == null && parsedExperience != null) {
+    await ctx.db.patch(job._id, { experience: parsedExperience });
+  }
 }
 
 export const upsertVector = internalMutation({
@@ -293,7 +304,13 @@ export const candidatesForSkills = internalQuery({
           .withIndex("by_skill_and_published", (q) => q.eq("skill_id", skillId))
           .order("desc")
           .take(args.perSkill);
-        return rows.map((row) => ({ job_id: row.job_id, weight: row.weight ?? 1 }));
+        // A closed/paused job must not consume one of the 300 slots. Resolve
+        // the small row batch and keep only open jobs.
+        const jobs = await Promise.all(rows.map((row) => ctx.db.get(row.job_id)));
+        return rows.flatMap((row, index) => {
+          const job = jobs[index];
+          return job?.status === "open" ? [{ job_id: row.job_id, weight: row.weight ?? 1 }] : [];
+        });
       }),
     );
     const found: Array<{ job_id: Id<"jobs">; weight: number }> = [];
@@ -342,6 +359,14 @@ export const saveRanking = internalMutation({
         career_alignment: v.optional(v.number()),
       }),
     ),
+    readinessEntries: v.array(
+      v.object({
+        job_id: v.id("jobs"),
+        readiness: v.number(),
+        smart_match: v.number(),
+        career_alignment: v.optional(v.number()),
+      }),
+    ),
     scanned: v.number(),
     readyTotal: v.number(),
     almostTotal: v.number(),
@@ -357,6 +382,7 @@ export const saveRanking = internalMutation({
       user_id: args.userId,
       fingerprint: args.fingerprint,
       entries: args.entries,
+      readiness_entries: args.readinessEntries,
       scanned: args.scanned,
       ready_total: args.readyTotal,
       almost_total: args.almostTotal,
@@ -491,11 +517,16 @@ export const recompute = internalAction({
     );
     for (const jobId of goalIds) if (!weights.has(jobId)) weights.set(jobId, 0);
 
-    // Strongest overlap first, then cap.
-    const ids = [...weights.entries()]
+    // Strongest overlap first, then cap — but reserve the goal-title slots.
+    // Previously the goal IDs were added with weight 0 and could be dropped by
+    // the 2,000 cap before they were ever scored.
+    const goalSet = new Set(goalIds);
+    const skillCandidateIds = [...weights.entries()]
+      .filter(([jobId]) => !goalSet.has(jobId))
       .sort((a, b) => b[1] - a[1])
-      .slice(0, MAX_CANDIDATES)
+      .slice(0, Math.max(0, MAX_CANDIDATES - goalIds.length))
       .map(([jobId]) => jobId);
+    const ids = [...goalIds, ...skillCandidateIds];
     let scanned = 0;
     const scored: RankingEntry[] = [];
 
@@ -532,6 +563,11 @@ export const recompute = internalAction({
 
     scored.sort((a, b) => b.smart_match - a.smart_match);
     const entries = scored.slice(0, TOP_K);
+    // All Jobs sorts by readiness; keeping only the smart-match top 400 meant a
+    // high-readiness job outside that set could never appear. Keep a second set.
+    const readinessEntries = [...scored]
+      .sort((a, b) => b.readiness - a.readiness)
+      .slice(0, TOP_K);
     // Counts must describe the retained entries: a tier page cannot list a job
     // outside TOP_K, so counting all 2,000 scored candidates made the badge and
     // the list disagree.
@@ -544,6 +580,7 @@ export const recompute = internalAction({
       userId: args.userId,
       fingerprint: context.fingerprint,
       entries,
+      readinessEntries,
       scanned,
       readyTotal,
       almostTotal,
@@ -555,6 +592,7 @@ export const recompute = internalAction({
 
 export type CachedRanking = {
   entries: RankingEntry[];
+  readinessEntries: RankingEntry[];
   counts: { ready: number; almost: number; growth: number };
   scanned: number;
   computed_at: number;
@@ -577,6 +615,7 @@ export async function rankingForUser(
   if (!row) return null;
   return {
     entries: row.entries,
+    readinessEntries: row.readiness_entries ?? row.entries,
     counts: { ready: row.ready_total, almost: row.almost_total, growth: row.growth_total },
     scanned: row.scanned,
     computed_at: row.computed_at,

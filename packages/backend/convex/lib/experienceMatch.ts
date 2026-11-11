@@ -32,6 +32,96 @@ export const JOB_FUNCTIONS = [
 
 export type JobFunction = (typeof JOB_FUNCTIONS)[number];
 
+export const ROLE_DOMAINS = [
+  "frontend",
+  "backend",
+  "data",
+  "fullstack",
+  "mobile",
+  "devops",
+  "other",
+] as const;
+export type RoleDomain = (typeof ROLE_DOMAINS)[number];
+
+/**
+ * A coarse role family for experience relevance. The function is too broad:
+ * frontend and backend are both "engineering", but a frontend-only profile is
+ * not fully relevant to a backend/data role.
+ */
+const DOMAIN_RULES: Array<{ domain: RoleDomain; patterns: string[] }> = [
+  {
+    domain: "data",
+    patterns: [
+      "data engineer",
+      "data scientist",
+      "data analyst",
+      "analytics",
+      "big data",
+      "machine learning",
+      "ml engineer",
+      "ai engineer",
+      "business intelligence",
+      "data infrastructure",
+      "analytics infrastructure",
+    ],
+  },
+  {
+    domain: "frontend",
+    patterns: [
+      "frontend",
+      "front end",
+      "front-end",
+      "ui engineer",
+      "ui developer",
+      "user interface",
+      "react",
+      "angular",
+      "vue",
+      "web engineer",
+      "web developer",
+    ],
+  },
+  {
+    domain: "backend",
+    patterns: [
+      "backend",
+      "back end",
+      "back-end",
+      "api engineer",
+      "api developer",
+      "server engineer",
+      "platform engineer",
+      "forward deployed",
+    ],
+  },
+  {
+    domain: "fullstack",
+    patterns: ["full stack", "fullstack", "full-stack"],
+  },
+  {
+    domain: "mobile",
+    patterns: ["ios", "android", "mobile engineer", "mobile developer"],
+  },
+  {
+    domain: "devops",
+    patterns: ["devops", "sre", "site reliability", "infrastructure engineer", "cloud engineer"],
+  },
+];
+
+export function roleDomainForTitle(title?: string | null): RoleDomain {
+  const normalized = (title ?? "")
+    .toLowerCase()
+    .replace(/[^a-z0-9+#]+/g, " ")
+    .trim();
+  if (!normalized) return "other";
+  for (const rule of DOMAIN_RULES) {
+    for (const pattern of rule.patterns) {
+      if (normalized.includes(pattern)) return rule.domain;
+    }
+  }
+  return "other";
+}
+
 export const SAME_FUNCTION_CREDIT = 1;
 export const RELATED_FUNCTION_CREDIT = 0.5;
 export const UNRELATED_FUNCTION_CREDIT = 0.05;
@@ -275,6 +365,8 @@ export interface ExperienceRow {
 export interface ExperienceProfile {
   /** Weighted years per target function, capped at the total career span. */
   yearsByFunction: Record<JobFunction, number>;
+  /** Years per coarse role family (frontend, backend, data, …), capped at the career span. */
+  yearsByDomain: Record<RoleDomain, number>;
   /** Earliest start to latest end (or now). Used to avoid double-counting overlaps. */
   totalYears: number;
 }
@@ -294,6 +386,7 @@ export function computeExperienceProfile(
   asOf = Date.now(),
 ): ExperienceProfile {
   const yearsByFunction = Object.fromEntries(JOB_FUNCTIONS.map((fn) => [fn, 0])) as Record<JobFunction, number>;
+  const yearsByDomain = Object.fromEntries(ROLE_DOMAINS.map((domain) => [domain, 0])) as Record<RoleDomain, number>;
   let earliest = Number.POSITIVE_INFINITY;
   let latest = Number.NEGATIVE_INFINITY;
 
@@ -310,10 +403,12 @@ export function computeExperienceProfile(
       row.title ??
       (row.job_title_id ? (titleNameById.get(String(row.job_title_id)) ?? null) : null);
     const roleFunction = jobFunctionForTitle(title);
+    const roleDomain = roleDomainForTitle(title);
 
     for (const target of JOB_FUNCTIONS) {
       yearsByFunction[target] += years * functionRelatedness(roleFunction, target);
     }
+    yearsByDomain[roleDomain] += years;
     earliest = Math.min(earliest, start);
     latest = Math.max(latest, end);
   }
@@ -323,24 +418,68 @@ export function computeExperienceProfile(
   for (const fn of JOB_FUNCTIONS) {
     yearsByFunction[fn] = Math.min(yearsByFunction[fn], totalYears);
   }
+  for (const domain of ROLE_DOMAINS) {
+    yearsByDomain[domain] = Math.min(yearsByDomain[domain], totalYears);
+  }
 
-  return { yearsByFunction, totalYears };
+  return { yearsByFunction, yearsByDomain, totalYears };
 }
 
 /**
  * Relevant-experience score for one job, 0–100.
  * Required years cap the credit; a 0-year role gives everyone full marks.
  */
+/** Best-effort required-years extraction from a job description. */
+export function parseRequiredExperienceYears(text?: string | null): number | null {
+  if (!text) return null;
+  const normalized = text.replace(/<[^>]+>/g, " ").replace(/&nbsp;|&#160;/gi, " ");
+  if (/\b(?:no|zero)\s+(?:prior\s+)?(?:professional\s+)?experience\s+(?:is\s+)?required\b/i.test(normalized)) {
+    return 0;
+  }
+  const range = normalized.match(/(\d{1,2})\s*(?:-|–|—|to)\s*(\d{1,2})\s*\+?\s*(?:years?|yrs?)/i);
+  if (range) {
+    const values = [Number(range[1]), Number(range[2])].filter((n) => Number.isFinite(n) && n >= 0 && n <= 50);
+    if (values.length > 0) return Math.max(...values);
+  }
+  const atLeast = normalized.match(/(?:minimum(?:\s+of)?|at\s+least|min\.?)\s*(\d{1,2})\s*\+?\s*(?:years?|yrs?)/i);
+  if (atLeast) return Number(atLeast[1]);
+  const plus = normalized.match(/(\d{1,2})\s*\+\s*(?:years?|yrs?)/i);
+  if (plus) return Number(plus[1]);
+  const plain = normalized.match(
+    /(\d{1,2})\s*(?:years?|yrs?)\s+(?:of\s+)?(?:full[- ]time|relevant|professional|industry|experience)/i,
+  );
+  if (plain) return Number(plain[1]);
+  return null;
+}
+
+export interface ExperienceRelevance {
+  /** Job title used to derive the role family (frontend/backend/data/…). */
+  jobTitle?: string | null;
+}
+
 export function relatedExperienceScore(
   profile: ExperienceProfile | null | undefined,
   jobFunction: JobFunction,
   requiredYears?: number | null,
-): number {
-  const required = requiredYears ?? 0;
-  if (required <= 0) return 100;
-  const related = profile?.yearsByFunction[jobFunction] ?? 0;
-  if (related <= 0) return 0;
-  return Math.max(0, Math.min(100, Math.round((related / required) * 100)));
+  relevance?: ExperienceRelevance,
+): number | null {
+  // A job with no stated requirement is unknown, not "0 years required".
+  // Treating null as 0 awarded every candidate 100% relevant experience, which
+  // also inflated readiness by the full 30% experience weight.
+  if (requiredYears == null) return null;
+  const required = Math.max(0, requiredYears);
+  if (required === 0) return 100;
+  const transferable = profile?.totalYears ?? 0;
+  if (transferable <= 0) return 0;
+
+  // Role-family relevance: the years in the job's domain count fully; the rest
+  // of the transferable engineering years count partially. Missing core skills
+  // are a skills-table/cap concern, not a reason to zero the whole experience.
+  const jobDomain = relevance?.jobTitle ? roleDomainForTitle(relevance.jobTitle) : null;
+  const domainYears = jobDomain ? (profile?.yearsByDomain[jobDomain] ?? 0) : 0;
+  const transferableScore = Math.min(1, transferable / required);
+  const domainScore = jobDomain ? Math.min(1, domainYears / required) : 0;
+  return Math.max(0, Math.min(100, Math.round((0.4 * transferableScore + 0.6 * domainScore) * 100)));
 }
 
 /**
@@ -390,6 +529,7 @@ export async function loadExperienceProfile(
 export function emptyExperienceProfile(): ExperienceProfile {
   return {
     yearsByFunction: Object.fromEntries(JOB_FUNCTIONS.map((fn) => [fn, 0])) as Record<JobFunction, number>,
+    yearsByDomain: Object.fromEntries(ROLE_DOMAINS.map((domain) => [domain, 0])) as Record<RoleDomain, number>,
     totalYears: 0,
   };
 }

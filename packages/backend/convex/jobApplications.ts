@@ -120,7 +120,9 @@ export const listForJob = authedQuery({
             jobSkills,
             skills.map((s) => ({ skill_id: s.id, proficiency: s.proficiency, name: s.name })),
             {
-              experienceScore: relatedExperienceScore(experienceProfile, jobFunction, job.experience),
+              experienceScore: relatedExperienceScore(experienceProfile, jobFunction, job.experience, {
+                jobTitle: job.title,
+              }),
               requiredExperienceYears: job.experience,
             },
           );
@@ -235,6 +237,7 @@ export const getDetail = authedQuery({
           experienceProfile,
           jobFunctionForJob(job.title, jobVector?.job_title_name),
           job.experience,
+          { jobTitle: job.title ?? jobVector?.job_title_name },
         ),
         requiredExperienceYears: job.experience,
       },
