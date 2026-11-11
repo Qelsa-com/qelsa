@@ -36,7 +36,7 @@ export function JobTierListing({ tier }: { tier: MatchTierId }) {
     <Layout activeSection={"jobs"}>
       <div className="mx-auto w-full max-w-[1400px] px-4 py-6 text-white sm:px-6 sm:py-8 md:px-12">
         <JobsBrowseHeader
-          activeTab="smart-matches"
+          activeTab="all"
           query={searchInput}
           setQuery={setSearchInput}
           onSearch={commitSearch}
@@ -52,7 +52,7 @@ export function JobTierListing({ tier }: { tier: MatchTierId }) {
             {isInitialLoading ? (
               <JobCardGridSkeleton count={20} columns={4} />
             ) : loaded > 0 ? (
-              <JobGrid jobs={jobs} variant="smart" />
+              <JobGrid jobs={jobs} variant="all" />
             ) : status === "Exhausted" ? (
               <div className="flex flex-col items-center gap-4 py-12 text-center sm:py-16">
                 <div className="flex size-16 items-center justify-center rounded-full border border-glass-border bg-white/[0.04] sm:size-20">

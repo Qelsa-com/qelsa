@@ -472,7 +472,7 @@ export function JobCard({
   const goalFit = alignment != null ? Math.round(alignment) : null;
   const smartMatch = job.competency?.smart_match != null ? Math.round(job.competency.smart_match) : null;
   const score = variant === "goal" ? goalFit : variant === "smart" ? (smartMatch ?? readiness) : readiness;
-  const ringLabel = variant === "goal" ? "Goal" : variant === "smart" ? "Match" : "Readiness";
+  const ringLabel = variant === "goal" ? "Goal" : variant === "smart" ? "Match" : "Ready";
   const chips = [experienceChip(job), workTypeChip(job), workplaceChip(job)].filter(Boolean) as string[];
   const salary = salaryText(job);
   const posted = postedAgo(job);
@@ -550,7 +550,7 @@ export function JobCard({
 export function MatchRing({
   value,
   tone,
-  label = "Readiness",
+  label = "Ready",
   color,
 }: {
   value: number;

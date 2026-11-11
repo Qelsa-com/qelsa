@@ -5,6 +5,7 @@ import { calculateCareerAlignment, calculateSmartMatch } from "./careerAlignment
 import { isAlmostThere, roundedReadiness, titleSimilarity, titleTokens, type UserRoleProfile } from "./jobProfileMatch";
 import {
   jobFunctionForJob,
+  parseRequiredExperienceYears,
   relatedExperienceScore,
   type ExperienceProfile,
 } from "./experienceMatch";
@@ -197,8 +198,13 @@ export async function scoreReadiness(
   const entries = jobs.map((job) => {
     const vector = vectorById.get(job._id);
     if (vector) {
+      // The detail parses a missing structured requirement from the
+      // description; the list must use the same fallback or the two surfaces
+      // disagree (Stripe Design Engineer: 17% vs 29%).
+      const requiredYears =
+        vector.experience ?? parseRequiredExperienceYears(job.description);
       const score = scoreJobForUser(
-        jobFromVector(vector),
+        { ...jobFromVector(vector), experience: requiredYears ?? undefined },
         skillsFromVector(vector),
         userSkills,
         profileContext,
@@ -207,10 +213,11 @@ export async function scoreReadiness(
       return [job._id, score.readiness] as const;
     }
     const rows = rowsByJob.get(job._id) ?? [];
+    const requiredYears = job.experience ?? parseRequiredExperienceYears(job.description);
     const experienceScore = relatedExperienceScore(
       profileContext?.experienceProfile,
       jobFunctionForJob(job.title),
-      job.experience,
+      requiredYears,
       { jobTitle: job.title },
     );
     return [
@@ -225,7 +232,7 @@ export async function scoreReadiness(
             skill: { name: skillCache.get(row.skill_id)?.name },
           })),
           userSkills,
-          { experienceScore, requiredExperienceYears: job.experience },
+          { experienceScore, requiredExperienceYears: requiredYears },
         ).readiness,
       ),
     ] as const;
@@ -315,8 +322,10 @@ export async function scoreTierMatches(
       continue;
     }
 
+    const requiredYears =
+      vector.experience ?? parseRequiredExperienceYears(job.description);
     const result = scoreJobForUser(
-      jobFromVector(vector),
+      { ...jobFromVector(vector), experience: requiredYears ?? undefined },
       skillsFromVector(vector),
       userSkills,
       profileContext,

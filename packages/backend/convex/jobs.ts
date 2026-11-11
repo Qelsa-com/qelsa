@@ -42,10 +42,13 @@ import {
   jobMatchesUserRole,
   loadUserRoleProfile,
   ROLE_SCAN,
+  ALMOST_MAX,
+  ALMOST_MIN,
+  READY_MIN,
   scoreInRange,
   type UserRoleProfile,
 } from "./lib/jobProfileMatch";
-import { SMART_ALMOST_MAX, SMART_ALMOST_MIN, SMART_READY_MIN } from "./lib/smartMatchTiers";
+
 import { rankingForUser } from "./jobMatchRanking";
 import { companyProfileKey, companyProfileSeed, type CompanyProfileSeed } from "./lib/companyProfile";
 import { withSkillAliases } from "./lib/skillCatalog";
@@ -678,8 +681,7 @@ export const listPaginated = optionalAuthQuery({
           const row = scored.get(job._id);
           const readiness = row?.readiness ?? null;
           const smartMatch = row?.smartMatch ?? null;
-          const primaryScore = smartMatch ?? readiness;
-          if (!scoreInRange(primaryScore, minReadiness, maxReadiness)) continue;
+          if (!scoreInRange(readiness, minReadiness, maxReadiness)) continue;
           candidates.push({
             job,
             readiness,
@@ -1056,8 +1058,8 @@ export const listPaginated = optionalAuthQuery({
       const ranking = await rankingForUser(ctx, ctx.user._id);
       if (ranking && ranking.entries.length > 0) {
         const tierEntries = ranking.entries
-          .filter((entry) => scoreInRange(entry.smart_match, minReadiness, maxReadiness))
-          .sort((a, b) => b.smart_match - a.smart_match);
+          .filter((entry) => scoreInRange(entry.readiness, minReadiness, maxReadiness))
+          .sort((a, b) => b.readiness - a.readiness);
         const afterId = decodeRankCursor(paginationOpts.cursor);
         const afterIndex = afterId
           ? tierEntries.findIndex((entry) => entry.job_id === afterId)
@@ -1090,8 +1092,7 @@ export const listPaginated = optionalAuthQuery({
             if (!passesListing(pair.job)) continue;
             const live = liveScores.get(pair.job._id);
             if (!live || live.readiness == null) continue;
-            const primaryScore = live.smartMatch ?? live.readiness;
-            if (!scoreInRange(primaryScore, minReadiness, maxReadiness)) continue;
+            if (!scoreInRange(live.readiness, minReadiness, maxReadiness)) continue;
             ranked.push({
               job: pair.job,
               readiness: live.readiness,
@@ -1266,9 +1267,9 @@ export const countFiltered = optionalAuthQuery({
     if (ctx.user && (min != null || max != null) && !hasBrowseFilters(rest)) {
       const ranking = await rankingForUser(ctx, ctx.user._id);
       if (!ranking) return null;
-      if (min != null && min >= SMART_READY_MIN) return ranking.counts.ready;
-      if (min != null && min >= SMART_ALMOST_MIN) return ranking.counts.almost;
-      if (max != null && max <= SMART_ALMOST_MAX) return ranking.counts.growth;
+      if (min != null && min >= READY_MIN) return ranking.counts.ready;
+      if (min != null && min >= ALMOST_MIN) return ranking.counts.almost;
+      if (max != null && max <= ALMOST_MAX) return ranking.counts.growth;
       return null;
     }
 
@@ -1333,9 +1334,9 @@ export const listMatchTiers = authedQuery({
       const cached = await rankingForUser(ctx, ctx.user._id);
       if (cached && cached.entries.length > 0) {
         const tierOf = (score: number) =>
-          score >= SMART_READY_MIN ? "ready" : score >= SMART_ALMOST_MIN ? "almost" : "growth";
+          score >= READY_MIN ? "ready" : score >= ALMOST_MIN ? "almost" : "growth";
         const topOf = (tier: "ready" | "almost" | "growth") =>
-          cached.entries.filter((entry) => tierOf(entry.smart_match) === tier).slice(0, 4);
+          cached.entries.filter((entry) => tierOf(entry.readiness) === tier).slice(0, 4);
 
         const readyEntries = topOf("ready");
         const almostEntries = topOf("almost");
@@ -1493,9 +1494,9 @@ export const listMatchTiers = authedQuery({
         smartMatch,
         gap: row?.gap ?? null,
       };
-      const primaryScore = smartMatch ?? readiness;
-      if (primaryScore != null && primaryScore >= SMART_READY_MIN) readyJobs.push(scored);
-      else if (primaryScore != null && primaryScore >= SMART_ALMOST_MIN) almostJobs.push(scored);
+      const primaryScore = readiness;
+      if (primaryScore != null && primaryScore >= READY_MIN) readyJobs.push(scored);
+      else if (primaryScore != null && primaryScore >= ALMOST_MIN) almostJobs.push(scored);
       else if (primaryScore != null) growthJobs.push(scored);
     }
     rankBySmartMatch(readyJobs);

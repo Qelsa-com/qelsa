@@ -468,7 +468,10 @@ export function relatedExperienceScore(
   // also inflated readiness by the full 30% experience weight.
   if (requiredYears == null) return null;
   const required = Math.max(0, requiredYears);
-  if (required === 0) return 100;
+  // A role that states no minimum experience should not award the full 30%
+  // experience share to every fresher. Experience is simply not a
+  // differentiator for this role; readiness falls back to the skills score.
+  if (required === 0) return 0;
   const transferable = profile?.totalYears ?? 0;
   if (transferable <= 0) return 0;
 

@@ -7,20 +7,19 @@ export const ALMOST_MIN = 60;
 export const ALMOST_MAX = 79;
 
 /**
- * Smart Match tiers. These bucket the blended "Match" score (readiness plus
- * career alignment) shown on the Smart Matches page, so they are separate from
- * the readiness thresholds above.
+ * Tier buckets for the single readiness score. There is no separate Match
+ * score anymore; these use the readiness thresholds above.
  */
-export const MATCH_READY_MIN = 70;
-export const MATCH_ALMOST_MIN = 60;
-export const MATCH_ALMOST_MAX = 69;
-export const MATCH_GROWTH_MAX = 59;
+export const MATCH_READY_MIN = READY_MIN;
+export const MATCH_ALMOST_MIN = ALMOST_MIN;
+export const MATCH_ALMOST_MAX = ALMOST_MAX;
+export const MATCH_GROWTH_MAX = ALMOST_MIN - 1;
 
 export const MATCH_TIER = {
   ready: {
     href: "/jobs/ready",
-    title: "Strong Matches",
-    subtitle: "Roles with a match score of 70% or higher.",
+    title: "Ready Now",
+    subtitle: "Roles with a readiness score of 80% or higher.",
     dotColor: "#10b981",
     minReadiness: MATCH_READY_MIN,
     maxReadiness: undefined,
@@ -28,7 +27,7 @@ export const MATCH_TIER = {
   almost: {
     href: "/jobs/almost",
     title: "Almost There",
-    subtitle: "A 60–69% match. Close the gaps to make these strong.",
+    subtitle: "A 60–79% readiness score. Close the gaps to become ready.",
     dotColor: "#f59e0b",
     minReadiness: MATCH_ALMOST_MIN,
     maxReadiness: MATCH_ALMOST_MAX,
@@ -36,7 +35,7 @@ export const MATCH_TIER = {
   growth: {
     href: "/jobs/growth",
     title: "Growth Opportunities",
-    subtitle: "Explore roles beyond your current profile. Discover new career paths and identify the skills you need to get there.",
+    subtitle: "Below 60% readiness. Explore the gaps and what you can learn next.",
     dotColor: "#a855f7",
     minReadiness: 0,
     maxReadiness: MATCH_GROWTH_MAX,
@@ -60,9 +59,7 @@ export function matchRingColor(score: number): string {
   return "#a855f7";
 }
 
-/** Smart Match palette — used where a score is labelled "Match". */
+/** Readiness palette for tier cards. */
 export function smartMatchRingColor(score: number): string {
-  if (score >= MATCH_READY_MIN) return "#10b981";
-  if (score >= MATCH_ALMOST_MIN) return "#f59e0b";
-  return "#a855f7";
+  return matchRingColor(score);
 }

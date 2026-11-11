@@ -33,7 +33,8 @@ export type Competency = {
   gap?: MatchGap | null;
   skillReadiness?: number | null;
   experienceScore?: number | null;
-  /** Set when a missing core skill capped the total. */
+  /** "none" = role states no minimum; "unknown" = missing requirement; "set" = scored. */
+  experienceRequirement?: "unknown" | "none" | "set";
+  /** Number of missing core skills; shown as a warning only. */
   missingRequired?: number;
-  requiredCapApplied?: boolean;
 };

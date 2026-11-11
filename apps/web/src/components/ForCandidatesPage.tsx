@@ -1,15 +1,6 @@
+import { ClosingCta, MARKETING_FOCUS, MARKETING_SECTION, MarketingPage, PANEL, PRIMARY_CTA, SECONDARY_CTA, SectionIntro } from "@/components/marketing/MarketingPage";
 import { ArrowRight, BookOpen, Check, Sparkles } from "lucide-react";
 import Link from "next/link";
-import {
-  ClosingCta,
-  MARKETING_FOCUS,
-  MARKETING_SECTION,
-  MarketingPage,
-  PANEL,
-  PRIMARY_CTA,
-  SECONDARY_CTA,
-  SectionIntro,
-} from "@/components/marketing/MarketingPage";
 
 /**
  * /candidates — the candidate deep-dive.
@@ -36,8 +27,8 @@ const FIT = {
 };
 
 const BREAKDOWN = [
-  { label: "Skills match · 70%", value: 84 },
-  { label: "Relevant experience · 30%", value: 72 },
+  { label: "Skills match", value: 84 },
+  { label: "Relevant experience", value: 72 },
 ];
 
 const GAP_GROUPS = [
@@ -136,22 +127,13 @@ function FitCard() {
       </div>
 
       <div className="relative mt-5 pt-5">
-        <span
-          className="absolute left-[70%] top-0 -translate-x-1/2 text-[10px] font-semibold uppercase tracking-[0.08em] text-white/50"
-          aria-hidden="true"
-        >
+        <span className="absolute left-[70%] top-0 -translate-x-1/2 text-[10px] font-semibold uppercase tracking-[0.08em] text-white/50" aria-hidden="true">
           Ready
         </span>
         <div className="h-2 overflow-hidden rounded-full bg-white/[0.08]">
-          <div
-            className="qelsa-bar-fill h-full rounded-full bg-[linear-gradient(90deg,#7C2FF3,#D73E9D)]"
-            style={{ width: `${FIT.score}%` }}
-          />
+          <div className="qelsa-bar-fill h-full rounded-full bg-[linear-gradient(90deg,#7C2FF3,#D73E9D)]" style={{ width: `${FIT.score}%` }} />
         </div>
-        <span
-          aria-hidden="true"
-          className="absolute left-[70%] top-[18px] h-4 w-0.5 -translate-x-1/2 rounded-sm bg-white"
-        />
+        <span aria-hidden="true" className="absolute left-[70%] top-[18px] h-4 w-0.5 -translate-x-1/2 rounded-sm bg-white" />
       </div>
 
       <div className="mt-5 grid grid-cols-2 gap-4">
@@ -159,10 +141,7 @@ function FitCard() {
           <p className="text-[11px] font-medium text-white/50">Strong</p>
           <div className="mt-2 flex flex-wrap gap-1.5">
             {FIT.strong.map((skill) => (
-              <span
-                key={skill.name}
-                className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.12] bg-white/[0.04] px-2.5 py-1.5 text-[12px] text-white"
-              >
+              <span key={skill.name} className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.12] bg-white/[0.04] px-2.5 py-1.5 text-[12px] text-white">
                 {skill.name}
                 <span className={TONE_TEXT[skill.tone]}>{skill.level}</span>
               </span>
@@ -173,10 +152,7 @@ function FitCard() {
           <p className="text-[11px] font-medium text-white/50">Missing</p>
           <div className="mt-2 flex flex-wrap gap-1.5">
             {FIT.missing.map((skill) => (
-              <span
-                key={skill}
-                className="rounded-full border border-[#FFC740]/30 bg-[#FFC740]/[0.08] px-2.5 py-1.5 text-[12px] text-[#FFC740]"
-              >
+              <span key={skill} className="rounded-full border border-[#FFC740]/30 bg-[#FFC740]/[0.08] px-2.5 py-1.5 text-[12px] text-[#FFC740]">
                 {skill}
               </span>
             ))}
@@ -208,10 +184,7 @@ function ScoreCard() {
               <span className="font-semibold text-white/85">{row.value}%</span>
             </div>
             <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/[0.08]">
-              <div
-                className="qelsa-bar-fill h-full rounded-full bg-[linear-gradient(90deg,#7C2FF3,#D73E9D)]"
-                style={{ width: `${row.value}%`, animationDelay: `${index * 0.12}s` }}
-              />
+              <div className="qelsa-bar-fill h-full rounded-full bg-[linear-gradient(90deg,#7C2FF3,#D73E9D)]" style={{ width: `${row.value}%`, animationDelay: `${index * 0.12}s` }} />
             </div>
           </div>
         ))}
@@ -229,22 +202,15 @@ function GoalCard() {
   return (
     <div className="landing-card-border rounded-[24px] p-6 sm:p-8">
       <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-white/50">Your goal</p>
-      <p className="font-editorial mt-3 text-[26px] italic leading-[1.15] tracking-[-0.02em] text-white">
-        “{GOAL.quote}”
-      </p>
+      <p className="font-editorial mt-3 text-[26px] italic leading-[1.15] tracking-[-0.02em] text-white">“{GOAL.quote}”</p>
 
       <div className="mt-5 flex flex-wrap gap-2">
         {GOAL.roles.map((role) => (
-          <span
-            key={role}
-            className="rounded-full border border-white/[0.12] bg-white/[0.04] px-2.5 py-1 text-[12px] text-white/80"
-          >
+          <span key={role} className="rounded-full border border-white/[0.12] bg-white/[0.04] px-2.5 py-1 text-[12px] text-white/80">
             {role}
           </span>
         ))}
-        <span className="rounded-full border border-[#7C2FF3]/40 bg-[#7C2FF3]/[0.12] px-2.5 py-1 text-[12px] text-white">
-          {GOAL.timeline}
-        </span>
+        <span className="rounded-full border border-[#7C2FF3]/40 bg-[#7C2FF3]/[0.12] px-2.5 py-1 text-[12px] text-white">{GOAL.timeline}</span>
       </div>
 
       <div className="mt-7">
@@ -256,10 +222,7 @@ function GoalCard() {
           {GOAL.months.map((month) => (
             <div key={month.label} className="flex flex-1 flex-col items-center gap-2">
               <div className="flex h-24 w-full items-end overflow-hidden rounded-md bg-white/[0.04]">
-                <div
-                  className="w-full rounded-md bg-[linear-gradient(180deg,#A78BFA,#D73E9D)]"
-                  style={{ height: `${month.value}%` }}
-                />
+                <div className="w-full rounded-md bg-[linear-gradient(180deg,#A78BFA,#D73E9D)]" style={{ height: `${month.value}%` }} />
               </div>
               <span className={`text-[10px] ${month.active ? "text-white" : "text-white/50"}`}>{month.label}</span>
             </div>
@@ -317,13 +280,9 @@ export function ForCandidatesPage() {
             </h1>
 
             <div className="mt-7 flex max-w-[500px] gap-4">
-              <span
-                aria-hidden="true"
-                className="w-0.5 shrink-0 rounded-full bg-[linear-gradient(180deg,#A78BFA,#F472B6)]"
-              />
+              <span aria-hidden="true" className="w-0.5 shrink-0 rounded-full bg-[linear-gradient(180deg,#A78BFA,#F472B6)]" />
               <p className="text-pretty text-[19px] leading-relaxed text-white/65 sm:text-[21px]">
-                The score, the gaps, and the next step — for{" "}
-                <span className="text-white">every job you open.</span>
+                The score, the gaps, and the next step — for <span className="text-white">every job you open.</span>
               </p>
             </div>
 
@@ -346,11 +305,7 @@ export function ForCandidatesPage() {
 
       {/* Score */}
       <section aria-labelledby="score-heading" className={MARKETING_SECTION}>
-        <SectionIntro
-          id="score-heading"
-          title="One score, built from evidence"
-          lead="Skills and relevant experience — compared with what the job asks for."
-        />
+        <SectionIntro id="score-heading" title="One score, built from evidence" lead="Skills and relevant experience — compared with what the job asks for." />
 
         <div className="mt-10 grid gap-6 lg:mt-14 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
           <div className="qelsa-reveal">
@@ -383,11 +338,7 @@ export function ForCandidatesPage() {
 
       {/* Goal */}
       <section aria-labelledby="goal-heading" className={MARKETING_SECTION}>
-        <SectionIntro
-          id="goal-heading"
-          title="Set a goal. Get a plan."
-          lead="Turn a target role into milestones — and watch your readiness move."
-        />
+        <SectionIntro id="goal-heading" title="Set a goal. Get a plan." lead="Turn a target role into milestones — and watch your readiness move." />
 
         <div className="mt-10 grid gap-6 lg:mt-14 lg:grid-cols-[0.95fr_1.05fr]">
           <GoalCard />
@@ -397,11 +348,7 @@ export function ForCandidatesPage() {
 
       {/* Jobs */}
       <section aria-labelledby="jobs-heading" className={MARKETING_SECTION}>
-        <SectionIntro
-          id="jobs-heading"
-          title="Every job gets a verdict"
-          lead="Ready or almost there — with the exact gaps for each."
-        />
+        <SectionIntro id="jobs-heading" title="Every job gets a verdict" lead="Ready or almost there — with the exact gaps for each." />
 
         <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:mt-14 lg:grid-cols-3">
           {JOBS.map((job) => (
@@ -437,13 +384,8 @@ export function ForCandidatesPage() {
               <Sparkles className="size-4 text-white" aria-hidden="true" />
             </span>
             <h2 className="font-editorial mt-4 text-[30px] leading-[1.05] tracking-[-0.02em]">The prep, handled.</h2>
-            <p className="mt-2 text-[15px] leading-relaxed text-white/55">
-              Explains your score, tailors your resume and drafts the cover letter.
-            </p>
-            <Link
-              href={AGENT_HREF}
-              className={`mt-4 inline-flex min-h-11 items-center gap-2 text-[15px] font-medium text-[#00D4FF] transition-colors hover:text-white ${MARKETING_FOCUS}`}
-            >
+            <p className="mt-2 text-[15px] leading-relaxed text-white/55">Explains your score, tailors your resume and drafts the cover letter.</p>
+            <Link href={AGENT_HREF} className={`mt-4 inline-flex min-h-11 items-center gap-2 text-[15px] font-medium text-[#00D4FF] transition-colors hover:text-white ${MARKETING_FOCUS}`}>
               Meet Qelsa Agent
               <ArrowRight className="size-4" aria-hidden="true" />
             </Link>
@@ -454,13 +396,8 @@ export function ForCandidatesPage() {
               <BookOpen className="size-4 text-white/80" aria-hidden="true" />
             </span>
             <h2 className="font-editorial mt-4 text-[30px] leading-[1.05] tracking-[-0.02em]">Learn the gap.</h2>
-            <p className="mt-2 text-[15px] leading-relaxed text-white/55">
-              Courses and practice picked from the skills you&apos;re missing.
-            </p>
-            <Link
-              href="/courses"
-              className={`mt-4 inline-flex min-h-11 items-center gap-2 text-[15px] font-medium text-[#00D4FF] transition-colors hover:text-white ${MARKETING_FOCUS}`}
-            >
+            <p className="mt-2 text-[15px] leading-relaxed text-white/55">Courses and practice picked from the skills you&apos;re missing.</p>
+            <Link href="/courses" className={`mt-4 inline-flex min-h-11 items-center gap-2 text-[15px] font-medium text-[#00D4FF] transition-colors hover:text-white ${MARKETING_FOCUS}`}>
               Browse courses
               <ArrowRight className="size-4" aria-hidden="true" />
             </Link>

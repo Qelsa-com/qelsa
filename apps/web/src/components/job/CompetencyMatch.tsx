@@ -1,4 +1,4 @@
-import { jobSkillTypeLabel, JobSkillType, proficiencyBadgeLabel } from "@/constants/skills";
+import { JobSkillType, jobSkillTypeLabel, proficiencyBadgeLabel } from "@/constants/skills";
 import { Competency, CompetencyItem } from "@/types/competency";
 import { ChevronRight, Sparkles, Zap } from "lucide-react";
 
@@ -54,12 +54,7 @@ function FitRing({ value, label = "Readiness" }: { value: number; label?: string
   const c = 2 * Math.PI * r;
   const strokeOffset = c * (1 - pct / 100);
 
-  const gradientColors =
-    pct >= 80
-      ? { start: "#10b981", end: "#22c55e" }
-      : pct >= 60
-      ? { start: "#f59e0b", end: "#f97316" }
-      : { start: "#f97316", end: "#ef4444" };
+  const gradientColors = pct >= 80 ? { start: "#10b981", end: "#22c55e" } : pct >= 60 ? { start: "#f59e0b", end: "#f97316" } : { start: "#f97316", end: "#ef4444" };
 
   return (
     <div className="relative size-32 shrink-0">
@@ -71,18 +66,7 @@ function FitRing({ value, label = "Readiness" }: { value: number; label?: string
           </linearGradient>
         </defs>
         <circle cx="60" cy="60" r={r} fill="none" strokeWidth="10" className="stroke-white/10" />
-        <circle
-          cx="60"
-          cy="60"
-          r={r}
-          fill="none"
-          strokeWidth="10"
-          strokeLinecap="round"
-          stroke="url(#readiness-ring-grad)"
-          strokeDasharray={c}
-          strokeDashoffset={strokeOffset}
-          className="transition-all duration-500 ease-out"
-        />
+        <circle cx="60" cy="60" r={r} fill="none" strokeWidth="10" strokeLinecap="round" stroke="url(#readiness-ring-grad)" strokeDasharray={c} strokeDashoffset={strokeOffset} className="transition-all duration-500 ease-out" />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
         <span className="text-2xl font-bold text-white leading-none">{pct}%</span>
@@ -92,13 +76,7 @@ function FitRing({ value, label = "Readiness" }: { value: number; label?: string
   );
 }
 
-function MatchBar({
-  label,
-  value,
-}: {
-  label: string;
-  value: number;
-}) {
+function MatchBar({ label, value }: { label: string; value: number }) {
   const pct = Math.max(0, Math.min(100, Math.round(value)));
   return (
     <div className="space-y-1.5">
@@ -120,21 +98,13 @@ function CompetencyRow({ item }: { item: CompetencyItem }) {
       <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap min-w-0">
         <span className="text-sm font-semibold text-white">{item.skill_name}</span>
         {candidate ? (
-          <span className="inline-flex items-center rounded-md border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 text-xs font-medium text-cyan-400">
-            You: {proficiencyBadgeLabel(item.candidate_proficiency) || "On profile"}
-          </span>
+          <span className="inline-flex items-center rounded-md border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 text-xs font-medium text-cyan-400">You: {proficiencyBadgeLabel(item.candidate_proficiency) || "On profile"}</span>
         ) : (
-          <span className="inline-flex items-center rounded-md border border-white/10 bg-white/[0.04] px-2 py-0.5 text-xs font-medium text-white/50">
-            Not listed
-          </span>
+          <span className="inline-flex items-center rounded-md border border-white/10 bg-white/[0.04] px-2 py-0.5 text-xs font-medium text-white/50">Not listed</span>
         )}
-        <span className="inline-flex items-center rounded-md border border-white/10 bg-white/[0.04] px-2 py-0.5 text-xs font-medium text-white/70">
-          Target: {proficiencyBadgeLabel(item.required_proficiency) || "Any level"}
-        </span>
+        <span className="inline-flex items-center rounded-md border border-white/10 bg-white/[0.04] px-2 py-0.5 text-xs font-medium text-white/70">Target: {proficiencyBadgeLabel(item.required_proficiency) || "Any level"}</span>
       </div>
-      <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium shrink-0 ${typeBadgeClass(item.type)}`}>
-        {jobSkillTypeLabel(item.type)}
-      </span>
+      <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium shrink-0 ${typeBadgeClass(item.type)}`}>{jobSkillTypeLabel(item.type)}</span>
     </div>
   );
 }
@@ -149,13 +119,7 @@ function GroupHeader({ dotClass, label }: { dotClass: string; label: string }) {
 }
 
 /** Full seeker-side "How you fit this role" panel for the job detail page. Renders nothing when competency is absent. */
-export function CompetencyTable({
-  competency,
-  onAskQelsa,
-}: {
-  competency?: Competency | null;
-  onAskQelsa?: () => void;
-}) {
+export function CompetencyTable({ competency, onAskQelsa }: { competency?: Competency | null; onAskQelsa?: () => void }) {
   if (!competency) return null;
   const { readiness, matchedCount, totalCount, competencies = [] } = competency;
 
@@ -164,16 +128,11 @@ export function CompetencyTable({
   const gaps = withCandidate.filter((c) => statusOf(c) === "gap");
   const strong = withCandidate.filter((c) => statusOf(c) !== "gap");
 
-  const skillsMatch =
-    competency.skillReadiness != null
-      ? Math.round(competency.skillReadiness)
-      : totalCount > 0
-        ? Math.round((matchedCount / totalCount) * 100)
-        : 0;
-  const hasExperienceRequirement = competency.experienceScore != null;
-  // Always show the 30% line. An unknown requirement reads as 0% and is called
-  // out below, so the bar and the 70/30 total never disagree.
-  const resolvedExpMatch = hasExperienceRequirement ? Math.round(competency.experienceScore!) : 0;
+  const skillsMatch = competency.skillReadiness != null ? Math.round(competency.skillReadiness) : totalCount > 0 ? Math.round((matchedCount / totalCount) * 100) : 0;
+  const experienceRequirement = competency.experienceRequirement ?? (competency.experienceScore == null ? "unknown" : "set");
+  // Always show the 30% line. Unknown/no-minimum requirements read as 0% and
+  // are called out below, so the bar and the 70/30 total never disagree.
+  const resolvedExpMatch = experienceRequirement === "set" && competency.experienceScore != null ? Math.round(competency.experienceScore) : 0;
   const missingRequired = competencies.filter((c) => c.required && !c.matched);
 
   return (
@@ -186,18 +145,16 @@ export function CompetencyTable({
       <div className="flex flex-col sm:flex-row items-center gap-6 sm:gap-8">
         <FitRing value={readiness} label="Readiness" />
         <div className="flex-1 w-full space-y-3.5">
-          <MatchBar label="Skills (70%)" value={skillsMatch} />
-          <MatchBar label="Relevant experience (30%)" value={resolvedExpMatch} />
-          {!hasExperienceRequirement ? (
-            <p className="text-[11px] leading-relaxed text-white/45">
-              Experience requirement not specified; shown as 0%.
-            </p>
+          <MatchBar label="Skills" value={skillsMatch} />
+          <MatchBar label="Relevant experience" value={resolvedExpMatch} />
+          {experienceRequirement === "none" ? (
+            <p className="text-[11px] leading-relaxed text-white/45">No minimum experience required.</p>
+          ) : experienceRequirement === "unknown" ? (
+            <p className="text-[11px] leading-relaxed text-white/45">Experience requirement not specified; shown as 0%.</p>
           ) : null}
-          {competency.requiredCapApplied ? (
+          {missingRequired.length > 0 ? (
             <p className="text-[11px] leading-relaxed text-amber-400">
-              {missingRequired.length > 0
-                ? `${missingRequired.length} required core ${missingRequired.length === 1 ? "skill is" : "skills are"} missing (marked Core below). Readiness can't exceed 49% until ${missingRequired.length === 1 ? "it's" : "they're"} added.`
-                : "Required core skills are missing; readiness can't exceed 49% until they're added."}
+              {missingRequired.length} required core {missingRequired.length === 1 ? "skill is" : "skills are"} missing (marked Core below).
             </p>
           ) : null}
         </div>
@@ -240,19 +197,13 @@ export function CompetencyTable({
       {/* Why these levels section */}
       {onAskQelsa ? (
         <div className="border-t border-glass-border pt-4">
-          <button
-            type="button"
-            onClick={onAskQelsa}
-            className="group flex w-full items-center gap-4 rounded-2xl border border-neon-purple/30 bg-neon-purple/[0.06] p-4 text-left transition-colors hover:bg-neon-purple/[0.1] sm:p-5"
-          >
+          <button type="button" onClick={onAskQelsa} className="group flex w-full items-center gap-4 rounded-2xl border border-neon-purple/30 bg-neon-purple/[0.06] p-4 text-left transition-colors hover:bg-neon-purple/[0.1] sm:p-5">
             <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-neon-purple/25 bg-neon-purple/20 text-neon-purple">
               <Sparkles className="size-5" />
             </span>
             <span className="min-w-0 flex-1">
               <span className="block text-base font-bold text-white">Ask Qelsa why</span>
-              <span className="mt-0.5 block text-xs leading-relaxed text-white/50">
-                Explains each target level and how to reach it
-              </span>
+              <span className="mt-0.5 block text-xs leading-relaxed text-white/50">Explains each target level and how to reach it</span>
             </span>
             <ChevronRight className="size-4 shrink-0 text-white/35 transition-transform group-hover:translate-x-0.5" />
           </button>

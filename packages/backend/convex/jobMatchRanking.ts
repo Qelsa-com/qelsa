@@ -11,7 +11,7 @@ import {
 import { authedMutation, authedQuery } from "./lib/customFunctions";
 import { scoreJobForUser, type ScoringCareerGoal } from "./lib/jobMatchScoring";
 import { buildReadinessFingerprint } from "./lib/profileFingerprint";
-import { SMART_ALMOST_MIN, SMART_READY_MIN } from "./lib/smartMatchTiers";
+import { ALMOST_MAX, ALMOST_MIN, READY_MIN } from "./lib/jobProfileMatch";
 import { jobSalaryUsd } from "./lib/salary";
 import { READINESS_FORMULA_VERSION } from "./lib/skillMatch";
 import { parseRequiredExperienceYears } from "./lib/experienceMatch";
@@ -91,7 +91,7 @@ async function profileInputsFor(ctx: QueryCtx, userId: Id<"users">) {
       skills: skillRows,
       experiences: expRows,
       careerGoal,
-    })}|formula:${READINESS_FORMULA_VERSION}|smart-tiers:${SMART_READY_MIN}-${SMART_ALMOST_MIN}`,
+    })}|formula:${READINESS_FORMULA_VERSION}|readiness-tiers:${READY_MIN}-${ALMOST_MIN}`,
   };
 }
 
@@ -561,19 +561,16 @@ export const recompute = internalAction({
       }
     }
 
-    scored.sort((a, b) => b.smart_match - a.smart_match);
+    // One ranking, one score: readiness. Smart match no longer drives any list.
+    scored.sort((a, b) => b.readiness - a.readiness);
     const entries = scored.slice(0, TOP_K);
-    // All Jobs sorts by readiness; keeping only the smart-match top 400 meant a
-    // high-readiness job outside that set could never appear. Keep a second set.
-    const readinessEntries = [...scored]
-      .sort((a, b) => b.readiness - a.readiness)
-      .slice(0, TOP_K);
+    const readinessEntries = entries;
     // Counts must describe the retained entries: a tier page cannot list a job
     // outside TOP_K, so counting all 2,000 scored candidates made the badge and
     // the list disagree.
-    const readyTotal = entries.filter((entry) => entry.smart_match >= SMART_READY_MIN).length;
+    const readyTotal = entries.filter((entry) => entry.readiness >= READY_MIN).length;
     const almostTotal = entries.filter(
-      (entry) => entry.smart_match >= SMART_ALMOST_MIN && entry.smart_match < SMART_READY_MIN,
+      (entry) => entry.readiness >= ALMOST_MIN && entry.readiness <= ALMOST_MAX,
     ).length;
     const growthTotal = entries.length - readyTotal - almostTotal;
     await ctx.runMutation(internal.jobMatchRanking.saveRanking, {

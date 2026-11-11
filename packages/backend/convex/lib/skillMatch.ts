@@ -139,9 +139,7 @@ export function composeReadiness(skillReadiness: number, experienceScore: number
   return Math.round(0.7 * skills + 0.3 * experience);
 }
 
-export const READINESS_FORMULA_VERSION = "skills70-exp30-required-cap-v5-role-domain-exp";
-/** A missing core skill keeps the role out of the Almost There tier. */
-export const REQUIRED_SKILL_CAP = 49;
+export const READINESS_FORMULA_VERSION = "skills70-exp30-v7-no-cap";
 
 export function proficiencyCredit(hasSkill: boolean, required?: string | null, candidate?: string | null) {
   if (!hasSkill) return 0;
@@ -210,14 +208,19 @@ export function buildCompetencyFramework(
         ? Math.round((competencies.reduce((sum, c) => sum + c.credit, 0) / totalCount) * 100)
         : 0;
 
+  const requiredExperienceYears = profileContext?.requiredExperienceYears;
+  const experienceRequirement: "unknown" | "none" | "set" =
+    requiredExperienceYears == null ? "unknown" : requiredExperienceYears === 0 ? "none" : "set";
   const experienceScore =
-    profileContext?.experienceScore != null
-      ? Math.max(0, Math.min(100, profileContext.experienceScore))
-      : null;
+    experienceRequirement === "unknown"
+      ? null
+      : Math.max(0, Math.min(100, profileContext?.experienceScore ?? 0));
   const missingRequired = competencies.filter((c) => c.required && !c.matched).length;
   const rawReadiness = composeReadiness(skillReadiness, experienceScore);
   // A missing required skill caps the role below the Almost There tier.
-  const readiness = missingRequired > 0 ? Math.min(rawReadiness, REQUIRED_SKILL_CAP) : rawReadiness;
+  // True score everywhere: missing core skills are surfaced as a warning, not
+  // used to overwrite the weighted readiness.
+  const readiness = rawReadiness;
 
   return {
     competencies,
@@ -227,8 +230,8 @@ export function buildCompetencyFramework(
     rawReadiness,
     skillReadiness,
     experienceScore,
+    experienceRequirement,
     missingRequired,
-    requiredCapApplied: missingRequired > 0,
   };
 }
 
@@ -291,9 +294,8 @@ export function closingGap(input: {
 
   const crosses = (chosen: GapSkill[]) => {
     const fixed = new Set(chosen);
-    const coreLeft = coreMissing.some((skill) => !fixed.has(skill));
     const raw = composeReadiness(skillScoreWith(fixed), experienceScore);
-    return (coreLeft ? Math.min(raw, REQUIRED_SKILL_CAP) : raw) >= READY_MIN;
+    return raw >= READY_MIN;
   };
 
   const ordered = [...pool].sort(
