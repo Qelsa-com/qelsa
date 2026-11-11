@@ -311,6 +311,8 @@ export default defineSchema({
       }),
     ),
     updated_at: v.number(),
+    /** Stable hash of the scored job fields; lets the backfill skip no-ops. */
+    content_hash: v.optional(v.string()),
   })
     .index("by_job", ["job_id"])
     .index("by_status_and_published", ["status", "published_date"])
@@ -346,6 +348,8 @@ export default defineSchema({
         }),
       ),
     ),
+    /** Catalog version read when this ranking was produced. */
+    catalog_version: v.optional(v.number()),
     /** How many catalog jobs the pass considered. */
     scanned: v.number(),
     /** Tier totals for the retained entries, so badges match the list. */
@@ -898,6 +902,13 @@ export default defineSchema({
 
   // Append-only trail of admin actions. One row per mutation an admin made,
   // so a privileged change is always attributable and revertable.
+  /** One-row counters/versions for the job-match pipeline. */
+  job_match_meta: defineTable({
+    key: v.string(),
+    value: v.number(),
+    updated_at: v.number(),
+  }).index("by_key", ["key"]),
+
   /**
    * Admin-controlled product switches. Missing rows fall back to the default
    * in the query (currently off).

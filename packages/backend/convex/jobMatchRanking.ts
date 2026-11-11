@@ -95,10 +95,42 @@ async function profileInputsFor(ctx: QueryCtx, userId: Id<"users">) {
   };
 }
 
+const CATALOG_VERSION_KEY = "catalog_version";
+
+async function getCatalogVersion(ctx: QueryCtx | MutationCtx): Promise<number> {
+  const row = await ctx.db
+    .query("job_match_meta")
+    .withIndex("by_key", (q) => q.eq("key", CATALOG_VERSION_KEY))
+    .unique();
+  return row?.value ?? 0;
+}
+
+async function bumpCatalogVersion(ctx: MutationCtx): Promise<void> {
+  const row = await ctx.db
+    .query("job_match_meta")
+    .withIndex("by_key", (q) => q.eq("key", CATALOG_VERSION_KEY))
+    .unique();
+  const now = Date.now();
+  if (row) await ctx.db.patch(row._id, { value: row.value + 1, updated_at: now });
+  else await ctx.db.insert("job_match_meta", { key: CATALOG_VERSION_KEY, value: 1, updated_at: now });
+}
+
+function contentHash(value: unknown): string {
+  const text = JSON.stringify(value);
+  // Small deterministic hash; collision risk is irrelevant because a miss only
+  // forces one extra vector write.
+  let hash = 2166136261;
+  for (let i = 0; i < text.length; i += 1) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `${text.length}:${(hash >>> 0).toString(16)}`;
+}
+
 /** Build or refresh the compact scoring row for one job. */
-async function writeVector(ctx: MutationCtx, jobId: Id<"jobs">) {
+async function writeVector(ctx: MutationCtx, jobId: Id<"jobs">, bumpCatalog = true): Promise<boolean> {
   const job = await ctx.db.get(jobId);
-  if (!job) return;
+  if (!job) return false;
 
   const rows = await ctx.db
     .query("job_skills")
@@ -131,7 +163,7 @@ async function writeVector(ctx: MutationCtx, jobId: Id<"jobs">) {
     job.experience == null ? parseRequiredExperienceYears(job.description) : null;
   const experience = job.experience ?? parsedExperience ?? undefined;
 
-  const patch = {
+  const scored = {
     job_id: job._id,
     status: job.status,
     published_date: job.published_date,
@@ -142,19 +174,29 @@ async function writeVector(ctx: MutationCtx, jobId: Id<"jobs">) {
     job_title_name: jobTitle?.name,
     salary_usd: jobSalaryUsd(job) ?? undefined,
     total_weight: totalWeight,
-    skills,
-    updated_at: Date.now(),
+    skills: [...skills].sort((a, b) => a.skill_id.localeCompare(b.skill_id)),
   };
-
+  const hash = contentHash(scored);
   const existing = await ctx.db
     .query("job_match_vectors")
     .withIndex("by_job", (q) => q.eq("job_id", job._id))
     .first();
+  const jobExperienceChanged =
+    job.experience == null && parsedExperience != null;
+  if (existing?.content_hash === hash && !jobExperienceChanged) return false;
+
+  const patch = {
+    ...scored,
+    content_hash: hash,
+    updated_at: Date.now(),
+  };
   if (existing) await ctx.db.patch(existing._id, patch);
   else await ctx.db.insert("job_match_vectors", patch);
-  if (job.experience == null && parsedExperience != null) {
+  if (jobExperienceChanged) {
     await ctx.db.patch(job._id, { experience: parsedExperience });
   }
+  if (bumpCatalog) await bumpCatalogVersion(ctx);
+  return true;
 }
 
 export const upsertVector = internalMutation({
@@ -175,9 +217,11 @@ export const backfillPage = internalMutation({
       numItems: BACKFILL_PAGE,
       cursor: args.cursor,
     });
+    let changed = false;
     for (const job of page.page) {
-      await writeVector(ctx, job._id);
+      if (await writeVector(ctx, job._id, false)) changed = true;
     }
+    if (changed) await bumpCatalogVersion(ctx);
     return {
       next: page.isDone ? null : page.continueCursor,
       processed: page.page.length,
@@ -347,6 +391,12 @@ export const loadRankingContext = internalQuery({
   handler: async (ctx, args) => await profileInputsFor(ctx, args.userId),
 });
 
+export const readCatalogVersion = internalQuery({
+  args: {},
+  returns: v.number(),
+  handler: async (ctx) => await getCatalogVersion(ctx),
+});
+
 export const saveRanking = internalMutation({
   args: {
     userId: v.id("users"),
@@ -371,6 +421,7 @@ export const saveRanking = internalMutation({
     readyTotal: v.number(),
     almostTotal: v.number(),
     growthTotal: v.number(),
+    catalogVersion: v.number(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -384,6 +435,7 @@ export const saveRanking = internalMutation({
       entries: args.entries,
       readiness_entries: args.readinessEntries,
       scanned: args.scanned,
+      catalog_version: args.catalogVersion,
       ready_total: args.readyTotal,
       almost_total: args.almostTotal,
       growth_total: args.growthTotal,
@@ -488,6 +540,14 @@ export const recompute = internalAction({
     });
     if (!context) return idle;
 
+    // Capture before scoring. If the catalog changes mid-run, the stored
+    // version stays older than the catalog, so the next request recomputes
+    // instead of treating a mixed snapshot as current.
+    const catalogVersion: number = await ctx.runQuery(
+      internal.jobMatchRanking.readCatalogVersion,
+      {},
+    );
+
     const weights = new Map<Id<"jobs">, number>();
 
     // Stage 1a — skill overlap. Accumulate matched weight so the strongest
@@ -582,6 +642,7 @@ export const recompute = internalAction({
       readyTotal,
       almostTotal,
       growthTotal,
+      catalogVersion,
     });
     return { scanned, kept: entries.length, candidates: ids.length };
   },
@@ -592,6 +653,7 @@ export type CachedRanking = {
   readinessEntries: RankingEntry[];
   counts: { ready: number; almost: number; growth: number };
   scanned: number;
+  catalogVersion: number;
   computed_at: number;
 } | null;
 
@@ -615,6 +677,7 @@ export async function rankingForUser(
     readinessEntries: row.readiness_entries ?? row.entries,
     counts: { ready: row.ready_total, almost: row.almost_total, growth: row.growth_total },
     scanned: row.scanned,
+    catalogVersion: row.catalog_version ?? 0,
     computed_at: row.computed_at,
   };
 }
@@ -637,7 +700,13 @@ export const requestRecompute = authedMutation({
       .query("job_match_rankings")
       .withIndex("by_user", (q) => q.eq("user_id", ctx.user._id))
       .unique();
-    if (existing?.fingerprint === inputs.fingerprint) return { queued: false };
+    const catalogVersion = await getCatalogVersion(ctx);
+    if (
+      existing?.fingerprint === inputs.fingerprint &&
+      (existing.catalog_version ?? 0) === catalogVersion
+    ) {
+      return { queued: false };
+    }
 
     const due = Date.now() + RECOMPUTE_DEBOUNCE_MS;
     if (existing) {

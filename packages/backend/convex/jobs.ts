@@ -931,25 +931,13 @@ export const listPaginated = optionalAuthQuery({
           const atEnd = index >= readinessEntries.length;
           const last = ranked[ranked.length - 1];
           if (last) {
-            // The cached order/candidate set is still the ranking snapshot, but
-            // the displayed readiness must be current after a job edit.
-            const liveScores = await scoreReadiness(
-              ctx,
-              ranked.map((candidate) => candidate.job),
-              hydration.userSkills,
-              profileContext,
-              hydration.skillCache,
-            );
-            const liveRanked = ranked.map((candidate) => ({
-              ...candidate,
-              readiness: liveScores.get(candidate.job._id) ?? candidate.readiness,
-            }));
+            // One source: the stored ranking supplies both order and score.
+            // Live re-scoring every page was the source of the mismatch and
+            // extra per-page vector reads at scale.
             return {
-              page: await slimListJobs(ctx, liveRanked, hydration, cache),
-              isDone: false,
-              continueCursor: atEnd
-                ? encodeBestRestCursor(null)
-                : encodeBestCursor(last.job._id),
+              page: await slimListJobs(ctx, ranked, hydration, cache),
+              isDone: atEnd,
+              continueCursor: atEnd ? "" : encodeBestCursor(last.job._id),
             };
           }
           // Nothing matched within the cached window: fall through to recency.
@@ -1076,29 +1064,15 @@ export const listPaginated = optionalAuthQuery({
             doc ? [{ job: doc, entry: chunk[i] }] : [],
           );
           if (needsCity) await prefetchCities(ctx, pairs.map((pair) => pair.job), cache);
-          // The cached ranking decides the candidate pool and page order, but
-          // the displayed scores come from the current vectors. A job edit or a
-          // changed profile can therefore never show a stale card score.
-          const liveScores = await scoreTierMatches(
-            ctx,
-            pairs.map((pair) => pair.job),
-            hydration.userSkills,
-            profileContext,
-            hydration.careerGoal ?? null,
-            { skills: hydration.skillCache, pages: cache.pages, titles: cache.titles },
-          );
           for (const pair of pairs) {
             if (ranked.length >= target) break;
             if (!passesListing(pair.job)) continue;
-            const live = liveScores.get(pair.job._id);
-            if (!live || live.readiness == null) continue;
-            if (!scoreInRange(live.readiness, minReadiness, maxReadiness)) continue;
             ranked.push({
               job: pair.job,
-              readiness: live.readiness,
-              careerAlignment: live.careerAlignment,
-              smartMatch: live.smartMatch,
-              gap: live.gap,
+              readiness: pair.entry.readiness,
+              careerAlignment: pair.entry.career_alignment ?? null,
+              smartMatch: pair.entry.smart_match,
+              gap: null,
             });
           }
           index += chunk.length;
@@ -1273,6 +1247,11 @@ export const countFiltered = optionalAuthQuery({
       return null;
     }
 
+    if (ctx.user && args.sort_by === "relevance" && !hasBrowseFilters(rest)) {
+      const ranking = await rankingForUser(ctx, ctx.user._id);
+      return ranking ? (ranking.readinessEntries ?? ranking.entries).length : null;
+    }
+
     if (hasBrowseFilters(args)) return null;
     return await getOpenJobCount(ctx);
   },
@@ -1346,30 +1325,19 @@ export const listMatchTiers = authedQuery({
         const byId = new Map<Id<"jobs">, Doc<"jobs">>();
         for (const doc of docs) if (doc) byId.set(doc._id, doc);
 
-        // The cached tier membership/top-4 is from the ranking snapshot, but the
-        // displayed scores should reflect current job vectors.
+        // One source: the cached ranking supplies both membership and score.
         const tierCache = emptyRelationCache();
-        const liveScores = await scoreTierMatches(
-          ctx,
-          [...byId.values()],
-          hydration.userSkills,
-          { experienceProfile: hydration.experienceProfile },
-          hydration.careerGoal ?? null,
-          { skills: hydration.skillCache, pages: tierCache.pages, titles: tierCache.titles },
-        );
-
         const toCandidates = (entries: typeof readyEntries): BrowseCandidate[] =>
           entries.flatMap((entry) => {
             const job = byId.get(entry.job_id);
             if (!job) return [];
-            const live = liveScores.get(entry.job_id);
             return [
               {
                 job,
-                readiness: live?.readiness ?? entry.readiness,
-                careerAlignment: live?.careerAlignment ?? entry.career_alignment ?? null,
-                smartMatch: live?.smartMatch ?? entry.smart_match,
-                gap: live?.gap ?? null,
+                readiness: entry.readiness,
+                careerAlignment: entry.career_alignment ?? null,
+                smartMatch: entry.smart_match,
+                gap: null,
               },
             ];
           });
@@ -1499,9 +1467,11 @@ export const listMatchTiers = authedQuery({
       else if (primaryScore != null && primaryScore >= ALMOST_MIN) almostJobs.push(scored);
       else if (primaryScore != null) growthJobs.push(scored);
     }
-    rankBySmartMatch(readyJobs);
-    rankBySmartMatch(almostJobs);
-    rankBySmartMatch(growthJobs);
+    const byReadiness = (a: BrowseCandidate, b: BrowseCandidate) =>
+      (b.readiness ?? -1) - (a.readiness ?? -1);
+    readyJobs.sort(byReadiness);
+    almostJobs.sort(byReadiness);
+    growthJobs.sort(byReadiness);
 
     const readyTop = readyJobs.slice(0, 4);
     const almostTop = almostJobs.slice(0, 4);
